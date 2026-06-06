@@ -2,5 +2,12 @@
   "name": "@prw/extension",
   "version": "0.1.0",
   "private": true,
-  "description": "Chrome MV3 extension that renders the PR walkthrough tour and the select-code-and-ask modal."
+  "description": "Chrome MV3 extension that renders the PR walkthrough tour and the select-code-and-ask modal.",
+  "scripts": {
+    "build": "node build.mjs",
+    "dev": "node build.mjs --watch"
+  },
+  "devDependencies": {
+    "esbuild": "^0.24.2"
+  }
 }
