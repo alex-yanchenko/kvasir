@@ -1,4 +1,5 @@
 import type { WalkthroughSpec, WalkthroughStep } from "@prw/runes/spec";
+import type { ChatSession } from "./asgard/types";
 
 export interface TourState {
   step: number;
@@ -16,7 +17,7 @@ export const state: {
   theme: string; // "auto" | "light" | "dark"
   hlStyle: string; // "tint" | "github"
   tourState: TourState;
-  chatHistory: unknown[]; // session objects, most recent first; typed when chat.ts lands
+  chatHistory: ChatSession[]; // session objects, most recent first
 } = {
   spec: null,
   activeStep: null,

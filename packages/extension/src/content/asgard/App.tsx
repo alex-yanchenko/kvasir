@@ -2,8 +2,14 @@
 // crosses the Bifrost. Islands land here one by one
 // (Settings ✓ → ChatsList → Launcher → TourCard → Chat).
 import type { JSX } from "react";
+import { ChatsButton } from "./components/ChatsButton";
 import { Settings } from "./components/Settings";
 
 export function App(): JSX.Element {
-  return <Settings />;
+  return (
+    <>
+      <Settings />
+      <ChatsButton />
+    </>
+  );
 }

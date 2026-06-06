@@ -60,3 +60,96 @@
   padding: 3px 6px;
   font-size: 12px;
 }
+
+/* the Chats pill needs .prw-pill inside the shadow root; midgard.css keeps the
+   light-DOM copy for the vanilla launcher until D3 moves it here for good. */
+.prw-pill {
+  position: absolute;
+  z-index: 2147483001;
+  background: var(--prw-accent);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 5px 10px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+}
+/* reopen-past-chats launcher + list */
+.prw-chats-btn {
+  position: fixed;
+  bottom: 64px;
+  left: 24px;
+  z-index: 2147483000;
+}
+.prw-chats-list {
+  position: fixed;
+  bottom: 104px;
+  left: 24px;
+  z-index: 2147483001;
+  width: 340px;
+  max-height: 50vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  background: var(--prw-bg);
+  color: var(--prw-fg);
+  border: 1px solid var(--prw-border);
+  border-radius: 12px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+  padding: 6px;
+}
+.prw-chats-item-row {
+  display: flex;
+  align-items: center;
+}
+.prw-chats-item {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  background: none;
+  border: none;
+  color: var(--prw-fg);
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.prw-chats-item:hover {
+  background: var(--prw-surface);
+}
+.prw-chats-del {
+  flex: 0 0 auto;
+  background: none;
+  border: none;
+  color: var(--prw-muted);
+  cursor: pointer;
+  padding: 4px 8px;
+  font-size: 14px;
+  border-radius: 6px;
+}
+.prw-chats-del:hover {
+  color: var(--prw-accent);
+  background: var(--prw-surface);
+}
+.prw-chats-clear {
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  color: var(--prw-muted);
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 13px;
+  cursor: pointer;
+  border-top: 1px solid var(--prw-border);
+  margin-top: 4px;
+}
+.prw-chats-clear:hover {
+  color: var(--prw-accent);
+}

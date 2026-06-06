@@ -6,6 +6,9 @@
 // the last vanilla reader dies (E2), the backing object folds into this store.
 
 import { state } from "../state";
+import { storeSet } from "../muninn";
+import { chatsKey, prUrl } from "../keys";
+import type { ChatSession } from "./types";
 import { bifrost } from "../bifrost";
 
 type Listener = () => void;
@@ -48,3 +51,42 @@ export const settingsStore = {
     touch();
   },
 };
+
+// ── chats slice ────────────────────────────────────────────────────────────────
+
+/** Coexistence shim: the chat window is still vanilla; it registers how to open
+ * and close itself here. Dies at D5 when ChatWindow becomes an Asgard island. */
+export const legacyChatBridge: {
+  openChat?: (sess: ChatSession) => void;
+  closeIfActive?: (key: string) => void;
+} = {};
+
+const persistChats = (): void => storeSet(chatsKey(prUrl()), state.chatHistory);
+
+export const chatsStore = {
+  sessions: (): ChatSession[] => state.chatHistory,
+  openSession(sess: ChatSession): void {
+    legacyChatBridge.openChat?.(sess);
+  },
+  dropSession(key: string): void {
+    legacyChatBridge.closeIfActive?.(key);
+    state.chatHistory = state.chatHistory.filter((s) => s.key !== key);
+    persistChats();
+    touch();
+  },
+  clearSessions(): void {
+    state.chatHistory = [];
+    persistChats();
+    touch();
+  },
+};
+
+/** One line summarising a session for the chats list: where — first question. */
+export function chatSnippet(sess: ChatSession): string {
+  const base = sess.general
+    ? "This PR"
+    : (sess.file ?? "").split("/").pop() + (sess.lines ? `:${sess.lines.start}` : "");
+  const firstQ = sess.messages.find((m) => m.role === "user");
+  const tail = firstQ ? firstQ.content : sess.general ? "" : sess.text.replace(/\s+/g, " ").slice(0, 40);
+  return tail ? `${base} — ${tail}` : base;
+}

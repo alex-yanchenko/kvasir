@@ -18,6 +18,8 @@ import { state } from "./content/state";
 import { initTooltips } from "./content/ui/tooltip";
 import { sanitizeSpecHtml } from "./content/sanitize";
 import { storeGet, storeSet, storeRemove } from "./content/muninn";
+import { chatsKey, genKey, onFilesTab, prUrl, specKey, tourKey } from "./content/keys";
+import { chatsStore, legacyChatBridge, touch } from "./content/asgard/store";
 
 (() => {
   if (window.__prwLoaded) return;
@@ -27,27 +29,23 @@ import { storeGet, storeSet, storeRemove } from "./content/muninn";
   connectMidgard(bifrost);
   connectGrip(bifrost);
 
-  const prUrl = () => {
-    const m = location.href.match(/(https:\/\/github\.com\/[^/]+\/[^/]+\/pull\/\d+)/);
-    return m ? m[1] : null;
+  // Coexistence: the chat window is still vanilla — Asgard's chats list opens/
+  // closes it through this bridge. Dies at D5 when ChatWindow lands.
+  legacyChatBridge.openChat = (sess) => openChat(sess, null);
+  legacyChatBridge.closeIfActive = (key) => {
+    if (activeSession && activeSession.key === key && chat) detachChat();
   };
-  // GitHub's newer PR UI serves the diff at /changes; older at /files. Accept both.
-  const onFilesTab = () => /\/pull\/\d+\/(files|changes)/.test(location.href);
 
   // ── persistence (per-PR; survives refresh and browser restart) ───────────────
-  const chatsKey = (pr) => `prw:chats:${pr || prUrl()}`;
-  const specKey = (pr) => `prw:spec:${pr || prUrl()}`;
-  const tourKey = (pr) => `prw:tour:${pr || prUrl()}`;
-  const genKey = (pr) => `prw:gen:${pr || prUrl()}`;
-  const saveChats = () => storeSet(chatsKey(), state.chatHistory);
-  const saveTour = () => storeSet(tourKey(), state.tourState);
+  const saveChats = () => storeSet(chatsKey(prUrl()), state.chatHistory);
+  const saveTour = () => storeSet(tourKey(prUrl()), state.tourState);
   async function loadPersisted() {
     const pr = prUrl();
     if (!pr) return;
     const chats = await storeGet(chatsKey(pr));
     if (Array.isArray(chats) && chats.length && state.chatHistory.length === 0) {
       state.chatHistory.push(...chats);
-      refreshChatsBtn();
+      touch();
     }
     const t = await storeGet(tourKey(pr));
     if (t) state.tourState = { step: t.step || 0, pos: t.pos || null, size: t.size || null };
@@ -307,8 +305,6 @@ import { storeGet, storeSet, storeRemove } from "./content/muninn";
   let pill = null;
   let chat = null; // the open chat element (one at a time)
   let activeSession = null; // session backing the open chat
-  let chatsBtn = null; // persistent launcher to reopen past chats
-  let chatsList = null; // open history popover
   let chatRO = null,
     roTimer = null; // observe + persist the chat's size
 
@@ -329,7 +325,7 @@ import { storeGet, storeSet, storeRemove } from "./content/muninn";
     if (!sess) {
       sess = { key, file: s.file, lines: s.lines, text: s.text, suggestions: null, messages: [], pos: null };
       state.chatHistory.unshift(sess);
-      refreshChatsBtn();
+      touch();
       saveChats();
     }
     return sess;
@@ -487,7 +483,7 @@ import { storeGet, storeSet, storeRemove } from "./content/muninn";
         pos: null,
       };
       state.chatHistory.unshift(sess);
-      refreshChatsBtn();
+      touch();
       saveChats();
     }
     openChat(sess, null);
@@ -854,7 +850,7 @@ import { storeGet, storeSet, storeRemove } from "./content/muninn";
           session.messages.push({ role: "assistant", content: r.data.answer });
           if (bubble) bubble.dataset.mi = String(session.messages.length - 1);
         }
-        refreshChatsBtn();
+        touch();
         saveChats();
       } else {
         bubble?.classList.add("prw-msg-note");
@@ -981,7 +977,7 @@ import { storeGet, storeSet, storeRemove } from "./content/muninn";
       saveChats();
     }
     detachChat();
-    refreshChatsBtn();
+    touch();
   }
 
   // Close → remove the chat for good (window + history + storage).
@@ -990,90 +986,10 @@ import { storeGet, storeSet, storeRemove } from "./content/muninn";
     bifrost.send("pick:clear", undefined);
     const sess = activeSession;
     detachChat();
-    dropSession(sess);
+    chatsStore.dropSession(sess.key);
   }
 
   // Remove a session from history + storage, updating the launcher/list.
-  function dropSession(sess) {
-    const i = state.chatHistory.indexOf(sess);
-    if (i >= 0) state.chatHistory.splice(i, 1);
-    saveChats();
-    if (!state.chatHistory.length) {
-      chatsBtn?.remove();
-      chatsBtn = null;
-      chatsList?.remove();
-      chatsList = null;
-    } else {
-      refreshChatsBtn();
-    }
-  }
-
-  // ── reopen past chats ────────────────────────────────────────────────────────
-  function chatSnippet(sess) {
-    const base = sess.general
-      ? "This PR"
-      : sess.file.split("/").pop() + (sess.lines ? `:${sess.lines.start}` : "");
-    const firstQ = sess.messages.find((m) => m.role === "user");
-    const tail = firstQ ? firstQ.content : sess.general ? "" : sess.text.replace(/\s+/g, " ").slice(0, 40);
-    return tail ? `${base} — ${tail}` : base;
-  }
-  function refreshChatsBtn() {
-    if (!state.chatHistory.length) return;
-    if (!chatsBtn) {
-      chatsBtn = document.createElement("button");
-      chatsBtn.className = "prw-pill prw-chats-btn";
-      chatsBtn.onclick = toggleChatsList;
-      document.body.appendChild(chatsBtn);
-    }
-    chatsBtn.textContent = `Chats (${state.chatHistory.length})`;
-  }
-  function toggleChatsList() {
-    if (chatsList) {
-      chatsList.remove();
-      chatsList = null;
-      return;
-    }
-    chatsList = document.createElement("div");
-    chatsList.className = "prw-chats-list";
-    state.chatHistory.forEach((sess) => {
-      const row = document.createElement("div");
-      row.className = "prw-chats-item-row";
-      const open = document.createElement("button");
-      open.className = "prw-chats-item";
-      open.textContent = chatSnippet(sess);
-      open.title = chatSnippet(sess);
-      open.onclick = () => {
-        chatsList.remove();
-        chatsList = null;
-        openChat(sess, null);
-      };
-      const del = document.createElement("button");
-      del.className = "prw-chats-del";
-      del.textContent = "×";
-      del.title = "Delete this chat";
-      del.onclick = (e) => {
-        e.stopPropagation();
-        if (activeSession === sess && chat) detachChat(); // if it's the open one, drop the window
-        dropSession(sess);
-        row.remove();
-      };
-      row.append(open, del);
-      chatsList.appendChild(row);
-    });
-    const clear = document.createElement("button");
-    clear.className = "prw-chats-clear";
-    clear.textContent = "Clear all chats";
-    clear.onclick = () => {
-      state.chatHistory.length = 0;
-      saveChats();
-      chatsList?.remove();
-      chatsList = null;
-      chatsBtn?.remove();
-      chatsBtn = null;
-    };
-    chatsList.appendChild(clear);
-    document.body.appendChild(chatsList);
-  }
 
   // Standalone draggable for the chat (the tour card uses its own makeDraggable).
   function makeDraggable2(handle, el) {
@@ -1337,7 +1253,6 @@ import { storeGet, storeSet, storeRemove } from "./content/muninn";
   }
 
   applyTheme();
-  applyTheme();
   loadPersisted();
   refreshLauncher();
   let lastUrl = location.href;
@@ -1354,11 +1269,8 @@ import { storeGet, storeSet, storeRemove } from "./content/muninn";
       if (pr !== curPr) {
         // switched to a different PR — load that PR's stored state
         curPr = pr;
-        state.chatHistory.length = 0;
-        chatsBtn?.remove();
-        chatsBtn = null;
-        chatsList?.remove();
-        chatsList = null;
+        state.chatHistory = [];
+        touch(); // React unmounts the chats button when the history empties
         state.tourState = { step: 0, pos: null, size: null };
         state.spec = null;
         generating = false;
