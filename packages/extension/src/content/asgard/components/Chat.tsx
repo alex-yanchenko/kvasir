@@ -75,6 +75,11 @@ export function linkifyRefs(root: HTMLElement): void {
   });
 }
 
+/** A streaming partial can end mid-code-fence; close it so the block renders as
+ * code while it grows instead of flashing raw backticks until done. */
+export const closeFences = (text: string): string =>
+  text.split("```").length % 2 === 0 ? text + "\n```" : text;
+
 /** Rendered assistant markdown: escape-first renderMarkdown HTML, then a ref
  * effect adds per-code-block copy buttons and the citation links. */
 function Markdown({ text }: { text: string }): JSX.Element {
@@ -444,7 +449,9 @@ function Window({ sess }: { sess: ChatSession }): JSX.Element {
           <div className="prw-msg prw-msg-bot">
             {liveAsk?.note && <div className="prw-live-note">⚙ {liveAsk.note}</div>}
             {liveAsk?.text ? (
-              <span className="prw-live-text">{liveAsk.text}</span>
+              <span className="prw-live-text">
+                <Markdown text={closeFences(liveAsk.text)} />
+              </span>
             ) : (
               <span className="prw-typing">
                 <i></i>

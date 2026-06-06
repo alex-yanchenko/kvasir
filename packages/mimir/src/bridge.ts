@@ -121,7 +121,8 @@ export function createFetchHandler(deps: BridgeDeps): (req: Request) => Promise<
       // The streamed-reply protocol: notes while working, the answer in pieces,
       // answer_question closes the stream (and carries the whole text when the
       // model skipped chunking — the one-shot fallback).
-      const stream = `Stream your reply using this event's id: call progress_note with a short note before anything slow (reading a file, running a command). Compose the answer in 1-3 sentence pieces via answer_chunk as you write. Finish by calling answer_question with an empty answer — or, if you didn't use answer_chunk, with the full answer text.`;
+      const stream = `Stream your reply using this event's id: call progress_note with a short note before anything slow (reading a file, running a command). Compose the answer via answer_chunk, one complete markdown block per call (a short paragraph, a bullet list, or a fenced code block). Finish by calling answer_question with an empty answer — or, if you didn't use answer_chunk, with the full answer text.`;
+      const format = `Format the answer as readable markdown: short paragraphs separated by blank lines, bullet lists for enumerations, fenced code blocks for code — never one dense block of prose.`;
       const content = prLevel
         ? [
             `The user is reviewing ${pr} and is asking a general question about the whole PR (not a specific code selection).`,
@@ -129,7 +130,7 @@ export function createFetchHandler(deps: BridgeDeps): (req: Request) => Promise<
             `\nYou have the repo and gh — read any files you need to answer well.`,
             history ? `\nConversation so far:\n${history}\n` : "",
             `\nUser: ${question}\n\n`,
-            `Answer concisely for an engineer reviewing this PR. ${cite} If asked to draft a review comment, output only the comment text. ${stream}`,
+            `Answer concisely for an engineer reviewing this PR. ${format} ${cite} If asked to draft a review comment, output only the comment text. ${stream}`,
           ].join("")
         : [
             `The user is reviewing ${pr} and is chatting about a code selection at ${where}.`,
@@ -148,7 +149,7 @@ export function createFetchHandler(deps: BridgeDeps): (req: Request) => Promise<
               ? `\nThe user is discussing the step above. When they say "this", "this step", "this line", "here", "it", or similar, they mean THIS step and the selected code — answer about those specifically. If a reference is genuinely ambiguous, ask one short clarifying question instead of guessing.\n`
               : "",
             `\nUser: ${question}\n\n`,
-            `Answer concisely for an engineer reviewing this PR. ${cite} If asked to draft a review comment, output only the comment text. ${stream}`,
+            `Answer concisely for an engineer reviewing this PR. ${format} ${cite} If asked to draft a review comment, output only the comment text. ${stream}`,
           ].join("");
       const id = deps.open("code_question", content, { pr: PR_URL_RE.test(pr) ? pr : "", file });
       return json(req, { id });

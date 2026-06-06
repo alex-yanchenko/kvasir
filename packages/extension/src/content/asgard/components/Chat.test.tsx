@@ -10,7 +10,7 @@ import { bifrost } from "../../bifrost";
 import { state } from "../store";
 import { chatStore } from "../chat";
 import type { ChatSession } from "../types";
-import { ChatWindow, linkifyRefs, REF_RE } from "./Chat";
+import { ChatWindow, closeFences, linkifyRefs, REF_RE } from "./Chat";
 
 const PR = "https://github.com/acme/widget-api/pull/7";
 
@@ -60,6 +60,14 @@ const openSession = (sess: ChatSession) => {
   state.chatHistory = [sess, ...state.chatHistory.filter((s) => s.key !== sess.key)];
   act(() => chatStore.open(sess));
 };
+
+describe("closeFences", () => {
+  it("closes an odd fence so a streaming code block renders, leaves balanced text alone", () => {
+    expect(closeFences("a\n```ts\ncode")).toBe("a\n```ts\ncode\n```");
+    expect(closeFences("a\n```ts\ncode\n```")).toBe("a\n```ts\ncode\n```");
+    expect(closeFences("plain")).toBe("plain");
+  });
+});
 
 describe("REF_RE + linkifyRefs", () => {
   it("linkifies path:line and path:start-end outside code blocks", () => {
@@ -202,7 +210,9 @@ describe("asking", () => {
     await act(async () => {
       await vi.advanceTimersByTimeAsync(600);
     });
-    expect(document.querySelector(".prw-live-text")!.textContent).toBe("First piece.");
+    // the partial renders as markdown already, with an unfinished fence auto-closed
+    expect(document.querySelector(".prw-live-text .prw-md")).toBeTruthy();
+    expect(document.querySelector(".prw-live-text")!.textContent).toContain("First piece.");
     await act(async () => {
       await vi.advanceTimersByTimeAsync(600);
     });

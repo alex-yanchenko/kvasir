@@ -24,11 +24,13 @@ describe("open + streaming", () => {
     expect(broker.snapshot(id)).toEqual({ notes: [], text: "", done: false, timedOut: false });
 
     expect(broker.note(id, "reading diff.ts")).toBe(true);
-    expect(broker.chunk(id, "First piece. ")).toBe(true);
-    expect(broker.chunk(id, "Second piece.")).toBe(true);
+    expect(broker.chunk(id, "First block.")).toBe(true);
+    expect(broker.chunk(id, "- a\n- b")).toBe(true);
+    expect(broker.chunk(id, "tail\n")).toBe(true);
+    expect(broker.chunk(id, "after newline")).toBe(true);
     expect(broker.snapshot(id)).toEqual({
       notes: ["reading diff.ts"],
-      text: "First piece. Second piece.",
+      text: "First block.\n\n- a\n- b\n\ntail\nafter newline",
       done: false,
       timedOut: false,
     });

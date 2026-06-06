@@ -86,7 +86,9 @@ export function createAskBroker(opts: {
     chunk(id, text) {
       const q = get(id);
       if (!q || q.done) return false;
-      q.text += text;
+      // Chunks are whole markdown blocks (per the prompt protocol) — join them
+      // with a blank line so paragraphs/lists/fences don't fuse into one blob.
+      q.text += q.text && !q.text.endsWith("\n") ? `\n\n${text}` : text;
       return true;
     },
 

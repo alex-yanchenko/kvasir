@@ -169,6 +169,8 @@ describe("/ask", () => {
     expect(content).toContain("path:line");
     expect(content).toContain("answer_chunk");
     expect(content).toContain("progress_note");
+    expect(content).toContain("never one dense block");
+    expect(content).toContain("one complete markdown block per call");
     expect(content).toContain('say "this", "this step"');
   });
 

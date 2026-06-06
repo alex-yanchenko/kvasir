@@ -129,7 +129,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     {
       name: "answer_chunk",
       description:
-        "Stream a piece of a code_question answer (1-3 sentences) to the browser. Call repeatedly as you compose; finish with answer_question (empty answer).",
+        "Stream one complete markdown block (short paragraph, bullet list, or fenced code block) of a code_question answer per call. Call repeatedly as you compose; finish with answer_question (empty answer).",
       inputSchema: {
         type: "object" as const,
         properties: { id: { type: "string" }, text: { type: "string" } },
