@@ -33,7 +33,7 @@ import { ListToolsRequestSchema, CallToolRequestSchema } from "@modelcontextprot
 import { getManifest, getHeadSha } from "./diff";
 // Request gate, CORS, body parsing, and field caps live in ./guard (with unit tests).
 import { authorizedLocalCaller, corsHeaders, readJsonBody, str, prOrNull } from "./guard";
-import { isWalkthroughSpec, prKey, PR_URL_RE, type WalkthroughSpec } from "@prw/shared";
+import { isWalkthroughSpec, prKey, PR_URL_RE, type WalkthroughSpec } from "@prw/runes";
 
 const PORT = Number(process.env.PR_WALKTHROUGH_PORT) || 8799;
 const ASK_TIMEOUT_MS = Number(process.env.ASK_TIMEOUT_MS) || 120_000;
@@ -249,6 +249,7 @@ const server = new Server(
       "Also set spec.overview: a 2-4 sentence plain-text summary of the whole PR — what it does, the overall approach/architecture, and the key risks or decisions a reviewer should keep in mind. It is NOT shown as a step; it's stored and handed to the chat as background so a freshly-started (clean-context) session still understands the PR.",
       "For EACH step, point at specific code: set lines:{side:'R',start,end} to the exact added-line range the step's text is about (read the line numbers from that file's patch hunks in the manifest — the @@ -a,b +c,d @@ header means the new side starts at line c). Keep the range tight: the few lines you're actually explaining, not the whole function unless the whole function is the point. Also include 2-4 highlight substrings (verbatim snippets from those lines) as a fallback. Give each step 2-3 suggestion questions.",
       "Each step has two text parts: body = a concise summary/explanation shown by default; detail = a deeper, in-depth explanation (edge cases, rationale, interactions, gotchas) revealed when the user expands the step. Write a substantive detail for steps where there's more worth knowing.",
+      "All walkthrough text (overview, step body/detail, code_question answers, suggested questions) is a user-facing artifact rendered in the browser: write it in normal, full prose. Session-wide compression/brevity modes (e.g. caveman) do NOT apply to this content — treat it like code or commit messages, which those modes already exempt.",
       '  <channel source="pr-walkthrough" event_type="generate_walkthrough" pr=... mode=... since=... > — the user clicked Run/Regenerate review. For mode="new", build a fresh walkthrough (start_walkthrough → publish_walkthrough). For mode="incremental", author steps for ONLY what changed since the `since` commit and publish a spec containing ONLY those new steps (do NOT re-include earlier steps — fewer steps means less data and a faster update). There is no id to answer — just publish.',
       "While the user reviews, two kinds of events arrive from the browser:",
       '  <channel source="pr-walkthrough" event_type="code_question" id=... > — the user selected code and asked a question. Answer concisely, then call answer_question with the same id.',

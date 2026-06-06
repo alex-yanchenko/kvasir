@@ -9,7 +9,7 @@
  * id instead of brittle text matching.
  */
 
-import { anchorFor, parsePrUrl } from "@prw/shared";
+import { anchorFor, parsePrUrl } from "@prw/runes";
 
 export interface ChangedFile {
   path: string;

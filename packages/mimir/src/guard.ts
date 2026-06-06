@@ -6,7 +6,7 @@
  * The logic is split into a pure core (isAuthorizedCaller, over plain values) and
  * thin Request-reading wrappers, so the security rules are easy to unit-test.
  */
-import { PR_URL_RE } from "@prw/shared";
+import { PR_URL_RE } from "@prw/runes";
 
 /** Custom header the extension's background worker sends on every request. A page
  *  can't set a custom header on a "simple" cross-origin request, and any request

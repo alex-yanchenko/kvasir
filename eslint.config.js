@@ -3,16 +3,16 @@ import tseslint from "typescript-eslint";
 import globals from "globals";
 
 export default [
-  { ignores: ["**/node_modules/**", "**/dist/**", "**/*.min.js", "packages/server/bun.lock"] },
+  { ignores: ["**/node_modules/**", "**/dist/**", "**/*.min.js", "packages/mimir/bun.lock"] },
 
-  // Server + shared: TypeScript (Node/Bun).
-  ...tseslint.configs.recommended.map((c) => ({ ...c, files: ["packages/{server,shared}/**/*.ts"] })),
+  // Mimir (server) + Runes (shared contract): TypeScript (Node/Bun).
+  ...tseslint.configs.recommended.map((c) => ({ ...c, files: ["packages/{mimir,runes}/**/*.ts"] })),
   {
-    files: ["packages/{server,shared}/**/*.ts"],
+    files: ["packages/{mimir,runes}/**/*.ts"],
     languageOptions: { globals: { ...globals.node, Bun: "readonly" } },
   },
 
-  // Extension TypeScript modules (background, and content/* as they migrate).
+  // Extension TypeScript modules (huginn, and content/* as they migrate).
   ...tseslint.configs.recommended.map((c) => ({ ...c, files: ["packages/extension/**/*.ts"] })),
   {
     files: ["packages/extension/**/*.ts"],

@@ -10,26 +10,38 @@ extension) and was rebuilt into something stable, cheap, and credential-free.
 
 ## Layout
 
-A pnpm-workspaces monorepo:
+A pnpm-workspaces monorepo. The parts carry Norse names, used consistently in
+code and docs:
+
+| Name        | Is                                                                                                             | Why                                                                    |
+| ----------- | -------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| **Runes**   | `packages/runes` — `@prw/runes`, the pure shared contract (spec types, PR-URL parsing, diff anchors, markdown) | the shared symbols every realm can read                                |
+| **Mimir**   | `packages/mimir` — `@prw/mimir`, the Claude Code channel + localhost bridge (Bun)                              | the well of wisdom the extension consults; your Claude session answers |
+| **Huginn**  | `extension/src/huginn.ts` — the background service worker (fetch proxy to Mimir)                               | Odin's thought-raven: flies out, returns with tidings                  |
+| **Muninn**  | `extension/src/content/muninn.ts` — the chrome.storage wrapper                                                 | the memory-raven: remembers                                            |
+| **Midgard** | `extension/src/content/midgard/` — everything coupled to GitHub's diff DOM                                     | the mortal realm — the code that lives in the page                     |
+
+(The React migration in progress adds **Asgard** — the panel UI app — and the
+**Bifrost**, the typed bridge between Asgard and Midgard. See MIGRATION.md.)
 
 ```
 pr-walkthrough/
 ├── packages/
-│   ├── shared/      Pure, dependency-free contract: spec types, PR-URL parsing,
-│   │                diff anchors, markdown rendering (imported by server + extension)
-│   ├── server/      Claude Code channel + localhost HTTP bridge (Bun + TypeScript)
+│   ├── runes/       Pure, dependency-free contract: spec types, PR-URL parsing,
+│   │                diff anchors, markdown rendering (imported by Mimir + extension)
+│   ├── mimir/       Claude Code channel + localhost HTTP bridge (Bun + TypeScript)
 │   └── extension/   Chrome MV3 extension, bundled with esbuild → dist/. All
-│                    GitHub-diff-DOM coupling is isolated in content/github/diff.ts
+│                    GitHub-diff-DOM coupling is isolated in content/midgard/diff.ts
 ├── pnpm-workspace.yaml
 └── tsconfig.base.json
 ```
 
 The two sides are decoupled by a single contract: the **walkthrough spec** (see
-`packages/shared/src/spec.ts`). The server produces and serves specs; the
-extension consumes them. Either side can change independently.
+`packages/runes/src/spec.ts`). Mimir produces and serves specs; the extension
+consumes them. Either side can change independently.
 
 > Setup note: register the channel in a local `.mcp.json` pointing at
-> `packages/server/src/channel.ts` (this file is gitignored — it holds a
+> `packages/mimir/src/channel.ts` (this file is gitignored — it holds a
 > machine-specific absolute path).
 
 ## How it fits together
@@ -60,7 +72,7 @@ extension consumes them. Either side can change independently.
 
 ## Quick start
 
-1. **Server** — see `server/README.md`. Install deps, register it in `.mcp.json`,
+1. **Server** — see `packages/mimir/README.md`. Install deps, register it in `.mcp.json`,
    then launch Claude Code with the channel:
    `claude --dangerously-load-development-channels server:pr-walkthrough`
    (manually-configured MCP servers are tagged `server:`, not `plugin:`; the dev
@@ -81,7 +93,7 @@ From the repo root (pnpm workspaces):
 ```
 pnpm install        # install all workspace deps
 pnpm test           # Vitest, run once from the root (not per-package)
-pnpm typecheck      # tsc --noEmit across shared / server / extension
+pnpm typecheck      # tsc --noEmit across runes / mimir / extension
 pnpm lint           # ESLint (flat config)
 pnpm format         # Prettier --write
 pnpm build          # bundle the extension → packages/extension/dist/

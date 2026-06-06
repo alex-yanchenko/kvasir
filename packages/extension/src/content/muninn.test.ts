@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { storeGet, storeSet, storeRemove } from "./storage";
+import { storeGet, storeSet, storeRemove } from "./muninn";
 
 afterEach(() => {
   vi.unstubAllGlobals();

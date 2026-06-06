@@ -1,4 +1,4 @@
-import type { WalkthroughSpec, WalkthroughStep } from "@prw/shared/spec";
+import type { WalkthroughSpec, WalkthroughStep } from "@prw/runes/spec";
 
 export interface TourState {
   step: number;

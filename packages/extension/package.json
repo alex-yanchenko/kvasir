@@ -9,7 +9,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@prw/shared": "workspace:*"
+    "@prw/runes": "workspace:*"
   },
   "devDependencies": {
     "@types/chrome": "^0.0.287",

@@ -1,7 +1,7 @@
 // PR Walkthrough — content script. Renders the Claude-authored walkthrough on a
 // GitHub PR and provides the select-code-and-ask modal. All server calls go
 // through the background service worker (see background.js) to dodge CORS.
-import { escapeHtml, renderMarkdown } from "@prw/shared/markdown";
+import { escapeHtml, renderMarkdown } from "@prw/runes/markdown";
 import {
   filePathFromContainer,
   diffContainerOf,
@@ -18,12 +18,12 @@ import {
   containerForFile,
   rowBandsOf,
   rowAtY,
-} from "./content/github/diff";
+} from "./content/midgard/diff";
 import { api } from "./content/api";
 import { state } from "./content/state";
 import { initTooltips } from "./content/ui/tooltip";
 import { sanitizeSpecHtml } from "./content/sanitize";
-import { storeGet, storeSet, storeRemove } from "./content/storage";
+import { storeGet, storeSet, storeRemove } from "./content/muninn";
 
 (() => {
   if (window.__prwLoaded) return;

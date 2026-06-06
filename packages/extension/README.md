@@ -25,20 +25,20 @@ unpacked.
 ## How it talks to the server
 
 Content scripts are subject to the page's CORS, so all calls go through the
-background service worker (`src/background.js`), which has `host_permissions` for
+background service worker (`src/huginn.ts`), which has `host_permissions` for
 `localhost:8799` and fetches cross-origin freely.
 
-If you change the server port, update `PORT` in both `src/background.js` and the
+If you change the server port, update `PORT` in both `src/huginn.ts` and the
 `host_permissions` entry in `manifest.json`, then reload the extension.
 
 ## Files
 
-| File                | Role                                          |
-| ------------------- | --------------------------------------------- |
-| `manifest.json`     | MV3 manifest; matches `github.com/*/*/pull/*` |
-| `src/background.js` | fetch proxy to the local server               |
-| `src/content.js`    | tour overlay + selection modal                |
-| `src/overlay.css`   | styles (all prefixed `prw-`)                  |
+| File              | Role                                          |
+| ----------------- | --------------------------------------------- |
+| `manifest.json`   | MV3 manifest; matches `github.com/*/*/pull/*` |
+| `src/huginn.ts`   | fetch proxy to the local server               |
+| `src/content.js`  | tour overlay + selection modal                |
+| `src/overlay.css` | styles (all prefixed `prw-`)                  |
 
 ## Known rough edges (v0.1)
 

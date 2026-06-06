@@ -1,6 +1,6 @@
 node_modules/
 dist/
-packages/server/bun.lock
+packages/mimir/bun.lock
 pnpm-lock.yaml
 
 # vitest config load artifacts
