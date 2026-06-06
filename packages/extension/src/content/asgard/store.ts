@@ -10,7 +10,6 @@ import { storeSet } from "../muninn";
 import { chatsKey, prUrl } from "../keys";
 import type { ChatSession } from "./types";
 import { bifrost } from "../bifrost";
-import type { SelectionPayload } from "../bifrost";
 
 type Listener = () => void;
 const listeners = new Set<Listener>();
@@ -55,24 +54,11 @@ export const settingsStore = {
 
 // ── chats slice ────────────────────────────────────────────────────────────────
 
-/** Coexistence shim: the chat window is still vanilla; it registers how to open
- * and close itself here. Dies at D5 when ChatWindow becomes an Asgard island. */
-export const legacyChatBridge: {
-  openChat?: (sess: ChatSession) => void;
-  openPrChat?: () => void;
-  openSelection?: (payload: SelectionPayload, withStep: boolean) => void;
-  closeIfActive?: (key: string) => void;
-} = {};
-
 const persistChats = (): void => storeSet(chatsKey(prUrl()), state.chatHistory);
 
 export const chatsStore = {
   sessions: (): ChatSession[] => state.chatHistory,
-  openSession(sess: ChatSession): void {
-    legacyChatBridge.openChat?.(sess);
-  },
   dropSession(key: string): void {
-    legacyChatBridge.closeIfActive?.(key);
     state.chatHistory = state.chatHistory.filter((s) => s.key !== key);
     persistChats();
     touch();

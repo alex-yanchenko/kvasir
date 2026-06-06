@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { ChatsButton } from "./ChatsButton";
 import { state } from "../../state";
-import { legacyChatBridge } from "../store";
+import { chatStore } from "../chat";
 import type { ChatSession } from "../types";
 
 const mkSession = (key: string, over: Partial<ChatSession> = {}): ChatSession => ({
@@ -24,8 +24,6 @@ beforeEach(() => {
   });
   vi.stubGlobal("chrome", { storage: { local: { set: vi.fn() } } });
   state.chatHistory = [mkSession("a"), mkSession("b")];
-  legacyChatBridge.openChat = undefined;
-  legacyChatBridge.closeIfActive = undefined;
 });
 afterEach(() => {
   cleanup();
@@ -50,9 +48,8 @@ describe("ChatsButton", () => {
     expect(screen.queryByText("app.ts:4 — q-a")).toBeNull();
   });
 
-  it("opens a session through the legacy bridge and closes the list", () => {
-    const open = vi.fn();
-    legacyChatBridge.openChat = open;
+  it("opens a session through the chat machine and closes the list", () => {
+    const open = vi.spyOn(chatStore, "open").mockImplementation(() => {});
     render(<ChatsButton />);
     fireEvent.click(screen.getByText("Chats (2)"));
     fireEvent.click(screen.getByText("app.ts:4 — q-b"));
@@ -61,13 +58,10 @@ describe("ChatsButton", () => {
     expect(screen.queryByText("app.ts:4 — q-a")).toBeNull();
   });
 
-  it("deletes one session (closing its window if active) and re-renders the count", () => {
-    const close = vi.fn();
-    legacyChatBridge.closeIfActive = close;
+  it("deletes one session and re-renders the count", () => {
     render(<ChatsButton />);
     fireEvent.click(screen.getByText("Chats (2)"));
     fireEvent.click(screen.getAllByTitle("Delete this chat")[0]);
-    expect(close).toHaveBeenCalledWith("a");
     expect(screen.getByText("Chats (1)")).toBeTruthy();
     expect(screen.queryByText("app.ts:4 — q-a")).toBeNull();
   });

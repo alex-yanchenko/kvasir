@@ -2,7 +2,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { getSnapshot, settingsStore, subscribe, touch } from "./store";
 import * as storeModule from "./store";
-import { chatsStore, legacyChatBridge } from "./store";
+import { chatsStore } from "./store";
 import { state } from "../state";
 import { bifrost } from "./../bifrost";
 
@@ -78,8 +78,6 @@ describe("chatsStore", () => {
     setSpy = vi.fn();
     vi.stubGlobal("chrome", { storage: { local: { set: setSpy } } });
     state.chatHistory = [mkSession("a"), mkSession("b")];
-    legacyChatBridge.openChat = undefined;
-    legacyChatBridge.closeIfActive = undefined;
   });
   afterEach(() => {
     vi.unstubAllGlobals();
@@ -89,21 +87,8 @@ describe("chatsStore", () => {
     expect(chatsStore.sessions().map((s) => s.key)).toEqual(["a", "b"]);
   });
 
-  it("openSession routes through the legacy bridge while the chat window is vanilla", () => {
-    const open = vi.fn();
-    legacyChatBridge.openChat = open;
-    chatsStore.openSession(state.chatHistory[1]);
-    expect(open).toHaveBeenCalledWith(state.chatHistory[1]);
-    expect(open).toHaveBeenCalledTimes(1);
-    legacyChatBridge.openChat = undefined;
-    expect(() => chatsStore.openSession(state.chatHistory[0])).not.toThrow();
-  });
-
-  it("dropSession closes an active window, removes the session, and persists", () => {
-    const close = vi.fn();
-    legacyChatBridge.closeIfActive = close;
+  it("dropSession removes the session and persists", () => {
     chatsStore.dropSession("a");
-    expect(close).toHaveBeenCalledWith("a");
     expect(state.chatHistory.map((s) => s.key)).toEqual(["b"]);
     expect(setSpy).toHaveBeenCalledWith({
       "prw:chats:https://github.com/acme/widget-api/pull/7": state.chatHistory,

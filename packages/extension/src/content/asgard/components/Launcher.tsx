@@ -4,7 +4,7 @@
 import type { JSX } from "react";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { fmtElapsed, launcherStore } from "../launcher";
-import { legacyChatBridge } from "../store";
+import { chatStore } from "../chat";
 import { getSnapshot, subscribe } from "../store";
 import { RegenDialog } from "./RegenDialog";
 
@@ -54,7 +54,7 @@ export function Launcher(): JSX.Element {
           <button className="prw-pill" onClick={() => launcherStore.openTour()}>
             ▶ Open review ({spec.steps.length})
           </button>
-          <button className="prw-pill prw-ghost" onClick={() => legacyChatBridge.openPrChat?.()}>
+          <button className="prw-pill prw-ghost" onClick={() => chatStore.openPrChat()}>
             💬 Ask about PR
           </button>
           {/* Regenerate is always available; emphasized when there are new commits. */}

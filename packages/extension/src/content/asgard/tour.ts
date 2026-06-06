@@ -8,7 +8,10 @@ import { onFilesTab, prUrl, tourKey } from "../keys";
 import { stepCode } from "../midgard/midgard";
 import { storeSet } from "../muninn";
 import { state } from "../state";
-import { legacyChatBridge, touch } from "./store";
+import { touch } from "./store";
+// chat.ts imports tourStore.stepContext and we call chatStore here — a runtime-
+// safe ESM cycle: both references happen inside functions, never at module eval.
+import { chatStore } from "./chat";
 
 let open = false;
 let stepIdx = 0;
@@ -101,7 +104,7 @@ export const tourStore = {
     const text =
       page?.text || (s.highlight || []).join("\n") || (s.body || "").replace(/<[^>]+>/g, "").slice(0, 1000);
     const rect = page?.rect ?? { left: 60, top: 90, bottom: 114, height: 24 };
-    legacyChatBridge.openSelection?.(
+    chatStore.openSelection(
       {
         selectionId: `${s.file}::${text.slice(0, 200)}`,
         file: s.file,

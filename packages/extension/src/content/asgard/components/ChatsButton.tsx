@@ -2,6 +2,7 @@
 // store; opening one goes through the legacy bridge until ChatWindow lands (D5).
 import type { JSX } from "react";
 import { useState, useSyncExternalStore } from "react";
+import { chatStore } from "../chat";
 import { chatSnippet, chatsStore, getSnapshot, subscribe } from "../store";
 
 export function ChatsButton(): JSX.Element | null {
@@ -23,7 +24,7 @@ export function ChatsButton(): JSX.Element | null {
                 title={chatSnippet(sess)}
                 onClick={() => {
                   setOpen(false);
-                  chatsStore.openSession(sess);
+                  chatStore.open(sess);
                 }}
               >
                 {chatSnippet(sess)}

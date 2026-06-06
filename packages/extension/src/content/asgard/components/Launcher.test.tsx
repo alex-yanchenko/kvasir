@@ -11,7 +11,7 @@ import { storeGet } from "../../muninn";
 import { state } from "../../state";
 import { launcherStore } from "../launcher";
 import { tourStore } from "../tour";
-import { legacyChatBridge } from "../store";
+import { chatStore } from "../chat";
 import { Launcher } from "./Launcher";
 
 const PR = "https://github.com/acme/widget-api/pull/7";
@@ -32,7 +32,7 @@ beforeEach(() => {
   launcherStore.resetForPr();
   vi.spyOn(tourStore, "start").mockImplementation(() => {});
   vi.spyOn(tourStore, "close").mockImplementation(() => {});
-  legacyChatBridge.openPrChat = undefined;
+  vi.spyOn(chatStore, "openPrChat").mockImplementation(() => {});
   vi.mocked(api).mockResolvedValue({ ok: false });
   vi.mocked(storeGet).mockResolvedValue(undefined);
 });
@@ -65,13 +65,11 @@ describe("Launcher with a spec", () => {
   });
 
   it("renders the three pills and routes Open/Ask through the bridges", () => {
-    const openPrChat = vi.fn();
-    legacyChatBridge.openPrChat = openPrChat;
     render(<Launcher />);
     fireEvent.click(screen.getByText("▶ Open review (1)"));
     expect(tourStore.start).toHaveBeenCalledTimes(1);
     fireEvent.click(screen.getByText("💬 Ask about PR"));
-    expect(openPrChat).toHaveBeenCalledTimes(1);
+    expect(chatStore.openPrChat).toHaveBeenCalledTimes(1);
   });
 
   it("opens the regen dialog, closes on cancel and on backdrop click", () => {

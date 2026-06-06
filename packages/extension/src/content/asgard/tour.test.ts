@@ -9,7 +9,7 @@ import { storeSet } from "../muninn";
 import { stepCode } from "../midgard/midgard";
 import { bifrost } from "../bifrost";
 import { state } from "../state";
-import { legacyChatBridge } from "./store";
+import { chatStore } from "./chat";
 import { tourStore } from "./tour";
 
 const PR = "https://github.com/acme/widget-api/pull/7";
@@ -54,7 +54,7 @@ beforeEach(() => {
     bifrost.handle("highlight:clear", () => sent.push({ kind: "highlight:clear", payload: undefined })),
     bifrost.handle("grip:context", (p) => sent.push({ kind: "grip:context", payload: p })),
   ];
-  legacyChatBridge.openSelection = undefined;
+  vi.spyOn(chatStore, "openSelection").mockImplementation(() => {});
 });
 afterEach(() => {
   offs.forEach((off) => off());
@@ -151,8 +151,8 @@ describe("step context + ask", () => {
   });
 
   it("askAboutStep prefers the rendered code from Midgard", () => {
-    const open = vi.fn();
-    legacyChatBridge.openSelection = open;
+    const open = vi.mocked(chatStore.openSelection);
+    open.mockClear();
     vi.mocked(stepCode).mockReturnValue({
       text: "const a = 1;",
       rect: { left: 1, top: 2, bottom: 3, height: 4 },
@@ -172,8 +172,8 @@ describe("step context + ask", () => {
   });
 
   it("falls back to highlight strings, then to stripped body text", () => {
-    const open = vi.fn();
-    legacyChatBridge.openSelection = open;
+    const open = vi.mocked(chatStore.openSelection);
+    open.mockClear();
     vi.mocked(stepCode).mockReturnValue(null);
     tourStore.start();
     tourStore.goto(1); // step two has highlight strings
@@ -192,8 +192,8 @@ describe("step context + ask", () => {
   });
 
   it("does nothing without an active step", () => {
-    const open = vi.fn();
-    legacyChatBridge.openSelection = open;
+    const open = vi.mocked(chatStore.openSelection);
+    open.mockClear();
     tourStore.askAboutStep();
     expect(open).not.toHaveBeenCalled();
   });
@@ -218,8 +218,8 @@ describe("guard and formatting arms", () => {
   });
 
   it("askAboutStep with neither rendered code, highlights, nor body sends empty text", () => {
-    const opened = vi.fn();
-    legacyChatBridge.openSelection = opened;
+    const opened = vi.mocked(chatStore.openSelection);
+    opened.mockClear();
     vi.mocked(stepCode).mockReturnValue(null);
     tourStore.start();
     state.activeStep = { ...state.spec!.steps[0], highlight: undefined, body: "" };
