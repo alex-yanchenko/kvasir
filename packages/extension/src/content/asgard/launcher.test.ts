@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import type { WalkthroughSpec } from "@prw/runes";
+import type { WalkthroughSpec } from "@prw/runes/spec";
 
 vi.mock("../api", () => ({ api: vi.fn() }));
 vi.mock("../muninn", () => ({ storeGet: vi.fn(), storeSet: vi.fn(), storeRemove: vi.fn() }));

@@ -3,7 +3,9 @@ import tseslint from "typescript-eslint";
 import globals from "globals";
 
 export default [
-  { ignores: ["**/node_modules/**", "**/dist/**", "**/*.min.js", "packages/mimir/bun.lock"] },
+  {
+    ignores: ["**/node_modules/**", "**/dist/**", "**/coverage/**", "**/*.min.js", "packages/mimir/bun.lock"],
+  },
 
   // Mimir (server) + Runes (shared contract): TypeScript (Node/Bun).
   ...tseslint.configs.recommended.map((c) => ({ ...c, files: ["packages/{mimir,runes}/**/*.ts"] })),
