@@ -32,7 +32,8 @@ export interface BifrostCommands {
   "highlight:clear": undefined;
   "pick:rehighlight": { file: string; text: string; scroll?: boolean };
   "pick:clear": undefined;
-  "jump:ref": { file: string; start: number; end: number | null };
+  /** start null = no line cited — jump to the file's diff container itself. */
+  "jump:ref": { file: string; start: number | null; end: number | null };
   "theme:apply": { theme: string; hlStyle: string };
   /** Tell the grip whether a walkthrough step is active (shows the context-chat
    * ask button) — pushed by the app, so Midgard never reads app state. */
@@ -54,6 +55,8 @@ export interface BifrostReports {
 export interface MidgardQuery {
   captureSelection(): SelectionPayload | null;
   stepSelection(step: StepHighlightPayload & { file: string }): SelectionPayload | null;
+  /** Changed-file paths currently on the page (diff.ts changedFilePaths). */
+  changedFilePaths(): string[];
 }
 
 type Handler<P> = (payload: P) => void;

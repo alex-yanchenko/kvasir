@@ -150,8 +150,14 @@ describe("jumpToRef", () => {
     expect(picked()).toEqual([]);
   });
 
+  it("a line-less ref scrolls to the file itself and paints nothing", () => {
+    expect(jumpToRef("src/app.ts", null, null)).toBe(true);
+    expect(picked()).toEqual([]);
+  });
+
   it("returns false when the cited file is not in the diff", () => {
     expect(jumpToRef("missing.ts", 1, null)).toBe(false);
+    expect(jumpToRef("missing.ts", null, null)).toBe(false);
   });
 });
 

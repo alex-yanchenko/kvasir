@@ -124,9 +124,14 @@ export function containerForFileLoose(file: string): Element | null {
 
 // Scroll the diff to a cited path:line(-end) and highlight it. Returns false when
 // the cited file isn't in this PR's diff, so callers can fall back.
-export function jumpToRef(file: string, start: number, end: number | null): boolean {
+export function jumpToRef(file: string, start: number | null, end: number | null): boolean {
   const cont = containerForFileLoose(file);
   if (!cont) return false;
+  if (start === null) {
+    // a bare file mention — no line to land on, the file itself is the target
+    cont.scrollIntoView({ behavior: "smooth", block: "start" });
+    return true;
+  }
   cont.scrollIntoView({ block: "start" }); // GitHub lazy-renders; bring the file in first
   const single = rowForLine(cont, start);
   const rows = end ? rowsInRange(cont, start, end) : single ? [single] : [];

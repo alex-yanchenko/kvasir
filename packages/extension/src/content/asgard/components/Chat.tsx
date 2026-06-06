@@ -7,6 +7,7 @@ import type { JSX } from "react";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { renderMarkdown } from "@prw/runes/markdown";
 import { bifrost } from "../../bifrost";
+import { changedFilePaths } from "../../midgard/diff";
 import { chatStore, QUICK, QUICK_PR } from "../chat";
 import { useDrag } from "../hooks/useDrag";
 import { useResizePersist } from "../hooks/useResizePersist";
@@ -25,18 +26,40 @@ const svg = (inner: string): string =>
   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${inner}</svg>`;
 
 // Turn `path.ext:line` / `path.ext:start-end` mentions in an assistant answer into
-// clickable jump-to-code links. Skips fenced code blocks and existing links; a
-// cited file that isn't in the diff just no-ops on click, so misses are harmless.
+// clickable jump-to-code links, and bare `dir/file.ext` mentions into jump-to-file
+// links when the file is in this PR's diff. Skips fenced code blocks and existing
+// links; a cited file:line that isn't in the diff just no-ops on click.
 export const REF_RE = /\b[\w@./-]*\w\.\w{1,8}:\d+(?:-\d+)?\b/;
+/** A bare path mention: at least one slash, ends in an extension, no :line. */
+export const FILE_RE = /\b[\w@-][\w@.-]*(?:\/[\w@.-]+)+\.\w{1,8}\b/;
+
+const mkRefLink = (label: string, ref: { file: string; start: number | null; end: number | null }) => {
+  const a = document.createElement("a");
+  a.className = "prw-ref";
+  a.href = "#";
+  a.textContent = label;
+  a.onclick = (e) => {
+    e.preventDefault();
+    bifrost.send("jump:ref", ref);
+  };
+  return a;
+};
 
 export function linkifyRefs(root: HTMLElement): void {
+  // bare paths only become links when they name a file in the PR's diff —
+  // otherwise every npm package or URL fragment would turn into a dead link
+  const known = changedFilePaths();
+  const canonical = (mention: string): string | null =>
+    known.find((p) => p === mention || p.endsWith("/" + mention) || mention.endsWith("/" + p)) ?? null;
+
   const nodes: Text[] = [];
   const walk = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
   let cur = walk.nextNode();
   while (cur) {
     const node = cur;
     cur = walk.nextNode();
-    if (!(node instanceof Text) || !node.nodeValue || !REF_RE.test(node.nodeValue)) continue;
+    if (!(node instanceof Text) || !node.nodeValue) continue;
+    if (!REF_RE.test(node.nodeValue) && !FILE_RE.test(node.nodeValue)) continue;
     let skip = false;
     for (let p = node.parentElement; p && p !== root; p = p.parentElement) {
       if (p.tagName === "PRE" || p.tagName === "A") {
@@ -47,29 +70,30 @@ export function linkifyRefs(root: HTMLElement): void {
     if (!skip) nodes.push(node);
   }
   nodes.forEach((node) => {
-    const text = String(node.nodeValue); // collected nodes all matched REF_RE — never null
+    const text = String(node.nodeValue); // collected nodes all matched a pattern — never null
     const frag = document.createDocumentFragment();
-    // SAFE: REF_RE is a constant regex literal defined above, never user input.
-    const re = new RegExp(REF_RE.source, "g");
+    // SAFE: built from the constant regex literals above, never user input. The
+    // :line form is first so the alternation prefers it over the bare path.
+    const re = new RegExp(`${REF_RE.source}|${FILE_RE.source}`, "g");
     let last = 0;
     let m;
     while ((m = re.exec(text))) {
       const full = m[0];
-      const colon = full.lastIndexOf(":");
-      const file = full.slice(0, colon);
-      const [start, end] = full.slice(colon + 1).split("-");
+      let link: HTMLAnchorElement | null;
+      if (/:\d+(?:-\d+)?$/.test(full)) {
+        const colon = full.lastIndexOf(":");
+        const [start, end] = full.slice(colon + 1).split("-");
+        link = mkRefLink(full, { file: full.slice(0, colon), start: +start, end: end ? +end : null });
+      } else {
+        const file = canonical(full);
+        link = file ? mkRefLink(full, { file, start: null, end: null }) : null;
+      }
+      if (!link) continue; // a path that isn't in the PR stays plain text
       if (m.index > last) frag.appendChild(document.createTextNode(text.slice(last, m.index)));
-      const a = document.createElement("a");
-      a.className = "prw-ref";
-      a.href = "#";
-      a.textContent = full;
-      a.onclick = (e) => {
-        e.preventDefault();
-        bifrost.send("jump:ref", { file, start: +start, end: end ? +end : null });
-      };
-      frag.appendChild(a);
+      frag.appendChild(link);
       last = m.index + full.length;
     }
+    if (last === 0) return; // nothing linkable in this node after validation
     if (last < text.length) frag.appendChild(document.createTextNode(text.slice(last)));
     node.parentNode?.replaceChild(frag, node);
   });

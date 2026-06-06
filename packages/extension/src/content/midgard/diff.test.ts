@@ -15,6 +15,7 @@ import {
   rowsBetween,
   rowsInRange,
   rowsOf,
+  changedFilePaths,
 } from "./diff";
 
 // A minimal stand-in for GitHub's "Files changed" markup: a diff-<hash> container
@@ -155,6 +156,21 @@ describe("lineRangeOf", () => {
     range.selectNodeContents(document.getElementById("h1")!);
     expect(lineRangeOf(container, range)).toBeNull();
     expect(lineRangeOf(null, range)).toBeNull();
+  });
+});
+
+describe("changedFilePaths", () => {
+  it("lists every readable diff container path, skipping unreadable ones", () => {
+    const extra = document.createElement("div");
+    extra.id = "diff-extra";
+    extra.innerHTML = '<span data-tagsearch-path="src/other.ts"></span>';
+    document.body.appendChild(extra);
+    const unreadable = document.createElement("div");
+    unreadable.id = "diff-unreadable";
+    document.body.appendChild(unreadable);
+    expect(changedFilePaths()).toEqual(["src/app.ts", "src/other.ts"]);
+    extra.remove();
+    unreadable.remove();
   });
 });
 

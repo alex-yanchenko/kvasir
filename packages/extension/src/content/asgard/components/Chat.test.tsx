@@ -73,6 +73,7 @@ describe("REF_RE + linkifyRefs", () => {
   it("linkifies path:line and path:start-end outside code blocks", () => {
     const el = document.createElement("div");
     el.innerHTML = "see src/app.ts:4 and src/app.ts:4-6 but <pre>not.in.code:9</pre> <a href='#'>x.ts:1</a>";
+    el.appendChild(document.createTextNode("")); // empty text nodes are skipped
     linkifyRefs(el);
     const refs = [...el.querySelectorAll<HTMLAnchorElement>(".prw-ref")];
     expect(refs.map((a) => a.textContent)).toEqual(["src/app.ts:4", "src/app.ts:4-6"]);
@@ -83,6 +84,38 @@ describe("REF_RE + linkifyRefs", () => {
       { file: "src/app.ts", start: 4, end: 6 },
     ]);
     expect(REF_RE.test("just words")).toBe(false);
+  });
+
+  it("linkifies bare file mentions that are in the PR diff; unknown paths stay text", () => {
+    const cont = document.createElement("div");
+    cont.id = "diff-f1";
+    cont.innerHTML = '<span data-tagsearch-path="your-db/utils/helpers.ts"></span>';
+    const cont2 = document.createElement("div");
+    cont2.id = "diff-f2";
+    cont2.innerHTML = '<span data-tagsearch-path="src/app.ts"></span>';
+    document.body.append(cont, cont2);
+
+    const el = document.createElement("div");
+    el.innerHTML =
+      "check utils/helpers.ts and repo/src/app.ts and your-db/utils/helpers.ts but vendor/lib.ts stays";
+    linkifyRefs(el);
+    const refs = [...el.querySelectorAll<HTMLAnchorElement>(".prw-ref")];
+    expect(refs.map((a) => a.textContent)).toEqual([
+      "utils/helpers.ts",
+      "repo/src/app.ts",
+      "your-db/utils/helpers.ts",
+    ]);
+    refs[0].click(); // a suffix mention jumps via the canonical full path
+    expect(jumps).toEqual([{ file: "your-db/utils/helpers.ts", start: null, end: null }]);
+    expect(el.textContent).toContain("vendor/lib.ts stays");
+
+    const untouched = document.createElement("div");
+    untouched.innerHTML = "only vendor/lib.ts here";
+    linkifyRefs(untouched);
+    expect(untouched.querySelector(".prw-ref")).toBeNull();
+    expect(untouched.textContent).toBe("only vendor/lib.ts here");
+    cont.remove();
+    cont2.remove();
   });
 });
 

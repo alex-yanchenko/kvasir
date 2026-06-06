@@ -44,6 +44,17 @@ export function filePathFromContainer(cont: Element | null): string | null {
   return cont.querySelector("[data-tagsearch-path]")?.getAttribute("data-tagsearch-path") || null;
 }
 
+/** Every changed file currently on the page, by its diff container. Pure read —
+ * Asgard uses it to validate file mentions in answers before linkifying them. */
+export function changedFilePaths(): string[] {
+  const out: string[] = [];
+  document.querySelectorAll('[id^="diff-"]').forEach((el) => {
+    const path = filePathFromContainer(el);
+    if (path) out.push(path);
+  });
+  return out;
+}
+
 export function diffContainerOf(node: Node | null): Element | null {
   let el: Element | null = node instanceof Element ? node : (node?.parentElement ?? null);
   while (el && !(el.id && el.id.startsWith("diff-"))) el = el.parentElement;
