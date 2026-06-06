@@ -31,6 +31,8 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { ListToolsRequestSchema, CallToolRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 
 import { getManifest, getHeadSha } from "./diff";
+// Request gate, CORS, body parsing, and field caps live in ./guard (with unit tests).
+import { authorizedLocalCaller, corsHeaders, readJsonBody, str, prOrNull } from "./guard";
 import { isWalkthroughSpec, prKey, PR_URL_RE, type WalkthroughSpec } from "@prw/shared";
 
 const PORT = Number(process.env.PR_WALKTHROUGH_PORT) || 8799;
@@ -79,74 +81,6 @@ function askSession(eventType: string, content: string, meta: Record<string, str
 }
 
 // ── HTTP bridge ──────────────────────────────────────────────────────────────
-
-// Custom header the extension's background worker sends on every request. A web
-// page cannot set this on a "simple" cross-origin request, and any request that
-// does set it is forced through a CORS preflight we don't allow — so a malicious
-// site can't drive this bridge from the browser. See README "Security".
-const GUARD_HEADER = "x-pr-walkthrough";
-
-function corsHeaders(req: Request): Record<string, string> {
-  const origin = req.headers.get("origin") ?? "";
-  // No wildcard, and no github.com by default: the extension talks to us through
-  // its privileged background worker (not subject to CORS), so nothing legitimate
-  // needs a cross-origin grant. Only an explicit env override is honored.
-  const headers: Record<string, string> = {
-    "access-control-allow-methods": "GET,POST,OPTIONS",
-    "access-control-allow-headers": "content-type," + GUARD_HEADER,
-    vary: "origin",
-  };
-  if (origin && origin === process.env.PR_WALKTHROUGH_ORIGIN) headers["access-control-allow-origin"] = origin;
-  return headers;
-}
-
-// Reject anything that isn't a same-machine call from our own extension. None of
-// these rely on a secret — they lean on signals the browser sets and a web page
-// cannot forge, so the header/source being public doesn't matter:
-//  - Origin, if present, must NOT be a foreign web origin. A cross-origin request
-//    always carries an Origin the page can't spoof, so we reject it server-side —
-//    independent of CORS/preflight. The extension (background worker) sends a
-//    chrome-extension:// origin or none, which pass.
-//  - Host must be loopback (defeats DNS-rebinding that points a domain at 127.0.0.1).
-//  - the guard header must be present (forces a preflight cross-origin, which we
-//    don't grant; and a simple request that omits it is rejected here).
-//  - POST bodies must be application/json (also forces a preflight cross-origin).
-function authorizedLocalCaller(req: Request): boolean {
-  const origin = req.headers.get("origin") ?? "";
-  if (/^https?:\/\//i.test(origin)) {
-    const okOrigin =
-      origin === process.env.PR_WALKTHROUGH_ORIGIN ||
-      /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin);
-    if (!okOrigin) return false; // a foreign web page — refuse outright
-  }
-  const host = req.headers.get("host") ?? "";
-  if (!/^(localhost|127\.0\.0\.1)(:\d+)?$/.test(host)) return false;
-  if (req.headers.get(GUARD_HEADER) === null) return false;
-  if (req.method === "POST" && !(req.headers.get("content-type") ?? "").includes("application/json"))
-    return false;
-  return true;
-}
-
-const MAX_BODY = 256 * 1024; // 256 KB — these payloads are small; cap to avoid abuse
-// Parse a JSON object body with a hard size limit; null on anything malformed/oversized.
-async function readJsonBody(req: Request): Promise<Record<string, unknown> | null> {
-  if (Number(req.headers.get("content-length") ?? 0) > MAX_BODY) return null;
-  try {
-    const text = await req.text();
-    if (text.length > MAX_BODY) return null;
-    const v = JSON.parse(text);
-    return v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : null;
-  } catch {
-    return null;
-  }
-}
-const str = (v: unknown, max: number): string => (typeof v === "string" ? v.slice(0, max) : "");
-// Only accept well-formed GitHub PR URLs anywhere a `pr` value is used (PR_URL_RE
-// from @prw/shared) — so nothing arbitrary lands in a session prompt or a `gh` path.
-const prOrNull = (v: unknown): string | null => {
-  const s = str(v, 300);
-  return PR_URL_RE.test(s) ? s : null;
-};
 
 function json(req: Request, body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {

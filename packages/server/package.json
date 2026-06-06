@@ -6,7 +6,8 @@
   "description": "Claude Code channel + localhost bridge that turns a GitHub PR into an interactive in-browser walkthrough with code-selection Q&A.",
   "scripts": {
     "start": "bun run src/channel.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
