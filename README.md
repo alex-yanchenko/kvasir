@@ -65,7 +65,7 @@ extension consumes them. Either side can change independently.
    local channels). The HTTP bridge comes up on `http://localhost:8799`.
 2. **Extension** — see `extension/README.md`. Load it unpacked in
    `chrome://extensions`.
-3. In your Claude session: *"Build a walkthrough for <PR url>."* Claude calls
+3. In your Claude session: _"Build a walkthrough for <PR url>."_ Claude calls
    `start_walkthrough`, authors the spec, and calls `publish_walkthrough`.
 4. Open the PR's **Files** tab. Click the **▶ Walkthrough** button (bottom-left).
    Select any code and click **Ask about this** to ask questions.

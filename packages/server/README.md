@@ -74,11 +74,11 @@ curl http://localhost:8799/health      # → {"ok":true,"specs":0}
 
 ## Config (env)
 
-| Var | Default | Purpose |
-| --- | --- | --- |
-| `PR_WALKTHROUGH_PORT` | `8799` | HTTP bridge port |
-| `PR_WALKTHROUGH_ORIGIN` | reflects github.com/localhost | CORS allow-origin |
-| `ASK_TIMEOUT_MS` | `120000` | how long `/ask` waits for your answer |
+| Var                     | Default                       | Purpose                               |
+| ----------------------- | ----------------------------- | ------------------------------------- |
+| `PR_WALKTHROUGH_PORT`   | `8799`                        | HTTP bridge port                      |
+| `PR_WALKTHROUGH_ORIGIN` | reflects github.com/localhost | CORS allow-origin                     |
+| `ASK_TIMEOUT_MS`        | `120000`                      | how long `/ask` waits for your answer |
 
 ## Security
 
@@ -90,7 +90,7 @@ project's browser extension, on the same machine. Defenses:
 - **Loopback only.** It binds `127.0.0.1`, so it is not reachable from your
   network — only from your own machine.
   These checks are **not secrets** — they don't depend on an attacker not knowing
-  the header name or reading this source. They rely on signals the *browser* sets
+  the header name or reading this source. They rely on signals the _browser_ sets
   and enforces, which a malicious page cannot forge. That's why the design is safe
   to open-source, and why a token/handshake adds nothing against a browser attacker
   (and nothing against malware already on the machine, which can read any secret).
@@ -117,7 +117,7 @@ Residual risks to be aware of:
   scope.
 - **Prompt injection from untrusted PRs.** If you open a walkthrough/chat on a PR
   authored by someone you don't trust, that diff is attacker-controlled text. The
-  channel tags selected code as *data, not instructions*, and your session's tools
+  channel tags selected code as _data, not instructions_, and your session's tools
   remain user-gated — but prompt-injection mitigation is never perfect. Don't run
   a walkthrough against a hostile PR and then blindly approve session actions.
 - Spec HTML rendered by the extension is allowlist-sanitized (inline tags only,

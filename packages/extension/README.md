@@ -33,12 +33,12 @@ If you change the server port, update `PORT` in both `src/background.js` and the
 
 ## Files
 
-| File | Role |
-| --- | --- |
-| `manifest.json` | MV3 manifest; matches `github.com/*/*/pull/*` |
-| `src/background.js` | fetch proxy to the local server |
-| `src/content.js` | tour overlay + selection modal |
-| `src/overlay.css` | styles (all prefixed `prw-`) |
+| File                | Role                                          |
+| ------------------- | --------------------------------------------- |
+| `manifest.json`     | MV3 manifest; matches `github.com/*/*/pull/*` |
+| `src/background.js` | fetch proxy to the local server               |
+| `src/content.js`    | tour overlay + selection modal                |
+| `src/overlay.css`   | styles (all prefixed `prw-`)                  |
 
 ## Known rough edges (v0.1)
 

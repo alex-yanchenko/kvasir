@@ -22,14 +22,8 @@
         "start": 1,
         "end": 18
       },
-      "highlight": [
-        "RATE_LIMIT_ENABLED",
-        "RATE_LIMIT_RPS"
-      ],
-      "suggestions": [
-        "Why default to disabled?",
-        "What are the default limits?"
-      ]
+      "highlight": ["RATE_LIMIT_ENABLED", "RATE_LIMIT_RPS"],
+      "suggestions": ["Why default to disabled?", "What are the default limits?"]
     },
     {
       "id": "token-bucket",
@@ -42,15 +36,8 @@
         "start": 22,
         "end": 54
       },
-      "highlight": [
-        "refill",
-        "Retry-After",
-        "429"
-      ],
-      "suggestions": [
-        "How is the refill computed between requests?",
-        "What happens under a burst?"
-      ]
+      "highlight": ["refill", "Retry-After", "429"],
+      "suggestions": ["How is the refill computed between requests?", "What happens under a burst?"]
     },
     {
       "id": "keying",
@@ -63,14 +50,8 @@
         "start": 56,
         "end": 70
       },
-      "highlight": [
-        "clientId",
-        "req.ip"
-      ],
-      "suggestions": [
-        "Why fall back to IP?",
-        "Could two clients share a key?"
-      ]
+      "highlight": ["clientId", "req.ip"],
+      "suggestions": ["Why fall back to IP?", "Could two clients share a key?"]
     },
     {
       "id": "fail-open",
@@ -83,14 +64,8 @@
         "start": 72,
         "end": 84
       },
-      "highlight": [
-        "catch",
-        "next()"
-      ],
-      "suggestions": [
-        "Why fail open here?",
-        "Is the failure observable?"
-      ]
+      "highlight": ["catch", "next()"],
+      "suggestions": ["Why fail open here?", "Is the failure observable?"]
     },
     {
       "id": "tests",
@@ -103,14 +78,8 @@
         "start": 1,
         "end": 60
       },
-      "highlight": [
-        "expect(",
-        "429"
-      ],
-      "suggestions": [
-        "Is the refill timing tested deterministically?",
-        "What isn't covered yet?"
-      ]
+      "highlight": ["expect(", "429"],
+      "suggestions": ["Is the refill timing tested deterministically?", "What isn't covered yet?"]
     }
   ]
 }

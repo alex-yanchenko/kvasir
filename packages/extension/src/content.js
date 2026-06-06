@@ -11,11 +11,17 @@
     new Promise((resolve) => {
       // If the extension was reloaded, this content script is orphaned — fail
       // quietly instead of throwing "Extension context invalidated".
-      if (!chrome.runtime?.id) { resolve({ ok: false, error: "extension reloaded — refresh the page" }); return; }
+      if (!chrome.runtime?.id) {
+        resolve({ ok: false, error: "extension reloaded — refresh the page" });
+        return;
+      }
       try {
         chrome.runtime.sendMessage({ path, method, body }, (r) => {
           const err = chrome.runtime?.lastError; // optional — runtime may be gone by now
-          if (err) { resolve({ ok: false, error: err.message }); return; }
+          if (err) {
+            resolve({ ok: false, error: err.message });
+            return;
+          }
           resolve(r || { ok: false, error: "no response" });
         });
       } catch (e) {
@@ -31,9 +37,28 @@
   const onFilesTab = () => /\/pull\/\d+\/(files|changes)/.test(location.href);
 
   // ── persistence (per-PR; survives refresh and browser restart) ───────────────
-  const storeGet = (k) => new Promise((res) => { try { chrome.storage?.local?.get(k, (o) => res(o?.[k])); } catch { res(undefined); } });
-  const storeSet = (k, v) => { try { chrome.storage?.local?.set({ [k]: v }); } catch { /* ignore */ } };
-  const storeRemove = (k) => { try { chrome.storage?.local?.remove(k); } catch { /* ignore */ } };
+  const storeGet = (k) =>
+    new Promise((res) => {
+      try {
+        chrome.storage?.local?.get(k, (o) => res(o?.[k]));
+      } catch {
+        res(undefined);
+      }
+    });
+  const storeSet = (k, v) => {
+    try {
+      chrome.storage?.local?.set({ [k]: v });
+    } catch {
+      /* ignore */
+    }
+  };
+  const storeRemove = (k) => {
+    try {
+      chrome.storage?.local?.remove(k);
+    } catch {
+      /* ignore */
+    }
+  };
   const chatsKey = (pr) => `prw:chats:${pr || prUrl()}`;
   const specKey = (pr) => `prw:spec:${pr || prUrl()}`;
   const tourKey = (pr) => `prw:tour:${pr || prUrl()}`;
@@ -56,8 +81,7 @@
   // Minimal, safe markdown → HTML for assistant messages. Escapes first (no raw
   // HTML from the model), then renders fenced code blocks, inline code, bold, and
   // paragraph/line breaks. Deliberately tiny — no external lib.
-  const escapeHtml = (s) =>
-    (s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const escapeHtml = (s) => (s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   function renderMarkdown(src) {
     let s = escapeHtml(src);
     const blocks = [];
@@ -73,7 +97,9 @@
       .split(/\n{2,}/)
       .map((p) => (p.trim() ? `<p>${p.replace(/\n/g, "<br>")}</p>` : ""))
       .join("");
-    return s.replace(/<p>\u0000B(\d+)\u0000<\/p>/g, (_m, i) => blocks[+i]).replace(/\u0000B(\d+)\u0000/g, (_m, i) => blocks[+i]);
+    return s
+      .replace(/<p>\u0000B(\d+)\u0000<\/p>/g, (_m, i) => blocks[+i])
+      .replace(/\u0000B(\d+)\u0000/g, (_m, i) => blocks[+i]);
   }
 
   // Allowlist-sanitize spec HTML (step body/detail). The spec is authored by the
@@ -81,7 +107,20 @@
   // session into emitting hostile markup — so keep only inline formatting tags and
   // strip every attribute (no on*, href, src, style). Parsing happens in an inert
   // <template>, so nothing loads or executes while sanitizing.
-  const SPEC_ALLOWED = new Set(["B", "I", "EM", "STRONG", "CODE", "BR", "P", "UL", "OL", "LI", "SPAN", "DIV"]);
+  const SPEC_ALLOWED = new Set([
+    "B",
+    "I",
+    "EM",
+    "STRONG",
+    "CODE",
+    "BR",
+    "P",
+    "UL",
+    "OL",
+    "LI",
+    "SPAN",
+    "DIV",
+  ]);
   function sanitizeSpecHtml(html) {
     const t = document.createElement("template");
     t.innerHTML = String(html ?? "");
@@ -102,7 +141,10 @@
     const lblId = cont.getAttribute("aria-labelledby");
     const heading = lblId && document.getElementById(lblId);
     if (heading) {
-      const t = heading.textContent.replace(/‎/g, "").replace(/^Collapse file/i, "").trim();
+      const t = heading.textContent
+        .replace(/‎/g, "")
+        .replace(/^Collapse file/i, "")
+        .trim();
       if (t) return t;
     }
     const al = cont.querySelector("table[aria-label]")?.getAttribute("aria-label");
@@ -120,11 +162,15 @@
   // Tiny to send and lets the model locate (and read around) the exact lines itself.
   function lineRangeOf(container, range) {
     if (!container) return null;
-    let lo = Infinity, hi = -Infinity;
+    let lo = Infinity,
+      hi = -Infinity;
     for (const cell of container.querySelectorAll("td.diff-text-cell[data-line-number]")) {
       if (range.intersectsNode(cell)) {
         const n = Number(cell.getAttribute("data-line-number"));
-        if (n) { lo = Math.min(lo, n); hi = Math.max(hi, n); }
+        if (n) {
+          lo = Math.min(lo, n);
+          hi = Math.max(hi, n);
+        }
       }
     }
     return hi >= lo ? { start: lo, end: hi } : null;
@@ -135,8 +181,12 @@
   let theme = localStorage.getItem("prwTheme") || "auto"; // "auto" | "light" | "dark"
   // "auto" is resolved in CSS via @media (prefers-color-scheme); just reflect the
   // raw choice onto the body and let the stylesheet pick the palette.
-  const applyTheme = () => { document.body.dataset.prwTheme = theme; };
-  const applyHl = () => { document.body.dataset.prwHl = hlStyle; };
+  const applyTheme = () => {
+    document.body.dataset.prwTheme = theme;
+  };
+  const applyHl = () => {
+    document.body.dataset.prwHl = hlStyle;
+  };
 
   // ── per-step code highlight (data-line-number based; no fragile geometry) ─────
   const clearHL = () =>
@@ -161,22 +211,37 @@
     const rows = [];
     if (step.lines) {
       const { start, end } = step.lines;
-      for (let n = start; n <= end; n++) { const r = rowForLine(cont, n); if (r && !rows.includes(r)) rows.push(r); }
+      for (let n = start; n <= end; n++) {
+        const r = rowForLine(cont, n);
+        if (r && !rows.includes(r)) rows.push(r);
+      }
     }
     if (!rows.length && Array.isArray(step.highlight)) {
-      step.highlight.forEach((t) => { const r = rowForText(cont, t); if (r && !rows.includes(r)) rows.push(r); });
+      step.highlight.forEach((t) => {
+        const r = rowForText(cont, t);
+        if (r && !rows.includes(r)) rows.push(r);
+      });
     }
     rows.forEach((r) => r.classList.add("prw-line"));
     return rows;
   }
 
   // ── fast tooltips (native title waits ~1s; this shows in ~120ms) ─────────────
-  let tipEl = null, tipTimer = null;
-  function hideTip() { clearTimeout(tipTimer); tipTimer = null; if (tipEl) tipEl.style.display = "none"; }
+  let tipEl = null,
+    tipTimer = null;
+  function hideTip() {
+    clearTimeout(tipTimer);
+    tipTimer = null;
+    if (tipEl) tipEl.style.display = "none";
+  }
   function showTip(target) {
     const text = target.getAttribute("data-prw-tip");
     if (!text) return;
-    if (!tipEl) { tipEl = document.createElement("div"); tipEl.className = "prw-tip"; document.body.appendChild(tipEl); }
+    if (!tipEl) {
+      tipEl = document.createElement("div");
+      tipEl.className = "prw-tip";
+      document.body.appendChild(tipEl);
+    }
     tipEl.textContent = text;
     tipEl.style.display = "block";
     const r = target.getBoundingClientRect();
@@ -193,7 +258,9 @@
     clearTimeout(tipTimer);
     tipTimer = setTimeout(() => showTip(t), 350);
   });
-  document.addEventListener("mouseout", (e) => { if (e.target.closest?.("[data-prw-tip]")) hideTip(); });
+  document.addEventListener("mouseout", (e) => {
+    if (e.target.closest?.("[data-prw-tip]")) hideTip();
+  });
   document.addEventListener("mousedown", hideTip, true);
 
   // ── tour overlay ─────────────────────────────────────────────────────────────
@@ -202,7 +269,8 @@
   let card = null;
   let moved = false; // becomes true once the user drags the card
   let pointerOverFooter = false; // is the cursor over the button row right now?
-  let cardRO = null, cardROTimer = null; // observe + persist the tour card's size
+  let cardRO = null,
+    cardROTimer = null; // observe + persist the tour card's size
   let activeStep = null; // the step currently shown (for step-scoped chat context)
 
   function ensureCard() {
@@ -212,8 +280,12 @@
     document.body.appendChild(card);
     // Track whether the pointer is over the footer (buttons), which decides the
     // resize anchor when the step changes.
-    card.addEventListener("mousemove", (e) => { pointerOverFooter = !!e.target.closest(".prw-foot"); });
-    card.addEventListener("mouseleave", () => { pointerOverFooter = false; });
+    card.addEventListener("mousemove", (e) => {
+      pointerOverFooter = !!e.target.closest(".prw-foot");
+    });
+    card.addEventListener("mouseleave", () => {
+      pointerOverFooter = false;
+    });
     cardRO = new ResizeObserver(() => {
       if (!card) return;
       tourState.size = { w: card.offsetWidth, h: card.offsetHeight };
@@ -225,7 +297,9 @@
 
   function resetCardPos() {
     // Clear inline positioning so the CSS bottom-right corner applies again.
-    ["left", "top", "right", "bottom"].forEach((p) => { card.style[p] = ""; });
+    ["left", "top", "right", "bottom"].forEach((p) => {
+      card.style[p] = "";
+    });
   }
 
   function renderCard() {
@@ -267,17 +341,26 @@
       openChat(session, sel2.rect);
     };
     const more = card.querySelector("#prw-more");
-    if (more) more.onclick = () => {
-      const d = card.querySelector("#prw-detail");
-      const open = d.hidden;
-      d.hidden = !open;
-      more.textContent = open ? "Hide details ▴" : "Show details ▾";
-    };
+    if (more)
+      more.onclick = () => {
+        const d = card.querySelector("#prw-detail");
+        const open = d.hidden;
+        d.hidden = !open;
+        more.textContent = open ? "Hide details ▴" : "Show details ▾";
+      };
     const back = card.querySelector("#prw-back");
     back.style.opacity = stepIdx === 0 ? "0.4" : "1";
-    back.onclick = () => { if (stepIdx > 0) { stepIdx--; gotoStep(); } };
+    back.onclick = () => {
+      if (stepIdx > 0) {
+        stepIdx--;
+        gotoStep();
+      }
+    };
     card.querySelector("#prw-next").onclick = () => {
-      if (stepIdx < spec.steps.length - 1) { stepIdx++; gotoStep(); } else closeTour();
+      if (stepIdx < spec.steps.length - 1) {
+        stepIdx++;
+        gotoStep();
+      } else closeTour();
     };
     makeDraggable(card.querySelector(".prw-head"));
 
@@ -298,7 +381,8 @@
       if (e.target.closest(".prw-x")) return;
       e.preventDefault();
       const r = card.getBoundingClientRect();
-      const ox = e.clientX - r.left, oy = e.clientY - r.top;
+      const ox = e.clientX - r.left,
+        oy = e.clientY - r.top;
       handle.style.cursor = "grabbing";
       const move = (ev) => {
         moved = true;
@@ -311,7 +395,11 @@
         handle.style.cursor = "grab";
         document.removeEventListener("mousemove", move);
         document.removeEventListener("mouseup", up);
-        if (card) { const b = card.getBoundingClientRect(); tourState.pos = { left: b.left, top: b.top }; saveTour(); }
+        if (card) {
+          const b = card.getBoundingClientRect();
+          tourState.pos = { left: b.left, top: b.top };
+          saveTour();
+        }
       };
       document.addEventListener("mousemove", move);
       document.addEventListener("mouseup", up);
@@ -354,8 +442,17 @@
     stepIdx = Math.min(Math.max(tourState.step || 0, 0), spec.steps.length - 1); // resume where you left off
     moved = false;
     resetCardPos();
-    if (tourState.pos) { card.style.left = `${tourState.pos.left}px`; card.style.top = `${tourState.pos.top}px`; card.style.right = "auto"; card.style.bottom = "auto"; moved = true; }
-    if (tourState.size) { card.style.width = `${tourState.size.w}px`; card.style.height = `${tourState.size.h}px`; }
+    if (tourState.pos) {
+      card.style.left = `${tourState.pos.left}px`;
+      card.style.top = `${tourState.pos.top}px`;
+      card.style.right = "auto";
+      card.style.bottom = "auto";
+      moved = true;
+    }
+    if (tourState.size) {
+      card.style.width = `${tourState.size.w}px`;
+      card.style.height = `${tourState.size.h}px`;
+    }
     gotoStep();
     document.addEventListener("keydown", tourKeys);
   }
@@ -365,14 +462,23 @@
     const meta = e.metaKey || e.ctrlKey; // Cmd on macOS, Ctrl elsewhere
     const next = e.key === "ArrowRight" || (meta && e.key === "End");
     const prev = e.key === "ArrowLeft" || (meta && e.key === "Home");
-    if (next && stepIdx < spec.steps.length - 1) { e.preventDefault(); stepIdx++; gotoStep(); }
-    else if (prev && stepIdx > 0) { e.preventDefault(); stepIdx--; gotoStep(); }
-    else if (e.key === "Escape") closeTour();
+    if (next && stepIdx < spec.steps.length - 1) {
+      e.preventDefault();
+      stepIdx++;
+      gotoStep();
+    } else if (prev && stepIdx > 0) {
+      e.preventDefault();
+      stepIdx--;
+      gotoStep();
+    } else if (e.key === "Escape") closeTour();
   }
 
   function closeTour() {
     clearHL();
-    if (cardRO) { cardRO.disconnect(); cardRO = null; }
+    if (cardRO) {
+      cardRO.disconnect();
+      cardRO = null;
+    }
     card?.remove();
     card = null;
     moved = false;
@@ -384,7 +490,11 @@
   // Compact text of the current step — passed to chat so answers are framed by it.
   function stepContext() {
     if (!activeStep) return "";
-    const strip = (h) => (h || "").replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
+    const strip = (h) =>
+      (h || "")
+        .replace(/<[^>]+>/g, "")
+        .replace(/\s+/g, " ")
+        .trim();
     const where = activeStep.file
       ? ` (${activeStep.file}${activeStep.lines ? `:${activeStep.lines.start}-${activeStep.lines.end}` : ""})`
       : "";
@@ -395,28 +505,39 @@
     if (!activeStep) return null;
     const container = document.getElementById(activeStep.anchor);
     const stepRows =
-      container && activeStep.lines ? rowsInRange(container, activeStep.lines.start, activeStep.lines.end) : [];
+      container && activeStep.lines
+        ? rowsInRange(container, activeStep.lines.start, activeStep.lines.end)
+        : [];
     let text = stepRows.length ? codeForRows(stepRows) : "";
-    if (!text) text = (activeStep.highlight || []).join("\n") || (activeStep.body || "").replace(/<[^>]+>/g, "").slice(0, 1000);
+    if (!text)
+      text =
+        (activeStep.highlight || []).join("\n") ||
+        (activeStep.body || "").replace(/<[^>]+>/g, "").slice(0, 1000);
     const rect = stepRows.length ? rowRect(stepRows[0]) : { left: 60, top: 90, bottom: 114, height: 24 };
     return { text, file: activeStep.file, container, lines: activeStep.lines, rect };
   }
 
   // ── selection → inline chat ─────────────────────────────────────────────────
   let pill = null;
-  let chat = null;          // the open chat element (one at a time)
+  let chat = null; // the open chat element (one at a time)
   let activeSession = null; // session backing the open chat
-  const chatHistory = [];   // session objects, most recent first
-  let chatsBtn = null;      // persistent launcher to reopen past chats
-  let chatsList = null;     // open history popover
-  let chatRO = null, roTimer = null; // observe + persist the chat's size
+  const chatHistory = []; // session objects, most recent first
+  let chatsBtn = null; // persistent launcher to reopen past chats
+  let chatsList = null; // open history popover
+  let chatRO = null,
+    roTimer = null; // observe + persist the chat's size
 
-  function clearPill() { pill?.remove(); pill = null; }
+  function clearPill() {
+    pill?.remove();
+    pill = null;
+  }
 
   // A chat session holds everything needed to live on after GitHub offloads the
   // code it came from: the selection text + file:lines, the AI suggestions, and
   // the full transcript. So a chat keeps working even when its diff rows are gone.
-  function sessionKey(s) { return s.file + "::" + s.text.slice(0, 200); }
+  function sessionKey(s) {
+    return s.file + "::" + s.text.slice(0, 200);
+  }
   function startSession(s) {
     const key = sessionKey(s);
     let sess = chatHistory.find((c) => c.key === key);
@@ -433,17 +554,14 @@
   // through the main session), so we start it on pill hover and reuse the result,
   // overlapping the wait with the user reading the instant quick actions.
   const suggestCache = new Map();
-  let suggestPending = false; // at most one background fetch at a time (one session)
   function prefetchSuggest(s) {
     const key = s.file + "::" + s.text.slice(0, 200);
     if (!suggestCache.has(key)) {
-      suggestPending = true;
       suggestCache.set(
         key,
         api("/suggest", "POST", { pr: prUrl(), file: s.file, selection: s.text.slice(0, 6000) })
           .then((r) => (r.ok && r.data?.suggestions) || [])
-          .catch(() => [])
-          .finally(() => { suggestPending = false; }),
+          .catch(() => []),
       );
     }
     return suggestCache.get(key);
@@ -458,21 +576,34 @@
     const container = diffContainerOf(range.startContainer);
     const file = filePathFromContainer(container);
     if (!file) return null;
-    return { text, file, container, lines: lineRangeOf(container, range), rect: range.getBoundingClientRect() };
+    return {
+      text,
+      file,
+      container,
+      lines: lineRangeOf(container, range),
+      rect: range.getBoundingClientRect(),
+    };
   }
 
   document.addEventListener("mouseup", () => {
     setTimeout(() => {
       if (chat) return; // don't fight an open chat
       const s = captureSelection();
-      if (!s) { clearPill(); return; }
+      if (!s) {
+        clearPill();
+        return;
+      }
       clearPill();
       pill = document.createElement("button");
       pill.className = "prw-pill";
       pill.textContent = "Ask about this";
       pill.style.top = `${window.scrollY + s.rect.bottom + 6}px`;
       pill.style.left = `${window.scrollX + s.rect.left}px`;
-      pill.onmousedown = (e) => { e.preventDefault(); openChat(startSession(s), s.rect); clearPill(); };
+      pill.onmousedown = (e) => {
+        e.preventDefault();
+        openChat(startSession(s), s.rect);
+        clearPill();
+      };
       document.body.appendChild(pill);
     }, 10);
   });
@@ -481,9 +612,17 @@
   document.addEventListener("keydown", (e) => {
     const meta = e.metaKey || e.ctrlKey;
     if (meta && (e.key === "k" || e.key === "K")) {
-      if (chat) { e.preventDefault(); chat.querySelector(".prw-chat-input")?.focus(); return; }
+      if (chat) {
+        e.preventDefault();
+        chat.querySelector(".prw-chat-input")?.focus();
+        return;
+      }
       const s = captureSelection();
-      if (s) { e.preventDefault(); clearPill(); openChat(startSession(s), s.rect); }
+      if (s) {
+        e.preventDefault();
+        clearPill();
+        openChat(startSession(s), s.rect);
+      }
     }
   });
 
@@ -492,11 +631,11 @@
   // drag it = select a range — both only SELECT (highlight). Then a chat icon
   // appears at the selection; click it to ask. No text selection, so GitHub's own
   // (buggy) line selection never triggers; clean code is rebuilt from the rows.
-  let grip = null;      // hover handle that initiates selection
-  let askBtn = null;    // chat icon shown after a selection
+  let grip = null; // hover handle that initiates selection
+  let askBtn = null; // chat icon shown after a selection
   let hoverInfo = null; // { row, line, container }
-  let picking = false;  // true while a drag-select is in progress
-  let sel = null;       // current selection { container, rows: [tr...] }
+  let picking = false; // true while a drag-select is in progress
+  let sel = null; // current selection { container, rows: [tr...] }
 
   const lineOfRow = (row) => {
     const c = row.querySelector("td.diff-text-cell[data-line-number]");
@@ -515,7 +654,8 @@
   };
   function rowsBetween(container, rowA, rowB) {
     const all = rowsOf(container);
-    let i = all.indexOf(rowA), j = all.indexOf(rowB);
+    let i = all.indexOf(rowA),
+      j = all.indexOf(rowB);
     if (i < 0 || j < 0) return [];
     if (i > j) [i, j] = [j, i];
     return all.slice(i, j + 1);
@@ -524,16 +664,22 @@
   // step ranges (the generator emits new-side numbers).
   function rowsInRange(container, start, end) {
     if (!container) return [];
-    const lo = Math.min(start, end), hi = Math.max(start, end);
-    return rowsOf(container).filter((r) => { const n = lineOfRow(r); return n != null && n >= lo && n <= hi; });
+    const lo = Math.min(start, end),
+      hi = Math.max(start, end);
+    return rowsOf(container).filter((r) => {
+      const n = lineOfRow(r);
+      return n != null && n >= lo && n <= hi;
+    });
   }
-  const clearPick = () => document.querySelectorAll("tr.prw-pick").forEach((r) => r.classList.remove("prw-pick"));
+  const clearPick = () =>
+    document.querySelectorAll("tr.prw-pick").forEach((r) => r.classList.remove("prw-pick"));
   function highlightRows(rows) {
     clearPick();
     rows.forEach((r) => r.classList.add("prw-pick"));
   }
   const codeForRows = (rows) => rows.map(cleanLine).join("\n");
-  const rowRect = (row) => (row ? row.getBoundingClientRect() : { left: 60, top: 90, bottom: 114, height: 24 });
+  const rowRect = (row) =>
+    row ? row.getBoundingClientRect() : { left: 60, top: 90, bottom: 114, height: 24 };
   // Find a file's diff container by its path (for re-highlighting a reopened chat).
   function containerForFile(file) {
     if (!file) return null;
@@ -545,7 +691,7 @@
   // Re-paint a stored selection by matching its code text against the live rows —
   // side-agnostic, so it works for added, deleted, or mixed selections.
   function rehighlightSession(s) {
-    const container = (s.container && s.container.isConnected) ? s.container : containerForFile(s.file);
+    const container = s.container && s.container.isConnected ? s.container : containerForFile(s.file);
     if (!container || !s.text) return;
     s.container = container;
     const want = s.text.split("\n");
@@ -553,9 +699,15 @@
     for (let i = 0; i + want.length <= rows.length; i++) {
       let ok = true;
       for (let k = 0; k < want.length; k++) {
-        if (cleanLine(rows[i + k]) !== want[k]) { ok = false; break; }
+        if (cleanLine(rows[i + k]) !== want[k]) {
+          ok = false;
+          break;
+        }
       }
-      if (ok) { highlightRows(rows.slice(i, i + want.length)); return; }
+      if (ok) {
+        highlightRows(rows.slice(i, i + want.length));
+        return;
+      }
     }
   }
   function clearSel() {
@@ -584,12 +736,10 @@
     document.body.appendChild(askBtn);
   }
   const BUBBLE = '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>';
-  const PLUS = '<path d="M12 8.5v3M10.5 10h3"/>';
   const COPY = '<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/>';
   const CHECK = '<path d="M4 12l5 5L20 6"/>';
   const REGEN = '<path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/>';
   const LOCATE = '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>';
-  const CODE = '<path d="M8 8l-4 4 4 4M16 8l4 4-4 4"/>';
   const svgIcon = (inner) =>
     `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${inner}</svg>`;
   function showGripAt(row, container, line) {
@@ -632,7 +782,8 @@
     if (!file || !text) return;
     if (askBtn) askBtn.style.display = "none";
     const rect = rowRect(rows[0]);
-    const a = lineOfRow(rows[0]), b = lineOfRow(rows[rows.length - 1]);
+    const a = lineOfRow(rows[0]),
+      b = lineOfRow(rows[rows.length - 1]);
     const lines = a != null && b != null ? { start: Math.min(a, b), end: Math.max(a, b) } : null;
     const session = startSession({ text, file, container, lines, rect });
     if (withStep) session.step = stepContext();
@@ -650,14 +801,24 @@
     // Resolve the target row by GEOMETRY, not hit-testing: GitHub's rows let clicks
     // on whitespace fall through to a wrapper div, so elementFromPoint is unreliable.
     // Snapshot each row's vertical band once, then map the cursor's Y onto a row.
-    const bands = rowsOf(container).map((r) => { const b = r.getBoundingClientRect(); return { r, top: b.top, bottom: b.bottom }; });
+    const bands = rowsOf(container).map((r) => {
+      const b = r.getBoundingClientRect();
+      return { r, top: b.top, bottom: b.bottom };
+    });
     const rowAtY = (y) => {
       if (!bands.length) return startRow;
       if (y <= bands[0].top) return bands[0].r;
       if (y >= bands[bands.length - 1].bottom) return bands[bands.length - 1].r;
       for (const band of bands) if (y >= band.top && y <= band.bottom) return band.r;
-      let best = bands[0], bd = Infinity; // y fell in a gap — pick the nearest row
-      for (const band of bands) { const d = Math.abs((band.top + band.bottom) / 2 - y); if (d < bd) { bd = d; best = band.r; } }
+      let best = bands[0],
+        bd = Infinity; // y fell in a gap — pick the nearest row
+      for (const band of bands) {
+        const d = Math.abs((band.top + band.bottom) / 2 - y);
+        if (d < bd) {
+          bd = d;
+          best = band.r;
+        }
+      }
       return best.r;
     };
     picking = true;
@@ -707,8 +868,13 @@
     const steps = Array.isArray(spec.steps)
       ? spec.steps
           .map((st) => {
-            const where = st.file ? ` (${st.file}${st.lines ? `:${st.lines.start}-${st.lines.end}` : ""})` : "";
-            const body = (st.body || "").replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
+            const where = st.file
+              ? ` (${st.file}${st.lines ? `:${st.lines.start}-${st.lines.end}` : ""})`
+              : "";
+            const body = (st.body || "")
+              .replace(/<[^>]+>/g, "")
+              .replace(/\s+/g, " ")
+              .trim();
             return `• ${st.title}${where}\n  ${body}`;
           })
           .join("\n")
@@ -718,10 +884,16 @@
 
   const QUICK = [
     { label: "Explain", q: "Explain what this code does." },
-    { label: "Why this approach?", q: "Why might it be written this way, and what are the trade-offs vs. alternatives?" },
+    {
+      label: "Why this approach?",
+      q: "Why might it be written this way, and what are the trade-offs vs. alternatives?",
+    },
     { label: "Bugs & edge cases", q: "Any bugs, edge cases, or risks in this code?" },
     { label: "How's it tested?", q: "How is this covered by tests, and what's missing?" },
-    { label: "Draft review comment", q: "Draft a concise, constructive GitHub PR review comment about this code." },
+    {
+      label: "Draft review comment",
+      q: "Draft a concise, constructive GitHub PR review comment about this code.",
+    },
   ];
 
   function openChat(session, anchorRect) {
@@ -729,7 +901,9 @@
     activeSession = session;
     const s = session;
     rehighlightSession(s); // re-paint the selected rows (matches by code text, side-agnostic)
-    const lineLabel = s.lines ? `:${s.lines.start}${s.lines.end !== s.lines.start ? "-" + s.lines.end : ""}` : "";
+    const lineLabel = s.lines
+      ? `:${s.lines.start}${s.lines.end !== s.lines.start ? "-" + s.lines.end : ""}`
+      : "";
 
     chat = document.createElement("div");
     chat.className = "prw-chat";
@@ -754,14 +928,20 @@
     fileEl.title = s.file + lineLabel;
 
     // Position: where you left it last, else below the selection, else a default.
-    const W = 420, M = 10;
+    const W = 420,
+      M = 10;
     let left, top;
-    if (s.pos) { left = s.pos.left; top = s.pos.top; }
-    else if (anchorRect) {
+    if (s.pos) {
+      left = s.pos.left;
+      top = s.pos.top;
+    } else if (anchorRect) {
       left = Math.min(anchorRect.left, window.innerWidth - W - M);
       top = anchorRect.bottom + 8;
       if (top + 360 > window.innerHeight) top = Math.max(M, anchorRect.top - 360 - 8);
-    } else { left = 40; top = 90; }
+    } else {
+      left = 40;
+      top = 90;
+    }
     // Keep clear of the walkthrough card (bottom-right) — slide left of it. Skip
     // if the user already placed this chat themselves (s.pos).
     if (!s.pos) {
@@ -770,7 +950,10 @@
     }
     chat.style.left = `${Math.max(M, left)}px`;
     chat.style.top = `${Math.max(M, top)}px`;
-    if (s.size) { chat.style.width = `${s.size.w}px`; chat.style.height = `${s.size.h}px`; } // restore resized size
+    if (s.size) {
+      chat.style.width = `${s.size.w}px`;
+      chat.style.height = `${s.size.h}px`;
+    } // restore resized size
     // Persist size on any resize so it survives a plain refresh (not just close).
     if (chatRO) chatRO.disconnect();
     chatRO = new ResizeObserver(() => {
@@ -798,10 +981,14 @@
       // click-away-to-close. Self-removes once this chat is detached.
       const cb = document.createElement("details");
       cb.className = "prw-ctxbanner";
-      cb.innerHTML = '<summary class="prw-ctxbanner-h">ⓘ Includes this step’s context</summary><div class="prw-ctxbanner-b"></div>';
+      cb.innerHTML =
+        '<summary class="prw-ctxbanner-h">ⓘ Includes this step’s context</summary><div class="prw-ctxbanner-b"></div>';
       cb.querySelector(".prw-ctxbanner-b").textContent = session.step;
       const awayClose = (e) => {
-        if (!cb.isConnected) { document.removeEventListener("mousedown", awayClose, true); return; }
+        if (!cb.isConnected) {
+          document.removeEventListener("mousedown", awayClose, true);
+          return;
+        }
         if (cb.open && !cb.contains(e.target)) cb.open = false;
       };
       document.addEventListener("mousedown", awayClose, true);
@@ -917,7 +1104,10 @@
       btn.innerHTML = svgIcon(CHECK);
       btn.classList.add("prw-ok");
       clearTimeout(btn._okT);
-      btn._okT = setTimeout(() => { btn.innerHTML = prev; btn.classList.remove("prw-ok"); }, 1200);
+      btn._okT = setTimeout(() => {
+        btn.innerHTML = prev;
+        btn.classList.remove("prw-ok");
+      }, 1200);
     }
     // Render an assistant message as formatted HTML and stash the raw text (for copy).
     // Each code block gets its own corner copy button, so multi-block answers are
@@ -934,7 +1124,10 @@
         b.setAttribute("data-prw-tip", "Copy code");
         b.setAttribute("aria-label", "Copy code");
         b.innerHTML = svgIcon(COPY);
-        b.onclick = () => { navigator.clipboard?.writeText(code.textContent); flashOk(b); };
+        b.onclick = () => {
+          navigator.clipboard?.writeText(code.textContent);
+          flashOk(b);
+        };
         pre.appendChild(b);
       });
     }
@@ -956,9 +1149,11 @@
 
     function friendlyError(r) {
       const e = (r.data && r.data.error) || r.error || "";
-      if (/timed out/i.test(e)) return "No response yet — the session may be busy or paused in your terminal.";
+      if (/timed out/i.test(e))
+        return "No response yet — the session may be busy or paused in your terminal.";
       if (/refresh the page/i.test(e)) return "Extension was reloaded — refresh the page, then retry.";
-      if (/fetch|reach|no response|network/i.test(e)) return "Can't reach the channel — is your Claude session running?";
+      if (/fetch|reach|no response|network/i.test(e))
+        return "Can't reach the channel — is your Claude session running?";
       return e ? `Something went wrong: ${e}` : "No answer came back.";
     }
     // Run the request into an existing assistant bubble. On failure, render a
@@ -971,9 +1166,15 @@
       if (actions) actions.style.display = "none";
       botEl.innerHTML = '<span class="prw-typing"><i></i><i></i><i></i></span>';
       const history =
-        typeof replaceIdx === "number" ? session.messages.slice(0, replaceIdx - 1) : session.messages.slice(0, -1);
+        typeof replaceIdx === "number"
+          ? session.messages.slice(0, replaceIdx - 1)
+          : session.messages.slice(0, -1);
       const r = await api("/ask", "POST", {
-        pr: prUrl(), file: s.file, lines: s.lines, selection: s.text.slice(0, 6000), question,
+        pr: prUrl(),
+        file: s.file,
+        lines: s.lines,
+        selection: s.text.slice(0, 6000),
+        question,
         review: reviewContext(), // distilled PR understanding, so a fresh session is grounded
         step: session.step, // present when the chat was opened from / scoped to a walkthrough step
         messages: history,
@@ -1026,8 +1227,22 @@
       if (m.role !== "user") span.closest(".prw-msg").dataset.mi = String(i);
     });
 
-    chat.querySelector("#prw-send").onclick = () => { const q = input.value.trim(); if (q) { input.value = ""; ask(q); } };
-    input.addEventListener("keydown", (e) => { if (e.key === "Enter") { const q = input.value.trim(); if (q) { input.value = ""; ask(q); } } });
+    chat.querySelector("#prw-send").onclick = () => {
+      const q = input.value.trim();
+      if (q) {
+        input.value = "";
+        ask(q);
+      }
+    };
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        const q = input.value.trim();
+        if (q) {
+          input.value = "";
+          ask(q);
+        }
+      }
+    });
     input.focus();
 
     // AI suggestions append below the fixed actions, in the same row style, with
@@ -1056,7 +1271,10 @@
 
   // Detach the chat window (shared by collapse and delete).
   function detachChat() {
-    if (chatRO) { chatRO.disconnect(); chatRO = null; }
+    if (chatRO) {
+      chatRO.disconnect();
+      chatRO = null;
+    }
     const c = chat;
     chat = null;
     activeSession = null;
@@ -1093,8 +1311,10 @@
     if (i >= 0) chatHistory.splice(i, 1);
     saveChats();
     if (!chatHistory.length) {
-      chatsBtn?.remove(); chatsBtn = null;
-      chatsList?.remove(); chatsList = null;
+      chatsBtn?.remove();
+      chatsBtn = null;
+      chatsList?.remove();
+      chatsList = null;
     } else {
       refreshChatsBtn();
     }
@@ -1117,7 +1337,11 @@
     chatsBtn.textContent = `Chats (${chatHistory.length})`;
   }
   function toggleChatsList() {
-    if (chatsList) { chatsList.remove(); chatsList = null; return; }
+    if (chatsList) {
+      chatsList.remove();
+      chatsList = null;
+      return;
+    }
     chatsList = document.createElement("div");
     chatsList.className = "prw-chats-list";
     chatHistory.forEach((sess) => {
@@ -1127,7 +1351,11 @@
       open.className = "prw-chats-item";
       open.textContent = chatSnippet(sess);
       open.title = chatSnippet(sess);
-      open.onclick = () => { chatsList.remove(); chatsList = null; openChat(sess, null); };
+      open.onclick = () => {
+        chatsList.remove();
+        chatsList = null;
+        openChat(sess, null);
+      };
       const del = document.createElement("button");
       del.className = "prw-chats-del";
       del.textContent = "×";
@@ -1147,8 +1375,10 @@
     clear.onclick = () => {
       chatHistory.length = 0;
       saveChats();
-      chatsList?.remove(); chatsList = null;
-      chatsBtn?.remove(); chatsBtn = null;
+      chatsList?.remove();
+      chatsList = null;
+      chatsBtn?.remove();
+      chatsBtn = null;
     };
     chatsList.appendChild(clear);
     document.body.appendChild(chatsList);
@@ -1163,13 +1393,22 @@
       document.body.classList.add("prw-noselect"); // don't let the drag trigger GitHub's text selection
       window.getSelection?.()?.removeAllRanges?.();
       const r = el.getBoundingClientRect();
-      const ox = e.clientX - r.left, oy = e.clientY - r.top;
-      const move = (ev) => { ev.preventDefault(); el.style.left = `${ev.clientX - ox}px`; el.style.top = `${ev.clientY - oy}px`; };
+      const ox = e.clientX - r.left,
+        oy = e.clientY - r.top;
+      const move = (ev) => {
+        ev.preventDefault();
+        el.style.left = `${ev.clientX - ox}px`;
+        el.style.top = `${ev.clientY - oy}px`;
+      };
       const up = () => {
         document.removeEventListener("mousemove", move);
         document.removeEventListener("mouseup", up);
         document.body.classList.remove("prw-noselect");
-        if (activeSession && el === chat) { const b = el.getBoundingClientRect(); activeSession.pos = { left: b.left, top: b.top }; saveChats(); }
+        if (activeSession && el === chat) {
+          const b = el.getBoundingClientRect();
+          activeSession.pos = { left: b.left, top: b.top };
+          saveChats();
+        }
       };
       document.addEventListener("mousemove", move);
       document.addEventListener("mouseup", up);
@@ -1177,7 +1416,8 @@
   }
 
   // ── settings gear (global; works with or without a review) ───────────────────
-  let gearBtn = null, settingsPop = null;
+  let gearBtn = null,
+    settingsPop = null;
   function ensureGearBtn() {
     if (gearBtn) return;
     gearBtn = document.createElement("button");
@@ -1190,7 +1430,11 @@
     document.body.appendChild(gearBtn);
   }
   function toggleSettings() {
-    if (settingsPop) { settingsPop.remove(); settingsPop = null; return; }
+    if (settingsPop) {
+      settingsPop.remove();
+      settingsPop = null;
+      return;
+    }
     settingsPop = document.createElement("div");
     settingsPop.className = "prw-settings-pop";
     settingsPop.innerHTML = `
@@ -1203,14 +1447,25 @@
     document.body.appendChild(settingsPop);
     const themeSel = settingsPop.querySelector("#prw-theme");
     themeSel.value = theme;
-    themeSel.onchange = () => { theme = themeSel.value; localStorage.setItem("prwTheme", theme); applyTheme(); };
+    themeSel.onchange = () => {
+      theme = themeSel.value;
+      localStorage.setItem("prwTheme", theme);
+      applyTheme();
+    };
     const styleSel = settingsPop.querySelector("#prw-style");
     styleSel.value = hlStyle;
-    styleSel.onchange = () => { hlStyle = styleSel.value; localStorage.setItem("prwHl", hlStyle); applyHl(); };
+    styleSel.onchange = () => {
+      hlStyle = styleSel.value;
+      localStorage.setItem("prwHl", hlStyle);
+      applyHl();
+    };
   }
 
   // ── launcher block (Run / Open / Regenerate) ─────────────────────────────────
-  let generating = false, newCommits = false, curHead = null, genPoll = null;
+  let generating = false,
+    newCommits = false,
+    curHead = null,
+    genPoll = null;
 
   function ensureLauncher() {
     let block = document.getElementById("prw-launch");
@@ -1241,18 +1496,25 @@
       dis.className = "prw-dismiss";
       dis.textContent = "dismiss";
       dis.title = "Stop watching — generation keeps running in your session; reopen later";
-      let armed = false, t = null;
+      let armed = false,
+        t = null;
       dis.onclick = (e) => {
         e.stopPropagation();
-        if (!armed) { // first click arms; reverts after a few seconds
+        if (!armed) {
+          // first click arms; reverts after a few seconds
           armed = true;
           dis.textContent = "click again to confirm";
           dis.classList.add("prw-dismiss-armed");
-          t = setTimeout(() => { armed = false; dis.textContent = "dismiss"; dis.classList.remove("prw-dismiss-armed"); }, 3000);
+          t = setTimeout(() => {
+            armed = false;
+            dis.textContent = "dismiss";
+            dis.classList.remove("prw-dismiss-armed");
+          }, 3000);
           return;
         }
         clearTimeout(t);
-        clearInterval(genPoll); genPoll = null;
+        clearInterval(genPoll);
+        genPoll = null;
         storeRemove(genKey(pr));
         generating = false;
         renderLauncher(pr);
@@ -1264,7 +1526,9 @@
     if (spec) {
       addBtn(`▶ Open review (${spec.steps.length})`, "", () => startTour());
       // Regenerate is always available; emphasized when there are new commits.
-      addBtn(newCommits ? "⟳ Update" : "⟳ Regenerate", "prw-ghost" + (newCommits ? " prw-attn" : ""), () => openRegenDialog(pr));
+      addBtn(newCommits ? "⟳ Update" : "⟳ Regenerate", "prw-ghost" + (newCommits ? " prw-attn" : ""), () =>
+        openRegenDialog(pr),
+      );
     } else {
       addBtn("▶ Run review", "", () => requestGenerate(pr, "new"));
     }
@@ -1284,14 +1548,23 @@
       const r = await api(`/walkthrough?pr=${encodeURIComponent(pr)}`);
       const got = r.ok && r.data && r.data.version === 1 ? r.data : null;
       if (got && specSig(got) !== prevSig) {
-        clearInterval(genPoll); genPoll = null;
-        spec = got; storeSet(specKey(pr), got); storeRemove(genKey(pr));
-        tourState = { step: 0, pos: null, size: null }; saveTour(); // fresh review → reset position + step
+        clearInterval(genPoll);
+        genPoll = null;
+        spec = got;
+        storeSet(specKey(pr), got);
+        storeRemove(genKey(pr));
+        tourState = { step: 0, pos: null, size: null };
+        saveTour(); // fresh review → reset position + step
         newCommits = !!(curHead && got.pr?.headSha && got.pr.headSha !== curHead);
-        generating = false; renderLauncher(pr);
-      } else if (tries > 80) { // ~4 min safety stop
-        clearInterval(genPoll); genPoll = null; storeRemove(genKey(pr));
-        generating = false; renderLauncher(pr);
+        generating = false;
+        renderLauncher(pr);
+      } else if (tries > 80) {
+        // ~4 min safety stop
+        clearInterval(genPoll);
+        genPoll = null;
+        storeRemove(genKey(pr));
+        generating = false;
+        renderLauncher(pr);
       }
     }, 3000);
   }
@@ -1320,17 +1593,25 @@
       const b = document.createElement("button");
       b.className = "prw-dialog-opt";
       b.innerHTML = `<b>${label}</b><span>${desc}</span>`;
-      b.onclick = () => { close(); fn(); };
+      b.onclick = () => {
+        close();
+        fn();
+      };
       box.appendChild(b);
     };
-    if (newCommits) opt("Incremental update", "Add steps covering only what changed since the last review.", () => requestGenerate(pr, "incremental", spec?.pr?.headSha));
+    if (newCommits)
+      opt("Incremental update", "Add steps covering only what changed since the last review.", () =>
+        requestGenerate(pr, "incremental", spec?.pr?.headSha),
+      );
     opt("Regenerate as new", "Rebuild the whole walkthrough from scratch.", () => requestGenerate(pr, "new"));
     const cancel = document.createElement("button");
     cancel.className = "prw-dialog-cancel";
     cancel.textContent = "Cancel";
     cancel.onclick = close;
     box.appendChild(cancel);
-    back.onclick = (e) => { if (e.target === back) close(); };
+    back.onclick = (e) => {
+      if (e.target === back) close();
+    };
     back.appendChild(box);
     document.body.appendChild(back);
   }
@@ -1340,24 +1621,34 @@
     if (!pr) return;
     let data = null;
     const r = await api(`/walkthrough?pr=${encodeURIComponent(pr)}`);
-    if (r.ok && r.data && r.data.version === 1) { data = r.data; storeSet(specKey(pr), data); } // cache fresh spec
-    else { const cached = await storeGet(specKey(pr)); if (cached && cached.version === 1) data = cached; } // fall back to cache
+    if (r.ok && r.data && r.data.version === 1) {
+      data = r.data;
+      storeSet(specKey(pr), data);
+    } // cache fresh spec
+    else {
+      const cached = await storeGet(specKey(pr));
+      if (cached && cached.version === 1) data = cached;
+    } // fall back to cache
     spec = data || null;
     renderLauncher(pr);
     if (spec && onFilesTab() && sessionStorage.getItem("prwAutoStart") === "1") {
       sessionStorage.removeItem("prwAutoStart");
       setTimeout(startTour, 900);
     }
-    if (!genPoll) { // resume a generation that was in flight before a refresh
+    if (!genPoll) {
+      // resume a generation that was in flight before a refresh
       const gen = await storeGet(genKey(pr));
       const fresh = gen && Date.now() - (gen.at || 0) < 4 * 60 * 1000; // ignore stale markers
       if (fresh && (!spec || specSig(spec) === gen.prevSig)) {
-        generating = true; renderLauncher(pr); pollForSpec(pr, gen.prevSig);
+        generating = true;
+        renderLauncher(pr);
+        pollForSpec(pr, gen.prevSig);
         return;
       }
       if (gen) storeRemove(genKey(pr)); // finished (spec already changed), or stale — drop it
     }
-    if (spec && !generating) { // detect new commits since the reviewed head
+    if (spec && !generating) {
+      // detect new commits since the reviewed head
       const h = await api(`/head?pr=${encodeURIComponent(pr)}`);
       if (h.ok && h.data?.headSha) {
         curHead = h.data.headSha;
@@ -1375,19 +1666,29 @@
   let lastUrl = location.href;
   let curPr = prUrl();
   const poll = setInterval(() => {
-    if (!chrome.runtime?.id) { clearInterval(poll); return; } // orphaned after a reload
+    if (!chrome.runtime?.id) {
+      clearInterval(poll);
+      return;
+    } // orphaned after a reload
     if (location.href !== lastUrl) {
       lastUrl = location.href;
       clearPill();
       const pr = prUrl();
-      if (pr !== curPr) { // switched to a different PR — load that PR's stored state
+      if (pr !== curPr) {
+        // switched to a different PR — load that PR's stored state
         curPr = pr;
         chatHistory.length = 0;
-        chatsBtn?.remove(); chatsBtn = null;
-        chatsList?.remove(); chatsList = null;
+        chatsBtn?.remove();
+        chatsBtn = null;
+        chatsList?.remove();
+        chatsList = null;
         tourState = { step: 0, pos: null, size: null };
-        spec = null; generating = false; newCommits = false; curHead = null;
-        clearInterval(genPoll); genPoll = null;
+        spec = null;
+        generating = false;
+        newCommits = false;
+        curHead = null;
+        clearInterval(genPoll);
+        genPoll = null;
         loadPersisted();
       }
       refreshLauncher();
