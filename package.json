@@ -5,7 +5,7 @@
   "type": "module",
   "description": "Turn a GitHub PR into an interactive, in-browser walkthrough with a select-code-and-ask modal, powered by a local Claude Code channel.",
   "license": "SEE LICENSE IN LICENSE",
-  "packageManager": "pnpm@9.12.0",
+  "packageManager": "pnpm@11.5.1",
   "scripts": {
     "server": "pnpm --filter @prw/server start",
     "typecheck": "pnpm -r typecheck",
