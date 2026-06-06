@@ -30,9 +30,16 @@ function Card({ step }: { step: WalkthroughStep }): JSX.Element {
   // collapse the details when the step changes
   useEffect(() => setShowDetail(false), [stepIdx]);
 
-  // keyboard: arrows (or ⌘/Ctrl+Home/End) navigate, Escape closes
+  // keyboard: arrows (or ⌘/Ctrl+Home/End) navigate, Escape closes. Bound to the
+  // document for page-origin keys AND to the shadow root for Asgard-origin ones —
+  // Heimdall's hotkey shield stops the latter at the host, so the document
+  // listener never sees them (and nothing fires twice).
   useEffect(() => {
     const keys = (e: KeyboardEvent) => {
+      const t = e.target;
+      // keys typed into any editable field move the caret, not the tour
+      if (t instanceof HTMLElement && (/^(TEXTAREA|INPUT|SELECT)$/.test(t.tagName) || t.isContentEditable))
+        return;
       const meta = e.metaKey || e.ctrlKey;
       const next = e.key === "ArrowRight" || (meta && e.key === "End");
       const prev = e.key === "ArrowLeft" || (meta && e.key === "Home");
@@ -44,8 +51,13 @@ function Card({ step }: { step: WalkthroughStep }): JSX.Element {
         tourStore.goto(tourStore.stepIdx() - 1);
       } else if (e.key === "Escape") tourStore.close();
     };
+    const root = cardRef.current!.getRootNode(); // ShadowRoot in production, Document in tests
     document.addEventListener("keydown", keys);
-    return () => document.removeEventListener("keydown", keys);
+    if (root !== document) root.addEventListener("keydown", keys as EventListener);
+    return () => {
+      document.removeEventListener("keydown", keys);
+      if (root !== document) root.removeEventListener("keydown", keys as EventListener);
+    };
   }, []);
 
   // bottom-edge anchoring across a step change (see header comment)

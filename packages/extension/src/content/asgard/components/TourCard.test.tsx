@@ -5,6 +5,7 @@ import type { WalkthroughSpec } from "@prw/runes/spec";
 
 vi.mock("../../muninn", () => ({ storeGet: vi.fn(), storeSet: vi.fn(), storeRemove: vi.fn() }));
 
+import { shieldHotkeys } from "../../heimdall/shield";
 import { state } from "../store";
 import { tourStore } from "../tour";
 import { TourCard } from "./TourCard";
@@ -128,6 +129,46 @@ describe("TourCard", () => {
     expect(tourStore.stepIdx()).toBe(1);
     fireEvent.keyDown(document, { key: "Escape" });
     expect(tourStore.open()).toBe(false);
+  });
+
+  it("keyboard: keys typed into editable fields never move the tour", () => {
+    render(<TourCard />);
+    open();
+    const textarea = document.createElement("textarea");
+    const editable = document.createElement("div");
+    Object.defineProperty(editable, "isContentEditable", { value: true }); // jsdom never sets it
+    const plain = document.createElement("div");
+    document.body.append(textarea, editable, plain);
+
+    fireEvent.keyDown(textarea, { key: "ArrowRight" });
+    fireEvent.keyDown(editable, { key: "ArrowRight" });
+    expect(tourStore.stepIdx()).toBe(0);
+    fireEvent.keyDown(plain, { key: "ArrowRight" }); // non-editable targets still navigate
+    expect(tourStore.stepIdx()).toBe(1);
+    textarea.remove();
+    editable.remove();
+    plain.remove();
+  });
+
+  it("keyboard: works from inside a hotkey-shielded shadow root", () => {
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    shieldHotkeys(host);
+    const shadow = host.attachShadow({ mode: "open" });
+    const mount = document.createElement("div");
+    shadow.appendChild(mount);
+    render(<TourCard />, { container: mount });
+    open();
+
+    // Asgard-origin key: the shield keeps it off the document; the shadow-root
+    // binding catches it instead
+    fireEvent.keyDown(shadow.querySelector(".prw-card")!, { key: "ArrowRight" });
+    expect(tourStore.stepIdx()).toBe(1);
+    // page-origin key: the document binding still works
+    fireEvent.keyDown(document, { key: "ArrowLeft" });
+    expect(tourStore.stepIdx()).toBe(0);
+    cleanup(); // unmount before tearing the host out from under React
+    host.remove();
   });
 
   it("restores a persisted position and size as inline styles", () => {

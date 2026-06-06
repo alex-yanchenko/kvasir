@@ -10,6 +10,7 @@ import { bifrost } from "../bifrost";
 import { connectMidgard } from "../midgard/connect";
 import { connectGrip } from "../midgard/grip";
 import { initTooltips } from "../midgard/tooltip";
+import { shieldHotkeys } from "./shield";
 import { applyTheme, loadPersisted, watchUrl } from "./watch";
 import asgardCss from "../asgard/asgard.css";
 
@@ -33,6 +34,7 @@ export function boot(): void {
   const host = document.createElement("div");
   host.id = "prw-root";
   document.body.appendChild(host);
+  shieldHotkeys(host); // typing in Asgard must not trigger GitHub's hotkeys
   const shadow = host.attachShadow({ mode: "open" });
   const style = document.createElement("style");
   style.textContent = asgardCss;
