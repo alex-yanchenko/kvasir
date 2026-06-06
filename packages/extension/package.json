@@ -8,6 +8,9 @@
     "dev": "node build.mjs --watch",
     "typecheck": "tsc --noEmit"
   },
+  "dependencies": {
+    "@prw/shared": "workspace:*"
+  },
   "devDependencies": {
     "@types/chrome": "^0.0.287",
     "esbuild": "^0.24.2",

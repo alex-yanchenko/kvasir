@@ -1,6 +1,7 @@
 // PR Walkthrough — content script. Renders the Claude-authored walkthrough on a
 // GitHub PR and provides the select-code-and-ask modal. All server calls go
 // through the background service worker (see background.js) to dodge CORS.
+import { escapeHtml, renderMarkdown } from "@prw/shared/markdown";
 
 (() => {
   if (window.__prwLoaded) return;
@@ -76,30 +77,6 @@
     }
     const t = await storeGet(tourKey(pr));
     if (t) tourState = { step: t.step || 0, pos: t.pos || null, size: t.size || null };
-  }
-
-  // Minimal, safe markdown → HTML for assistant messages. Escapes first (no raw
-  // HTML from the model), then renders fenced code blocks, inline code, bold, and
-  // paragraph/line breaks. Deliberately tiny — no external lib.
-  const escapeHtml = (s) => (s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  function renderMarkdown(src) {
-    let s = escapeHtml(src);
-    const blocks = [];
-    s = s.replace(/```[ \t]*([\w.+#-]*)\n?([\s\S]*?)```/g, (_m, lang, code) => {
-      const i = blocks.length;
-      const label = lang ? `<span class="prw-code-lang">${lang}</span>` : "";
-      blocks.push(`<pre class="prw-code">${label}<code>${code.replace(/\n+$/, "")}</code></pre>`);
-      return `\u0000B${i}\u0000`;
-    });
-    s = s.replace(/`([^`\n]+)`/g, '<code class="prw-inline">$1</code>');
-    s = s.replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>");
-    s = s
-      .split(/\n{2,}/)
-      .map((p) => (p.trim() ? `<p>${p.replace(/\n/g, "<br>")}</p>` : ""))
-      .join("");
-    return s
-      .replace(/<p>\u0000B(\d+)\u0000<\/p>/g, (_m, i) => blocks[+i])
-      .replace(/\u0000B(\d+)\u0000/g, (_m, i) => blocks[+i]);
   }
 
   // Allowlist-sanitize spec HTML (step body/detail). The spec is authored by the
