@@ -17,6 +17,14 @@ export interface RowRect {
   height: number;
 }
 
+// A row's vertical screen band, snapshotted once at drag-start so the cursor's Y
+// can be mapped onto a row without hit-testing (see rowAtY).
+export interface RowBand {
+  row: Element;
+  top: number;
+  bottom: number;
+}
+
 // Derive the file path from a diff file container. The newer /changes UI has no
 // data-tagsearch-path; the path lives in the container's aria-labelledby heading
 // (clean) or a table[aria-label] ("Diff for: <path>"). Falls back to the old attr.
@@ -118,3 +126,28 @@ export function rowsInRange(container: Element | null, start: number, end: numbe
 export const codeForRows = (rows: Element[]): string => rows.map(cleanLine).join("\n");
 export const rowRect = (row: Element | null): DOMRect | RowRect =>
   row ? row.getBoundingClientRect() : { left: 60, top: 90, bottom: 114, height: 24 };
+
+// Snapshot every selectable row's vertical band. Resolve the target row by
+// GEOMETRY, not hit-testing: GitHub lets clicks on a row's whitespace fall
+// through to a wrapper div, so elementFromPoint is unreliable on diff rows.
+export const rowBandsOf = (container: Element): RowBand[] =>
+  rowsOf(container).map((row) => {
+    const b = row.getBoundingClientRect();
+    return { row, top: b.top, bottom: b.bottom };
+  });
+
+// The row whose band contains y; clamps to the first/last row past the ends.
+// Returns undefined when y falls in a gap between bands — callers treat that as
+// "no row" (the drag keeps its start row).
+export function rowAtY(bands: RowBand[], y: number, fallbackRow: Element): Element | undefined {
+  if (!bands.length) return fallbackRow;
+  if (y <= bands[0].top) return bands[0].row;
+  const last = bands[bands.length - 1];
+  if (y >= last.bottom) return last.row;
+  for (const band of bands) if (y >= band.top && y <= band.bottom) return band.row;
+  // REVIEW: the original computed the nearest row here but returned `best.r`
+  // after reassigning `best` to a row element, so it always yielded undefined.
+  // Behavior preserved (gap → undefined); if "snap to nearest row" was intended,
+  // fix this separately so the change can be QA'd on its own.
+  return undefined;
+}

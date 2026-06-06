@@ -16,6 +16,8 @@ import {
   codeForRows,
   rowRect,
   containerForFile,
+  rowBandsOf,
+  rowAtY,
 } from "./content/github/diff";
 
 (() => {
@@ -692,29 +694,7 @@ import {
     window.getSelection?.()?.removeAllRanges?.();
     const container = hoverInfo.container;
     const startRow = hoverInfo.row;
-    // Resolve the target row by GEOMETRY, not hit-testing: GitHub's rows let clicks
-    // on whitespace fall through to a wrapper div, so elementFromPoint is unreliable.
-    // Snapshot each row's vertical band once, then map the cursor's Y onto a row.
-    const bands = rowsOf(container).map((r) => {
-      const b = r.getBoundingClientRect();
-      return { r, top: b.top, bottom: b.bottom };
-    });
-    const rowAtY = (y) => {
-      if (!bands.length) return startRow;
-      if (y <= bands[0].top) return bands[0].r;
-      if (y >= bands[bands.length - 1].bottom) return bands[bands.length - 1].r;
-      for (const band of bands) if (y >= band.top && y <= band.bottom) return band.r;
-      let best = bands[0],
-        bd = Infinity; // y fell in a gap — pick the nearest row
-      for (const band of bands) {
-        const d = Math.abs((band.top + band.bottom) / 2 - y);
-        if (d < bd) {
-          bd = d;
-          best = band.r;
-        }
-      }
-      return best.r;
-    };
+    const bands = rowBandsOf(container);
     picking = true;
     if (grip) grip.style.display = "none";
     highlightRows([startRow]);
@@ -722,14 +702,14 @@ import {
       ev.preventDefault();
       // Resolve the row at the cursor's Y and select the DOM range between it and
       // the start row — order-based, so deleted/added/mixed spans all work.
-      const row = rowAtY(ev.clientY);
+      const row = rowAtY(bands, ev.clientY, startRow);
       if (row && container.contains(row)) highlightRows(rowsBetween(container, startRow, row));
     };
     const up = (ev) => {
       document.removeEventListener("mousemove", move);
       document.removeEventListener("mouseup", up);
       document.body.classList.remove("prw-noselect");
-      let endRow = rowAtY(ev.clientY);
+      let endRow = rowAtY(bands, ev.clientY, startRow);
       if (!endRow || !container.contains(endRow)) endRow = startRow;
       const rows = rowsBetween(container, startRow, endRow);
       picking = false;
