@@ -66,10 +66,11 @@ export function highlightRows(rows: Element[]): void {
 }
 
 // Re-paint a stored selection by matching its code text against the live rows —
-// side-agnostic, so it works for added, deleted, or mixed selections.
-export function rehighlightSession(s: RehighlightableSession): void {
+// side-agnostic, so it works for added, deleted, or mixed selections. Returns the
+// rows it painted so callers (the pick:rehighlight handler) can scroll to them.
+export function rehighlightSession(s: RehighlightableSession): Element[] {
   const container = s.container && s.container.isConnected ? s.container : containerForFile(s.file);
-  if (!container || !s.text) return;
+  if (!container || !s.text) return [];
   s.container = container;
   const want = s.text.split("\n");
   const rows = rowsOf(container);
@@ -82,10 +83,30 @@ export function rehighlightSession(s: RehighlightableSession): void {
       }
     }
     if (ok) {
-      highlightRows(rows.slice(i, i + want.length));
-      return;
+      const span = rows.slice(i, i + want.length);
+      highlightRows(span);
+      return span;
     }
   }
+  return [];
+}
+
+// Bring a step onto screen: scroll its file in, then highlight as soon as the
+// rows exist. Most files are already rendered, so this lands on the first try;
+// only a still-lazy-loading file makes us poll, and only until it appears.
+export function showStep(step: HighlightableStep): void {
+  const cont = document.getElementById(step.anchor);
+  if (cont) cont.scrollIntoView({ block: "start" });
+  let tries = 0;
+  const tryHighlight = () => {
+    const rows = highlightStep(step);
+    if (rows.length) {
+      rows[0].scrollIntoView({ behavior: "smooth", block: "center" });
+    } else if (++tries < 20) {
+      setTimeout(tryHighlight, 40); // up to ~0.8s, only if the file isn't there yet
+    }
+  };
+  tryHighlight();
 }
 
 // Find a diff container by a cited path, tolerating short/long path variants.

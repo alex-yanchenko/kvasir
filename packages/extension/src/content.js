@@ -14,14 +14,9 @@ import {
   rowBandsOf,
   rowAtY,
 } from "./content/midgard/diff";
-import {
-  clearHL,
-  clearPick,
-  highlightRows,
-  highlightStep,
-  jumpToRef,
-  rehighlightSession,
-} from "./content/midgard/midgard";
+import { highlightRows } from "./content/midgard/midgard";
+import { connectMidgard } from "./content/midgard/connect";
+import { bifrost } from "./content/bifrost";
 import { api } from "./content/api";
 import { state } from "./content/state";
 import { initTooltips } from "./content/ui/tooltip";
@@ -31,6 +26,9 @@ import { storeGet, storeSet, storeRemove } from "./content/muninn";
 (() => {
   if (window.__prwLoaded) return;
   window.__prwLoaded = true;
+
+  // Midgard listens on the Bifrost before anything sends a command.
+  connectMidgard(bifrost);
 
   const prUrl = () => {
     const m = location.href.match(/(https:\/\/github\.com\/[^/]+\/[^/]+\/pull\/\d+)/);
@@ -59,14 +57,7 @@ import { storeGet, storeSet, storeRemove } from "./content/muninn";
   }
 
   // ── theme + highlight style ──────────────────────────────────────────────────
-  // "auto" is resolved in CSS via @media (prefers-color-scheme); just reflect the
-  // raw choice onto the body and let the stylesheet pick the palette.
-  const applyTheme = () => {
-    document.body.dataset.prwTheme = state.theme;
-  };
-  const applyHl = () => {
-    document.body.dataset.prwHl = state.hlStyle;
-  };
+  const applyTheme = () => bifrost.send("theme:apply", { theme: state.theme, hlStyle: state.hlStyle });
 
   // Fast tooltips for [data-prw-tip] elements. Init after the re-injection guard
   // above so the document listeners bind exactly once.
@@ -219,21 +210,11 @@ import { storeGet, storeSet, storeRemove } from "./content/muninn";
     saveTour();
     const s = state.spec.steps[stepIdx];
     state.activeStep = s; // current step → available as chat context
-    const cont = document.getElementById(s.anchor);
-    if (cont) cont.scrollIntoView({ block: "start" });
-    // Highlight as soon as the rows exist. Most files are already rendered, so
-    // this lands on the first try (immediate); only a still-lazy-loading file
-    // makes us poll, and only until it appears.
-    let tries = 0;
-    const tryHighlight = () => {
-      const rows = highlightStep(s);
-      if (rows.length) {
-        rows[0].scrollIntoView({ behavior: "smooth", block: "center" });
-      } else if (++tries < 20) {
-        setTimeout(tryHighlight, 40); // up to ~0.8s, only if the file isn't there yet
-      }
-    };
-    tryHighlight();
+    bifrost.send("highlight:step", {
+      anchor: s.anchor,
+      lines: s.lines ?? null,
+      highlight: s.highlight ?? null,
+    });
   }
 
   function startTour() {
@@ -245,7 +226,6 @@ import { storeGet, storeSet, storeRemove } from "./content/muninn";
     }
     ensureCard();
     applyTheme();
-    applyHl();
     stepIdx = Math.min(Math.max(state.tourState.step || 0, 0), state.spec.steps.length - 1); // resume where you left off
     moved = false;
     resetCardPos();
@@ -281,7 +261,7 @@ import { storeGet, storeSet, storeRemove } from "./content/muninn";
   }
 
   function closeTour() {
-    clearHL();
+    bifrost.send("highlight:clear", undefined);
     if (cardRO) {
       cardRO.disconnect();
       cardRO = null;
@@ -444,7 +424,7 @@ import { storeGet, storeSet, storeRemove } from "./content/muninn";
   let sel = null; // current selection { container, rows: [tr...] }
 
   function clearSel() {
-    clearPick();
+    bifrost.send("pick:clear", undefined);
     sel = null;
     if (askBtn) askBtn.style.display = "none";
   }
@@ -681,7 +661,7 @@ import { storeGet, storeSet, storeRemove } from "./content/muninn";
         if (end) a.dataset.end = end;
         a.onclick = (e) => {
           e.preventDefault();
-          jumpToRef(file, +start, end ? +end : null);
+          bifrost.send("jump:ref", { file, start: +start, end: end ? +end : null });
         };
         frag.appendChild(a);
         last = m.index + full.length;
@@ -695,7 +675,7 @@ import { storeGet, storeSet, storeRemove } from "./content/muninn";
     if (chat) minimizeChat(); // only one open; the current one collapses to the list
     activeSession = session;
     const s = session;
-    if (!s.general) rehighlightSession(s); // re-paint the selected rows (skip for the general PR chat)
+    if (!s.general) bifrost.send("pick:rehighlight", { file: s.file, text: s.text }); // repaint (skip for the general PR chat)
     const lineLabel = s.lines
       ? `:${s.lines.start}${s.lines.end !== s.lines.start ? "-" + s.lines.end : ""}`
       : "";
@@ -890,7 +870,11 @@ import { storeGet, storeSet, storeRemove } from "./content/muninn";
             const i = (Number(m.dataset.refI) || 0) % refs.length;
             m.dataset.refI = String(i + 1);
             const a = refs[i];
-            jumpToRef(a.dataset.file, +a.dataset.line, a.dataset.end ? +a.dataset.end : null);
+            bifrost.send("jump:ref", {
+              file: a.dataset.file,
+              start: +a.dataset.line,
+              end: a.dataset.end ? +a.dataset.end : null,
+            });
           } else if (!session.general) {
             jumpToSelection();
           }
@@ -1018,9 +1002,7 @@ import { storeGet, storeSet, storeRemove } from "./content/muninn";
     }
     // Scroll the diff to the lines this chat is about and re-paint the highlight.
     function jumpToSelection() {
-      rehighlightSession(s);
-      const row = document.querySelector("tr.prw-pick");
-      if (row) row.scrollIntoView({ behavior: "smooth", block: "center" });
+      bifrost.send("pick:rehighlight", { file: s.file, text: s.text, scroll: true });
     }
     function ask(question) {
       addMsg("user", question);
@@ -1293,7 +1275,7 @@ import { storeGet, storeSet, storeRemove } from "./content/muninn";
     styleSel.onchange = () => {
       state.hlStyle = styleSel.value;
       localStorage.setItem("prwHl", state.hlStyle);
-      applyHl();
+      applyTheme();
     };
   }
 
@@ -1528,7 +1510,7 @@ import { storeGet, storeSet, storeRemove } from "./content/muninn";
   }
 
   applyTheme();
-  applyHl();
+  applyTheme();
   ensureGearBtn();
   loadPersisted();
   refreshLauncher();

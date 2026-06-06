@@ -30,7 +30,7 @@ export interface StepHighlightPayload {
 export interface BifrostCommands {
   "highlight:step": StepHighlightPayload;
   "highlight:clear": undefined;
-  "pick:rehighlight": { file: string; text: string };
+  "pick:rehighlight": { file: string; text: string; scroll?: boolean };
   "pick:clear": undefined;
   "jump:ref": { file: string; start: number; end: number | null };
   "theme:apply": { theme: string; hlStyle: string };
