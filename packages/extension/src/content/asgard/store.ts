@@ -10,6 +10,7 @@ import { storeSet } from "../muninn";
 import { chatsKey, prUrl } from "../keys";
 import type { ChatSession } from "./types";
 import { bifrost } from "../bifrost";
+import type { SelectionPayload } from "../bifrost";
 
 type Listener = () => void;
 const listeners = new Set<Listener>();
@@ -59,6 +60,7 @@ export const settingsStore = {
 export const legacyChatBridge: {
   openChat?: (sess: ChatSession) => void;
   openPrChat?: () => void;
+  openSelection?: (payload: SelectionPayload, withStep: boolean) => void;
   closeIfActive?: (key: string) => void;
 } = {};
 

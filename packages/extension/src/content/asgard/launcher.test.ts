@@ -8,14 +8,8 @@ vi.mock("../muninn", () => ({ storeGet: vi.fn(), storeSet: vi.fn(), storeRemove:
 import { api } from "../api";
 import { storeGet, storeRemove, storeSet } from "../muninn";
 import { state } from "../state";
-import {
-  GEN_MAX_TRIES,
-  GEN_POLL_INTERVAL_MS,
-  fmtElapsed,
-  launcherStore,
-  legacyTourBridge,
-  specSig,
-} from "./launcher";
+import { GEN_MAX_TRIES, GEN_POLL_INTERVAL_MS, fmtElapsed, launcherStore, specSig } from "./launcher";
+import { tourStore } from "./tour";
 
 const PR = "https://github.com/acme/widget-api/pull/7";
 
@@ -45,8 +39,8 @@ beforeEach(() => {
   state.spec = null;
   state.tourState = { step: 3, pos: null, size: null };
   launcherStore.resetForPr();
-  legacyTourBridge.startTour = undefined;
-  legacyTourBridge.closeTour = undefined;
+  vi.spyOn(tourStore, "start").mockImplementation(() => {});
+  vi.spyOn(tourStore, "close").mockImplementation(() => {});
   vi.mocked(api).mockResolvedValue({ ok: false });
   vi.mocked(storeGet).mockResolvedValue(undefined);
 });
@@ -73,15 +67,13 @@ describe("fmtElapsed / specSig", () => {
 
 describe("requestGenerate → poll → spec lands", () => {
   it("persists the marker, closes the tour, polls, and installs the new spec", async () => {
-    const closeTour = vi.fn();
-    legacyTourBridge.closeTour = closeTour;
     const fresh = mkSpec({ generatedAt: "2026-02-02T00:00:00Z" });
     vi.mocked(api).mockImplementation(async (path: string) =>
       path.startsWith("/walkthrough") ? { ok: true, data: fresh } : { ok: true },
     );
 
     await launcherStore.requestGenerate("new");
-    expect(closeTour).toHaveBeenCalledTimes(1);
+    expect(tourStore.close).toHaveBeenCalledTimes(1);
     expect(launcherStore.generating()).toBe(true);
     expect(vi.mocked(storeSet)).toHaveBeenCalledWith(`prw:gen:${PR}`, {
       prevSig: "",
@@ -162,15 +154,13 @@ describe("refresh", () => {
   });
 
   it("auto-starts the tour after a tab hop when flagged", async () => {
-    const startTour = vi.fn();
-    legacyTourBridge.startTour = startTour;
     sessionStorage.setItem("prwAutoStart", "1");
     vi.mocked(api).mockResolvedValue({ ok: true, data: mkSpec() });
     await launcherStore.refresh();
     expect(sessionStorage.getItem("prwAutoStart")).toBeNull();
-    expect(startTour).not.toHaveBeenCalled();
+    expect(tourStore.start).not.toHaveBeenCalled();
     await vi.advanceTimersByTimeAsync(900);
-    expect(startTour).toHaveBeenCalledTimes(1);
+    expect(tourStore.start).toHaveBeenCalledTimes(1);
   });
 
   it("resumes a fresh in-flight generation (timer from the original start)", async () => {

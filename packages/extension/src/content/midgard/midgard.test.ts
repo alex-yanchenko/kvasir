@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
 import {
+  stepCode,
   clearHL,
   clearPick,
   containerForFileLoose,
@@ -151,5 +152,18 @@ describe("jumpToRef", () => {
 
   it("returns false when the cited file is not in the diff", () => {
     expect(jumpToRef("missing.ts", 1, null)).toBe(false);
+  });
+});
+
+describe("stepCode query", () => {
+  it("returns the rendered code + rect for a step's line range", () => {
+    const r = stepCode({ anchor: "diff-abc123", lines: { start: 10, end: 11 } });
+    expect(r?.text).toBe("const a = 1;\nconst b = 2;");
+    expect(r?.rect).toBeTruthy();
+  });
+
+  it("returns null when the file is not rendered, or the step has no lines", () => {
+    expect(stepCode({ anchor: "diff-missing", lines: { start: 1, end: 2 } })).toBeNull();
+    expect(stepCode({ anchor: "diff-abc123", lines: null })).toBeNull();
   });
 });

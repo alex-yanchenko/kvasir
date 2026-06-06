@@ -10,13 +10,7 @@ import { genKey, onFilesTab, prUrl, specKey, tourKey } from "../keys";
 import { storeGet, storeRemove, storeSet } from "../muninn";
 import { state } from "../state";
 import { touch } from "./store";
-
-/** Coexistence shim: the tour card is vanilla until D4 — opening/closing it
- * crosses this bridge (auto-start after a tab hop, regenerate closing the tour). */
-export const legacyTourBridge: {
-  startTour?: () => void;
-  closeTour?: () => void;
-} = {};
+import { tourStore } from "./tour";
 
 // Content signature — changes on any republish (timestamp, step count, or size),
 // so completion detection doesn't depend on the model bumping generatedAt.
@@ -87,7 +81,7 @@ export const launcherStore = {
   spec: (): WalkthroughSpec | null => state.spec,
 
   openTour(): void {
-    legacyTourBridge.startTour?.();
+    tourStore.start();
   },
 
   /** Ask the session (via the channel) to (re)generate; persist a marker so the
@@ -96,7 +90,7 @@ export const launcherStore = {
     const pr = prUrl();
     if (!pr) return;
     const prevSig = specSig(state.spec);
-    legacyTourBridge.closeTour?.(); // don't leave a stale walkthrough open while it regenerates
+    tourStore.close(); // don't leave a stale walkthrough open while it regenerates
     generating = true;
     genStartAt = Date.now();
     storeSet(genKey(pr), { prevSig, at: genStartAt });
@@ -144,7 +138,7 @@ export const launcherStore = {
     touch();
     if (state.spec && onFilesTab() && sessionStorage.getItem("prwAutoStart") === "1") {
       sessionStorage.removeItem("prwAutoStart");
-      setTimeout(() => legacyTourBridge.startTour?.(), 900);
+      setTimeout(() => tourStore.start(), 900);
     }
     if (!genPoll) {
       // resume a generation that was in flight before a refresh — within the same

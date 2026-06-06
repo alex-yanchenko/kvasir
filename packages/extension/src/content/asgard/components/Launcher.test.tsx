@@ -9,7 +9,8 @@ vi.mock("../../muninn", () => ({ storeGet: vi.fn(), storeSet: vi.fn(), storeRemo
 import { api } from "../../api";
 import { storeGet } from "../../muninn";
 import { state } from "../../state";
-import { launcherStore, legacyTourBridge } from "../launcher";
+import { launcherStore } from "../launcher";
+import { tourStore } from "../tour";
 import { legacyChatBridge } from "../store";
 import { Launcher } from "./Launcher";
 
@@ -29,8 +30,8 @@ beforeEach(() => {
   state.spec = null;
   state.tourState = { step: 0, pos: null, size: null };
   launcherStore.resetForPr();
-  legacyTourBridge.startTour = undefined;
-  legacyTourBridge.closeTour = undefined;
+  vi.spyOn(tourStore, "start").mockImplementation(() => {});
+  vi.spyOn(tourStore, "close").mockImplementation(() => {});
   legacyChatBridge.openPrChat = undefined;
   vi.mocked(api).mockResolvedValue({ ok: false });
   vi.mocked(storeGet).mockResolvedValue(undefined);
@@ -64,13 +65,11 @@ describe("Launcher with a spec", () => {
   });
 
   it("renders the three pills and routes Open/Ask through the bridges", () => {
-    const startTour = vi.fn();
     const openPrChat = vi.fn();
-    legacyTourBridge.startTour = startTour;
     legacyChatBridge.openPrChat = openPrChat;
     render(<Launcher />);
     fireEvent.click(screen.getByText("▶ Open review (1)"));
-    expect(startTour).toHaveBeenCalledTimes(1);
+    expect(tourStore.start).toHaveBeenCalledTimes(1);
     fireEvent.click(screen.getByText("💬 Ask about PR"));
     expect(openPrChat).toHaveBeenCalledTimes(1);
   });

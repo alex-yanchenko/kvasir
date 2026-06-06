@@ -1,26 +1,19 @@
 // PR Walkthrough — content script. Renders the Claude-authored walkthrough on a
 // GitHub PR and provides the select-code-and-ask modal. All server calls go
 // through the background service worker (see background.js) to dodge CORS.
-import { escapeHtml, renderMarkdown } from "@prw/runes/markdown";
-import {
-  filePathFromContainer,
-  diffContainerOf,
-  lineRangeOf,
-  rowsInRange,
-  codeForRows,
-  rowRect,
-} from "./content/midgard/diff";
+import { renderMarkdown } from "@prw/runes/markdown";
+import { filePathFromContainer, diffContainerOf, lineRangeOf } from "./content/midgard/diff";
 import { connectMidgard } from "./content/midgard/connect";
 import { connectGrip } from "./content/midgard/grip";
 import { bifrost } from "./content/bifrost";
 import { api } from "./content/api";
 import { state } from "./content/state";
 import { initTooltips } from "./content/ui/tooltip";
-import { sanitizeSpecHtml } from "./content/sanitize";
 import { storeGet, storeSet } from "./content/muninn";
-import { chatsKey, onFilesTab, prUrl, tourKey } from "./content/keys";
+import { chatsKey, prUrl, tourKey } from "./content/keys";
 import { chatsStore, legacyChatBridge, touch } from "./content/asgard/store";
-import { launcherStore, legacyTourBridge } from "./content/asgard/launcher";
+import { launcherStore } from "./content/asgard/launcher";
+import { tourStore } from "./content/asgard/tour";
 
 (() => {
   if (window.__prwLoaded) return;
@@ -34,15 +27,12 @@ import { launcherStore, legacyTourBridge } from "./content/asgard/launcher";
   // closes it through this bridge. Dies at D5 when ChatWindow lands.
   legacyChatBridge.openChat = (sess) => openChat(sess, null);
   legacyChatBridge.openPrChat = () => openPrChat();
-  legacyTourBridge.startTour = () => startTour();
-  legacyTourBridge.closeTour = () => closeTour();
   legacyChatBridge.closeIfActive = (key) => {
     if (activeSession && activeSession.key === key && chat) detachChat();
   };
 
   // ── persistence (per-PR; survives refresh and browser restart) ───────────────
   const saveChats = () => storeSet(chatsKey(prUrl()), state.chatHistory);
-  const saveTour = () => storeSet(tourKey(prUrl()), state.tourState);
   async function loadPersisted() {
     const pr = prUrl();
     if (!pr) return;
@@ -61,249 +51,6 @@ import { launcherStore, legacyTourBridge } from "./content/asgard/launcher";
   // Fast tooltips for [data-prw-tip] elements. Init after the re-injection guard
   // above so the document listeners bind exactly once.
   initTooltips();
-
-  // ── tour overlay ─────────────────────────────────────────────────────────────
-  let stepIdx = 0;
-  let card = null;
-  let moved = false; // becomes true once the user drags the card
-  let pointerOverFooter = false; // is the cursor over the button row right now?
-  let cardRO = null,
-    cardROTimer = null; // observe + persist the tour card's size
-
-  function ensureCard() {
-    if (card) return;
-    card = document.createElement("div");
-    card.className = "prw-card";
-    document.body.appendChild(card);
-    // Track whether the pointer is over the footer (buttons), which decides the
-    // resize anchor when the step changes.
-    card.addEventListener("mousemove", (e) => {
-      pointerOverFooter = !!e.target.closest(".prw-foot");
-    });
-    card.addEventListener("mouseleave", () => {
-      pointerOverFooter = false;
-    });
-    cardRO = new ResizeObserver(() => {
-      if (!card) return;
-      state.tourState.size = { w: card.offsetWidth, h: card.offsetHeight };
-      clearTimeout(cardROTimer);
-      cardROTimer = setTimeout(saveTour, 300);
-    });
-    cardRO.observe(card);
-  }
-
-  function resetCardPos() {
-    // Clear inline positioning so the CSS bottom-right corner applies again.
-    ["left", "top", "right", "bottom"].forEach((p) => {
-      card.style[p] = "";
-    });
-  }
-
-  function renderCard() {
-    const s = state.spec.steps[stepIdx];
-
-    // Resize anchoring. Default behavior pins the bottom (CSS bottom-right when
-    // untouched, or — once moved — explicitly when the pointer is over the
-    // buttons so they stay under the cursor). Otherwise pin the top and grow down.
-    const keepBottom = moved && pointerOverFooter;
-    const prevBottom = keepBottom ? card.getBoundingClientRect().bottom : 0;
-
-    card.innerHTML = `
-      <div class="prw-head">
-        <span class="prw-eyebrow">PR WALKTHROUGH</span>
-        <span class="prw-head-actions">
-          <button class="prw-x" id="prw-step-ask" aria-label="Ask about this step" data-prw-tip="Ask about this step (sends the step's context)">💬</button>
-          <button class="prw-x" id="prw-refresh" aria-label="Re-scroll and redraw" title="Re-scroll &amp; redraw">⟳</button>
-          <button class="prw-x" id="prw-x" aria-label="Close">×</button>
-        </span>
-      </div>
-      <div class="prw-body">
-        <p class="prw-title">${escapeHtml(s.title)}</p>
-        <div class="prw-prose">${sanitizeSpecHtml(s.body)}</div>
-        ${s.detail ? `<button class="prw-more" id="prw-more">Show details ▾</button><div class="prw-prose prw-detail" id="prw-detail" hidden>${sanitizeSpecHtml(s.detail)}</div>` : ""}
-      </div>
-      <div class="prw-foot">
-        <button class="prw-btn" id="prw-back">← Back</button>
-        <button class="prw-btn prw-btn-primary" id="prw-next">${stepIdx === state.spec.steps.length - 1 ? "Finish ✓" : "Next →"}</button>
-        <span class="prw-count">${stepIdx + 1} / ${state.spec.steps.length}</span>
-      </div>`;
-
-    card.querySelector("#prw-x").onclick = closeTour;
-    card.querySelector("#prw-refresh").onclick = () => gotoStep(); // re-scroll + redraw highlight
-    card.querySelector("#prw-step-ask").onclick = () => {
-      const sel2 = stepSelection();
-      if (!sel2) return;
-      const session = startSession(sel2);
-      session.step = stepContext(); // chat framed by this step
-      openChat(session, sel2.rect);
-    };
-    const more = card.querySelector("#prw-more");
-    if (more)
-      more.onclick = () => {
-        const d = card.querySelector("#prw-detail");
-        const open = d.hidden;
-        d.hidden = !open;
-        more.textContent = open ? "Hide details ▴" : "Show details ▾";
-      };
-    const back = card.querySelector("#prw-back");
-    back.style.opacity = stepIdx === 0 ? "0.4" : "1";
-    back.onclick = () => {
-      if (stepIdx > 0) {
-        stepIdx--;
-        gotoStep();
-      }
-    };
-    card.querySelector("#prw-next").onclick = () => {
-      if (stepIdx < state.spec.steps.length - 1) {
-        stepIdx++;
-        gotoStep();
-      } else closeTour();
-    };
-    makeDraggable(card.querySelector(".prw-head"));
-
-    if (moved && keepBottom) {
-      // Keep the bottom edge where it was; content change grows the card upward.
-      const h = card.offsetHeight;
-      card.style.top = `${prevBottom - h}px`;
-      card.style.bottom = "auto";
-    }
-    // moved && !keepBottom: top stays as-is, so it grows downward (off-page is fine).
-    // not moved: CSS bottom-right keeps the bottom pinned, so it grows upward.
-  }
-
-  function makeDraggable(handle) {
-    if (!handle) return;
-    handle.style.cursor = "grab";
-    handle.addEventListener("mousedown", (e) => {
-      if (e.target.closest(".prw-x")) return;
-      e.preventDefault();
-      const r = card.getBoundingClientRect();
-      const ox = e.clientX - r.left,
-        oy = e.clientY - r.top;
-      handle.style.cursor = "grabbing";
-      const move = (ev) => {
-        moved = true;
-        card.style.left = `${ev.clientX - ox}px`;
-        card.style.top = `${ev.clientY - oy}px`;
-        card.style.right = "auto";
-        card.style.bottom = "auto";
-      };
-      const up = () => {
-        handle.style.cursor = "grab";
-        document.removeEventListener("mousemove", move);
-        document.removeEventListener("mouseup", up);
-        if (card) {
-          const b = card.getBoundingClientRect();
-          state.tourState.pos = { left: b.left, top: b.top };
-          saveTour();
-        }
-      };
-      document.addEventListener("mousemove", move);
-      document.addEventListener("mouseup", up);
-    });
-  }
-
-  function gotoStep() {
-    renderCard(); // update the card text immediately — never gated on rendering
-    state.tourState.step = stepIdx; // remember where we are (resume here next open)
-    saveTour();
-    const s = state.spec.steps[stepIdx];
-    state.activeStep = s; // current step → available as chat context
-    bifrost.send("grip:context", { hasActiveStep: true });
-    bifrost.send("highlight:step", {
-      anchor: s.anchor,
-      lines: s.lines ?? null,
-      highlight: s.highlight ?? null,
-    });
-  }
-
-  function startTour() {
-    if (!onFilesTab()) {
-      // Hop to the diff tab and auto-resume once it loads.
-      sessionStorage.setItem("prwAutoStart", "1");
-      location.href = prUrl() + "/files";
-      return;
-    }
-    ensureCard();
-    applyTheme();
-    stepIdx = Math.min(Math.max(state.tourState.step || 0, 0), state.spec.steps.length - 1); // resume where you left off
-    moved = false;
-    resetCardPos();
-    if (state.tourState.pos) {
-      card.style.left = `${state.tourState.pos.left}px`;
-      card.style.top = `${state.tourState.pos.top}px`;
-      card.style.right = "auto";
-      card.style.bottom = "auto";
-      moved = true;
-    }
-    if (state.tourState.size) {
-      card.style.width = `${state.tourState.size.w}px`;
-      card.style.height = `${state.tourState.size.h}px`;
-    }
-    gotoStep();
-    document.addEventListener("keydown", tourKeys);
-  }
-
-  function tourKeys(e) {
-    if (!card) return;
-    const meta = e.metaKey || e.ctrlKey; // Cmd on macOS, Ctrl elsewhere
-    const next = e.key === "ArrowRight" || (meta && e.key === "End");
-    const prev = e.key === "ArrowLeft" || (meta && e.key === "Home");
-    if (next && stepIdx < state.spec.steps.length - 1) {
-      e.preventDefault();
-      stepIdx++;
-      gotoStep();
-    } else if (prev && stepIdx > 0) {
-      e.preventDefault();
-      stepIdx--;
-      gotoStep();
-    } else if (e.key === "Escape") closeTour();
-  }
-
-  function closeTour() {
-    bifrost.send("highlight:clear", undefined);
-    if (cardRO) {
-      cardRO.disconnect();
-      cardRO = null;
-    }
-    card?.remove();
-    card = null;
-    moved = false;
-    pointerOverFooter = false;
-    state.activeStep = null;
-    bifrost.send("grip:context", { hasActiveStep: false });
-    document.removeEventListener("keydown", tourKeys);
-  }
-
-  // Compact text of the current step — passed to chat so answers are framed by it.
-  function stepContext() {
-    if (!state.activeStep) return "";
-    const strip = (h) =>
-      (h || "")
-        .replace(/<[^>]+>/g, "")
-        .replace(/\s+/g, " ")
-        .trim();
-    const where = state.activeStep.file
-      ? ` (${state.activeStep.file}${state.activeStep.lines ? `:${state.activeStep.lines.start}-${state.activeStep.lines.end}` : ""})`
-      : "";
-    return `Step: ${state.activeStep.title}${where}\n${strip(state.activeStep.body)}${state.activeStep.detail ? "\n" + strip(state.activeStep.detail) : ""}`;
-  }
-  // A selection object for the step itself (its code), for "Ask about this step".
-  function stepSelection() {
-    if (!state.activeStep) return null;
-    const container = document.getElementById(state.activeStep.anchor);
-    const stepRows =
-      container && state.activeStep.lines
-        ? rowsInRange(container, state.activeStep.lines.start, state.activeStep.lines.end)
-        : [];
-    let text = stepRows.length ? codeForRows(stepRows) : "";
-    if (!text)
-      text =
-        (state.activeStep.highlight || []).join("\n") ||
-        (state.activeStep.body || "").replace(/<[^>]+>/g, "").slice(0, 1000);
-    const rect = stepRows.length ? rowRect(stepRows[0]) : { left: 60, top: 90, bottom: 114, height: 24 };
-    return { text, file: state.activeStep.file, container, lines: state.activeStep.lines, rect };
-  }
 
   // ── selection → inline chat ─────────────────────────────────────────────────
   let pill = null;
@@ -419,11 +166,15 @@ import { launcherStore, legacyTourBridge } from "./content/asgard/launcher";
     `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${inner}</svg>`;
 
   // Asgard side of the grip: a completed "ask" arrives as data over the Bifrost.
-  bifrost.on("selection:ask", (p) => {
+  // Open a chat for a selection payload (the grip's ask buttons and the tour's
+  // step-ask both land here; withStep frames the chat with the current step).
+  const openChatFromSelection = (p, withStep) => {
     const session = startSession({ text: p.text, file: p.file, lines: p.lines, rect: p.rect });
-    if (p.withStep) session.step = stepContext();
+    if (withStep) session.step = tourStore.stepContext();
     openChat(session, p.rect);
-  });
+  };
+  bifrost.on("selection:ask", (p) => openChatFromSelection(p, p.withStep));
+  legacyChatBridge.openSelection = openChatFromSelection;
 
   // A compact, plain-text version of the cached walkthrough — sent with chat
   // questions so even a freshly-restarted (clean-context) session understands the PR.
@@ -995,7 +746,7 @@ import { launcherStore, legacyTourBridge } from "./content/asgard/launcher";
 
   // Remove a session from history + storage, updating the launcher/list.
 
-  // Standalone draggable for the chat (the tour card uses its own makeDraggable).
+  // Draggable handle for the chat window.
   function makeDraggable2(handle, el) {
     if (!handle) return;
     handle.addEventListener("mousedown", (e) => {

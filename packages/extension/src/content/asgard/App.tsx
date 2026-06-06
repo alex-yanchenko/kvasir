@@ -4,6 +4,7 @@
 import type { JSX } from "react";
 import { ChatsButton } from "./components/ChatsButton";
 import { Launcher } from "./components/Launcher";
+import { TourCard } from "./components/TourCard";
 import { Settings } from "./components/Settings";
 
 export function App(): JSX.Element {
@@ -12,6 +13,7 @@ export function App(): JSX.Element {
       <Settings />
       <ChatsButton />
       <Launcher />
+      <TourCard />
     </>
   );
 }
