@@ -19,33 +19,12 @@ import {
   rowBandsOf,
   rowAtY,
 } from "./content/github/diff";
+import { api } from "./content/api";
+import { storeGet, storeSet, storeRemove } from "./content/storage";
 
 (() => {
   if (window.__prwLoaded) return;
   window.__prwLoaded = true;
-
-  // ── server bridge ──────────────────────────────────────────────────────────
-  const api = (path, method = "GET", body = null) =>
-    new Promise((resolve) => {
-      // If the extension was reloaded, this content script is orphaned — fail
-      // quietly instead of throwing "Extension context invalidated".
-      if (!chrome.runtime?.id) {
-        resolve({ ok: false, error: "extension reloaded — refresh the page" });
-        return;
-      }
-      try {
-        chrome.runtime.sendMessage({ path, method, body }, (r) => {
-          const err = chrome.runtime?.lastError; // optional — runtime may be gone by now
-          if (err) {
-            resolve({ ok: false, error: err.message });
-            return;
-          }
-          resolve(r || { ok: false, error: "no response" });
-        });
-      } catch (e) {
-        resolve({ ok: false, error: String(e) });
-      }
-    });
 
   const prUrl = () => {
     const m = location.href.match(/(https:\/\/github\.com\/[^/]+\/[^/]+\/pull\/\d+)/);
@@ -55,28 +34,6 @@ import {
   const onFilesTab = () => /\/pull\/\d+\/(files|changes)/.test(location.href);
 
   // ── persistence (per-PR; survives refresh and browser restart) ───────────────
-  const storeGet = (k) =>
-    new Promise((res) => {
-      try {
-        chrome.storage?.local?.get(k, (o) => res(o?.[k]));
-      } catch {
-        res(undefined);
-      }
-    });
-  const storeSet = (k, v) => {
-    try {
-      chrome.storage?.local?.set({ [k]: v });
-    } catch {
-      /* ignore */
-    }
-  };
-  const storeRemove = (k) => {
-    try {
-      chrome.storage?.local?.remove(k);
-    } catch {
-      /* ignore */
-    }
-  };
   const chatsKey = (pr) => `prw:chats:${pr || prUrl()}`;
   const specKey = (pr) => `prw:spec:${pr || prUrl()}`;
   const tourKey = (pr) => `prw:tour:${pr || prUrl()}`;
