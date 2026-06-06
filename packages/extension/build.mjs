@@ -30,7 +30,7 @@ const copyAssets = {
 };
 
 const ctx = await context({
-  entryPoints: [resolve(src, "content.js"), resolve(src, "background.js")],
+  entryPoints: [resolve(src, "content.js"), resolve(src, "background.ts")],
   outdir: dist,
   bundle: true,
   format: "iife",

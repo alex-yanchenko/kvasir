@@ -12,8 +12,15 @@ export default [
     languageOptions: { globals: { ...globals.node, Bun: "readonly" } },
   },
 
-  // Extension: browser content/background scripts (still plain JS until Phase 4).
-  // Linted leniently here — it gets the strict treatment when rewritten in TS.
+  // Extension TypeScript modules (background, and content/* as they migrate).
+  ...tseslint.configs.recommended.map((c) => ({ ...c, files: ["packages/extension/**/*.ts"] })),
+  {
+    files: ["packages/extension/**/*.ts"],
+    languageOptions: { globals: { ...globals.browser, ...globals.webextensions, chrome: "readonly" } },
+  },
+
+  // Extension: browser content scripts still in plain JS until their Phase 4 split.
+  // Linted leniently here — they get the strict treatment when rewritten in TS.
   {
     files: ["packages/extension/**/*.js"],
     ...js.configs.recommended,
