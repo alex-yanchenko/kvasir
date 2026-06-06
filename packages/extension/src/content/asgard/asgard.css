@@ -309,6 +309,7 @@
 .prw-card {
   bottom: 24px;
   right: 24px;
+  box-sizing: border-box; /* same persisted-size round-trip as .prw-chat above */
   width: 360px;
   max-height: 80vh;
   min-width: 300px;
@@ -467,6 +468,10 @@
 .prw-chat {
   position: fixed;
   z-index: 2147483002;
+  /* border-box so offsetWidth/Height (persisted by useResizePersist) equal the
+     width/height styles they're restored into — content-box re-adds the border
+     every cycle and the window grows 2px per observation, forever */
+  box-sizing: border-box;
   width: 420px;
   max-width: 92vw;
   max-height: 85vh;
