@@ -3,15 +3,29 @@
 // GitHub markup change is a one-file fix. Pure readers: they take DOM nodes /
 // coords / ranges and return data — no overlay (.prw-*) writes, no app state.
 
+export interface LineRange {
+  start: number;
+  end: number;
+}
+
+// Subset of DOMRect the overlay positions against; also the shape of the
+// off-screen fallback rect rowRect returns when no row is available.
+export interface RowRect {
+  left: number;
+  top: number;
+  bottom: number;
+  height: number;
+}
+
 // Derive the file path from a diff file container. The newer /changes UI has no
 // data-tagsearch-path; the path lives in the container's aria-labelledby heading
 // (clean) or a table[aria-label] ("Diff for: <path>"). Falls back to the old attr.
-export function filePathFromContainer(cont) {
+export function filePathFromContainer(cont: Element | null): string | null {
   if (!cont) return null;
   const lblId = cont.getAttribute("aria-labelledby");
-  const heading = lblId && document.getElementById(lblId);
+  const heading = lblId ? document.getElementById(lblId) : null;
   if (heading) {
-    const t = heading.textContent
+    const t = (heading.textContent ?? "")
       .replace(/‎/g, "")
       .replace(/^Collapse file/i, "")
       .trim();
@@ -22,14 +36,14 @@ export function filePathFromContainer(cont) {
   return cont.querySelector("[data-tagsearch-path]")?.getAttribute("data-tagsearch-path") || null;
 }
 
-export function diffContainerOf(node) {
-  let el = node instanceof Element ? node : node?.parentElement;
+export function diffContainerOf(node: Node | null): Element | null {
+  let el: Element | null = node instanceof Element ? node : (node?.parentElement ?? null);
   while (el && !(el.id && el.id.startsWith("diff-"))) el = el.parentElement;
   return el || null;
 }
 
 // Find a file's diff container by its path (for re-highlighting a reopened chat).
-export function containerForFile(file) {
+export function containerForFile(file: string | null | undefined): Element | null {
   if (!file) return null;
   for (const c of document.querySelectorAll('[id^="diff-"]')) {
     if (filePathFromContainer(c) === file) return c;
@@ -39,7 +53,7 @@ export function containerForFile(file) {
 
 // New-side line range the selection covers, read from the diff's data-line-number.
 // Tiny to send and lets the model locate (and read around) the exact lines itself.
-export function lineRangeOf(container, range) {
+export function lineRangeOf(container: Element | null, range: Range): LineRange | null {
   if (!container) return null;
   let lo = Infinity,
     hi = -Infinity;
@@ -55,18 +69,18 @@ export function lineRangeOf(container, range) {
   return hi >= lo ? { start: lo, end: hi } : null;
 }
 
-export function rowForLine(cont, n) {
+export function rowForLine(cont: Element, n: number): Element | null {
   const cell = cont.querySelector(`td.diff-text-cell[data-line-number="${n}"]`);
   return cell ? cell.closest("tr.diff-line-row") : null;
 }
-export function rowForText(cont, text) {
+export function rowForText(cont: Element, text: string): Element | null {
   for (const c of cont.querySelectorAll("td.diff-text-cell")) {
-    if (c.textContent.includes(text)) return c.closest("tr.diff-line-row");
+    if (c.textContent?.includes(text)) return c.closest("tr.diff-line-row");
   }
   return null;
 }
 
-export const lineOfRow = (row) => {
+export const lineOfRow = (row: Element): number | null => {
   const c = row.querySelector("td.diff-text-cell[data-line-number]");
   return c ? Number(c.getAttribute("data-line-number")) : null;
 };
@@ -74,14 +88,15 @@ export const lineOfRow = (row) => {
 // diff, ADDED lines carry NEW line numbers and DELETED lines carry OLD ones, so
 // `data-line-number` is neither unique nor monotonic across a hunk — a numeric
 // range breaks the moment a selection crosses a delete↔add boundary.
-const textCellOf = (row) => row.querySelector("td.diff-text-cell");
+const textCellOf = (row: Element): Element | null => row.querySelector("td.diff-text-cell");
 // Only real code rows (skip hunk/expander/spacer rows that have no text cell).
-export const rowsOf = (container) => [...container.querySelectorAll("tr.diff-line-row")].filter(textCellOf);
-export const cleanLine = (row) => {
+export const rowsOf = (container: Element): Element[] =>
+  [...container.querySelectorAll("tr.diff-line-row")].filter(textCellOf);
+export const cleanLine = (row: Element): string => {
   const c = textCellOf(row);
-  return c ? c.textContent.replace(/\n/g, "").replace(/^[+\-] ?/, "") : "";
+  return c ? (c.textContent ?? "").replace(/\n/g, "").replace(/^[+\-] ?/, "") : "";
 };
-export function rowsBetween(container, rowA, rowB) {
+export function rowsBetween(container: Element, rowA: Element, rowB: Element): Element[] {
   const all = rowsOf(container);
   let i = all.indexOf(rowA),
     j = all.indexOf(rowB);
@@ -91,7 +106,7 @@ export function rowsBetween(container, rowA, rowB) {
 }
 // Rows whose visible line number falls in [start, end]. Used for spec-defined
 // step ranges (the generator emits new-side numbers).
-export function rowsInRange(container, start, end) {
+export function rowsInRange(container: Element | null, start: number, end: number): Element[] {
   if (!container) return [];
   const lo = Math.min(start, end),
     hi = Math.max(start, end);
@@ -100,6 +115,6 @@ export function rowsInRange(container, start, end) {
     return n != null && n >= lo && n <= hi;
   });
 }
-export const codeForRows = (rows) => rows.map(cleanLine).join("\n");
-export const rowRect = (row) =>
+export const codeForRows = (rows: Element[]): string => rows.map(cleanLine).join("\n");
+export const rowRect = (row: Element | null): DOMRect | RowRect =>
   row ? row.getBoundingClientRect() : { left: 60, top: 90, bottom: 114, height: 24 };

@@ -16,7 +16,7 @@ import {
   codeForRows,
   rowRect,
   containerForFile,
-} from "./content/github/diff.js";
+} from "./content/github/diff";
 
 (() => {
   if (window.__prwLoaded) return;
