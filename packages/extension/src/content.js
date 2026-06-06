@@ -20,6 +20,7 @@ import {
   rowAtY,
 } from "./content/github/diff";
 import { api } from "./content/api";
+import { state } from "./content/state";
 import { initTooltips } from "./content/ui/tooltip";
 import { sanitizeSpecHtml } from "./content/sanitize";
 import { storeGet, storeSet, storeRemove } from "./content/storage";
@@ -40,31 +41,28 @@ import { storeGet, storeSet, storeRemove } from "./content/storage";
   const specKey = (pr) => `prw:spec:${pr || prUrl()}`;
   const tourKey = (pr) => `prw:tour:${pr || prUrl()}`;
   const genKey = (pr) => `prw:gen:${pr || prUrl()}`;
-  let tourState = { step: 0, pos: null, size: null }; // last step + card pos/size, per PR
-  const saveChats = () => storeSet(chatsKey(), chatHistory);
-  const saveTour = () => storeSet(tourKey(), tourState);
+  const saveChats = () => storeSet(chatsKey(), state.chatHistory);
+  const saveTour = () => storeSet(tourKey(), state.tourState);
   async function loadPersisted() {
     const pr = prUrl();
     if (!pr) return;
     const chats = await storeGet(chatsKey(pr));
-    if (Array.isArray(chats) && chats.length && chatHistory.length === 0) {
-      chatHistory.push(...chats);
+    if (Array.isArray(chats) && chats.length && state.chatHistory.length === 0) {
+      state.chatHistory.push(...chats);
       refreshChatsBtn();
     }
     const t = await storeGet(tourKey(pr));
-    if (t) tourState = { step: t.step || 0, pos: t.pos || null, size: t.size || null };
+    if (t) state.tourState = { step: t.step || 0, pos: t.pos || null, size: t.size || null };
   }
 
   // ── theme + highlight style ──────────────────────────────────────────────────
-  let hlStyle = localStorage.getItem("prwHl") || "tint"; // "tint" | "github"
-  let theme = localStorage.getItem("prwTheme") || "auto"; // "auto" | "light" | "dark"
   // "auto" is resolved in CSS via @media (prefers-color-scheme); just reflect the
   // raw choice onto the body and let the stylesheet pick the palette.
   const applyTheme = () => {
-    document.body.dataset.prwTheme = theme;
+    document.body.dataset.prwTheme = state.theme;
   };
   const applyHl = () => {
-    document.body.dataset.prwHl = hlStyle;
+    document.body.dataset.prwHl = state.hlStyle;
   };
 
   // ── per-step code highlight (data-line-number based; no fragile geometry) ─────
@@ -100,14 +98,12 @@ import { storeGet, storeSet, storeRemove } from "./content/storage";
   initTooltips();
 
   // ── tour overlay ─────────────────────────────────────────────────────────────
-  let spec = null;
   let stepIdx = 0;
   let card = null;
   let moved = false; // becomes true once the user drags the card
   let pointerOverFooter = false; // is the cursor over the button row right now?
   let cardRO = null,
     cardROTimer = null; // observe + persist the tour card's size
-  let activeStep = null; // the step currently shown (for step-scoped chat context)
 
   function ensureCard() {
     if (card) return;
@@ -124,7 +120,7 @@ import { storeGet, storeSet, storeRemove } from "./content/storage";
     });
     cardRO = new ResizeObserver(() => {
       if (!card) return;
-      tourState.size = { w: card.offsetWidth, h: card.offsetHeight };
+      state.tourState.size = { w: card.offsetWidth, h: card.offsetHeight };
       clearTimeout(cardROTimer);
       cardROTimer = setTimeout(saveTour, 300);
     });
@@ -139,7 +135,7 @@ import { storeGet, storeSet, storeRemove } from "./content/storage";
   }
 
   function renderCard() {
-    const s = spec.steps[stepIdx];
+    const s = state.spec.steps[stepIdx];
 
     // Resize anchoring. Default behavior pins the bottom (CSS bottom-right when
     // untouched, or — once moved — explicitly when the pointer is over the
@@ -163,8 +159,8 @@ import { storeGet, storeSet, storeRemove } from "./content/storage";
       </div>
       <div class="prw-foot">
         <button class="prw-btn" id="prw-back">← Back</button>
-        <button class="prw-btn prw-btn-primary" id="prw-next">${stepIdx === spec.steps.length - 1 ? "Finish ✓" : "Next →"}</button>
-        <span class="prw-count">${stepIdx + 1} / ${spec.steps.length}</span>
+        <button class="prw-btn prw-btn-primary" id="prw-next">${stepIdx === state.spec.steps.length - 1 ? "Finish ✓" : "Next →"}</button>
+        <span class="prw-count">${stepIdx + 1} / ${state.spec.steps.length}</span>
       </div>`;
 
     card.querySelector("#prw-x").onclick = closeTour;
@@ -193,7 +189,7 @@ import { storeGet, storeSet, storeRemove } from "./content/storage";
       }
     };
     card.querySelector("#prw-next").onclick = () => {
-      if (stepIdx < spec.steps.length - 1) {
+      if (stepIdx < state.spec.steps.length - 1) {
         stepIdx++;
         gotoStep();
       } else closeTour();
@@ -233,7 +229,7 @@ import { storeGet, storeSet, storeRemove } from "./content/storage";
         document.removeEventListener("mouseup", up);
         if (card) {
           const b = card.getBoundingClientRect();
-          tourState.pos = { left: b.left, top: b.top };
+          state.tourState.pos = { left: b.left, top: b.top };
           saveTour();
         }
       };
@@ -244,10 +240,10 @@ import { storeGet, storeSet, storeRemove } from "./content/storage";
 
   function gotoStep() {
     renderCard(); // update the card text immediately — never gated on rendering
-    tourState.step = stepIdx; // remember where we are (resume here next open)
+    state.tourState.step = stepIdx; // remember where we are (resume here next open)
     saveTour();
-    const s = spec.steps[stepIdx];
-    activeStep = s; // current step → available as chat context
+    const s = state.spec.steps[stepIdx];
+    state.activeStep = s; // current step → available as chat context
     const cont = document.getElementById(s.anchor);
     if (cont) cont.scrollIntoView({ block: "start" });
     // Highlight as soon as the rows exist. Most files are already rendered, so
@@ -275,19 +271,19 @@ import { storeGet, storeSet, storeRemove } from "./content/storage";
     ensureCard();
     applyTheme();
     applyHl();
-    stepIdx = Math.min(Math.max(tourState.step || 0, 0), spec.steps.length - 1); // resume where you left off
+    stepIdx = Math.min(Math.max(state.tourState.step || 0, 0), state.spec.steps.length - 1); // resume where you left off
     moved = false;
     resetCardPos();
-    if (tourState.pos) {
-      card.style.left = `${tourState.pos.left}px`;
-      card.style.top = `${tourState.pos.top}px`;
+    if (state.tourState.pos) {
+      card.style.left = `${state.tourState.pos.left}px`;
+      card.style.top = `${state.tourState.pos.top}px`;
       card.style.right = "auto";
       card.style.bottom = "auto";
       moved = true;
     }
-    if (tourState.size) {
-      card.style.width = `${tourState.size.w}px`;
-      card.style.height = `${tourState.size.h}px`;
+    if (state.tourState.size) {
+      card.style.width = `${state.tourState.size.w}px`;
+      card.style.height = `${state.tourState.size.h}px`;
     }
     gotoStep();
     document.addEventListener("keydown", tourKeys);
@@ -298,7 +294,7 @@ import { storeGet, storeSet, storeRemove } from "./content/storage";
     const meta = e.metaKey || e.ctrlKey; // Cmd on macOS, Ctrl elsewhere
     const next = e.key === "ArrowRight" || (meta && e.key === "End");
     const prev = e.key === "ArrowLeft" || (meta && e.key === "Home");
-    if (next && stepIdx < spec.steps.length - 1) {
+    if (next && stepIdx < state.spec.steps.length - 1) {
       e.preventDefault();
       stepIdx++;
       gotoStep();
@@ -319,45 +315,44 @@ import { storeGet, storeSet, storeRemove } from "./content/storage";
     card = null;
     moved = false;
     pointerOverFooter = false;
-    activeStep = null;
+    state.activeStep = null;
     document.removeEventListener("keydown", tourKeys);
   }
 
   // Compact text of the current step — passed to chat so answers are framed by it.
   function stepContext() {
-    if (!activeStep) return "";
+    if (!state.activeStep) return "";
     const strip = (h) =>
       (h || "")
         .replace(/<[^>]+>/g, "")
         .replace(/\s+/g, " ")
         .trim();
-    const where = activeStep.file
-      ? ` (${activeStep.file}${activeStep.lines ? `:${activeStep.lines.start}-${activeStep.lines.end}` : ""})`
+    const where = state.activeStep.file
+      ? ` (${state.activeStep.file}${state.activeStep.lines ? `:${state.activeStep.lines.start}-${state.activeStep.lines.end}` : ""})`
       : "";
-    return `Step: ${activeStep.title}${where}\n${strip(activeStep.body)}${activeStep.detail ? "\n" + strip(activeStep.detail) : ""}`;
+    return `Step: ${state.activeStep.title}${where}\n${strip(state.activeStep.body)}${state.activeStep.detail ? "\n" + strip(state.activeStep.detail) : ""}`;
   }
   // A selection object for the step itself (its code), for "Ask about this step".
   function stepSelection() {
-    if (!activeStep) return null;
-    const container = document.getElementById(activeStep.anchor);
+    if (!state.activeStep) return null;
+    const container = document.getElementById(state.activeStep.anchor);
     const stepRows =
-      container && activeStep.lines
-        ? rowsInRange(container, activeStep.lines.start, activeStep.lines.end)
+      container && state.activeStep.lines
+        ? rowsInRange(container, state.activeStep.lines.start, state.activeStep.lines.end)
         : [];
     let text = stepRows.length ? codeForRows(stepRows) : "";
     if (!text)
       text =
-        (activeStep.highlight || []).join("\n") ||
-        (activeStep.body || "").replace(/<[^>]+>/g, "").slice(0, 1000);
+        (state.activeStep.highlight || []).join("\n") ||
+        (state.activeStep.body || "").replace(/<[^>]+>/g, "").slice(0, 1000);
     const rect = stepRows.length ? rowRect(stepRows[0]) : { left: 60, top: 90, bottom: 114, height: 24 };
-    return { text, file: activeStep.file, container, lines: activeStep.lines, rect };
+    return { text, file: state.activeStep.file, container, lines: state.activeStep.lines, rect };
   }
 
   // ── selection → inline chat ─────────────────────────────────────────────────
   let pill = null;
   let chat = null; // the open chat element (one at a time)
   let activeSession = null; // session backing the open chat
-  const chatHistory = []; // session objects, most recent first
   let chatsBtn = null; // persistent launcher to reopen past chats
   let chatsList = null; // open history popover
   let chatRO = null,
@@ -376,10 +371,10 @@ import { storeGet, storeSet, storeRemove } from "./content/storage";
   }
   function startSession(s) {
     const key = sessionKey(s);
-    let sess = chatHistory.find((c) => c.key === key);
+    let sess = state.chatHistory.find((c) => c.key === key);
     if (!sess) {
       sess = { key, file: s.file, lines: s.lines, text: s.text, suggestions: null, messages: [], pos: null };
-      chatHistory.unshift(sess);
+      state.chatHistory.unshift(sess);
       refreshChatsBtn();
       saveChats();
     }
@@ -555,7 +550,8 @@ import { storeGet, storeSet, storeRemove } from "./content/storage";
       askBtn.appendChild(b);
     };
     // Order left→right: context chat on the left, plain chat always rightmost.
-    if (activeStep) mk("Ask about these lines — with the current step's context", true, "prw-askbtn-ctx");
+    if (state.activeStep)
+      mk("Ask about these lines — with the current step's context", true, "prw-askbtn-ctx");
     mk("Ask about these lines — plain chat", false);
     const r = rowRect(rows[0]);
     askBtn.style.top = `${r.top + (r.height - 22) / 2}px`;
@@ -632,10 +628,12 @@ import { storeGet, storeSet, storeRemove } from "./content/storage";
   // A compact, plain-text version of the cached walkthrough — sent with chat
   // questions so even a freshly-restarted (clean-context) session understands the PR.
   function reviewContext() {
-    if (!spec) return "";
-    const head = spec.overview ? `Overview: ${spec.overview.replace(/\s+/g, " ").trim()}\n\n` : "";
-    const steps = Array.isArray(spec.steps)
-      ? spec.steps
+    if (!state.spec) return "";
+    const head = state.spec.overview
+      ? `Overview: ${state.spec.overview.replace(/\s+/g, " ").trim()}\n\n`
+      : "";
+    const steps = Array.isArray(state.spec.steps)
+      ? state.spec.steps
           .map((st) => {
             const where = st.file
               ? ` (${st.file}${st.lines ? `:${st.lines.start}-${st.lines.end}` : ""})`
@@ -1076,10 +1074,10 @@ import { storeGet, storeSet, storeRemove } from "./content/storage";
 
   // Remove a session from history + storage, updating the launcher/list.
   function dropSession(sess) {
-    const i = chatHistory.indexOf(sess);
-    if (i >= 0) chatHistory.splice(i, 1);
+    const i = state.chatHistory.indexOf(sess);
+    if (i >= 0) state.chatHistory.splice(i, 1);
     saveChats();
-    if (!chatHistory.length) {
+    if (!state.chatHistory.length) {
       chatsBtn?.remove();
       chatsBtn = null;
       chatsList?.remove();
@@ -1096,14 +1094,14 @@ import { storeGet, storeSet, storeRemove } from "./content/storage";
     return `${base} — ${firstQ ? firstQ.content : sess.text.replace(/\s+/g, " ").slice(0, 40)}`;
   }
   function refreshChatsBtn() {
-    if (!chatHistory.length) return;
+    if (!state.chatHistory.length) return;
     if (!chatsBtn) {
       chatsBtn = document.createElement("button");
       chatsBtn.className = "prw-pill prw-chats-btn";
       chatsBtn.onclick = toggleChatsList;
       document.body.appendChild(chatsBtn);
     }
-    chatsBtn.textContent = `Chats (${chatHistory.length})`;
+    chatsBtn.textContent = `Chats (${state.chatHistory.length})`;
   }
   function toggleChatsList() {
     if (chatsList) {
@@ -1113,7 +1111,7 @@ import { storeGet, storeSet, storeRemove } from "./content/storage";
     }
     chatsList = document.createElement("div");
     chatsList.className = "prw-chats-list";
-    chatHistory.forEach((sess) => {
+    state.chatHistory.forEach((sess) => {
       const row = document.createElement("div");
       row.className = "prw-chats-item-row";
       const open = document.createElement("button");
@@ -1142,7 +1140,7 @@ import { storeGet, storeSet, storeRemove } from "./content/storage";
     clear.className = "prw-chats-clear";
     clear.textContent = "Clear all chats";
     clear.onclick = () => {
-      chatHistory.length = 0;
+      state.chatHistory.length = 0;
       saveChats();
       chatsList?.remove();
       chatsList = null;
@@ -1215,17 +1213,17 @@ import { storeGet, storeSet, storeRemove } from "./content/storage";
       </label>`;
     document.body.appendChild(settingsPop);
     const themeSel = settingsPop.querySelector("#prw-theme");
-    themeSel.value = theme;
+    themeSel.value = state.theme;
     themeSel.onchange = () => {
-      theme = themeSel.value;
-      localStorage.setItem("prwTheme", theme);
+      state.theme = themeSel.value;
+      localStorage.setItem("prwTheme", state.theme);
       applyTheme();
     };
     const styleSel = settingsPop.querySelector("#prw-style");
-    styleSel.value = hlStyle;
+    styleSel.value = state.hlStyle;
     styleSel.onchange = () => {
-      hlStyle = styleSel.value;
-      localStorage.setItem("prwHl", hlStyle);
+      state.hlStyle = styleSel.value;
+      localStorage.setItem("prwHl", state.hlStyle);
       applyHl();
     };
   }
@@ -1292,8 +1290,8 @@ import { storeGet, storeSet, storeRemove } from "./content/storage";
       block.appendChild(s);
       return;
     }
-    if (spec) {
-      addBtn(`▶ Open review (${spec.steps.length})`, "", () => startTour());
+    if (state.spec) {
+      addBtn(`▶ Open review (${state.spec.steps.length})`, "", () => startTour());
       // Regenerate is always available; emphasized when there are new commits.
       addBtn(newCommits ? "⟳ Update" : "⟳ Regenerate", "prw-ghost" + (newCommits ? " prw-attn" : ""), () =>
         openRegenDialog(pr),
@@ -1319,10 +1317,10 @@ import { storeGet, storeSet, storeRemove } from "./content/storage";
       if (got && specSig(got) !== prevSig) {
         clearInterval(genPoll);
         genPoll = null;
-        spec = got;
+        state.spec = got;
         storeSet(specKey(pr), got);
         storeRemove(genKey(pr));
-        tourState = { ...tourState, step: 0 };
+        state.tourState = { ...state.tourState, step: 0 };
         saveTour(); // new review → back to the first step, but keep window pos + size
         newCommits = !!(curHead && got.pr?.headSha && got.pr.headSha !== curHead);
         generating = false;
@@ -1341,7 +1339,7 @@ import { storeGet, storeSet, storeRemove } from "./content/storage";
   // Ask the session (via the channel) to (re)generate; persist a marker so the
   // "generating" state survives a refresh, then poll for the new spec.
   async function requestGenerate(pr, mode, sinceSha) {
-    const prevSig = specSig(spec);
+    const prevSig = specSig(state.spec);
     closeTour(); // don't leave a stale walkthrough open while it regenerates
     generating = true;
     storeSet(genKey(pr), { prevSig, at: Date.now() });
@@ -1371,7 +1369,7 @@ import { storeGet, storeSet, storeRemove } from "./content/storage";
     };
     if (newCommits)
       opt("Incremental update", "Add steps covering only what changed since the last review.", () =>
-        requestGenerate(pr, "incremental", spec?.pr?.headSha),
+        requestGenerate(pr, "incremental", state.spec?.pr?.headSha),
       );
     opt("Regenerate as new", "Rebuild the whole walkthrough from scratch.", () => requestGenerate(pr, "new"));
     const cancel = document.createElement("button");
@@ -1399,9 +1397,9 @@ import { storeGet, storeSet, storeRemove } from "./content/storage";
       const cached = await storeGet(specKey(pr));
       if (cached && cached.version === 1) data = cached;
     } // fall back to cache
-    spec = data || null;
+    state.spec = data || null;
     renderLauncher(pr);
-    if (spec && onFilesTab() && sessionStorage.getItem("prwAutoStart") === "1") {
+    if (state.spec && onFilesTab() && sessionStorage.getItem("prwAutoStart") === "1") {
       sessionStorage.removeItem("prwAutoStart");
       setTimeout(startTour, 900);
     }
@@ -1409,7 +1407,7 @@ import { storeGet, storeSet, storeRemove } from "./content/storage";
       // resume a generation that was in flight before a refresh
       const gen = await storeGet(genKey(pr));
       const fresh = gen && Date.now() - (gen.at || 0) < 4 * 60 * 1000; // ignore stale markers
-      if (fresh && (!spec || specSig(spec) === gen.prevSig)) {
+      if (fresh && (!state.spec || specSig(state.spec) === gen.prevSig)) {
         generating = true;
         renderLauncher(pr);
         pollForSpec(pr, gen.prevSig);
@@ -1417,12 +1415,12 @@ import { storeGet, storeSet, storeRemove } from "./content/storage";
       }
       if (gen) storeRemove(genKey(pr)); // finished (spec already changed), or stale — drop it
     }
-    if (spec && !generating) {
+    if (state.spec && !generating) {
       // detect new commits since the reviewed head
       const h = await api(`/head?pr=${encodeURIComponent(pr)}`);
       if (h.ok && h.data?.headSha) {
         curHead = h.data.headSha;
-        newCommits = !!spec.pr?.headSha && spec.pr.headSha !== curHead;
+        newCommits = !!state.spec.pr?.headSha && state.spec.pr.headSha !== curHead;
         renderLauncher(pr);
       }
     }
@@ -1447,13 +1445,13 @@ import { storeGet, storeSet, storeRemove } from "./content/storage";
       if (pr !== curPr) {
         // switched to a different PR — load that PR's stored state
         curPr = pr;
-        chatHistory.length = 0;
+        state.chatHistory.length = 0;
         chatsBtn?.remove();
         chatsBtn = null;
         chatsList?.remove();
         chatsList = null;
-        tourState = { step: 0, pos: null, size: null };
-        spec = null;
+        state.tourState = { step: 0, pos: null, size: null };
+        state.spec = null;
         generating = false;
         newCommits = false;
         curHead = null;
