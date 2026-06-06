@@ -15,14 +15,17 @@ A pnpm-workspaces monorepo:
 ```
 pr-walkthrough/
 ├── packages/
+│   ├── shared/      Pure, dependency-free contract: spec types, PR-URL parsing,
+│   │                diff anchors, markdown rendering (imported by server + extension)
 │   ├── server/      Claude Code channel + localhost HTTP bridge (Bun + TypeScript)
-│   └── extension/   Chrome MV3 extension that renders the tour + ask-modal
+│   └── extension/   Chrome MV3 extension, bundled with esbuild → dist/. All
+│                    GitHub-diff-DOM coupling is isolated in content/github/diff.ts
 ├── pnpm-workspace.yaml
 └── tsconfig.base.json
 ```
 
 The two sides are decoupled by a single contract: the **walkthrough spec** (see
-`packages/server/src/spec.ts`). The server produces and serves specs; the
+`packages/shared/src/spec.ts`). The server produces and serves specs; the
 extension consumes them. Either side can change independently.
 
 > Setup note: register the channel in a local `.mcp.json` pointing at
@@ -63,12 +66,29 @@ extension consumes them. Either side can change independently.
    (manually-configured MCP servers are tagged `server:`, not `plugin:`; the dev
    flag takes the entry directly and replaces `--channels` for non-allowlisted
    local channels). The HTTP bridge comes up on `http://localhost:8799`.
-2. **Extension** — see `extension/README.md`. Load it unpacked in
-   `chrome://extensions`.
+2. **Extension** — see `extension/README.md`. Build it once with `pnpm build`
+   (the manifest points at `dist/`), then load `packages/extension/` unpacked in
+   `chrome://extensions`. Use `pnpm --filter @prw/extension dev` to rebuild on save.
 3. In your Claude session: _"Build a walkthrough for <PR url>."_ Claude calls
    `start_walkthrough`, authors the spec, and calls `publish_walkthrough`.
 4. Open the PR's **Files** tab. Click the **▶ Walkthrough** button (bottom-left).
    Select any code and click **Ask about this** to ask questions.
+
+## Develop
+
+From the repo root (pnpm workspaces):
+
+```
+pnpm install        # install all workspace deps
+pnpm test           # Vitest, run once from the root (not per-package)
+pnpm typecheck      # tsc --noEmit across shared / server / extension
+pnpm lint           # ESLint (flat config)
+pnpm format         # Prettier --write
+pnpm build          # bundle the extension → packages/extension/dist/
+```
+
+CI (`.github/workflows/ci.yml`) runs format:check → lint → typecheck → test →
+build on every push and PR.
 
 ## Status
 

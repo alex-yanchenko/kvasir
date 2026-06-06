@@ -8,6 +8,7 @@
   "packageManager": "pnpm@11.5.1",
   "scripts": {
     "server": "pnpm --filter @prw/server start",
+    "build": "pnpm --filter @prw/extension build",
     "typecheck": "pnpm -r typecheck",
     "lint": "eslint .",
     "format": "prettier --write .",
