@@ -1553,8 +1553,8 @@
         spec = got;
         storeSet(specKey(pr), got);
         storeRemove(genKey(pr));
-        tourState = { step: 0, pos: null, size: null };
-        saveTour(); // fresh review → reset position + step
+        tourState = { ...tourState, step: 0 };
+        saveTour(); // new review → back to the first step, but keep window pos + size
         newCommits = !!(curHead && got.pr?.headSha && got.pr.headSha !== curHead);
         generating = false;
         renderLauncher(pr);
@@ -1573,6 +1573,7 @@
   // "generating" state survives a refresh, then poll for the new spec.
   async function requestGenerate(pr, mode, sinceSha) {
     const prevSig = specSig(spec);
+    closeTour(); // don't leave a stale walkthrough open while it regenerates
     generating = true;
     storeSet(genKey(pr), { prevSig, at: Date.now() });
     renderLauncher(pr);
