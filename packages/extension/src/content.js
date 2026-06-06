@@ -6,16 +6,12 @@ import {
   filePathFromContainer,
   diffContainerOf,
   lineRangeOf,
-  lineOfRow,
-  rowsBetween,
   rowsInRange,
   codeForRows,
   rowRect,
-  rowBandsOf,
-  rowAtY,
 } from "./content/midgard/diff";
-import { highlightRows } from "./content/midgard/midgard";
 import { connectMidgard } from "./content/midgard/connect";
+import { connectGrip } from "./content/midgard/grip";
 import { bifrost } from "./content/bifrost";
 import { api } from "./content/api";
 import { state } from "./content/state";
@@ -29,6 +25,7 @@ import { storeGet, storeSet, storeRemove } from "./content/muninn";
 
   // Midgard listens on the Bifrost before anything sends a command.
   connectMidgard(bifrost);
+  connectGrip(bifrost);
 
   const prUrl = () => {
     const m = location.href.match(/(https:\/\/github\.com\/[^/]+\/[^/]+\/pull\/\d+)/);
@@ -210,6 +207,7 @@ import { storeGet, storeSet, storeRemove } from "./content/muninn";
     saveTour();
     const s = state.spec.steps[stepIdx];
     state.activeStep = s; // current step → available as chat context
+    bifrost.send("grip:context", { hasActiveStep: true });
     bifrost.send("highlight:step", {
       anchor: s.anchor,
       lines: s.lines ?? null,
@@ -271,6 +269,7 @@ import { storeGet, storeSet, storeRemove } from "./content/muninn";
     moved = false;
     pointerOverFooter = false;
     state.activeStep = null;
+    bifrost.send("grip:context", { hasActiveStep: false });
     document.removeEventListener("keydown", tourKeys);
   }
 
@@ -412,144 +411,18 @@ import { storeGet, storeSet, storeRemove } from "./content/muninn";
     }
   });
 
-  // ── gutter line selection ────────────────────────────────────────────────────
-  // Two steps. A "grip" follows the hovered line: click it = select one line,
-  // drag it = select a range — both only SELECT (highlight). Then a chat icon
-  // appears at the selection; click it to ask. No text selection, so GitHub's own
-  // (buggy) line selection never triggers; clean code is rebuilt from the rows.
-  let grip = null; // hover handle that initiates selection
-  let askBtn = null; // chat icon shown after a selection
-  let hoverInfo = null; // { row, line, container }
-  let picking = false; // true while a drag-select is in progress
-  let sel = null; // current selection { container, rows: [tr...] }
-
-  function clearSel() {
-    bifrost.send("pick:clear", undefined);
-    sel = null;
-    if (askBtn) askBtn.style.display = "none";
-  }
-
-  function ensureGrip() {
-    if (grip) return;
-    grip = document.createElement("button");
-    grip.className = "prw-grip";
-    grip.setAttribute("data-prw-tip", "Click to select a line · drag to select a range");
-    grip.setAttribute("aria-label", "Select line");
-    grip.innerHTML =
-      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h16M4 15h16"/></svg>';
-    grip.style.display = "none";
-    document.body.appendChild(grip);
-    grip.addEventListener("mousedown", onGripDown);
-  }
-  function ensureAskBtn() {
-    if (askBtn) return;
-    askBtn = document.createElement("div"); // a bar holding 1-2 chat icons
-    askBtn.className = "prw-askbar";
-    askBtn.style.display = "none";
-    document.body.appendChild(askBtn);
-  }
-  const BUBBLE = '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>';
   const COPY = '<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/>';
   const CHECK = '<path d="M4 12l5 5L20 6"/>';
   const REGEN = '<path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/>';
   const LOCATE = '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>';
   const svgIcon = (inner) =>
     `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${inner}</svg>`;
-  function showGripAt(row, container, line) {
-    ensureGrip();
-    const r = row.getBoundingClientRect();
-    // Over the line-number gutter, so a vertical drag stays atop the diff rows.
-    grip.style.left = `${r.left + 10}px`;
-    grip.style.top = `${r.top + (r.height - 20) / 2}px`;
-    grip.style.display = "flex";
-    hoverInfo = { row, line, container };
-  }
-  function showAskBtn(rows) {
-    ensureAskBtn();
-    askBtn.innerHTML = "";
-    const mk = (title, withStep, cls) => {
-      const b = document.createElement("button");
-      b.className = "prw-askbtn" + (cls ? " " + cls : "");
-      b.setAttribute("data-prw-tip", title); // fast custom tooltip
-      b.setAttribute("aria-label", title);
-      b.innerHTML = svgIcon(BUBBLE);
-      b.onclick = () => openSelectedChat(withStep);
-      askBtn.appendChild(b);
-    };
-    // Order left→right: context chat on the left, plain chat always rightmost.
-    if (state.activeStep)
-      mk("Ask about these lines — with the current step's context", true, "prw-askbtn-ctx");
-    mk("Ask about these lines — plain chat", false);
-    const r = rowRect(rows[0]);
-    askBtn.style.top = `${r.top + (r.height - 22) / 2}px`;
-    askBtn.style.display = "flex";
-    // Sit in the empty left margin, ending just before the line-number gutter, so
-    // it never covers GitHub's hover "+" (in the gutter) or the code (to the right).
-    const bw = askBtn.offsetWidth || 52;
-    askBtn.style.left = `${Math.max(6, r.left - bw - 8)}px`;
-  }
-  function openSelectedChat(withStep) {
-    if (!sel || !sel.rows.length) return;
-    const { container, rows } = sel;
-    const file = filePathFromContainer(container);
-    const text = codeForRows(rows);
-    if (!file || !text) return;
-    if (askBtn) askBtn.style.display = "none";
-    const rect = rowRect(rows[0]);
-    const a = lineOfRow(rows[0]),
-      b = lineOfRow(rows[rows.length - 1]);
-    const lines = a != null && b != null ? { start: Math.min(a, b), end: Math.max(a, b) } : null;
-    const session = startSession({ text, file, container, lines, rect });
-    if (withStep) session.step = stepContext();
-    openChat(session, rect);
-  }
-  function onGripDown(e) {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!hoverInfo) return;
-    clearSel(); // a new selection replaces the previous one
-    document.body.classList.add("prw-noselect");
-    window.getSelection?.()?.removeAllRanges?.();
-    const container = hoverInfo.container;
-    const startRow = hoverInfo.row;
-    const bands = rowBandsOf(container);
-    picking = true;
-    if (grip) grip.style.display = "none";
-    highlightRows([startRow]);
-    const move = (ev) => {
-      ev.preventDefault();
-      // Resolve the row at the cursor's Y and select the DOM range between it and
-      // the start row — order-based, so deleted/added/mixed spans all work.
-      const row = rowAtY(bands, ev.clientY, startRow);
-      if (row && container.contains(row)) highlightRows(rowsBetween(container, startRow, row));
-    };
-    const up = (ev) => {
-      document.removeEventListener("mousemove", move);
-      document.removeEventListener("mouseup", up);
-      document.body.classList.remove("prw-noselect");
-      let endRow = rowAtY(bands, ev.clientY, startRow);
-      if (!endRow || !container.contains(endRow)) endRow = startRow;
-      const rows = rowsBetween(container, startRow, endRow);
-      picking = false;
-      sel = { container, rows }; // selection set — but don't open chat
-      highlightRows(rows);
-      showAskBtn(rows); // chat icon to ask
-    };
-    document.addEventListener("mousemove", move);
-    document.addEventListener("mouseup", up);
-  }
-  document.addEventListener("mouseover", (e) => {
-    if (picking) return; // mid-drag
-    if (grip && (e.target === grip || grip.contains(e.target))) return;
-    if (askBtn && (e.target === askBtn || askBtn.contains(e.target))) return;
-    const row = e.target.closest?.("tr.diff-line-row");
-    if (row) {
-      const container = diffContainerOf(row);
-      const line = lineOfRow(row);
-      if (container && line != null) showGripAt(row, container, line);
-    } else if (grip && !e.target.closest?.('[id^="diff-"]')) {
-      grip.style.display = "none";
-    }
+
+  // Asgard side of the grip: a completed "ask" arrives as data over the Bifrost.
+  bifrost.on("selection:ask", (p) => {
+    const session = startSession({ text: p.text, file: p.file, lines: p.lines, rect: p.rect });
+    if (p.withStep) session.step = stepContext();
+    openChat(session, p.rect);
   });
 
   // A compact, plain-text version of the cached walkthrough — sent with chat
@@ -1100,7 +973,7 @@ import { storeGet, storeSet, storeRemove } from "./content/muninn";
   // Collapse → hide the window but keep the chat in the Chats list to reopen.
   function minimizeChat() {
     if (!chat) return;
-    clearSel();
+    bifrost.send("pick:clear", undefined);
     if (activeSession) {
       const r = chat.getBoundingClientRect();
       activeSession.pos = { left: r.left, top: r.top };
@@ -1114,7 +987,7 @@ import { storeGet, storeSet, storeRemove } from "./content/muninn";
   // Close → remove the chat for good (window + history + storage).
   function deleteChat() {
     if (!chat) return;
-    clearSel();
+    bifrost.send("pick:clear", undefined);
     const sess = activeSession;
     detachChat();
     dropSession(sess);

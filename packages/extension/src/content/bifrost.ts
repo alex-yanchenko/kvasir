@@ -34,6 +34,9 @@ export interface BifrostCommands {
   "pick:clear": undefined;
   "jump:ref": { file: string; start: number; end: number | null };
   "theme:apply": { theme: string; hlStyle: string };
+  /** Tell the grip whether a walkthrough step is active (shows the context-chat
+   * ask button) — pushed by the app, so Midgard never reads app state. */
+  "grip:context": { hasActiveStep: boolean };
 }
 
 /** Reports: Midgard → Asgard. Facts about what happened on the page. */
@@ -41,6 +44,8 @@ export interface BifrostReports {
   "pr:changed": { pr: string | null; onFilesTab: boolean };
   "selection:completed": SelectionPayload;
   "selection:cleared": undefined;
+  /** The user clicked an ask button on the selection bar. */
+  "selection:ask": SelectionPayload & { withStep: boolean };
   "ref:missing": { file: string };
 }
 
