@@ -2,17 +2,19 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import type { RowBand } from "./diff";
 import {
-  filePathFromContainer,
-  diffContainerOf,
-  rowsOf,
-  lineOfRow,
   cleanLine,
   codeForRows,
-  rowsBetween,
-  rowsInRange,
+  diffContainerOf,
+  filePathFromContainer,
+  lineOfRow,
+  lineRangeOf,
+  rowAtY,
   rowForLine,
   rowForText,
-  rowAtY,
+  rowRect,
+  rowsBetween,
+  rowsInRange,
+  rowsOf,
 } from "./diff";
 
 // A minimal stand-in for GitHub's "Files changed" markup: a diff-<hash> container
@@ -138,5 +140,57 @@ describe("rowAtY", () => {
   it("returns the fallback row when there are no bands", () => {
     const fallback = rowsOf(container)[0];
     expect(rowAtY([], 5, fallback)).toBe(fallback);
+  });
+});
+
+describe("lineRangeOf", () => {
+  it("reads the covered line range from cells the Range intersects", () => {
+    const range = document.createRange();
+    range.selectNodeContents(container.querySelector("tbody")!);
+    expect(lineRangeOf(container, range)).toEqual({ start: 10, end: 12 });
+  });
+
+  it("returns null when the Range touches no numbered cell, or without a container", () => {
+    const range = document.createRange();
+    range.selectNodeContents(document.getElementById("h1")!);
+    expect(lineRangeOf(container, range)).toBeNull();
+    expect(lineRangeOf(null, range)).toBeNull();
+  });
+});
+
+describe("rowForText misses", () => {
+  it("returns null when no text cell contains the substring", () => {
+    expect(rowForText(container, "not present anywhere")).toBeNull();
+  });
+});
+
+describe("reader edge branches", () => {
+  it("filePathFromContainer falls back to a descendant data-tagsearch-path, then to null", () => {
+    container.removeAttribute("aria-labelledby");
+    container.querySelector("table")!.removeAttribute("aria-label");
+    expect(filePathFromContainer(container)).toBeNull(); // nothing left to read
+    const legacy = document.createElement("div");
+    legacy.setAttribute("data-tagsearch-path", "src/app.ts");
+    container.appendChild(legacy);
+    expect(filePathFromContainer(container)).toBe("src/app.ts"); // the old-UI attribute
+  });
+
+  it("filePathFromContainer ignores an empty aria-labelledby heading", () => {
+    document.getElementById("h1")!.textContent = "Collapse file";
+    expect(filePathFromContainer(container)).toBe("src/app.ts"); // table aria-label fallback
+  });
+
+  it("rowForLine returns null for a line not in the diff", () => {
+    expect(rowForLine(container, 999)).toBeNull();
+  });
+
+  it("lineOfRow and cleanLine handle rows without a numbered text cell", () => {
+    const bare = document.createElement("tr");
+    expect(lineOfRow(bare)).toBeNull();
+    expect(cleanLine(bare)).toBe("");
+  });
+
+  it("rowRect returns the off-screen fallback rect when there is no row", () => {
+    expect(rowRect(null)).toEqual({ left: 60, top: 90, bottom: 114, height: 24 });
   });
 });

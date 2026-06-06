@@ -46,3 +46,31 @@ describe("storeRemove", () => {
     expect(remove).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("write failures are swallowed (storage unavailable)", () => {
+  it("storeSet does not throw when the storage API throws", () => {
+    vi.stubGlobal("chrome", {
+      storage: {
+        local: {
+          set: () => {
+            throw new Error("no storage");
+          },
+        },
+      },
+    });
+    expect(() => storeSet("prw:tour", { step: 1 })).not.toThrow();
+  });
+
+  it("storeRemove does not throw when the storage API throws", () => {
+    vi.stubGlobal("chrome", {
+      storage: {
+        local: {
+          remove: () => {
+            throw new Error("no storage");
+          },
+        },
+      },
+    });
+    expect(() => storeRemove("prw:gen")).not.toThrow();
+  });
+});

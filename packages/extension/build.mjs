@@ -1,8 +1,9 @@
-// esbuild pipeline for the extension. Phase 4a stands this up against the
-// existing plain-JS sources with no behavior change: content.js and
-// background.js are bundled as self-contained IIFEs into dist/, and overlay.css
-// is copied alongside. manifest.json points at dist/, so the unpacked extension
-// loads the bundled output rather than raw src/.
+// esbuild pipeline for the extension. Two bundles ship to dist/: the content
+// script (entry content/index.tsx — boots Heimdall/Asgard and, until the islands
+// finish landing, the legacy vanilla world) and Huginn, the background worker.
+// midgard.css (light-DOM row styles) is copied alongside and loaded via the
+// manifest; Asgard's panel styles are *imported as text* (see the css loader) and
+// injected into the shadow root at runtime.
 //
 // Run `node build.mjs` for a one-shot build, or `node build.mjs --watch` to
 // rebuild on change (keeps the edit -> reload loop fast).
@@ -17,26 +18,39 @@ const src = resolve(here, "src");
 const dist = resolve(here, "dist");
 const watch = process.argv.includes("--watch");
 
-// Copy overlay.css on every successful build so --watch keeps it in sync.
+// Copy midgard.css on every successful build so --watch keeps it in sync.
 const copyAssets = {
   name: "copy-assets",
   setup(build) {
     build.onEnd(async (result) => {
       if (result.errors.length > 0) return;
       await mkdir(dist, { recursive: true });
-      await copyFile(resolve(src, "overlay.css"), resolve(dist, "overlay.css"));
+      await copyFile(resolve(src, "midgard.css"), resolve(dist, "midgard.css"));
     });
   },
 };
 
 const ctx = await context({
-  entryPoints: [resolve(src, "content.js"), resolve(src, "huginn.ts")],
+  entryPoints: [
+    { in: resolve(src, "content/index.tsx"), out: "content" },
+    { in: resolve(src, "huginn.ts"), out: "huginn" },
+  ],
   outdir: dist,
   bundle: true,
   format: "iife",
   platform: "browser",
   target: ["chrome111"],
-  sourcemap: watch,
+  jsx: "automatic",
+  // React branches on process.env.NODE_ENV at runtime; a content script has no
+  // `process`, so resolve it at build time (also drops React's dev-only code).
+  define: { "process.env.NODE_ENV": '"production"' },
+  // Imported stylesheets become strings for shadow-root injection; midgard.css is
+  // never imported (the manifest loads the copied file into the light DOM).
+  loader: { ".css": "text" },
+  // With React in the bundle, ship minified + an external sourcemap: the parse
+  // cost lands on every PR page, and devtools stays debuggable via the map.
+  minify: true,
+  sourcemap: true,
   logLevel: "info",
   plugins: [copyAssets],
 });

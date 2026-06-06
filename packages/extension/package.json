@@ -9,10 +9,15 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@prw/runes": "workspace:*"
+    "@prw/runes": "workspace:*",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
   },
   "devDependencies": {
+    "@testing-library/react": "^16.3.2",
     "@types/chrome": "^0.0.287",
+    "@types/react": "^19.2.16",
+    "@types/react-dom": "^19.2.3",
     "esbuild": "^0.24.2",
     "typescript": "^5.9.3"
   }

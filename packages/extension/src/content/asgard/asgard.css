@@ -1,0 +1,3 @@
+/* Asgard's panel styles, injected into the shadow root by Heimdall. Empty until
+   the first island lands (D1) — each island moves its rules here out of
+   midgard.css, picking up theme tokens via :host([data-prw-theme]). */

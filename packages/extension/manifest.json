@@ -10,7 +10,7 @@
     {
       "matches": ["https://github.com/*/*/pull/*"],
       "js": ["dist/content.js"],
-      "css": ["dist/overlay.css"],
+      "css": ["dist/midgard.css"],
       "run_at": "document_idle"
     }
   ]

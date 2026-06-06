@@ -13,9 +13,9 @@ export default [
   },
 
   // Extension TypeScript modules (huginn, and content/* as they migrate).
-  ...tseslint.configs.recommended.map((c) => ({ ...c, files: ["packages/extension/**/*.ts"] })),
+  ...tseslint.configs.recommended.map((c) => ({ ...c, files: ["packages/extension/**/*.{ts,tsx}"] })),
   {
-    files: ["packages/extension/**/*.ts"],
+    files: ["packages/extension/**/*.{ts,tsx}"],
     languageOptions: { globals: { ...globals.browser, ...globals.webextensions, chrome: "readonly" } },
   },
 

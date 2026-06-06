@@ -65,6 +65,16 @@ describe("grip hover", () => {
 });
 
 describe("drag select", () => {
+  it("tracks the cursor during the drag, repainting the span on every move", () => {
+    hoverRow(rowsOf(container)[2]);
+    grip()!.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+    document.dispatchEvent(new MouseEvent("mousemove", { clientY: 0 }));
+    // mid-drag: span from the hovered row up to the row at the cursor (row 0)
+    expect(picked(container)).toEqual(rowsOf(container));
+    document.dispatchEvent(new MouseEvent("mouseup", { clientY: 0 }));
+    expect(picked(container)).toEqual(rowsOf(container));
+  });
+
   it("selects the row span, paints prw-pick, and reports selection:completed as data", () => {
     const completed = vi.fn();
     const off = bifrost.on("selection:completed", completed);
@@ -126,5 +136,19 @@ describe("pick:clear", () => {
     expect(ask).not.toHaveBeenCalled();
     offC();
     offA();
+  });
+});
+
+describe("grip ignores non-code rows", () => {
+  it("does not move the grip for a row without a line number", () => {
+    const table = container.querySelector("tbody")!;
+    const hunk = document.createElement("tr");
+    hunk.className = "diff-line-row";
+    hunk.innerHTML = "<td>@@ hunk @@</td>";
+    table.appendChild(hunk);
+    hoverRow(rowsOf(container)[0]); // place the grip on a real row first
+    const before = grip()!.style.top;
+    hunk.querySelector("td")!.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+    expect(grip()!.style.top).toBe(before); // unchanged — no grip for a numberless row
   });
 });
