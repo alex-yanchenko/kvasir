@@ -121,7 +121,7 @@ export function createFetchHandler(deps: BridgeDeps): (req: Request) => Promise<
       // The streamed-reply protocol: notes while working, the answer in pieces,
       // answer_question closes the stream (and carries the whole text when the
       // model skipped chunking — the one-shot fallback).
-      const stream = `Stream your reply using this event's id: call progress_note with a short note before anything slow (reading a file, running a command). Compose the answer via answer_chunk, one complete markdown block per call (a short paragraph, a bullet list, or a fenced code block). Finish by calling answer_question with an empty answer — or, if you didn't use answer_chunk, with the full answer text.`;
+      const stream = `Stream your reply using this event's id: call progress_note with a short note before anything slow (reading a file, running a command). Use answer_chunk ONLY when the answer emerges in stages — you can state a finished part (one complete markdown block) and then keep digging between chunks. Never split an already-composed answer into back-to-back answer_chunk calls: when you write the whole answer in one go, pass it whole to answer_question. Finish with answer_question — empty answer if you chunked, the full text otherwise.`;
       const format = `Format the answer as readable markdown: short paragraphs separated by blank lines, bullet lists for enumerations, fenced code blocks for code — never one dense block of prose.`;
       const content = prLevel
         ? [

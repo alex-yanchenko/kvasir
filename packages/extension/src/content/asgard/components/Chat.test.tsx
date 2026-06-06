@@ -213,6 +213,7 @@ describe("asking", () => {
     // the partial renders as markdown already, with an unfinished fence auto-closed
     expect(document.querySelector(".prw-live-text .prw-md")).toBeTruthy();
     expect(document.querySelector(".prw-live-text")!.textContent).toContain("First piece.");
+    expect(document.querySelector(".prw-typing")).toBeTruthy(); // still streaming — dots stay up
     await act(async () => {
       await vi.advanceTimersByTimeAsync(600);
     });

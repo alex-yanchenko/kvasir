@@ -448,17 +448,17 @@ function Window({ sess }: { sess: ChatSession }): JSX.Element {
         {busy && (
           <div className="prw-msg prw-msg-bot">
             {liveAsk?.note && <div className="prw-live-note">⚙ {liveAsk.note}</div>}
-            {liveAsk?.text ? (
+            {liveAsk?.text && (
               <span className="prw-live-text">
                 <Markdown text={closeFences(liveAsk.text)} />
               </span>
-            ) : (
-              <span className="prw-typing">
-                <i></i>
-                <i></i>
-                <i></i>
-              </span>
             )}
+            {/* the dots stay up while the stream is open — partial text above is not the end */}
+            <span className="prw-typing">
+              <i></i>
+              <i></i>
+              <i></i>
+            </span>
           </div>
         )}
         {err && (
