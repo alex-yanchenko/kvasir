@@ -6,19 +6,22 @@ import {
   filePathFromContainer,
   diffContainerOf,
   lineRangeOf,
-  rowForLine,
-  rowForText,
   lineOfRow,
-  rowsOf,
-  cleanLine,
   rowsBetween,
   rowsInRange,
   codeForRows,
   rowRect,
-  containerForFile,
   rowBandsOf,
   rowAtY,
 } from "./content/midgard/diff";
+import {
+  clearHL,
+  clearPick,
+  highlightRows,
+  highlightStep,
+  jumpToRef,
+  rehighlightSession,
+} from "./content/midgard/midgard";
 import { api } from "./content/api";
 import { state } from "./content/state";
 import { initTooltips } from "./content/ui/tooltip";
@@ -64,34 +67,6 @@ import { storeGet, storeSet, storeRemove } from "./content/muninn";
   const applyHl = () => {
     document.body.dataset.prwHl = state.hlStyle;
   };
-
-  // ── per-step code highlight (data-line-number based; no fragile geometry) ─────
-  const clearHL = () =>
-    document.querySelectorAll("tr.prw-line").forEach((r) => r.classList.remove("prw-line"));
-
-  // Prefer the spec's exact line range; fall back to substring matches. Robust to
-  // GitHub's lazy rendering — unrendered lines resolve to null and are skipped.
-  function highlightStep(step) {
-    clearHL();
-    const cont = document.getElementById(step.anchor);
-    if (!cont) return [];
-    const rows = [];
-    if (step.lines) {
-      const { start, end } = step.lines;
-      for (let n = start; n <= end; n++) {
-        const r = rowForLine(cont, n);
-        if (r && !rows.includes(r)) rows.push(r);
-      }
-    }
-    if (!rows.length && Array.isArray(step.highlight)) {
-      step.highlight.forEach((t) => {
-        const r = rowForText(cont, t);
-        if (r && !rows.includes(r)) rows.push(r);
-      });
-    }
-    rows.forEach((r) => r.classList.add("prw-line"));
-    return rows;
-  }
 
   // Fast tooltips for [data-prw-tip] elements. Init after the re-injection guard
   // above so the document listeners bind exactly once.
@@ -468,34 +443,6 @@ import { storeGet, storeSet, storeRemove } from "./content/muninn";
   let picking = false; // true while a drag-select is in progress
   let sel = null; // current selection { container, rows: [tr...] }
 
-  const clearPick = () =>
-    document.querySelectorAll("tr.prw-pick").forEach((r) => r.classList.remove("prw-pick"));
-  function highlightRows(rows) {
-    clearPick();
-    rows.forEach((r) => r.classList.add("prw-pick"));
-  }
-  // Re-paint a stored selection by matching its code text against the live rows —
-  // side-agnostic, so it works for added, deleted, or mixed selections.
-  function rehighlightSession(s) {
-    const container = s.container && s.container.isConnected ? s.container : containerForFile(s.file);
-    if (!container || !s.text) return;
-    s.container = container;
-    const want = s.text.split("\n");
-    const rows = rowsOf(container);
-    for (let i = 0; i + want.length <= rows.length; i++) {
-      let ok = true;
-      for (let k = 0; k < want.length; k++) {
-        if (cleanLine(rows[i + k]) !== want[k]) {
-          ok = false;
-          break;
-        }
-      }
-      if (ok) {
-        highlightRows(rows.slice(i, i + want.length));
-        return;
-      }
-    }
-  }
   function clearSel() {
     clearPick();
     sel = null;
@@ -693,31 +640,6 @@ import { storeGet, storeSet, storeRemove } from "./content/muninn";
     openChat(sess, null);
   }
 
-  // Find a diff container by a cited path, tolerating short/long path variants.
-  function containerForFileLoose(file) {
-    const exact = containerForFile(file);
-    if (exact) return exact;
-    for (const el of document.querySelectorAll('[id^="diff-"]')) {
-      const p = filePathFromContainer(el);
-      if (p && (p === file || p.endsWith("/" + file) || file.endsWith("/" + p))) return el;
-    }
-    return null;
-  }
-  // Scroll the diff to a cited path:line(-end) and highlight it. Returns false when
-  // the cited file isn't in this PR's diff, so callers can fall back.
-  function jumpToRef(file, start, end) {
-    const cont = containerForFileLoose(file);
-    if (!cont) return false;
-    cont.scrollIntoView({ block: "start" }); // GitHub lazy-renders; bring the file in first
-    const rows = end ? rowsInRange(cont, start, end) : [rowForLine(cont, start)].filter(Boolean);
-    if (rows.length) {
-      highlightRows(rows);
-      rows[0].scrollIntoView({ behavior: "smooth", block: "center" });
-    } else {
-      cont.scrollIntoView({ behavior: "smooth", block: "center" });
-    }
-    return true;
-  }
   // Turn `path.ext:line` / `path.ext:start-end` mentions in an assistant answer into
   // clickable jump-to-code links. Skips fenced code blocks and existing links; a
   // cited file that isn't in the diff just no-ops on click, so misses are harmless.
