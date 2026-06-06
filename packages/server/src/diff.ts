@@ -9,13 +9,7 @@
  * id instead of brittle text matching.
  */
 
-import { createHash } from "node:crypto";
-
-export interface ParsedPr {
-  owner: string;
-  repo: string;
-  number: number;
-}
+import { anchorFor, parsePrUrl } from "@prw/shared";
 
 export interface ChangedFile {
   path: string;
@@ -41,28 +35,6 @@ export async function getHeadSha(url: string): Promise<string> {
   const { owner, repo, number } = parsePrUrl(url);
   const pull = JSON.parse(await gh(["api", `repos/${owner}/${repo}/pulls/${number}`]));
   return pull.head?.sha ?? "";
-}
-
-/** GitHub diff anchor for a repo-relative path. */
-export function anchorFor(path: string): string {
-  return "diff-" + createHash("sha256").update(path).digest("hex");
-}
-
-/** Parse https://github.com/<owner>/<repo>/pull/<n> (with optional trailing bits). */
-export function parsePrUrl(url: string): ParsedPr {
-  // Restrict owner/repo to GitHub's allowed charset so nothing odd can flow into
-  // the `gh api repos/<owner>/<repo>/...` path (no slashes, no path traversal).
-  const m = url.match(/^https:\/\/github\.com\/([A-Za-z0-9._-]+)\/([A-Za-z0-9._-]+)\/pull\/(\d+)(?:[/?#]|$)/);
-  if (!m) throw new Error("Not a GitHub PR URL");
-  const [, owner, repo] = m;
-  if (/^\.\.?$/.test(owner) || /^\.\.?$/.test(repo)) throw new Error("Not a GitHub PR URL");
-  return { owner, repo, number: Number(m[3]) };
-}
-
-/** Normalize a PR url/ref to a canonical key for caching + lookup. */
-export function prKey(url: string): string {
-  const { owner, repo, number } = parsePrUrl(url);
-  return `${owner}/${repo}#${number}`;
 }
 
 async function gh(args: string[]): Promise<string> {

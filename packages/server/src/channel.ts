@@ -30,8 +30,8 @@ import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { ListToolsRequestSchema, CallToolRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 
-import { getManifest, getHeadSha, prKey } from "./diff";
-import { isWalkthroughSpec, type WalkthroughSpec } from "./spec";
+import { getManifest, getHeadSha } from "./diff";
+import { isWalkthroughSpec, prKey, PR_URL_RE, type WalkthroughSpec } from "@prw/shared";
 
 const PORT = Number(process.env.PR_WALKTHROUGH_PORT) || 8799;
 const ASK_TIMEOUT_MS = Number(process.env.ASK_TIMEOUT_MS) || 120_000;
@@ -141,9 +141,8 @@ async function readJsonBody(req: Request): Promise<Record<string, unknown> | nul
   }
 }
 const str = (v: unknown, max: number): string => (typeof v === "string" ? v.slice(0, max) : "");
-// Only accept well-formed GitHub PR URLs anywhere a `pr` value is used — so nothing
-// arbitrary lands in a session prompt or a `gh` path.
-const PR_URL_RE = /^https:\/\/github\.com\/[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+\/pull\/\d+/;
+// Only accept well-formed GitHub PR URLs anywhere a `pr` value is used (PR_URL_RE
+// from @prw/shared) — so nothing arbitrary lands in a session prompt or a `gh` path.
 const prOrNull = (v: unknown): string | null => {
   const s = str(v, 300);
   return PR_URL_RE.test(s) ? s : null;
