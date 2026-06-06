@@ -790,7 +790,7 @@ import { storeGet, storeSet, storeRemove } from "./content/storage";
       <div class="prw-options" id="prw-options"></div>
       <div class="prw-thread" id="prw-thread"></div>
       <div class="prw-chat-foot">
-        <input class="prw-input prw-chat-input" id="prw-q" placeholder="Ask…  (Enter to send)" />
+        <textarea class="prw-input prw-chat-input" id="prw-q" rows="1" placeholder="Ask…  (Enter to send · ⌘/Ctrl+Enter for a new line)"></textarea>
         <button class="prw-btn prw-btn-primary" id="prw-send">Ask</button>
       </div>`;
     document.body.appendChild(chat);
@@ -1112,23 +1112,46 @@ import { storeGet, storeSet, storeRemove } from "./content/storage";
       const span = addMsg(m.role, m.content);
       if (m.role !== "user") span.closest(".prw-msg").dataset.mi = String(i);
     });
+    // A trailing user turn means the answer never arrived (the page was refreshed
+    // mid-request, dropping the in-flight fetch). Show the typing dots and re-issue
+    // it so the answer still lands instead of silently vanishing.
+    const pendingTurn = session.messages[session.messages.length - 1];
+    if (pendingTurn && pendingTurn.role === "user") {
+      sendInto(pendingTurn.content, addMsg("assistant", ""));
+    }
 
-    chat.querySelector("#prw-send").onclick = () => {
+    // Grow the textarea with its content up to a cap, then let it scroll.
+    function autosize() {
+      input.style.height = "auto";
+      input.style.height = `${Math.min(input.scrollHeight, 160)}px`;
+    }
+    function submit() {
       const q = input.value.trim();
-      if (q) {
-        input.value = "";
-        ask(q);
-      }
-    };
+      if (!q) return;
+      input.value = "";
+      autosize();
+      ask(q);
+    }
+    chat.querySelector("#prw-send").onclick = submit;
+    input.addEventListener("input", autosize);
     input.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") {
-        const q = input.value.trim();
-        if (q) {
-          input.value = "";
-          ask(q);
-        }
+      if (e.key !== "Enter") return;
+      // ⌘/Ctrl+Enter inserts a newline at the cursor (a textarea won't on its own);
+      // Shift+Enter keeps the browser's native newline; plain Enter sends.
+      if (e.metaKey || e.ctrlKey) {
+        e.preventDefault();
+        const start = input.selectionStart;
+        const end = input.selectionEnd;
+        input.value = input.value.slice(0, start) + "\n" + input.value.slice(end);
+        input.selectionStart = input.selectionEnd = start + 1;
+        autosize();
+        return;
       }
+      if (e.shiftKey) return;
+      e.preventDefault();
+      submit();
     });
+    autosize();
     input.focus();
 
     // AI suggestions append below the fixed actions, in the same row style, with

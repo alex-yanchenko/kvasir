@@ -682,7 +682,7 @@ tr.prw-pick td:first-child {
 .prw-chat-foot {
   display: flex;
   gap: 8px;
-  align-items: center;
+  align-items: flex-end;
   padding: 10px 14px;
   border-top: 1px solid var(--prw-border);
 }
@@ -1047,6 +1047,15 @@ tr.prw-pick td:first-child {
   border-radius: 8px;
   padding: 8px 10px;
   font-size: 13px;
+}
+/* The chat input is a textarea so answers can span multiple lines; it grows with
+   content (capped in JS) and never shows the native drag-resize handle. */
+textarea.prw-chat-input {
+  resize: none;
+  overflow-y: auto;
+  max-height: 160px;
+  line-height: 1.4;
+  font-family: inherit;
 }
 
 /* ── highlight layering (consistent across walkthrough / chat / native) ──────
