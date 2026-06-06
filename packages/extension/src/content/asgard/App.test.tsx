@@ -1,11 +1,14 @@
 // @vitest-environment jsdom
 import { describe, it, expect } from "vitest";
-import { render } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
+import { afterEach } from "vitest";
 import { App } from "./App";
 
+afterEach(cleanup);
+
 describe("App", () => {
-  it("renders nothing until the islands land", () => {
-    const { container } = render(<App />);
-    expect(container.innerHTML).toBe("");
+  it("renders the landed islands (Settings)", () => {
+    render(<App />);
+    expect(screen.getByLabelText("Settings")).toBeTruthy();
   });
 });

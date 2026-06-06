@@ -1106,52 +1106,6 @@ import { storeGet, storeSet, storeRemove } from "./content/muninn";
     });
   }
 
-  // ── settings gear (global; works with or without a review) ───────────────────
-  let gearBtn = null,
-    settingsPop = null;
-  function ensureGearBtn() {
-    if (gearBtn) return;
-    gearBtn = document.createElement("button");
-    gearBtn.className = "prw-gear";
-    gearBtn.title = "PR Walkthrough settings";
-    gearBtn.setAttribute("aria-label", "Settings");
-    gearBtn.innerHTML =
-      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>';
-    gearBtn.onclick = toggleSettings;
-    document.body.appendChild(gearBtn);
-  }
-  function toggleSettings() {
-    if (settingsPop) {
-      settingsPop.remove();
-      settingsPop = null;
-      return;
-    }
-    settingsPop = document.createElement("div");
-    settingsPop.className = "prw-settings-pop";
-    settingsPop.innerHTML = `
-      <label>theme
-        <select id="prw-theme"><option value="auto">auto</option><option value="light">light</option><option value="dark">dark</option></select>
-      </label>
-      <label>highlight
-        <select id="prw-style"><option value="tint">tint</option><option value="github">github-style</option></select>
-      </label>`;
-    document.body.appendChild(settingsPop);
-    const themeSel = settingsPop.querySelector("#prw-theme");
-    themeSel.value = state.theme;
-    themeSel.onchange = () => {
-      state.theme = themeSel.value;
-      localStorage.setItem("prwTheme", state.theme);
-      applyTheme();
-    };
-    const styleSel = settingsPop.querySelector("#prw-style");
-    styleSel.value = state.hlStyle;
-    styleSel.onchange = () => {
-      state.hlStyle = styleSel.value;
-      localStorage.setItem("prwHl", state.hlStyle);
-      applyTheme();
-    };
-  }
-
   // ── launcher block (Run / Open / Regenerate) ─────────────────────────────────
   let generating = false,
     newCommits = false,
@@ -1384,7 +1338,6 @@ import { storeGet, storeSet, storeRemove } from "./content/muninn";
 
   applyTheme();
   applyTheme();
-  ensureGearBtn();
   loadPersisted();
   refreshLauncher();
   let lastUrl = location.href;
