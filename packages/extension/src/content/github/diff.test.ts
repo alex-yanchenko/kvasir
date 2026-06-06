@@ -127,8 +127,12 @@ describe("rowAtY", () => {
     expect(rowAtY(bands(), 999, rows[2])).toBe(rows[1]);
   });
 
-  it("returns undefined when y falls in a gap between bands", () => {
-    expect(rowAtY(bands(), 15, rowsOf(container)[0])).toBeUndefined();
+  it("snaps to the nearest row by band center when y falls in a gap", () => {
+    const rows = rowsOf(container);
+    // gap is (10, 20); 12 is nearer row 0's center (5) than row 1's (25)
+    expect(rowAtY(bands(), 12, rows[0])).toBe(rows[0]);
+    // 22 is nearer row 1's center
+    expect(rowAtY(bands(), 22, rows[0])).toBe(rows[1]);
   });
 
   it("returns the fallback row when there are no bands", () => {

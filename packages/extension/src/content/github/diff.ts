@@ -136,18 +136,23 @@ export const rowBandsOf = (container: Element): RowBand[] =>
     return { row, top: b.top, bottom: b.bottom };
   });
 
-// The row whose band contains y; clamps to the first/last row past the ends.
-// Returns undefined when y falls in a gap between bands — callers treat that as
-// "no row" (the drag keeps its start row).
-export function rowAtY(bands: RowBand[], y: number, fallbackRow: Element): Element | undefined {
+// The row whose band contains y; clamps to the first/last row past the ends, and
+// when y falls in a gap between rows, snaps to the row whose band center is
+// nearest. Always returns a row (the fallback only covers an empty band list).
+export function rowAtY(bands: RowBand[], y: number, fallbackRow: Element): Element {
   if (!bands.length) return fallbackRow;
   if (y <= bands[0].top) return bands[0].row;
   const last = bands[bands.length - 1];
   if (y >= last.bottom) return last.row;
   for (const band of bands) if (y >= band.top && y <= band.bottom) return band.row;
-  // REVIEW: the original computed the nearest row here but returned `best.r`
-  // after reassigning `best` to a row element, so it always yielded undefined.
-  // Behavior preserved (gap → undefined); if "snap to nearest row" was intended,
-  // fix this separately so the change can be QA'd on its own.
-  return undefined;
+  let best = bands[0];
+  let nearest = Infinity;
+  for (const band of bands) {
+    const d = Math.abs((band.top + band.bottom) / 2 - y);
+    if (d < nearest) {
+      nearest = d;
+      best = band;
+    }
+  }
+  return best.row;
 }
