@@ -17,9 +17,10 @@ import { api } from "./content/api";
 import { state } from "./content/state";
 import { initTooltips } from "./content/ui/tooltip";
 import { sanitizeSpecHtml } from "./content/sanitize";
-import { storeGet, storeSet, storeRemove } from "./content/muninn";
-import { chatsKey, genKey, onFilesTab, prUrl, specKey, tourKey } from "./content/keys";
+import { storeGet, storeSet } from "./content/muninn";
+import { chatsKey, onFilesTab, prUrl, tourKey } from "./content/keys";
 import { chatsStore, legacyChatBridge, touch } from "./content/asgard/store";
+import { launcherStore, legacyTourBridge } from "./content/asgard/launcher";
 
 (() => {
   if (window.__prwLoaded) return;
@@ -32,6 +33,9 @@ import { chatsStore, legacyChatBridge, touch } from "./content/asgard/store";
   // Coexistence: the chat window is still vanilla — Asgard's chats list opens/
   // closes it through this bridge. Dies at D5 when ChatWindow lands.
   legacyChatBridge.openChat = (sess) => openChat(sess, null);
+  legacyChatBridge.openPrChat = () => openPrChat();
+  legacyTourBridge.startTour = () => startTour();
+  legacyTourBridge.closeTour = () => closeTour();
   legacyChatBridge.closeIfActive = (key) => {
     if (activeSession && activeSession.key === key && chat) detachChat();
   };
@@ -1022,239 +1026,9 @@ import { chatsStore, legacyChatBridge, touch } from "./content/asgard/store";
     });
   }
 
-  // ── launcher block (Run / Open / Regenerate) ─────────────────────────────────
-  let generating = false,
-    newCommits = false,
-    curHead = null,
-    genPoll = null,
-    genStartAt = 0,
-    genClock = null;
-
-  function ensureLauncher() {
-    let block = document.getElementById("prw-launch");
-    if (!block) {
-      block = document.createElement("div");
-      block.id = "prw-launch";
-      block.className = "prw-launch";
-      document.body.appendChild(block);
-    }
-    return block;
-  }
-  function renderLauncher(pr) {
-    const block = ensureLauncher();
-    block.innerHTML = "";
-    // The status timer (below) ticks via genClock; this rebuild drops its element,
-    // so always stop the old interval and let the generating branch restart it.
-    clearInterval(genClock);
-    genClock = null;
-    const addBtn = (label, cls, onclick) => {
-      const b = document.createElement("button");
-      b.className = "prw-pill" + (cls ? " " + cls : "");
-      b.textContent = label;
-      b.onclick = onclick;
-      block.appendChild(b);
-    };
-    if (generating) {
-      const s = document.createElement("div");
-      s.className = "prw-launch-status";
-      const label = document.createElement("span");
-      label.textContent = "⏳ Generating review… ";
-      const time = document.createElement("span");
-      time.className = "prw-gen-time";
-      const tickClock = () => {
-        time.textContent = genStartAt ? fmtElapsed(Date.now() - genStartAt) : "0:00";
-      };
-      tickClock();
-      genClock = setInterval(tickClock, 1000);
-      const note = document.createElement("span");
-      note.className = "prw-gen-note";
-      note.textContent = " · runs in your session, blocks chat ";
-      const dis = document.createElement("button");
-      dis.className = "prw-dismiss";
-      dis.textContent = "dismiss";
-      dis.title = "Stop watching — generation keeps running in your session; reopen later";
-      let armed = false,
-        t = null;
-      dis.onclick = (e) => {
-        e.stopPropagation();
-        if (!armed) {
-          // first click arms; reverts after a few seconds
-          armed = true;
-          dis.textContent = "click again to confirm";
-          dis.classList.add("prw-dismiss-armed");
-          t = setTimeout(() => {
-            armed = false;
-            dis.textContent = "dismiss";
-            dis.classList.remove("prw-dismiss-armed");
-          }, 3000);
-          return;
-        }
-        clearTimeout(t);
-        clearInterval(genPoll);
-        genPoll = null;
-        storeRemove(genKey(pr));
-        generating = false;
-        renderLauncher(pr);
-      };
-      s.append(label, time, note, dis);
-      block.appendChild(s);
-      return;
-    }
-    if (state.spec) {
-      addBtn(`▶ Open review (${state.spec.steps.length})`, "", () => startTour());
-      addBtn("💬 Ask about PR", "prw-ghost", () => openPrChat());
-      // Regenerate is always available; emphasized when there are new commits.
-      addBtn(newCommits ? "⟳ Update" : "⟳ Regenerate", "prw-ghost" + (newCommits ? " prw-attn" : ""), () =>
-        openRegenDialog(pr),
-      );
-    } else {
-      addBtn("▶ Run review", "", () => requestGenerate(pr, "new"));
-    }
-  }
-
-  // Content signature — changes on any republish (timestamp, step count, or size),
-  // so completion detection doesn't depend on the model bumping generatedAt.
-  const specSig = (s) => (s ? `${s.generatedAt}|${(s.steps || []).length}|${JSON.stringify(s).length}` : "");
-
-  // How long to keep watching for a generated spec before giving up. Generation
-  // runs in your Claude session and a large PR can take many minutes, so the stop
-  // is generous; it only stops the client watching — the session keeps going and a
-  // page refresh resumes the poll. (GEN_MAX_TRIES * GEN_POLL_INTERVAL_MS = ~20 min.)
-  const GEN_POLL_INTERVAL_MS = 3000;
-  const GEN_MAX_TRIES = 400;
-  // m:ss elapsed, for the "Generating…" status timer.
-  const fmtElapsed = (ms) => {
-    const sec = Math.max(0, Math.floor(ms / 1000));
-    return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")}`;
-  };
-
-  // Poll until a spec different from prevSig lands. Shared by a fresh request and
-  // by resuming after a page refresh.
-  function pollForSpec(pr, prevSig) {
-    let tries = 0;
-    clearInterval(genPoll);
-    genPoll = setInterval(async () => {
-      tries++;
-      const r = await api(`/walkthrough?pr=${encodeURIComponent(pr)}`);
-      const got = r.ok && r.data && r.data.version === 1 ? r.data : null;
-      if (got && specSig(got) !== prevSig) {
-        clearInterval(genPoll);
-        genPoll = null;
-        state.spec = got;
-        storeSet(specKey(pr), got);
-        storeRemove(genKey(pr));
-        state.tourState = { ...state.tourState, step: 0 };
-        saveTour(); // new review → back to the first step, but keep window pos + size
-        newCommits = !!(curHead && got.pr?.headSha && got.pr.headSha !== curHead);
-        generating = false;
-        renderLauncher(pr);
-      } else if (tries > GEN_MAX_TRIES) {
-        clearInterval(genPoll);
-        genPoll = null;
-        storeRemove(genKey(pr));
-        generating = false;
-        renderLauncher(pr);
-      }
-    }, GEN_POLL_INTERVAL_MS);
-  }
-
-  // Ask the session (via the channel) to (re)generate; persist a marker so the
-  // "generating" state survives a refresh, then poll for the new spec.
-  async function requestGenerate(pr, mode, sinceSha) {
-    const prevSig = specSig(state.spec);
-    closeTour(); // don't leave a stale walkthrough open while it regenerates
-    generating = true;
-    genStartAt = Date.now();
-    storeSet(genKey(pr), { prevSig, at: genStartAt });
-    renderLauncher(pr);
-    await api("/generate", "POST", { pr, mode, sinceSha });
-    pollForSpec(pr, prevSig);
-  }
-
-  function openRegenDialog(pr) {
-    const back = document.createElement("div");
-    back.className = "prw-dialog-back";
-    const close = () => back.remove();
-    const box = document.createElement("div");
-    box.className = "prw-dialog";
-    box.innerHTML =
-      `<div class="prw-dialog-title">${newCommits ? "New commits since this review" : "Regenerate this review"}</div>` +
-      '<div class="prw-dialog-body">Regenerating runs in your Claude session and blocks chat while it thinks. Choose how:</div>';
-    const opt = (label, desc, fn) => {
-      const b = document.createElement("button");
-      b.className = "prw-dialog-opt";
-      b.innerHTML = `<b>${label}</b><span>${desc}</span>`;
-      b.onclick = () => {
-        close();
-        fn();
-      };
-      box.appendChild(b);
-    };
-    if (newCommits)
-      opt("Incremental update", "Add steps covering only what changed since the last review.", () =>
-        requestGenerate(pr, "incremental", state.spec?.pr?.headSha),
-      );
-    opt("Regenerate as new", "Rebuild the whole walkthrough from scratch.", () => requestGenerate(pr, "new"));
-    const cancel = document.createElement("button");
-    cancel.className = "prw-dialog-cancel";
-    cancel.textContent = "Cancel";
-    cancel.onclick = close;
-    box.appendChild(cancel);
-    back.onclick = (e) => {
-      if (e.target === back) close();
-    };
-    back.appendChild(box);
-    document.body.appendChild(back);
-  }
-
-  async function refreshLauncher() {
-    const pr = prUrl();
-    if (!pr) return;
-    let data = null;
-    const r = await api(`/walkthrough?pr=${encodeURIComponent(pr)}`);
-    if (r.ok && r.data && r.data.version === 1) {
-      data = r.data;
-      storeSet(specKey(pr), data);
-    } // cache fresh spec
-    else {
-      const cached = await storeGet(specKey(pr));
-      if (cached && cached.version === 1) data = cached;
-    } // fall back to cache
-    state.spec = data || null;
-    renderLauncher(pr);
-    if (state.spec && onFilesTab() && sessionStorage.getItem("prwAutoStart") === "1") {
-      sessionStorage.removeItem("prwAutoStart");
-      setTimeout(startTour, 900);
-    }
-    if (!genPoll) {
-      // resume a generation that was in flight before a refresh
-      const gen = await storeGet(genKey(pr));
-      // Resume within the same window the poll watches, so a refresh mid-generation
-      // keeps waiting (and the timer keeps counting from the original start).
-      const fresh = gen && Date.now() - (gen.at || 0) < GEN_MAX_TRIES * GEN_POLL_INTERVAL_MS;
-      if (fresh && (!state.spec || specSig(state.spec) === gen.prevSig)) {
-        generating = true;
-        genStartAt = gen.at || Date.now();
-        renderLauncher(pr);
-        pollForSpec(pr, gen.prevSig);
-        return;
-      }
-      if (gen) storeRemove(genKey(pr)); // finished (spec already changed), or stale — drop it
-    }
-    if (state.spec && !generating) {
-      // detect new commits since the reviewed head
-      const h = await api(`/head?pr=${encodeURIComponent(pr)}`);
-      if (h.ok && h.data?.headSha) {
-        curHead = h.data.headSha;
-        newCommits = !!state.spec.pr?.headSha && state.spec.pr.headSha !== curHead;
-        renderLauncher(pr);
-      }
-    }
-  }
-
   applyTheme();
   loadPersisted();
-  refreshLauncher();
+  void launcherStore.refresh();
   let lastUrl = location.href;
   let curPr = prUrl();
   const poll = setInterval(() => {
@@ -1273,14 +1047,10 @@ import { chatsStore, legacyChatBridge, touch } from "./content/asgard/store";
         touch(); // React unmounts the chats button when the history empties
         state.tourState = { step: 0, pos: null, size: null };
         state.spec = null;
-        generating = false;
-        newCommits = false;
-        curHead = null;
-        clearInterval(genPoll);
-        genPoll = null;
+        launcherStore.resetForPr();
         loadPersisted();
       }
-      refreshLauncher();
+      void launcherStore.refresh();
     }
   }, 1500);
 })();

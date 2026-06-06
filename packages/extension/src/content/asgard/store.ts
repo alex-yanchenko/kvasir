@@ -58,6 +58,7 @@ export const settingsStore = {
  * and close itself here. Dies at D5 when ChatWindow becomes an Asgard island. */
 export const legacyChatBridge: {
   openChat?: (sess: ChatSession) => void;
+  openPrChat?: () => void;
   closeIfActive?: (key: string) => void;
 } = {};
 

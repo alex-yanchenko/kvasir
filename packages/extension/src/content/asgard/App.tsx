@@ -3,6 +3,7 @@
 // (Settings ✓ → ChatsList → Launcher → TourCard → Chat).
 import type { JSX } from "react";
 import { ChatsButton } from "./components/ChatsButton";
+import { Launcher } from "./components/Launcher";
 import { Settings } from "./components/Settings";
 
 export function App(): JSX.Element {
@@ -10,6 +11,7 @@ export function App(): JSX.Element {
     <>
       <Settings />
       <ChatsButton />
+      <Launcher />
     </>
   );
 }
