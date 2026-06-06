@@ -1232,7 +1232,9 @@ import { storeGet, storeSet, storeRemove } from "./content/storage";
   let generating = false,
     newCommits = false,
     curHead = null,
-    genPoll = null;
+    genPoll = null,
+    genStartAt = 0,
+    genClock = null;
 
   function ensureLauncher() {
     let block = document.getElementById("prw-launch");
@@ -1247,6 +1249,10 @@ import { storeGet, storeSet, storeRemove } from "./content/storage";
   function renderLauncher(pr) {
     const block = ensureLauncher();
     block.innerHTML = "";
+    // The status timer (below) ticks via genClock; this rebuild drops its element,
+    // so always stop the old interval and let the generating branch restart it.
+    clearInterval(genClock);
+    genClock = null;
     const addBtn = (label, cls, onclick) => {
       const b = document.createElement("button");
       b.className = "prw-pill" + (cls ? " " + cls : "");
@@ -1258,7 +1264,17 @@ import { storeGet, storeSet, storeRemove } from "./content/storage";
       const s = document.createElement("div");
       s.className = "prw-launch-status";
       const label = document.createElement("span");
-      label.textContent = "⏳ Generating review… (runs in your session, blocks chat) ";
+      label.textContent = "⏳ Generating review… ";
+      const time = document.createElement("span");
+      time.className = "prw-gen-time";
+      const tickClock = () => {
+        time.textContent = genStartAt ? fmtElapsed(Date.now() - genStartAt) : "0:00";
+      };
+      tickClock();
+      genClock = setInterval(tickClock, 1000);
+      const note = document.createElement("span");
+      note.className = "prw-gen-note";
+      note.textContent = " · runs in your session, blocks chat ";
       const dis = document.createElement("button");
       dis.className = "prw-dismiss";
       dis.textContent = "dismiss";
@@ -1286,7 +1302,7 @@ import { storeGet, storeSet, storeRemove } from "./content/storage";
         generating = false;
         renderLauncher(pr);
       };
-      s.append(label, dis);
+      s.append(label, time, note, dis);
       block.appendChild(s);
       return;
     }
@@ -1304,6 +1320,18 @@ import { storeGet, storeSet, storeRemove } from "./content/storage";
   // Content signature — changes on any republish (timestamp, step count, or size),
   // so completion detection doesn't depend on the model bumping generatedAt.
   const specSig = (s) => (s ? `${s.generatedAt}|${(s.steps || []).length}|${JSON.stringify(s).length}` : "");
+
+  // How long to keep watching for a generated spec before giving up. Generation
+  // runs in your Claude session and a large PR can take many minutes, so the stop
+  // is generous; it only stops the client watching — the session keeps going and a
+  // page refresh resumes the poll. (GEN_MAX_TRIES * GEN_POLL_INTERVAL_MS = ~20 min.)
+  const GEN_POLL_INTERVAL_MS = 3000;
+  const GEN_MAX_TRIES = 400;
+  // m:ss elapsed, for the "Generating…" status timer.
+  const fmtElapsed = (ms) => {
+    const sec = Math.max(0, Math.floor(ms / 1000));
+    return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")}`;
+  };
 
   // Poll until a spec different from prevSig lands. Shared by a fresh request and
   // by resuming after a page refresh.
@@ -1325,15 +1353,14 @@ import { storeGet, storeSet, storeRemove } from "./content/storage";
         newCommits = !!(curHead && got.pr?.headSha && got.pr.headSha !== curHead);
         generating = false;
         renderLauncher(pr);
-      } else if (tries > 80) {
-        // ~4 min safety stop
+      } else if (tries > GEN_MAX_TRIES) {
         clearInterval(genPoll);
         genPoll = null;
         storeRemove(genKey(pr));
         generating = false;
         renderLauncher(pr);
       }
-    }, 3000);
+    }, GEN_POLL_INTERVAL_MS);
   }
 
   // Ask the session (via the channel) to (re)generate; persist a marker so the
@@ -1342,7 +1369,8 @@ import { storeGet, storeSet, storeRemove } from "./content/storage";
     const prevSig = specSig(state.spec);
     closeTour(); // don't leave a stale walkthrough open while it regenerates
     generating = true;
-    storeSet(genKey(pr), { prevSig, at: Date.now() });
+    genStartAt = Date.now();
+    storeSet(genKey(pr), { prevSig, at: genStartAt });
     renderLauncher(pr);
     await api("/generate", "POST", { pr, mode, sinceSha });
     pollForSpec(pr, prevSig);
@@ -1406,9 +1434,12 @@ import { storeGet, storeSet, storeRemove } from "./content/storage";
     if (!genPoll) {
       // resume a generation that was in flight before a refresh
       const gen = await storeGet(genKey(pr));
-      const fresh = gen && Date.now() - (gen.at || 0) < 4 * 60 * 1000; // ignore stale markers
+      // Resume within the same window the poll watches, so a refresh mid-generation
+      // keeps waiting (and the timer keeps counting from the original start).
+      const fresh = gen && Date.now() - (gen.at || 0) < GEN_MAX_TRIES * GEN_POLL_INTERVAL_MS;
       if (fresh && (!state.spec || specSig(state.spec) === gen.prevSig)) {
         generating = true;
+        genStartAt = gen.at || Date.now();
         renderLauncher(pr);
         pollForSpec(pr, gen.prevSig);
         return;
