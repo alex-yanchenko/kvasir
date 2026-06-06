@@ -663,11 +663,117 @@ import { storeGet, storeSet, storeRemove } from "./content/storage";
     },
   ];
 
+  // Quick prompts for a general (whole-PR) chat — no code selection backing them.
+  const QUICK_PR = [
+    { label: "Summarize", q: "Summarize this PR — what does it change, and why?" },
+    { label: "Main risks", q: "What are the main risks or things to scrutinize when reviewing this PR?" },
+    { label: "Where to focus", q: "As a reviewer, which files or changes should I look at first, and why?" },
+    { label: "Test coverage", q: "How is this PR tested, and what's missing?" },
+  ];
+
+  // Open (or resume) the single general "about this PR" chat — no code selection,
+  // grounded by the walkthrough (reviewContext) on the server side.
+  function openPrChat() {
+    let sess = state.chatHistory.find((c) => c.general);
+    if (!sess) {
+      sess = {
+        key: "__pr__",
+        general: true,
+        file: null,
+        lines: null,
+        text: "",
+        suggestions: [],
+        messages: [],
+        pos: null,
+      };
+      state.chatHistory.unshift(sess);
+      refreshChatsBtn();
+      saveChats();
+    }
+    openChat(sess, null);
+  }
+
+  // Find a diff container by a cited path, tolerating short/long path variants.
+  function containerForFileLoose(file) {
+    const exact = containerForFile(file);
+    if (exact) return exact;
+    for (const el of document.querySelectorAll('[id^="diff-"]')) {
+      const p = filePathFromContainer(el);
+      if (p && (p === file || p.endsWith("/" + file) || file.endsWith("/" + p))) return el;
+    }
+    return null;
+  }
+  // Scroll the diff to a cited path:line(-end) and highlight it. Returns false when
+  // the cited file isn't in this PR's diff, so callers can fall back.
+  function jumpToRef(file, start, end) {
+    const cont = containerForFileLoose(file);
+    if (!cont) return false;
+    cont.scrollIntoView({ block: "start" }); // GitHub lazy-renders; bring the file in first
+    const rows = end ? rowsInRange(cont, start, end) : [rowForLine(cont, start)].filter(Boolean);
+    if (rows.length) {
+      highlightRows(rows);
+      rows[0].scrollIntoView({ behavior: "smooth", block: "center" });
+    } else {
+      cont.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+    return true;
+  }
+  // Turn `path.ext:line` / `path.ext:start-end` mentions in an assistant answer into
+  // clickable jump-to-code links. Skips fenced code blocks and existing links; a
+  // cited file that isn't in the diff just no-ops on click, so misses are harmless.
+  const REF_RE = /\b[\w@./-]*\w\.\w{1,8}:\d+(?:-\d+)?\b/;
+  function linkifyRefs(root) {
+    const nodes = [];
+    const walk = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    while (walk.nextNode()) {
+      const node = walk.currentNode;
+      if (!node.nodeValue || !REF_RE.test(node.nodeValue)) continue;
+      let skip = false;
+      for (let p = node.parentElement; p && p !== root; p = p.parentElement) {
+        if (p.tagName === "PRE" || p.tagName === "A") {
+          skip = true;
+          break;
+        }
+      }
+      if (!skip) nodes.push(node);
+    }
+    nodes.forEach((node) => {
+      const text = node.nodeValue;
+      const frag = document.createDocumentFragment();
+      // SAFE: REF_RE is a constant regex literal defined above, never user input.
+      const re = new RegExp(REF_RE.source, "g");
+      let last = 0;
+      let m;
+      while ((m = re.exec(text))) {
+        const full = m[0];
+        const colon = full.lastIndexOf(":");
+        const file = full.slice(0, colon);
+        const [start, end] = full.slice(colon + 1).split("-");
+        if (m.index > last) frag.appendChild(document.createTextNode(text.slice(last, m.index)));
+        const a = document.createElement("a");
+        a.className = "prw-ref";
+        a.href = "#";
+        a.textContent = full;
+        a.dataset.file = file;
+        a.dataset.line = start;
+        if (end) a.dataset.end = end;
+        a.onclick = (e) => {
+          e.preventDefault();
+          jumpToRef(file, +start, end ? +end : null);
+        };
+        frag.appendChild(a);
+        last = m.index + full.length;
+      }
+      if (last < text.length) frag.appendChild(document.createTextNode(text.slice(last)));
+      node.parentNode.replaceChild(frag, node);
+    });
+  }
+
   function openChat(session, anchorRect) {
     if (chat) minimizeChat(); // only one open; the current one collapses to the list
     activeSession = session;
     const s = session;
-    rehighlightSession(s); // re-paint the selected rows (matches by code text, side-agnostic)
+    if (!s.general) rehighlightSession(s); // re-paint the selected rows (skip for the general PR chat)
     const lineLabel = s.lines
       ? `:${s.lines.start}${s.lines.end !== s.lines.start ? "-" + s.lines.end : ""}`
       : "";
@@ -691,8 +797,8 @@ import { storeGet, storeSet, storeRemove } from "./content/storage";
     // Set the file label via textContent/title (never innerHTML) — the path comes
     // from GitHub's DOM, so escaping it avoids any markup injection into the panel.
     const fileEl = chat.querySelector(".prw-chat-file");
-    fileEl.textContent = s.file.split("/").pop() + lineLabel;
-    fileEl.title = s.file + lineLabel;
+    fileEl.textContent = s.general ? "This PR" : s.file.split("/").pop() + lineLabel;
+    fileEl.title = s.general ? "Ask about the whole PR" : s.file + lineLabel;
 
     // Position: where you left it last, else below the selection, else a default.
     const W = 420,
@@ -816,7 +922,7 @@ import { storeGet, storeSet, storeRemove } from "./content/storage";
     const quickWrap = document.createElement("div");
     quickWrap.className = "prw-quick";
     options.appendChild(quickWrap);
-    QUICK.forEach((a) => {
+    (s.general ? QUICK_PR : QUICK).forEach((a) => {
       const b = document.createElement("button");
       b.className = "prw-chip";
       b.textContent = a.label;
@@ -853,8 +959,20 @@ import { storeGet, storeSet, storeRemove } from "./content/storage";
         };
         // Re-ask this question and replace the answer in place.
         iconBtn(REGEN, "Regenerate answer", () => regenerate(m));
-        // Scroll the diff to the lines this chat is about and re-highlight them.
-        iconBtn(LOCATE, "Jump to these lines", () => jumpToSelection());
+        // Jump to the code this answer cites. With several citations, each click
+        // advances to the next (the inline links jump to a specific one directly).
+        // No citations → fall back to the chat's origin selection.
+        iconBtn(LOCATE, "Jump to the cited code", () => {
+          const refs = m.querySelectorAll(".prw-ref");
+          if (refs.length) {
+            const i = (Number(m.dataset.refI) || 0) % refs.length;
+            m.dataset.refI = String(i + 1);
+            const a = refs[i];
+            jumpToRef(a.dataset.file, +a.dataset.line, a.dataset.end ? +a.dataset.end : null);
+          } else if (!session.general) {
+            jumpToSelection();
+          }
+        });
         // Copy the whole message (with a check-mark confirmation).
         const copy = iconBtn(COPY, "Copy message", () => {
           navigator.clipboard?.writeText(body.dataset.raw ?? body.textContent);
@@ -897,6 +1015,7 @@ import { storeGet, storeSet, storeRemove } from "./content/storage";
         };
         pre.appendChild(b);
       });
+      linkifyRefs(el); // make any path:line citations clickable jump-to-code links
     }
 
     // Cosmetic streaming: reveal progressively. True token streaming needs the
@@ -1019,7 +1138,9 @@ import { storeGet, storeSet, storeRemove } from "./content/storage";
       ai.classList.toggle("prw-has", list.length > 0);
       list.slice(0, 3).forEach((q) => addRow(ai, q, q));
     }
-    if (session.suggestions) {
+    if (s.general) {
+      renderSuggestions([]); // a whole-PR chat has no per-selection AI suggestions
+    } else if (session.suggestions) {
       renderSuggestions(session.suggestions);
     } else {
       ai.classList.add("prw-has");
@@ -1089,9 +1210,12 @@ import { storeGet, storeSet, storeRemove } from "./content/storage";
 
   // ── reopen past chats ────────────────────────────────────────────────────────
   function chatSnippet(sess) {
-    const base = sess.file.split("/").pop() + (sess.lines ? `:${sess.lines.start}` : "");
+    const base = sess.general
+      ? "This PR"
+      : sess.file.split("/").pop() + (sess.lines ? `:${sess.lines.start}` : "");
     const firstQ = sess.messages.find((m) => m.role === "user");
-    return `${base} — ${firstQ ? firstQ.content : sess.text.replace(/\s+/g, " ").slice(0, 40)}`;
+    const tail = firstQ ? firstQ.content : sess.general ? "" : sess.text.replace(/\s+/g, " ").slice(0, 40);
+    return tail ? `${base} — ${tail}` : base;
   }
   function refreshChatsBtn() {
     if (!state.chatHistory.length) return;
@@ -1308,6 +1432,7 @@ import { storeGet, storeSet, storeRemove } from "./content/storage";
     }
     if (state.spec) {
       addBtn(`▶ Open review (${state.spec.steps.length})`, "", () => startTour());
+      addBtn("💬 Ask about PR", "prw-ghost", () => openPrChat());
       // Regenerate is always available; emphasized when there are new commits.
       addBtn(newCommits ? "⟳ Update" : "⟳ Regenerate", "prw-ghost" + (newCommits ? " prw-attn" : ""), () =>
         openRegenDialog(pr),

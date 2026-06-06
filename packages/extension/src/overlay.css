@@ -632,6 +632,17 @@ tr.prw-pick td:first-child {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 0.92em;
 }
+.prw-ref {
+  color: var(--prw-accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.92em;
+}
+.prw-ref:hover {
+  opacity: 0.8;
+}
 .prw-code {
   position: relative;
   margin: 8px 0;
