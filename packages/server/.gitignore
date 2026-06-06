@@ -1,0 +1,9 @@
+node_modules/
+bun.lockb
+.cache/
+*.log
+.DS_Store
+
+# never commit secrets
+.env
+.env.*

@@ -1,0 +1,10 @@
+node_modules/
+*.log
+.DS_Store
+
+# filesystem artifact from synced/locked mounts
+.fuse_hidden*
+
+# never commit secrets
+.env
+.env.*

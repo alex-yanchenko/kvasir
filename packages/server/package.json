@@ -1,0 +1,18 @@
+{
+  "name": "@prw/server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Claude Code channel + localhost bridge that turns a GitHub PR into an interactive in-browser walkthrough with code-selection Q&A.",
+  "scripts": {
+    "start": "bun run src/channel.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.14",
+    "typescript": "^5.9.3"
+  }
+}

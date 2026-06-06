@@ -1,0 +1,116 @@
+{
+  "version": 1,
+  "pr": {
+    "url": "https://github.com/acme/widget-api/pull/42",
+    "owner": "acme",
+    "repo": "widget-api",
+    "number": 42,
+    "title": "feat(api): token-bucket rate limiting middleware",
+    "headSha": "a1b2c3d"
+  },
+  "generatedAt": "2025-01-15T00:00:00.000Z",
+  "overview": "Adds opt-in, per-client rate limiting to the HTTP API via a small token-bucket middleware. The bucket is configured from env, keyed per API client, and fails open if the limiter store is unavailable. Routes opt in by mounting the middleware; everything else is unchanged.",
+  "steps": [
+    {
+      "id": "config",
+      "title": "1 · Config is opt-in",
+      "body": "Limits come from env (<code>RATE_LIMIT_RPS</code>, <code>RATE_LIMIT_BURST</code>) with safe defaults. When <code>RATE_LIMIT_ENABLED</code> is unset the middleware is a no-op, so existing deployments behave exactly as before.",
+      "file": "src/config/rate-limit.ts",
+      "anchor": "diff-010fd734cd28a18028aca5308ff5497d6fe464dc10038dabeb18b34ef9b15cbd",
+      "lines": {
+        "side": "R",
+        "start": 1,
+        "end": 18
+      },
+      "highlight": [
+        "RATE_LIMIT_ENABLED",
+        "RATE_LIMIT_RPS"
+      ],
+      "suggestions": [
+        "Why default to disabled?",
+        "What are the default limits?"
+      ]
+    },
+    {
+      "id": "token-bucket",
+      "title": "2 · The token-bucket core",
+      "body": "Each client gets a bucket that refills at <code>rps</code> tokens/second up to <code>burst</code>. A request costs one token; an empty bucket returns <code>429</code> with a <code>Retry-After</code> header derived from the refill rate.",
+      "file": "src/middleware/rate-limit.ts",
+      "anchor": "diff-5e3f2e0576cb440b38958998c9d5ee80b1c1eb2070f2a95534f878afa762457c",
+      "lines": {
+        "side": "R",
+        "start": 22,
+        "end": 54
+      },
+      "highlight": [
+        "refill",
+        "Retry-After",
+        "429"
+      ],
+      "suggestions": [
+        "How is the refill computed between requests?",
+        "What happens under a burst?"
+      ]
+    },
+    {
+      "id": "keying",
+      "title": "3 · Per-client keying",
+      "body": "The bucket key is the authenticated client id, falling back to the peer IP for unauthenticated routes. Keys are namespaced so two routes can't collide in the shared store.",
+      "file": "src/middleware/rate-limit.ts",
+      "anchor": "diff-5e3f2e0576cb440b38958998c9d5ee80b1c1eb2070f2a95534f878afa762457c",
+      "lines": {
+        "side": "R",
+        "start": 56,
+        "end": 70
+      },
+      "highlight": [
+        "clientId",
+        "req.ip"
+      ],
+      "suggestions": [
+        "Why fall back to IP?",
+        "Could two clients share a key?"
+      ]
+    },
+    {
+      "id": "fail-open",
+      "title": "4 · Fail open, not closed",
+      "body": "If the store throws (e.g. the cache is down), the middleware logs and calls <code>next()</code> rather than rejecting traffic — availability is preferred over strict enforcement for this tier.",
+      "file": "src/middleware/rate-limit.ts",
+      "anchor": "diff-5e3f2e0576cb440b38958998c9d5ee80b1c1eb2070f2a95534f878afa762457c",
+      "lines": {
+        "side": "R",
+        "start": 72,
+        "end": 84
+      },
+      "highlight": [
+        "catch",
+        "next()"
+      ],
+      "suggestions": [
+        "Why fail open here?",
+        "Is the failure observable?"
+      ]
+    },
+    {
+      "id": "tests",
+      "title": "5 · What's covered",
+      "body": "Tests assert: tokens deplete and refill over time, a depleted bucket returns <code>429</code> with <code>Retry-After</code>, distinct clients are isolated, and a throwing store falls open.",
+      "file": "test/rate-limit.test.ts",
+      "anchor": "diff-3e8cd57ef02a0439ef4553737b436102fb773e8e3a6275a8e9e92419498fa234",
+      "lines": {
+        "side": "R",
+        "start": 1,
+        "end": 60
+      },
+      "highlight": [
+        "expect(",
+        "429"
+      ],
+      "suggestions": [
+        "Is the refill timing tested deterministically?",
+        "What isn't covered yet?"
+      ]
+    }
+  ]
+}
