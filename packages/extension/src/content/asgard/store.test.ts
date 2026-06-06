@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { getSnapshot, settingsStore, subscribe, touch } from "./store";
 import * as storeModule from "./store";
 import { chatsStore } from "./store";
-import { state } from "../state";
+import { state } from "./store";
 import { bifrost } from "./../bifrost";
 
 let applied: ReturnType<typeof vi.fn>;

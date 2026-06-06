@@ -16,8 +16,6 @@ export default defineConfig({
       exclude: [
         "**/*.test.*",
         "**/*.d.ts",
-        // mutable-state shim wrapped by the store, deleted in E2
-        "packages/extension/src/content/state.ts",
         // entry + mount glue: DOM/React bootstrapping with no logic (the watch
         // logic lives in heimdall/watch.ts, which IS covered)
         "packages/extension/src/content/index.tsx",

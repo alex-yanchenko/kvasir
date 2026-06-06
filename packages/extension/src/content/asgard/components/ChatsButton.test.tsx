@@ -2,7 +2,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { ChatsButton } from "./ChatsButton";
-import { state } from "../../state";
+import { state } from "../store";
 import { chatStore } from "../chat";
 import type { ChatSession } from "../types";
 

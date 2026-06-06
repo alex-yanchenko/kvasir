@@ -8,7 +8,7 @@ vi.mock("../midgard/midgard", () => ({ stepCode: vi.fn() }));
 import { storeSet } from "../muninn";
 import { stepCode } from "../midgard/midgard";
 import { bifrost } from "../bifrost";
-import { state } from "../state";
+import { state } from "./store";
 import { chatStore } from "./chat";
 import { tourStore } from "./tour";
 

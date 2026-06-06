@@ -1,15 +1,38 @@
-// Asgard's store — stage two of the state.ts transition (MIGRATION.md): during
-// coexistence it WRAPS the legacy mutable singleton as its backing object, so the
-// vanilla world and React render from one source of truth. Reads pull live values
-// from `state`; writes go through actions that mutate `state`, persist, fire the
-// page command, and bump a version that useSyncExternalStore subscribes to. When
-// the last vanilla reader dies (E2), the backing object folds into this store.
+// Asgard's store. `state` is the store's mutable backing object (the end of the
+// state.ts transition — MIGRATION.md): reads pull live values from it; writes go
+// through actions (here and in the machines) that mutate it, persist, fire the
+// page command, and bump a version that useSyncExternalStore subscribes to. A
+// single object because ESM import bindings can't be reassigned — but object
+// properties can, so every importer sees the same live values. Every mutation
+// must be followed by touch() or React won't re-render.
 
-import { state } from "../state";
+import type { WalkthroughSpec, WalkthroughStep } from "@prw/runes/spec";
 import { storeSet } from "../muninn";
 import { chatsKey, prUrl } from "../keys";
 import type { ChatSession } from "./types";
 import { bifrost } from "../bifrost";
+
+export interface TourState {
+  step: number;
+  pos: { left: number; top: number } | null;
+  size: { w: number; h: number } | null;
+}
+
+export const state: {
+  spec: WalkthroughSpec | null;
+  activeStep: WalkthroughStep | null;
+  theme: string; // "auto" | "light" | "dark"
+  hlStyle: string; // "tint" | "github"
+  tourState: TourState;
+  chatHistory: ChatSession[]; // session objects, most recent first
+} = {
+  spec: null,
+  activeStep: null,
+  theme: localStorage.getItem("prwTheme") || "auto",
+  hlStyle: localStorage.getItem("prwHl") || "tint",
+  tourState: { step: 0, pos: null, size: null },
+  chatHistory: [],
+};
 
 type Listener = () => void;
 const listeners = new Set<Listener>();

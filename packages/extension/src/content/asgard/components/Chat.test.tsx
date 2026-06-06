@@ -7,7 +7,7 @@ vi.mock("../../muninn", () => ({ storeGet: vi.fn(), storeSet: vi.fn(), storeRemo
 
 import { api } from "../../api";
 import { bifrost } from "../../bifrost";
-import { state } from "../../state";
+import { state } from "../store";
 import { chatStore } from "../chat";
 import type { ChatSession } from "../types";
 import { ChatWindow, linkifyRefs, REF_RE } from "./Chat";

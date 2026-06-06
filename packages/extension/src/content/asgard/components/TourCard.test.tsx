@@ -5,7 +5,7 @@ import type { WalkthroughSpec } from "@prw/runes/spec";
 
 vi.mock("../../muninn", () => ({ storeGet: vi.fn(), storeSet: vi.fn(), storeRemove: vi.fn() }));
 
-import { state } from "../../state";
+import { state } from "../store";
 import { tourStore } from "../tour";
 import { TourCard } from "./TourCard";
 

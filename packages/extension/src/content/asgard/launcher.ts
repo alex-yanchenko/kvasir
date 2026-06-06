@@ -1,5 +1,4 @@
-// The launcher's generate state machine — Asgard-owned (the legacy state shim
-// holds only what the vanilla tour still reads: the spec itself and tourState).
+// The launcher's generate state machine — Asgard-owned.
 // Run/poll/resume semantics are ported verbatim from the vanilla launcher:
 // generation runs in the maintainer's Claude session; we persist a marker so a
 // page refresh keeps waiting, and poll until a spec with a NEW signature lands.
@@ -8,7 +7,7 @@ import { isWalkthroughSpec, type WalkthroughSpec } from "@prw/runes/spec";
 import { api } from "../api";
 import { genKey, onFilesTab, prUrl, specKey, tourKey } from "../keys";
 import { storeGet, storeRemove, storeSet } from "../muninn";
-import { state } from "../state";
+import { state } from "./store";
 import { touch } from "./store";
 import { tourStore } from "./tour";
 

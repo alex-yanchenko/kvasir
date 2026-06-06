@@ -6,7 +6,7 @@ vi.mock("../api", () => ({ api: vi.fn() }));
 
 import { storeGet } from "../muninn";
 import { bifrost } from "../bifrost";
-import { state } from "../state";
+import { state } from "../asgard/store";
 import { launcherStore } from "../asgard/launcher";
 import { applyTheme, loadPersisted, watchUrl } from "./watch";
 

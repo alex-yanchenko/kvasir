@@ -2,7 +2,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { Settings } from "./Settings";
-import { state } from "../../state";
+import { state } from "../store";
 import { bifrost } from "../../bifrost";
 
 let applied: ReturnType<typeof vi.fn>;

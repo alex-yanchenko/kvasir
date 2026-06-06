@@ -1,5 +1,5 @@
-// The chat machine — Asgard-owned. Sessions live in the legacy state shim (the
-// store wraps it) as immutable updates; this opens/closes the one visible chat,
+// The chat machine — Asgard-owned. Sessions live in the store's backing state
+// as immutable updates; this opens/closes the one visible chat,
 // builds /ask requests (selection- or PR-level), regenerates answers in place,
 // and prefetches the AI suggestions. The window itself is a React component.
 
@@ -8,8 +8,7 @@ import { bifrost } from "../bifrost";
 import { api } from "../api";
 import { chatsKey, prUrl } from "../keys";
 import { storeSet } from "../muninn";
-import { state } from "../state";
-import { touch } from "./store";
+import { state, touch } from "./store";
 import { tourStore } from "./tour";
 import type { ChatMessage, ChatSession } from "./types";
 

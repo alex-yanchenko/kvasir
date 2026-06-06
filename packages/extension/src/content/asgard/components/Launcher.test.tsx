@@ -8,7 +8,7 @@ vi.mock("../../muninn", () => ({ storeGet: vi.fn(), storeSet: vi.fn(), storeRemo
 
 import { api } from "../../api";
 import { storeGet } from "../../muninn";
-import { state } from "../../state";
+import { state } from "../store";
 import { launcherStore } from "../launcher";
 import { tourStore } from "../tour";
 import { chatStore } from "../chat";
