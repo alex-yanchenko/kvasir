@@ -2,6 +2,21 @@
 // GitHub PR and provides the select-code-and-ask modal. All server calls go
 // through the background service worker (see background.js) to dodge CORS.
 import { escapeHtml, renderMarkdown } from "@prw/shared/markdown";
+import {
+  filePathFromContainer,
+  diffContainerOf,
+  lineRangeOf,
+  rowForLine,
+  rowForText,
+  lineOfRow,
+  rowsOf,
+  cleanLine,
+  rowsBetween,
+  rowsInRange,
+  codeForRows,
+  rowRect,
+  containerForFile,
+} from "./content/github/diff.js";
 
 (() => {
   if (window.__prwLoaded) return;
@@ -110,49 +125,6 @@ import { escapeHtml, renderMarkdown } from "@prw/shared/markdown";
     return t.innerHTML;
   }
 
-  // Derive the file path from a diff file container. The newer /changes UI has no
-  // data-tagsearch-path; the path lives in the container's aria-labelledby heading
-  // (clean) or a table[aria-label] ("Diff for: <path>"). Falls back to the old attr.
-  function filePathFromContainer(cont) {
-    if (!cont) return null;
-    const lblId = cont.getAttribute("aria-labelledby");
-    const heading = lblId && document.getElementById(lblId);
-    if (heading) {
-      const t = heading.textContent
-        .replace(/‎/g, "")
-        .replace(/^Collapse file/i, "")
-        .trim();
-      if (t) return t;
-    }
-    const al = cont.querySelector("table[aria-label]")?.getAttribute("aria-label");
-    if (al) return al.replace(/^Diff for:\s*/i, "").trim();
-    return cont.querySelector("[data-tagsearch-path]")?.getAttribute("data-tagsearch-path") || null;
-  }
-
-  function diffContainerOf(node) {
-    let el = node instanceof Element ? node : node?.parentElement;
-    while (el && !(el.id && el.id.startsWith("diff-"))) el = el.parentElement;
-    return el || null;
-  }
-
-  // New-side line range the selection covers, read from the diff's data-line-number.
-  // Tiny to send and lets the model locate (and read around) the exact lines itself.
-  function lineRangeOf(container, range) {
-    if (!container) return null;
-    let lo = Infinity,
-      hi = -Infinity;
-    for (const cell of container.querySelectorAll("td.diff-text-cell[data-line-number]")) {
-      if (range.intersectsNode(cell)) {
-        const n = Number(cell.getAttribute("data-line-number"));
-        if (n) {
-          lo = Math.min(lo, n);
-          hi = Math.max(hi, n);
-        }
-      }
-    }
-    return hi >= lo ? { start: lo, end: hi } : null;
-  }
-
   // ── theme + highlight style ──────────────────────────────────────────────────
   let hlStyle = localStorage.getItem("prwHl") || "tint"; // "tint" | "github"
   let theme = localStorage.getItem("prwTheme") || "auto"; // "auto" | "light" | "dark"
@@ -169,16 +141,6 @@ import { escapeHtml, renderMarkdown } from "@prw/shared/markdown";
   const clearHL = () =>
     document.querySelectorAll("tr.prw-line").forEach((r) => r.classList.remove("prw-line"));
 
-  function rowForLine(cont, n) {
-    const cell = cont.querySelector(`td.diff-text-cell[data-line-number="${n}"]`);
-    return cell ? cell.closest("tr.diff-line-row") : null;
-  }
-  function rowForText(cont, text) {
-    for (const c of cont.querySelectorAll("td.diff-text-cell")) {
-      if (c.textContent.includes(text)) return c.closest("tr.diff-line-row");
-    }
-    return null;
-  }
   // Prefer the spec's exact line range; fall back to substring matches. Robust to
   // GitHub's lazy rendering — unrendered lines resolve to null and are skipped.
   function highlightStep(step) {
@@ -614,56 +576,11 @@ import { escapeHtml, renderMarkdown } from "@prw/shared/markdown";
   let picking = false; // true while a drag-select is in progress
   let sel = null; // current selection { container, rows: [tr...] }
 
-  const lineOfRow = (row) => {
-    const c = row.querySelector("td.diff-text-cell[data-line-number]");
-    return c ? Number(c.getAttribute("data-line-number")) : null;
-  };
-  // IMPORTANT: select by DOM row order, never by numeric line range. In a unified
-  // diff, ADDED lines carry NEW line numbers and DELETED lines carry OLD ones, so
-  // `data-line-number` is neither unique nor monotonic across a hunk — a numeric
-  // range breaks the moment a selection crosses a delete↔add boundary.
-  const textCellOf = (row) => row.querySelector("td.diff-text-cell");
-  // Only real code rows (skip hunk/expander/spacer rows that have no text cell).
-  const rowsOf = (container) => [...container.querySelectorAll("tr.diff-line-row")].filter(textCellOf);
-  const cleanLine = (row) => {
-    const c = textCellOf(row);
-    return c ? c.textContent.replace(/\n/g, "").replace(/^[+\-] ?/, "") : "";
-  };
-  function rowsBetween(container, rowA, rowB) {
-    const all = rowsOf(container);
-    let i = all.indexOf(rowA),
-      j = all.indexOf(rowB);
-    if (i < 0 || j < 0) return [];
-    if (i > j) [i, j] = [j, i];
-    return all.slice(i, j + 1);
-  }
-  // Rows whose visible line number falls in [start, end]. Used for spec-defined
-  // step ranges (the generator emits new-side numbers).
-  function rowsInRange(container, start, end) {
-    if (!container) return [];
-    const lo = Math.min(start, end),
-      hi = Math.max(start, end);
-    return rowsOf(container).filter((r) => {
-      const n = lineOfRow(r);
-      return n != null && n >= lo && n <= hi;
-    });
-  }
   const clearPick = () =>
     document.querySelectorAll("tr.prw-pick").forEach((r) => r.classList.remove("prw-pick"));
   function highlightRows(rows) {
     clearPick();
     rows.forEach((r) => r.classList.add("prw-pick"));
-  }
-  const codeForRows = (rows) => rows.map(cleanLine).join("\n");
-  const rowRect = (row) =>
-    row ? row.getBoundingClientRect() : { left: 60, top: 90, bottom: 114, height: 24 };
-  // Find a file's diff container by its path (for re-highlighting a reopened chat).
-  function containerForFile(file) {
-    if (!file) return null;
-    for (const c of document.querySelectorAll('[id^="diff-"]')) {
-      if (filePathFromContainer(c) === file) return c;
-    }
-    return null;
   }
   // Re-paint a stored selection by matching its code text against the live rows —
   // side-agnostic, so it works for added, deleted, or mixed selections.

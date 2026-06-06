@@ -1,0 +1,105 @@
+// The ONE file coupled to GitHub's "Files changed" diff markup. Everything that
+// reads selectors, line numbers, row geometry, or file anchors lives here, so a
+// GitHub markup change is a one-file fix. Pure readers: they take DOM nodes /
+// coords / ranges and return data — no overlay (.prw-*) writes, no app state.
+
+// Derive the file path from a diff file container. The newer /changes UI has no
+// data-tagsearch-path; the path lives in the container's aria-labelledby heading
+// (clean) or a table[aria-label] ("Diff for: <path>"). Falls back to the old attr.
+export function filePathFromContainer(cont) {
+  if (!cont) return null;
+  const lblId = cont.getAttribute("aria-labelledby");
+  const heading = lblId && document.getElementById(lblId);
+  if (heading) {
+    const t = heading.textContent
+      .replace(/‎/g, "")
+      .replace(/^Collapse file/i, "")
+      .trim();
+    if (t) return t;
+  }
+  const al = cont.querySelector("table[aria-label]")?.getAttribute("aria-label");
+  if (al) return al.replace(/^Diff for:\s*/i, "").trim();
+  return cont.querySelector("[data-tagsearch-path]")?.getAttribute("data-tagsearch-path") || null;
+}
+
+export function diffContainerOf(node) {
+  let el = node instanceof Element ? node : node?.parentElement;
+  while (el && !(el.id && el.id.startsWith("diff-"))) el = el.parentElement;
+  return el || null;
+}
+
+// Find a file's diff container by its path (for re-highlighting a reopened chat).
+export function containerForFile(file) {
+  if (!file) return null;
+  for (const c of document.querySelectorAll('[id^="diff-"]')) {
+    if (filePathFromContainer(c) === file) return c;
+  }
+  return null;
+}
+
+// New-side line range the selection covers, read from the diff's data-line-number.
+// Tiny to send and lets the model locate (and read around) the exact lines itself.
+export function lineRangeOf(container, range) {
+  if (!container) return null;
+  let lo = Infinity,
+    hi = -Infinity;
+  for (const cell of container.querySelectorAll("td.diff-text-cell[data-line-number]")) {
+    if (range.intersectsNode(cell)) {
+      const n = Number(cell.getAttribute("data-line-number"));
+      if (n) {
+        lo = Math.min(lo, n);
+        hi = Math.max(hi, n);
+      }
+    }
+  }
+  return hi >= lo ? { start: lo, end: hi } : null;
+}
+
+export function rowForLine(cont, n) {
+  const cell = cont.querySelector(`td.diff-text-cell[data-line-number="${n}"]`);
+  return cell ? cell.closest("tr.diff-line-row") : null;
+}
+export function rowForText(cont, text) {
+  for (const c of cont.querySelectorAll("td.diff-text-cell")) {
+    if (c.textContent.includes(text)) return c.closest("tr.diff-line-row");
+  }
+  return null;
+}
+
+export const lineOfRow = (row) => {
+  const c = row.querySelector("td.diff-text-cell[data-line-number]");
+  return c ? Number(c.getAttribute("data-line-number")) : null;
+};
+// IMPORTANT: select by DOM row order, never by numeric line range. In a unified
+// diff, ADDED lines carry NEW line numbers and DELETED lines carry OLD ones, so
+// `data-line-number` is neither unique nor monotonic across a hunk — a numeric
+// range breaks the moment a selection crosses a delete↔add boundary.
+const textCellOf = (row) => row.querySelector("td.diff-text-cell");
+// Only real code rows (skip hunk/expander/spacer rows that have no text cell).
+export const rowsOf = (container) => [...container.querySelectorAll("tr.diff-line-row")].filter(textCellOf);
+export const cleanLine = (row) => {
+  const c = textCellOf(row);
+  return c ? c.textContent.replace(/\n/g, "").replace(/^[+\-] ?/, "") : "";
+};
+export function rowsBetween(container, rowA, rowB) {
+  const all = rowsOf(container);
+  let i = all.indexOf(rowA),
+    j = all.indexOf(rowB);
+  if (i < 0 || j < 0) return [];
+  if (i > j) [i, j] = [j, i];
+  return all.slice(i, j + 1);
+}
+// Rows whose visible line number falls in [start, end]. Used for spec-defined
+// step ranges (the generator emits new-side numbers).
+export function rowsInRange(container, start, end) {
+  if (!container) return [];
+  const lo = Math.min(start, end),
+    hi = Math.max(start, end);
+  return rowsOf(container).filter((r) => {
+    const n = lineOfRow(r);
+    return n != null && n >= lo && n <= hi;
+  });
+}
+export const codeForRows = (rows) => rows.map(cleanLine).join("\n");
+export const rowRect = (row) =>
+  row ? row.getBoundingClientRect() : { left: 60, top: 90, bottom: 114, height: 24 };
