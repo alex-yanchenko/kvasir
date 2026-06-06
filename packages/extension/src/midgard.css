@@ -979,8 +979,6 @@ tr.prw-pick td:first-child {
   color: var(--prw-accent);
 }
 
-/* global settings gear + popover */
-}
 .prw-input {
   flex: 1;
   background: var(--prw-input);
