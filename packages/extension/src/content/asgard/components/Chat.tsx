@@ -89,7 +89,7 @@ function Markdown({ text }: { text: string }): JSX.Element {
       const code = pre.querySelector("code")!; // renderMarkdown always nests <code> in .prw-code
       const b = document.createElement("button");
       b.className = "prw-iconbtn prw-code-copy";
-      b.title = "Copy code";
+      b.setAttribute("data-prw-tip", "Copy code");
       b.setAttribute("aria-label", "Copy code");
       b.innerHTML = svg(ICON.copy);
       b.onclick = () => {
@@ -174,21 +174,21 @@ function Message({
       <div className="prw-msg-actions">
         <button
           className="prw-iconbtn"
-          title="Regenerate answer"
+          data-prw-tip="Regenerate answer"
           aria-label="Regenerate answer"
           onClick={() => onRegenerate(index)}
           dangerouslySetInnerHTML={{ __html: svg(ICON.regen) }}
         />
         <button
           className="prw-iconbtn"
-          title="Jump to the cited code"
+          data-prw-tip="Jump to the cited code"
           aria-label="Jump to the cited code"
           onClick={locate}
           dangerouslySetInnerHTML={{ __html: svg(ICON.locate) }}
         />
         <button
           className={"prw-iconbtn" + (copied ? " prw-ok" : "")}
-          title="Copy message"
+          data-prw-tip="Copy message"
           aria-label="Copy message"
           onClick={() => {
             navigator.clipboard?.writeText(msg.content);
@@ -221,18 +221,18 @@ function OptionRow({ label, onAsk }: { label: string; onAsk: () => void }): JSX.
       {(clipped || open) && (
         <button
           className="prw-srow-exp"
-          title={open ? "Collapse" : "Show full text"}
+          data-prw-tip={open ? "Collapse" : "Show full text"}
           aria-label="Show full text"
           onClick={() => setOpen((o) => !o)}
           dangerouslySetInnerHTML={{ __html: svg(ICON.chevron) }}
         />
       )}
-      <span ref={textRef} className="prw-srow-text" title={label}>
+      <span ref={textRef} className="prw-srow-text" data-prw-tip={label}>
         {label}
       </span>
       <button
         className="prw-srow-ask"
-        title="Ask this"
+        data-prw-tip="Ask this"
         aria-label="Ask this question"
         onClick={onAsk}
         dangerouslySetInnerHTML={{ __html: svg(ICON.arrow) }}
@@ -373,13 +373,13 @@ function Window({ sess }: { sess: ChatSession }): JSX.Element {
       <div className="prw-chat-head" onMouseDown={onHeadDown}>
         <span className="prw-chat-title">ASK</span>
         {/* textContent/title, never markup — the path comes from GitHub's DOM */}
-        <span className="prw-chat-file" title={fileTitle}>
+        <span className="prw-chat-file" data-prw-tip={fileTitle}>
           {fileLabel}
         </span>
         <button
           className="prw-x"
           aria-label="Collapse to Chats list"
-          title="Collapse to Chats list"
+          data-prw-tip="Collapse to Chats list"
           onClick={() => {
             const el = winRef.current!; // the window is mounted — its button was just clicked
             const r = el.getBoundingClientRect();
@@ -394,7 +394,7 @@ function Window({ sess }: { sess: ChatSession }): JSX.Element {
         <button
           className="prw-x"
           aria-label="Close and delete"
-          title="Close (delete) this chat"
+          data-prw-tip="Close (delete) this chat"
           onClick={() => chatStore.deleteActive()}
         >
           ×

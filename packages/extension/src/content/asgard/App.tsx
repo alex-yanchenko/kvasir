@@ -7,6 +7,7 @@ import { Launcher } from "./components/Launcher";
 import { TourCard } from "./components/TourCard";
 import { ChatWindow } from "./components/Chat";
 import { Settings } from "./components/Settings";
+import { Tooltips } from "./components/Tooltip";
 
 export function App(): JSX.Element {
   return (
@@ -16,6 +17,7 @@ export function App(): JSX.Element {
       <Launcher />
       <TourCard />
       <ChatWindow />
+      <Tooltips />
     </>
   );
 }

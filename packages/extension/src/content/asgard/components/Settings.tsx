@@ -11,7 +11,7 @@ export function Settings(): JSX.Element {
     <>
       <button
         className="prw-gear"
-        title="PR Walkthrough settings"
+        data-prw-tip="PR Walkthrough settings"
         aria-label="Settings"
         onClick={() => setOpen((o) => !o)}
       >

@@ -1,6 +1,7 @@
-// Fast tooltips: the native title attribute waits ~1s before showing; this shows
-// our styled tip ~350ms after hover. Driven by a data-prw-tip attribute on any
-// element. Self-contained — owns its own tip element and hover timer.
+// Fast tooltips for Midgard's light-DOM widgets (grip, ask bar): the native title
+// waits ~1s; this shows a styled tip ~350ms after hover. Driven by a data-prw-tip
+// attribute. Self-contained — owns its own tip element and hover timer. (Asgard
+// has its own shadow-scoped Tooltips component — events don't cross the boundary.)
 
 let tipEl: HTMLElement | null = null;
 let tipTimer: ReturnType<typeof setTimeout> | null = null;
@@ -30,7 +31,7 @@ function showTip(target: Element): void {
   tipEl.style.top = `${top}px`;
 }
 
-// Called by content.js after its re-injection guard so the document listeners
+// Called by Heimdall's boot after its re-injection guard so the document listeners
 // bind exactly once, even if the content script is injected twice.
 export function initTooltips(): void {
   document.addEventListener("mouseover", (e) => {

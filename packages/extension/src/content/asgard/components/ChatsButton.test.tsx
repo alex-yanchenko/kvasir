@@ -61,7 +61,7 @@ describe("ChatsButton", () => {
   it("deletes one session and re-renders the count", () => {
     render(<ChatsButton />);
     fireEvent.click(screen.getByText("Chats (2)"));
-    fireEvent.click(screen.getAllByTitle("Delete this chat")[0]);
+    fireEvent.click(screen.getAllByLabelText("Delete this chat")[0]);
     expect(screen.getByText("Chats (1)")).toBeTruthy();
     expect(screen.queryByText("app.ts:4 — q-a")).toBeNull();
   });

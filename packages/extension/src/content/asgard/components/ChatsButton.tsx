@@ -21,7 +21,7 @@ export function ChatsButton(): JSX.Element | null {
             <div className="prw-chats-item-row" key={sess.key}>
               <button
                 className="prw-chats-item"
-                title={chatSnippet(sess)}
+                data-prw-tip={chatSnippet(sess)}
                 onClick={() => {
                   setOpen(false);
                   chatStore.open(sess);
@@ -31,7 +31,8 @@ export function ChatsButton(): JSX.Element | null {
               </button>
               <button
                 className="prw-chats-del"
-                title="Delete this chat"
+                data-prw-tip="Delete this chat"
+                aria-label="Delete this chat"
                 onClick={() => chatsStore.dropSession(sess.key)}
               >
                 ×

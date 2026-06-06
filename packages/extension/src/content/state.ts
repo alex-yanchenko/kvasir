@@ -8,7 +8,7 @@ export interface TourState {
 }
 
 // Mutable state shared across the content-script UI modules (tour, selection,
-// chat, launcher) and the content.js shell. A single object because ESM import
+// chat, launcher). A single object because ESM import
 // bindings can't be reassigned — but object properties can, so every importer
 // sees the same live values.
 export const state: {

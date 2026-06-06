@@ -98,7 +98,7 @@ function Card({ step }: { step: WalkthroughStep }): JSX.Element {
           <button
             className="prw-x"
             aria-label="Ask about this step"
-            title="Ask about this step (sends the step's context)"
+            data-prw-tip="Ask about this step (sends the step's context)"
             onClick={() => tourStore.askAboutStep()}
           >
             💬
@@ -106,7 +106,7 @@ function Card({ step }: { step: WalkthroughStep }): JSX.Element {
           <button
             className="prw-x"
             aria-label="Re-scroll and redraw"
-            title="Re-scroll & redraw"
+            data-prw-tip="Re-scroll & redraw"
             onClick={() => tourStore.goto(stepIdx)}
           >
             ⟳

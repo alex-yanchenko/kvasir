@@ -972,3 +972,23 @@ textarea.prw-chat-input::-webkit-scrollbar-thumb {
 textarea.prw-chat-input::-webkit-scrollbar-thumb:hover {
   background: var(--prw-muted);
 }
+
+/* fast custom tooltip (Asgard copy — the shadow root can't reach midgard.css) */
+.prw-tip {
+  position: fixed;
+  z-index: 2147483050;
+  max-width: 240px;
+  background: var(--prw-bg);
+  color: var(--prw-fg);
+  border: 1px solid var(--prw-border);
+  border-radius: 6px;
+  padding: 5px 9px;
+  font:
+    12px/1.4 -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    system-ui,
+    sans-serif;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+}

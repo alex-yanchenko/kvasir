@@ -32,7 +32,7 @@ function GeneratingStatus(): JSX.Element {
       <span className="prw-gen-note"> · runs in your session, blocks chat </span>
       <button
         className={"prw-dismiss" + (armed ? " prw-dismiss-armed" : "")}
-        title="Stop watching — generation keeps running in your session; reopen later"
+        data-prw-tip="Stop watching — generation keeps running in your session; reopen later"
         onClick={() => (armed ? launcherStore.dismissGen() : setArmed(true))}
       >
         {armed ? "click again to confirm" : "dismiss"}

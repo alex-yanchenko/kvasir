@@ -16,15 +16,12 @@ export default defineConfig({
       exclude: [
         "**/*.test.*",
         "**/*.d.ts",
-        // legacy vanilla world — shrinks per island, deleted in E1
-        "packages/extension/src/content.js",
-        // legacy vanilla tooltip — replaced by an Asgard Tooltip component in E1
-        "packages/extension/src/content/ui/tooltip.ts",
         // mutable-state shim wrapped by the store, deleted in E2
         "packages/extension/src/content/state.ts",
-        // entry + mount glue: DOM/React bootstrapping with no logic
+        // entry + mount glue: DOM/React bootstrapping with no logic (the watch
+        // logic lives in heimdall/watch.ts, which IS covered)
         "packages/extension/src/content/index.tsx",
-        "packages/extension/src/content/heimdall.tsx",
+        "packages/extension/src/content/heimdall/boot.tsx",
         // 30-line worker fetch proxy; no service-worker harness
         "packages/extension/src/huginn.ts",
         // Mimir's channel + gh wrappers need a boot-the-server harness (E3 stretch)
@@ -45,6 +42,12 @@ export default defineConfig({
           lines: 100,
         },
         "packages/extension/src/content/muninn.ts": {
+          statements: 100,
+          branches: 100,
+          functions: 100,
+          lines: 100,
+        },
+        "packages/extension/src/content/heimdall/**": {
           statements: 100,
           branches: 100,
           functions: 100,
