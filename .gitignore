@@ -10,3 +10,6 @@ dist/
 .env.*
 .mcp.json
 .claude/settings.local.json
+
+# vitest config load artifacts
+*.timestamp-*.mjs

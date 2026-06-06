@@ -5,10 +5,10 @@ import globals from "globals";
 export default [
   { ignores: ["**/node_modules/**", "**/dist/**", "**/*.min.js", "packages/server/bun.lock"] },
 
-  // Server: TypeScript, Bun runtime.
-  ...tseslint.configs.recommended.map((c) => ({ ...c, files: ["packages/server/**/*.ts"] })),
+  // Server + shared: TypeScript (Node/Bun).
+  ...tseslint.configs.recommended.map((c) => ({ ...c, files: ["packages/{server,shared}/**/*.ts"] })),
   {
-    files: ["packages/server/**/*.ts"],
+    files: ["packages/{server,shared}/**/*.ts"],
     languageOptions: { globals: { ...globals.node, Bun: "readonly" } },
   },
 
