@@ -1058,6 +1058,55 @@ textarea.prw-chat-input {
   font-family: inherit;
 }
 
+/* Slim, theme-aware scrollbars for the overlay's scroll areas — the chunky native
+   ones look out of place against the panels. Firefox via scrollbar-*; Chrome (the
+   target) via ::-webkit-scrollbar. Scoped to our elements so the page is untouched. */
+.prw-thread,
+.prw-chats-list,
+.prw-code,
+.prw-ctxbanner-b,
+.prw-card,
+textarea.prw-chat-input {
+  scrollbar-width: thin;
+  scrollbar-color: var(--prw-border) transparent;
+}
+.prw-thread::-webkit-scrollbar,
+.prw-chats-list::-webkit-scrollbar,
+.prw-code::-webkit-scrollbar,
+.prw-ctxbanner-b::-webkit-scrollbar,
+.prw-card::-webkit-scrollbar,
+textarea.prw-chat-input::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.prw-thread::-webkit-scrollbar-track,
+.prw-chats-list::-webkit-scrollbar-track,
+.prw-code::-webkit-scrollbar-track,
+.prw-ctxbanner-b::-webkit-scrollbar-track,
+.prw-card::-webkit-scrollbar-track,
+textarea.prw-chat-input::-webkit-scrollbar-track {
+  background: transparent;
+}
+.prw-thread::-webkit-scrollbar-thumb,
+.prw-chats-list::-webkit-scrollbar-thumb,
+.prw-code::-webkit-scrollbar-thumb,
+.prw-ctxbanner-b::-webkit-scrollbar-thumb,
+.prw-card::-webkit-scrollbar-thumb,
+textarea.prw-chat-input::-webkit-scrollbar-thumb {
+  background: var(--prw-border);
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+.prw-thread::-webkit-scrollbar-thumb:hover,
+.prw-chats-list::-webkit-scrollbar-thumb:hover,
+.prw-code::-webkit-scrollbar-thumb:hover,
+.prw-ctxbanner-b::-webkit-scrollbar-thumb:hover,
+.prw-card::-webkit-scrollbar-thumb:hover,
+textarea.prw-chat-input::-webkit-scrollbar-thumb:hover {
+  background: var(--prw-muted);
+}
+
 /* ── highlight layering (consistent across walkthrough / chat / native) ──────
    Walkthrough step = background tint (the "look"). Chat selection wins the
    background where they overlap (turns blue) + a solid left bar that's always
