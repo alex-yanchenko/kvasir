@@ -22,7 +22,8 @@ export default defineConfig({
         "packages/extension/src/content/heimdall/boot.tsx",
         // 30-line worker fetch proxy; no service-worker harness
         "packages/extension/src/huginn.ts",
-        // Mimir's channel + gh wrappers need a boot-the-server harness (E3 stretch)
+        // Mimir's remaining glue: Bun.serve + MCP wiring (channel) and gh shellouts
+        // (diff) — the testable logic lives in bridge.ts/broker.ts, which ARE covered
         "packages/mimir/src/channel.ts",
         "packages/mimir/src/diff.ts",
       ],
@@ -46,6 +47,18 @@ export default defineConfig({
           lines: 100,
         },
         "packages/extension/src/content/heimdall/**": {
+          statements: 100,
+          branches: 100,
+          functions: 100,
+          lines: 100,
+        },
+        "packages/mimir/src/bridge.ts": {
+          statements: 100,
+          branches: 100,
+          functions: 100,
+          lines: 100,
+        },
+        "packages/mimir/src/broker.ts": {
           statements: 100,
           branches: 100,
           functions: 100,
