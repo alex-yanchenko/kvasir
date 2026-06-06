@@ -13,16 +13,20 @@ extension) and was rebuilt into something stable, cheap, and credential-free.
 A pnpm-workspaces monorepo. The parts carry Norse names, used consistently in
 code and docs:
 
-| Name        | Is                                                                                                             | Why                                                                    |
-| ----------- | -------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| **Runes**   | `packages/runes` — `@prw/runes`, the pure shared contract (spec types, PR-URL parsing, diff anchors, markdown) | the shared symbols every realm can read                                |
-| **Mimir**   | `packages/mimir` — `@prw/mimir`, the Claude Code channel + localhost bridge (Bun)                              | the well of wisdom the extension consults; your Claude session answers |
-| **Huginn**  | `extension/src/huginn.ts` — the background service worker (fetch proxy to Mimir)                               | Odin's thought-raven: flies out, returns with tidings                  |
-| **Muninn**  | `extension/src/content/muninn.ts` — the chrome.storage wrapper                                                 | the memory-raven: remembers                                            |
-| **Midgard** | `extension/src/content/midgard/` — everything coupled to GitHub's diff DOM                                     | the mortal realm — the code that lives in the page                     |
+| Name         | Is                                                                                                             | Why                                                                     |
+| ------------ | -------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| **Asgard**   | `extension/src/content/asgard/` — the React panel app (launcher, tour, chat, settings) in a shadow root        | realm of the gods — never touches the mortal page                       |
+| **Midgard**  | `extension/src/content/midgard/` — the imperative page controller; everything coupled to GitHub's diff DOM     | the mortal realm — the code that lives in the page                      |
+| **Bifrost**  | `extension/src/content/bifrost.ts` — the typed bridge (commands · reports · queries); DOM nodes never cross    | the only way between realms                                             |
+| **Heimdall** | `extension/src/content/heimdall/` — boot + per-PR restore + the SPA URL watcher                                | the all-seeing watchman of the Bifrost                                  |
+| **Huginn**   | `extension/src/huginn.ts` — the background service worker (fetch proxy to Mimir)                               | Odin's thought-raven: flies out, returns with tidings                   |
+| **Muninn**   | `extension/src/content/muninn.ts` — the chrome.storage wrapper                                                 | the memory-raven: remembers                                             |
+| **Mimir**    | `packages/mimir` — `@prw/mimir`, the Claude Code channel + localhost bridge (Bun)                              | the well of wisdom the extension consults; your Claude session answers  |
+| **Runes**    | `packages/runes` — `@prw/runes`, the pure shared contract (spec types, PR-URL parsing, diff anchors, markdown) | the shared symbols every realm can read                                 |
 
-(The React migration in progress adds **Asgard** — the panel UI app — and the
-**Bifrost**, the typed bridge between Asgard and Midgard. See MIGRATION.md.)
+One sentence holds the system: _Asgard never touches the page; a question
+crosses the Bifrost; Huginn carries it to Mimir; Muninn remembers; Heimdall
+watches the URL; all realms share the Runes._
 
 ```
 pr-walkthrough/
@@ -30,8 +34,9 @@ pr-walkthrough/
 │   ├── runes/       Pure, dependency-free contract: spec types, PR-URL parsing,
 │   │                diff anchors, markdown rendering (imported by Mimir + extension)
 │   ├── mimir/       Claude Code channel + localhost HTTP bridge (Bun + TypeScript)
-│   └── extension/   Chrome MV3 extension, bundled with esbuild → dist/. All
-│                    GitHub-diff-DOM coupling is isolated in content/midgard/diff.ts
+│   └── extension/   Chrome MV3 extension (React in a shadow root), bundled with
+│                    esbuild → dist/. All GitHub-diff-DOM coupling is isolated
+│                    in content/midgard/
 ├── pnpm-workspace.yaml
 └── tsconfig.base.json
 ```
@@ -93,16 +98,24 @@ From the repo root (pnpm workspaces):
 ```
 pnpm install        # install all workspace deps
 pnpm test           # Vitest, run once from the root (not per-package)
+pnpm test:coverage  # the same suite + the coverage gates (Asgard 100%)
 pnpm typecheck      # tsc --noEmit across runes / mimir / extension
 pnpm lint           # ESLint (flat config)
 pnpm format         # Prettier --write
 pnpm build          # bundle the extension → packages/extension/dist/
 ```
 
-CI (`.github/workflows/ci.yml`) runs format:check → lint → typecheck → test →
-build on every push and PR.
+CI (`.github/workflows/ci.yml`) runs format:check → lint → typecheck →
+test:coverage → build on every push and PR.
+
+Coverage is gated per realm (vitest.config.ts): **Asgard, the Bifrost, Heimdall,
+Muninn and the key builders at 100%** (lines/branches/functions/statements — no
+coverage-ignore comments), **Midgard at ≥90%** (fixture-driven jsdom tests).
 
 ## Status
 
-v0.1 skeleton — end-to-end path is wired; expect rough edges. See each repo's
-README for what's solid and what's still TODO.
+The React migration ("the Nine Realms", MIGRATION.md) is complete: the panel UI
+is a React app in a shadow root, the page controller is imperative Midgard, and
+everything between them crosses the typed Bifrost. Content bundle: ~250 KB raw /
+~76 KB gzipped (React included). Known gap: jump-to-line can miss on some diff
+rows — the side-aware fix needs ground-truth GitHub markup (MIGRATION.md, A2).

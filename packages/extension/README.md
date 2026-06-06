@@ -33,12 +33,17 @@ If you change the server port, update `PORT` in both `src/huginn.ts` and the
 
 ## Files
 
-| File              | Role                                          |
-| ----------------- | --------------------------------------------- |
-| `manifest.json`   | MV3 manifest; matches `github.com/*/*/pull/*` |
-| `src/huginn.ts`   | fetch proxy to the local server               |
-| `src/content.js`  | tour overlay + selection modal                |
-| `src/overlay.css` | styles (all prefixed `prw-`)                  |
+| File / dir                  | Role                                                                  |
+| --------------------------- | --------------------------------------------------------------------- |
+| `manifest.json`             | MV3 manifest; matches `github.com/*/*/pull/*`                          |
+| `src/huginn.ts`             | fetch proxy to the local server                                        |
+| `src/content/index.tsx`     | entry → `heimdall/boot.tsx` (realm wiring, shadow root, React mount)   |
+| `src/content/asgard/`       | the React panel app (launcher, tour card, chat, settings, tooltips)    |
+| `src/content/midgard/`      | the page controller: diff readers, highlights, grip/ask bar, jumps     |
+| `src/content/bifrost.ts`    | the typed bridge between Asgard and Midgard                            |
+| `src/content/heimdall/`     | boot glue + per-PR restore + the SPA URL watcher                       |
+| `src/midgard.css`           | light-DOM styles (grip, ask bar, row highlights — prefixed `prw-`)     |
+| `src/content/asgard/asgard.css` | panel styles, injected into the shadow root                        |
 
 ## Known rough edges (v0.1)
 
