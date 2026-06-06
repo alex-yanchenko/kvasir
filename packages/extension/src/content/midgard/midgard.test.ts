@@ -150,9 +150,16 @@ describe("jumpToRef", () => {
     expect(picked()).toEqual([]);
   });
 
-  it("a line-less ref scrolls to the file itself and paints nothing", () => {
+  it("a line-less ref seats the file header below the sticky toolbar and paints nothing", () => {
+    vi.useFakeTimers();
+    const scrollTo = vi.fn();
+    vi.stubGlobal("scrollTo", scrollTo);
     expect(jumpToRef("src/app.ts", null, null)).toBe(true);
     expect(picked()).toEqual([]);
+    vi.advanceTimersByTime(60); // the corrective scroll waits for the lazy render
+    expect(scrollTo).toHaveBeenCalledWith({ top: -60, behavior: "smooth" }); // jsdom zero rects - offset
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
   });
 
   it("returns false when the cited file is not in the diff", () => {

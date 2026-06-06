@@ -124,12 +124,22 @@ export function containerForFileLoose(file: string): Element | null {
 
 // Scroll the diff to a cited path:line(-end) and highlight it. Returns false when
 // the cited file isn't in this PR's diff, so callers can fall back.
+/** Clears GitHub's sticky PR toolbar so a jumped-to file header stays visible. */
+const FILE_JUMP_OFFSET = 60;
+
 export function jumpToRef(file: string, start: number | null, end: number | null): boolean {
   const cont = containerForFileLoose(file);
   if (!cont) return false;
   if (start === null) {
-    // a bare file mention — no line to land on, the file itself is the target
-    cont.scrollIntoView({ behavior: "smooth", block: "start" });
+    // A bare file mention — land the file header at the top of the viewport.
+    // Two-step: an instant jump forces GitHub to render the lazy diff (heights
+    // shift while it renders, which made a single smooth scroll land short),
+    // then a corrective smooth scroll seats the header below the sticky toolbar.
+    cont.scrollIntoView({ block: "start" });
+    setTimeout(() => {
+      const top = cont.getBoundingClientRect().top + window.scrollY - FILE_JUMP_OFFSET;
+      window.scrollTo({ top, behavior: "smooth" });
+    }, 60);
     return true;
   }
   cont.scrollIntoView({ block: "start" }); // GitHub lazy-renders; bring the file in first
