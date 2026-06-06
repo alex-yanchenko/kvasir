@@ -287,6 +287,9 @@ function Window({ sess }: { sess: ChatSession }): JSX.Element {
   const [err, setErr] = useState<(Busy & { message: string }) | null>(null);
   const [streamIdx, setStreamIdx] = useState<number | null>(null);
   const [entered, setEntered] = useState(false);
+  // ChatWindow subscribes to the store, so every live-stream touch() re-renders us.
+  const liveRaw = chatStore.live();
+  const liveAsk = liveRaw && liveRaw.key === sess.key ? liveRaw : null;
   const initial = useMemo(() => computeInitialPos(sess), [sess.key]);
 
   // slide-in: add the class one tick after mount so the CSS transition runs
@@ -318,7 +321,8 @@ function Window({ sess }: { sess: ChatSession }): JSX.Element {
       setBusy(null);
       if (r.ok) {
         const latest = chatStore.active();
-        setStreamIdx(opts.replaceIdx ?? (latest ? latest.messages.length - 1 : null));
+        // already watched the text stream in → no cosmetic typewriter replay
+        setStreamIdx(r.streamed ? null : (opts.replaceIdx ?? (latest ? latest.messages.length - 1 : null)));
       } else {
         setErr({ question, replaceIdx: opts.replaceIdx, message: r.error });
       }
@@ -438,11 +442,16 @@ function Window({ sess }: { sess: ChatSession }): JSX.Element {
         ))}
         {busy && (
           <div className="prw-msg prw-msg-bot">
-            <span className="prw-typing">
-              <i></i>
-              <i></i>
-              <i></i>
-            </span>
+            {liveAsk?.note && <div className="prw-live-note">⚙ {liveAsk.note}</div>}
+            {liveAsk?.text ? (
+              <span className="prw-live-text">{liveAsk.text}</span>
+            ) : (
+              <span className="prw-typing">
+                <i></i>
+                <i></i>
+                <i></i>
+              </span>
+            )}
           </div>
         )}
         {err && (

@@ -140,20 +140,39 @@ describe("ChatWindow shell", () => {
   });
 });
 
+const snap = (over: Partial<{ notes: string[]; text: string; done: boolean; timedOut: boolean }> = {}) => ({
+  notes: [],
+  text: "",
+  done: false,
+  timedOut: false,
+  ...over,
+});
+
+/** /ask -> id, successive /poll calls walk the snapshots (last repeats), /suggest -> []. */
+const mockStream = (...snaps: unknown[]) => {
+  let i = 0;
+  vi.mocked(api).mockImplementation(async (path: string) => {
+    if (path.startsWith("/poll")) return { ok: true, data: snaps[Math.min(i++, snaps.length - 1)] };
+    if (path === "/suggest") return { ok: true, data: { suggestions: [] } };
+    return { ok: true, data: { id: "q-test" } };
+  });
+};
+
 describe("asking", () => {
   it("a quick chip asks, shows typing, then streams the answer into markdown with citations", async () => {
     vi.useFakeTimers();
-    vi.mocked(api).mockImplementation(async (path: string) =>
-      path === "/ask"
-        ? { ok: true, data: { answer: "look at `src/app.ts:4` for **why**" } }
-        : { ok: true, data: { suggestions: [] } },
-    );
+    mockStream(snap({ done: true, text: "look at \`src/app.ts:4\` for **why**" }));
     render(<ChatWindow />);
     openSession(mkSession("a"));
     await act(async () => {
       fireEvent.click(screen.getByText("Explain"));
     });
-    // typewriter streams, then the markdown render takes over
+    expect(document.querySelector(".prw-typing")).toBeTruthy();
+    // the poll lands the one-shot answer and mounts the typewriter...
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(600);
+    });
+    // ...which streams, then the markdown render takes over
     await act(async () => {
       await vi.advanceTimersByTimeAsync(2000);
     });
@@ -163,7 +182,43 @@ describe("asking", () => {
     vi.useRealTimers();
   });
 
+  it("live progress notes and partial text show in the bubble; a streamed answer skips the typewriter", async () => {
+    vi.useFakeTimers();
+    mockStream(
+      snap({ notes: ["reading src/app.ts"] }),
+      snap({ notes: ["reading src/app.ts"], text: "First piece." }),
+      snap({ notes: ["reading src/app.ts"], text: "First piece. **Done.**", done: true }),
+    );
+    render(<ChatWindow />);
+    openSession(mkSession("a"));
+    await act(async () => {
+      fireEvent.click(screen.getByText("Explain"));
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(600);
+    });
+    expect(screen.getByText(/reading src\/app\.ts/)).toBeTruthy();
+    expect(document.querySelector(".prw-typing")).toBeTruthy(); // note, but no text yet
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(600);
+    });
+    expect(document.querySelector(".prw-live-text")!.textContent).toBe("First piece.");
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(600);
+    });
+    // done: the live bubble is gone, the real message rendered as markdown immediately
+    expect(document.querySelector(".prw-live-text")).toBeNull();
+    expect(document.querySelector(".prw-md")).toBeTruthy();
+    expect(document.querySelector(".prw-md b, .prw-md strong")).toBeTruthy();
+    expect(state.chatHistory[0].messages.at(-1)).toEqual({
+      role: "assistant",
+      content: "First piece. **Done.**",
+    });
+    vi.useRealTimers();
+  });
+
   it("failures render the friendly note with a working Retry", async () => {
+    vi.useFakeTimers();
     vi.mocked(api).mockImplementation(async (path: string) =>
       path === "/ask" ? { ok: false, error: "request timed out" } : { ok: true, data: { suggestions: [] } },
     );
@@ -173,20 +228,21 @@ describe("asking", () => {
       fireEvent.click(screen.getByText("Explain"));
     });
     expect(screen.getByText(/No response yet/)).toBeTruthy();
-    vi.mocked(api).mockImplementation(async (path: string) =>
-      path === "/ask" ? { ok: true, data: { answer: "ok now" } } : { ok: true, data: { suggestions: [] } },
-    );
+    mockStream(snap({ done: true, text: "ok now" }));
     await act(async () => {
       fireEvent.click(screen.getByText("Retry"));
     });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(600);
+    });
     expect(screen.queryByText(/No response yet/)).toBeNull();
     expect(state.chatHistory[0].messages.at(-1)).toEqual({ role: "assistant", content: "ok now" });
+    vi.useRealTimers();
   });
 
   it("resumes a trailing unanswered question on open (refresh recovery)", async () => {
-    vi.mocked(api).mockImplementation(async (path: string) =>
-      path === "/ask" ? { ok: true, data: { answer: "resumed" } } : { ok: true, data: { suggestions: [] } },
-    );
+    vi.useFakeTimers();
+    mockStream(snap({ done: true, text: "resumed" }));
     render(<ChatWindow />);
     await act(async () => {
       openSession(mkSession("a", { messages: [{ role: "user", content: "pending?" }] }));
@@ -196,36 +252,33 @@ describe("asking", () => {
       "POST",
       expect.objectContaining({ question: "pending?", messages: [] }),
     );
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(600);
+    });
     expect(state.chatHistory[0].messages.at(-1)).toEqual({ role: "assistant", content: "resumed" });
+    vi.useRealTimers();
   });
 
   it("an answer landing after the chat was deleted streams nowhere", async () => {
-    let resolve!: (v: { ok: boolean; data?: unknown }) => void;
-    vi.mocked(api).mockImplementation((path: string) =>
-      path === "/ask"
-        ? new Promise<{ ok: boolean; data?: unknown }>((res) => {
-            resolve = res;
-          })
-        : Promise.resolve({ ok: true, data: { suggestions: [] } }),
-    );
+    vi.useFakeTimers();
+    mockStream(snap({ done: true, text: "late" }));
     render(<ChatWindow />);
     openSession(mkSession("a"));
-    fireEvent.click(screen.getByText("Explain"));
+    await act(async () => {
+      fireEvent.click(screen.getByText("Explain"));
+    });
     act(() => chatStore.deleteActive());
     await act(async () => {
-      resolve({ ok: true, data: { answer: "late" } });
+      await vi.advanceTimersByTimeAsync(600);
     });
     expect(document.querySelector(".prw-chat")).toBeNull();
     expect(state.chatHistory).toEqual([]);
+    vi.useRealTimers();
   });
 
   it("regenerate replaces an answer in place", async () => {
     vi.useFakeTimers();
-    vi.mocked(api).mockImplementation(async (path: string) =>
-      path === "/ask"
-        ? { ok: true, data: { answer: "fresh take" } }
-        : { ok: true, data: { suggestions: [] } },
-    );
+    mockStream(snap({ done: true, text: "fresh take" }));
     render(<ChatWindow />);
     openSession(
       mkSession("a", {
@@ -239,7 +292,7 @@ describe("asking", () => {
       fireEvent.click(screen.getByLabelText("Regenerate answer"));
     });
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(2000);
+      await vi.advanceTimersByTimeAsync(3000);
     });
     expect(state.chatHistory[0].messages[1]).toEqual({ role: "assistant", content: "fresh take" });
     vi.useRealTimers();

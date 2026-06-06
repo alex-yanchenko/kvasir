@@ -997,3 +997,13 @@ textarea.prw-chat-input::-webkit-scrollbar-thumb:hover {
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
   pointer-events: none;
 }
+
+/* live-stream state inside the typing bubble */
+.prw-live-note {
+  font-size: 11.5px;
+  color: var(--prw-muted);
+  margin-bottom: 4px;
+}
+.prw-live-text {
+  white-space: pre-wrap;
+}

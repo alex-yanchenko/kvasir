@@ -12,9 +12,20 @@ import { state, touch } from "./store";
 import { tourStore } from "./tour";
 import type { ChatMessage, ChatSession } from "./types";
 
-export type AskOutcome = { ok: true } | { ok: false; error: string };
+export type AskOutcome = { ok: true; streamed: boolean } | { ok: false; error: string };
+
+/** Live progress of the one in-flight question — ephemeral, never persisted. */
+export interface LiveAsk {
+  key: string;
+  note: string | null;
+  text: string;
+}
+
+export const POLL_MS = 600;
+const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
 let activeKey: string | null = null;
+let live: LiveAsk | null = null;
 /** Where the window first appears when the session has no remembered position. */
 let anchor: SelectionPayload["rect"] | null = null;
 
@@ -80,9 +91,28 @@ export function friendlyError(r: { data?: unknown; error?: string }): string {
   return e ? `Something went wrong: ${e}` : "No answer came back.";
 }
 
-const answerOf = (data: unknown): string | null =>
-  typeof data === "object" && data !== null && "answer" in data && typeof data.answer === "string"
-    ? data.answer
+const idOf = (data: unknown): string | null =>
+  typeof data === "object" && data !== null && "id" in data && typeof data.id === "string" ? data.id : null;
+
+interface AskSnapshot {
+  notes: string[];
+  text: string;
+  done: boolean;
+  timedOut: boolean;
+}
+
+const snapOf = (data: unknown): AskSnapshot | null =>
+  typeof data === "object" &&
+  data !== null &&
+  "done" in data &&
+  typeof data.done === "boolean" &&
+  "text" in data &&
+  typeof data.text === "string" &&
+  "timedOut" in data &&
+  typeof data.timedOut === "boolean" &&
+  "notes" in data &&
+  Array.isArray(data.notes)
+    ? { notes: data.notes.map(String), text: data.text, done: data.done, timedOut: data.timedOut }
     : null;
 
 const suggestionsOf = (data: unknown): string[] | null =>
@@ -93,6 +123,7 @@ const suggestionsOf = (data: unknown): string[] | null =>
 export const chatStore = {
   active: (): ChatSession | null => state.chatHistory.find((s) => s.key === activeKey) ?? null,
   anchor: (): SelectionPayload["rect"] | null => anchor,
+  live: (): LiveAsk | null => live,
 
   /** Open a session (one window at a time; an open one minimizes first). */
   open(sess: ChatSession, at: SelectionPayload["rect"] | null = null): void {
@@ -203,19 +234,51 @@ export const chatStore = {
       step: sess.step, // present when the chat is scoped to a walkthrough step
       messages: history,
     });
-    const answer = r.ok ? answerOf(r.data) : null;
-    if (answer !== null) {
-      const msg: ChatMessage = { role: "assistant", content: answer };
-      update(key, (s) => ({
-        ...s,
-        messages:
-          opts.replaceIdx !== undefined
-            ? s.messages.map((m, i) => (i === opts.replaceIdx ? msg : m))
-            : [...s.messages, msg],
-      }));
-      return { ok: true };
+    const id = r.ok ? idOf(r.data) : null;
+    if (!id) return { ok: false, error: friendlyError(r) };
+
+    // Poll the stream. The live state (notes + partial text) is ephemeral UI —
+    // only the finished answer lands in the session's messages, so the error
+    // and refresh-resume paths behave exactly as before streaming existed.
+    live = { key, note: null, text: "" };
+    touch();
+    let sawPartial = false; // any text shown before done → skip the cosmetic typewriter
+    try {
+      for (;;) {
+        await sleep(POLL_MS);
+        const poll = await api(`/poll?id=${encodeURIComponent(id)}`);
+        const snap = poll.ok ? snapOf(poll.data) : null;
+        if (!snap) return { ok: false, error: friendlyError(poll) };
+        const note = snap.notes.length ? snap.notes[snap.notes.length - 1] : null;
+        if (note !== live.note || snap.text !== live.text) {
+          live = { key, note, text: snap.text };
+          touch();
+        }
+        if (!snap.done) {
+          if (snap.text) sawPartial = true;
+          continue;
+        }
+        if (!snap.text) {
+          return {
+            ok: false,
+            error: friendlyError({ error: snap.timedOut ? "request timed out" : "" }),
+          };
+        }
+        const streamed = sawPartial;
+        const msg: ChatMessage = { role: "assistant", content: snap.text };
+        update(key, (s) => ({
+          ...s,
+          messages:
+            opts.replaceIdx !== undefined
+              ? s.messages.map((m, i) => (i === opts.replaceIdx ? msg : m))
+              : [...s.messages, msg],
+        }));
+        return { ok: true, streamed };
+      }
+    } finally {
+      live = null;
+      touch();
     }
-    return { ok: false, error: friendlyError(r) };
   },
 
   /** Prefetch the AI suggestions once per session; cached on the session. */

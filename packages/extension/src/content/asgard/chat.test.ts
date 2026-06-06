@@ -9,7 +9,7 @@ import { api } from "../api";
 import { storeSet } from "../muninn";
 import { bifrost } from "../bifrost";
 import { state } from "./store";
-import { chatStore, connectChat, friendlyError, reviewContext } from "./chat";
+import { chatStore, connectChat, friendlyError, POLL_MS, reviewContext } from "./chat";
 import { tourStore } from "./tour";
 import type { ChatSession } from "./types";
 
@@ -202,15 +202,38 @@ describe("openSelection / openPrChat", () => {
   });
 });
 
+const snap = (over: Partial<{ notes: string[]; text: string; done: boolean; timedOut: boolean }> = {}) => ({
+  notes: [],
+  text: "",
+  done: false,
+  timedOut: false,
+  ...over,
+});
+
+/** /ask returns an id; successive /poll calls walk the given snapshots (the last repeats). */
+const mockStream = (...snaps: unknown[]) => {
+  let i = 0;
+  vi.mocked(api).mockImplementation(async (path: string) =>
+    path.startsWith("/poll")
+      ? { ok: true, data: snaps[Math.min(i++, snaps.length - 1)] }
+      : { ok: true, data: { id: "q-test" } },
+  );
+};
+
 describe("send", () => {
   beforeEach(() => {
+    vi.useFakeTimers();
     state.chatHistory = [mkSession("a", { step: "Step: X" })];
   });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
 
-  it("pushes the user turn, posts the full request, and appends the answer", async () => {
-    vi.mocked(api).mockResolvedValue({ ok: true, data: { answer: "because." } });
-    const r = await chatStore.send("a", "why?");
-    expect(r).toEqual({ ok: true });
+  it("pushes the user turn, posts the full request, polls, and appends the answer", async () => {
+    mockStream(snap({ done: true, text: "because." }));
+    const pending = chatStore.send("a", "why?");
+    await vi.advanceTimersByTimeAsync(POLL_MS);
+    expect(await pending).toEqual({ ok: true, streamed: false });
     expect(vi.mocked(api)).toHaveBeenCalledWith("/ask", "POST", {
       pr: PR,
       file: "src/app.ts",
@@ -221,6 +244,7 @@ describe("send", () => {
       step: "Step: X",
       messages: [],
     });
+    expect(vi.mocked(api)).toHaveBeenCalledWith("/poll?id=q-test");
     expect(state.chatHistory[0].messages).toEqual([
       { role: "user", content: "why?" },
       { role: "assistant", content: "because." },
@@ -228,10 +252,34 @@ describe("send", () => {
     expect(vi.mocked(storeSet)).toHaveBeenCalledWith(`prw:chats:${PR}`, state.chatHistory);
   });
 
+  it("streams notes and partial text through live(), then skips the typewriter", async () => {
+    mockStream(
+      snap({ notes: ["reading diff.ts"] }),
+      snap({ notes: ["reading diff.ts"], text: "First. " }),
+      snap({ notes: ["reading diff.ts"], text: "First. Second.", done: true }),
+    );
+    const pending = chatStore.send("a", "q");
+    await vi.advanceTimersByTimeAsync(0); // /ask resolved, stream registered
+    expect(chatStore.live()).toEqual({ key: "a", note: null, text: "" });
+    await vi.advanceTimersByTimeAsync(POLL_MS);
+    expect(chatStore.live()).toEqual({ key: "a", note: "reading diff.ts", text: "" });
+    await vi.advanceTimersByTimeAsync(POLL_MS);
+    expect(chatStore.live()).toEqual({ key: "a", note: "reading diff.ts", text: "First. " });
+    await vi.advanceTimersByTimeAsync(POLL_MS);
+    expect(await pending).toEqual({ ok: true, streamed: true });
+    expect(chatStore.live()).toBeNull();
+    expect(state.chatHistory[0].messages.at(-1)).toEqual({
+      role: "assistant",
+      content: "First. Second.",
+    });
+  });
+
   it("resume (pushUser:false) answers the recorded trailing user turn", async () => {
     state.chatHistory = [mkSession("a", { messages: [{ role: "user", content: "pending?" }] })];
-    vi.mocked(api).mockResolvedValue({ ok: true, data: { answer: "landed" } });
-    await chatStore.send("a", "pending?", { pushUser: false });
+    mockStream(snap({ done: true, text: "landed" }));
+    const pending = chatStore.send("a", "pending?", { pushUser: false });
+    await vi.advanceTimersByTimeAsync(POLL_MS);
+    await pending;
     expect(state.chatHistory[0].messages).toEqual([
       { role: "user", content: "pending?" },
       { role: "assistant", content: "landed" },
@@ -247,8 +295,10 @@ describe("send", () => {
         ],
       }),
     ];
-    vi.mocked(api).mockResolvedValue({ ok: true, data: { answer: "new" } });
-    await chatStore.send("a", "q1", { replaceIdx: 1 });
+    mockStream(snap({ done: true, text: "new" }));
+    const pending = chatStore.send("a", "q1", { replaceIdx: 1 });
+    await vi.advanceTimersByTimeAsync(POLL_MS);
+    await pending;
     expect(vi.mocked(api)).toHaveBeenCalledWith("/ask", "POST", expect.objectContaining({ messages: [] }));
     expect(state.chatHistory[0].messages).toEqual([
       { role: "user", content: "q1" },
@@ -256,7 +306,7 @@ describe("send", () => {
     ]);
   });
 
-  it("maps failures through friendlyError and leaves no assistant turn", async () => {
+  it("maps /ask failures through friendlyError and leaves no assistant turn", async () => {
     vi.mocked(api).mockResolvedValue({ ok: false, error: "failed to fetch" });
     const r = await chatStore.send("a", "why?");
     expect(r).toEqual({ ok: false, error: "Can't reach the channel — is your Claude session running?" });
@@ -267,9 +317,49 @@ describe("send", () => {
     expect(await chatStore.send("gone", "q")).toEqual({ ok: false, error: "this chat no longer exists" });
   });
 
-  it("an ok response without an answer string still fails", async () => {
+  it("an /ask response without an id still fails", async () => {
     vi.mocked(api).mockResolvedValue({ ok: true, data: {} });
     expect(await chatStore.send("a", "q")).toEqual({ ok: false, error: "No answer came back." });
+  });
+
+  it("a timed-out stream with no text maps to the busy-session message", async () => {
+    mockStream(snap({ done: true, timedOut: true }));
+    const pending = chatStore.send("a", "q");
+    await vi.advanceTimersByTimeAsync(POLL_MS);
+    expect(await pending).toEqual({
+      ok: false,
+      error: "No response yet — the session may be busy or paused in your terminal.",
+    });
+    expect(chatStore.live()).toBeNull();
+  });
+
+  it("a stream that closes empty without timing out reads as no answer", async () => {
+    mockStream(snap({ done: true }));
+    const pending = chatStore.send("a", "q");
+    await vi.advanceTimersByTimeAsync(POLL_MS);
+    expect(await pending).toEqual({ ok: false, error: "No answer came back." });
+  });
+
+  it("a failing or malformed poll aborts the stream with a friendly error", async () => {
+    vi.mocked(api).mockImplementation(async (path: string) =>
+      path.startsWith("/poll")
+        ? { ok: false, error: "failed to fetch" }
+        : { ok: true, data: { id: "q-test" } },
+    );
+    let pending = chatStore.send("a", "q");
+    await vi.advanceTimersByTimeAsync(POLL_MS);
+    expect(await pending).toEqual({
+      ok: false,
+      error: "Can't reach the channel — is your Claude session running?",
+    });
+
+    vi.mocked(api).mockImplementation(async (path: string) =>
+      path.startsWith("/poll") ? { ok: true, data: { nope: 1 } } : { ok: true, data: { id: "q-test" } },
+    );
+    pending = chatStore.send("a", "q");
+    await vi.advanceTimersByTimeAsync(POLL_MS);
+    expect(await pending).toEqual({ ok: false, error: "No answer came back." });
+    expect(chatStore.live()).toBeNull();
   });
 });
 
