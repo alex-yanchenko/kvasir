@@ -3,13 +3,18 @@
 // (auth gate, validation, prompt building, response codes) is unit-testable on
 // Node; channel.ts supplies the live deps and hands the handler to Bun.serve.
 import { prKey, PR_URL_RE, type WalkthroughSpec } from "@prw/runes";
+import type { QuestionSnapshot } from "./broker";
 import { authorizedLocalCaller, corsHeaders, readJsonBody, str, prOrNull } from "./guard";
 
 export interface BridgeDeps {
   /** Published specs, keyed by `owner/repo#number`. */
   specs: Map<string, WalkthroughSpec>;
-  /** Park a question for the session and await the answer ("" on timeout). */
+  /** Register a streamed question for the session; returns its poll id. */
+  open(eventType: string, content: string, meta: Record<string, string>): string;
+  /** One-shot mode: park a question and await the full answer ("" on timeout). */
   ask(eventType: string, content: string, meta: Record<string, string>): Promise<string>;
+  /** Current streamed state of a question; null for unknown/expired ids. */
+  snapshot(id: string): QuestionSnapshot | null;
   /** Fire-and-forget event push into the session (no pending answer). */
   pushEvent(content: string, meta: Record<string, string>): Promise<void>;
   getHeadSha(pr: string): Promise<string>;
@@ -113,6 +118,10 @@ export function createFetchHandler(deps: BridgeDeps): (req: Request) => Promise<
       // Citing code as path:line lets the extension turn references into clickable
       // jump-to-code links in the answer, so every cited location is reachable.
       const cite = `When you reference specific code, cite it as \`path:line\` or \`path:start-end\` (repo-relative path) so the reviewer can click to jump to it.`;
+      // The streamed-reply protocol: notes while working, the answer in pieces,
+      // answer_question closes the stream (and carries the whole text when the
+      // model skipped chunking — the one-shot fallback).
+      const stream = `Stream your reply using this event's id: call progress_note with a short note before anything slow (reading a file, running a command). Compose the answer in 1-3 sentence pieces via answer_chunk as you write. Finish by calling answer_question with an empty answer — or, if you didn't use answer_chunk, with the full answer text.`;
       const content = prLevel
         ? [
             `The user is reviewing ${pr} and is asking a general question about the whole PR (not a specific code selection).`,
@@ -120,7 +129,7 @@ export function createFetchHandler(deps: BridgeDeps): (req: Request) => Promise<
             `\nYou have the repo and gh — read any files you need to answer well.`,
             history ? `\nConversation so far:\n${history}\n` : "",
             `\nUser: ${question}\n\n`,
-            `Answer concisely for an engineer reviewing this PR. ${cite} If asked to draft a review comment, output only the comment text. Then call answer_question with this event's id.`,
+            `Answer concisely for an engineer reviewing this PR. ${cite} If asked to draft a review comment, output only the comment text. ${stream}`,
           ].join("")
         : [
             `The user is reviewing ${pr} and is chatting about a code selection at ${where}.`,
@@ -139,10 +148,17 @@ export function createFetchHandler(deps: BridgeDeps): (req: Request) => Promise<
               ? `\nThe user is discussing the step above. When they say "this", "this step", "this line", "here", "it", or similar, they mean THIS step and the selected code — answer about those specifically. If a reference is genuinely ambiguous, ask one short clarifying question instead of guessing.\n`
               : "",
             `\nUser: ${question}\n\n`,
-            `Answer concisely for an engineer reviewing this PR. ${cite} If asked to draft a review comment, output only the comment text. Then call answer_question with this event's id.`,
+            `Answer concisely for an engineer reviewing this PR. ${cite} If asked to draft a review comment, output only the comment text. ${stream}`,
           ].join("");
-      const answer = await deps.ask("code_question", content, { pr: PR_URL_RE.test(pr) ? pr : "", file });
-      return answer ? json(req, { answer }) : json(req, { error: "timed out waiting for Claude" }, 504);
+      const id = deps.open("code_question", content, { pr: PR_URL_RE.test(pr) ? pr : "", file });
+      return json(req, { id });
+    }
+
+    if (url.pathname === "/poll" && req.method === "GET") {
+      const id = str(url.searchParams.get("id"), 100);
+      if (!id) return json(req, { error: "need an id" }, 400);
+      const snap = deps.snapshot(id);
+      return snap ? json(req, snap) : json(req, { error: "unknown id" }, 404);
     }
 
     if (url.pathname === "/suggest" && req.method === "POST") {

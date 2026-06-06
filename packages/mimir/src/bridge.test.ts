@@ -16,7 +16,9 @@ const mkSpec = (): WalkthroughSpec => ({
 
 let deps: {
   specs: Map<string, WalkthroughSpec>;
+  open: ReturnType<typeof vi.fn>;
   ask: ReturnType<typeof vi.fn>;
+  snapshot: ReturnType<typeof vi.fn>;
   pushEvent: ReturnType<typeof vi.fn>;
   getHeadSha: ReturnType<typeof vi.fn>;
 };
@@ -25,7 +27,9 @@ let handler: (req: Request) => Promise<Response>;
 beforeEach(() => {
   deps = {
     specs: new Map(),
+    open: vi.fn().mockReturnValue("q1-test"),
     ask: vi.fn().mockResolvedValue("an answer"),
+    snapshot: vi.fn().mockReturnValue(null),
     pushEvent: vi.fn().mockResolvedValue(undefined),
     getHeadSha: vi.fn().mockResolvedValue("abc123"),
   };
@@ -150,9 +154,9 @@ describe("/ask", () => {
         ],
       },
     });
-    expect(await r.json()).toEqual({ answer: "an answer" });
-    expect(deps.ask).toHaveBeenCalledTimes(1);
-    const [eventType, content, meta] = deps.ask.mock.calls[0];
+    expect(await r.json()).toEqual({ id: "q1-test" });
+    expect(deps.open).toHaveBeenCalledTimes(1);
+    const [eventType, content, meta] = deps.open.mock.calls[0];
     expect(eventType).toBe("code_question");
     expect(meta).toEqual({ pr: PR, file: "src/app.ts" });
     expect(content).toContain("src/app.ts lines 4-6");
@@ -163,6 +167,8 @@ describe("/ask", () => {
     expect(content).toContain("--- CURRENT REVIEW STEP");
     expect(content).toContain("User: earlier q\nYou: earlier a");
     expect(content).toContain("path:line");
+    expect(content).toContain("answer_chunk");
+    expect(content).toContain("progress_note");
     expect(content).toContain('say "this", "this step"');
   });
 
@@ -171,7 +177,7 @@ describe("/ask", () => {
       method: "POST",
       body: { pr: "not-a-pr", selection: "x", question: "q", lines: { start: 4 }, messages: "nope" },
     });
-    const [, content, meta] = deps.ask.mock.calls[0];
+    const [, content, meta] = deps.open.mock.calls[0];
     expect(meta).toEqual({ pr: "", file: "" }); // unparseable pr never reaches the session prompt meta
     expect(content).toContain("reviewing a PR");
     expect(content).toContain("at this PR"); // no file → generic where; bad lines dropped
@@ -185,8 +191,8 @@ describe("/ask", () => {
       method: "POST",
       body: { pr: PR, file: "src/app.ts", selection: "x", question: "q" },
     });
-    expect(deps.ask.mock.calls[0][1]).toContain("selection at src/app.ts.");
-    expect(deps.ask.mock.calls[0][1]).not.toContain("src/app.ts lines");
+    expect(deps.open.mock.calls[0][1]).toContain("selection at src/app.ts.");
+    expect(deps.open.mock.calls[0][1]).not.toContain("src/app.ts lines");
   });
 
   it("a PR-level question (no selection) leans on the review", async () => {
@@ -194,7 +200,7 @@ describe("/ask", () => {
       method: "POST",
       body: { pr: PR, review: "the distilled review", question: "summarize?" },
     });
-    const [, content] = deps.ask.mock.calls[0];
+    const [, content] = deps.open.mock.calls[0];
     expect(content).toContain("general question about the whole PR");
     expect(content).toContain("the distilled review");
     expect(content).not.toContain("--- SELECTED CODE");
@@ -205,7 +211,7 @@ describe("/ask", () => {
       method: "POST",
       body: { pr: PR, review: "r", question: "next?", messages: [{ role: "user", content: "first" }] },
     });
-    expect(deps.ask.mock.calls[0][1]).toContain("Conversation so far:\nUser: first");
+    expect(deps.open.mock.calls[0][1]).toContain("Conversation so far:\nUser: first");
   });
 
   it("400s: malformed body, missing question, PR-level without a review", async () => {
@@ -222,12 +228,20 @@ describe("/ask", () => {
     expect(r.status).toBe(400);
     expect(await r.json()).toEqual({ error: "need a selection or a generated review" });
   });
+});
 
-  it("times out as 504 when the session never answers", async () => {
-    deps.ask.mockResolvedValue("");
-    const r = await call("/ask", { method: "POST", body: { selection: "x", question: "q" } });
-    expect(r.status).toBe(504);
-    expect(await r.json()).toEqual({ error: "timed out waiting for Claude" });
+describe("/poll", () => {
+  it("returns the live snapshot for a known id", async () => {
+    const snap = { notes: ["reading"], text: "partial", done: false, timedOut: false };
+    deps.snapshot.mockReturnValue(snap);
+    const r = await call("/poll?id=q1-test");
+    expect(await r.json()).toEqual(snap);
+    expect(deps.snapshot).toHaveBeenCalledWith("q1-test");
+  });
+
+  it("400 without an id, 404 for an unknown one", async () => {
+    expect((await call("/poll")).status).toBe(400);
+    expect((await call("/poll?id=zzz")).status).toBe(404);
   });
 });
 
