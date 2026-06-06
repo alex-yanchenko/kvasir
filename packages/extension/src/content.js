@@ -20,6 +20,7 @@ import {
   rowAtY,
 } from "./content/github/diff";
 import { api } from "./content/api";
+import { initTooltips } from "./content/ui/tooltip";
 import { sanitizeSpecHtml } from "./content/sanitize";
 import { storeGet, storeSet, storeRemove } from "./content/storage";
 
@@ -94,42 +95,9 @@ import { storeGet, storeSet, storeRemove } from "./content/storage";
     return rows;
   }
 
-  // ── fast tooltips (native title waits ~1s; this shows in ~120ms) ─────────────
-  let tipEl = null,
-    tipTimer = null;
-  function hideTip() {
-    clearTimeout(tipTimer);
-    tipTimer = null;
-    if (tipEl) tipEl.style.display = "none";
-  }
-  function showTip(target) {
-    const text = target.getAttribute("data-prw-tip");
-    if (!text) return;
-    if (!tipEl) {
-      tipEl = document.createElement("div");
-      tipEl.className = "prw-tip";
-      document.body.appendChild(tipEl);
-    }
-    tipEl.textContent = text;
-    tipEl.style.display = "block";
-    const r = target.getBoundingClientRect();
-    const tr = tipEl.getBoundingClientRect();
-    let top = r.top - tr.height - 6;
-    if (top < 4) top = r.bottom + 6;
-    let left = Math.max(6, Math.min(r.left + r.width / 2 - tr.width / 2, window.innerWidth - tr.width - 6));
-    tipEl.style.left = `${left}px`;
-    tipEl.style.top = `${top}px`;
-  }
-  document.addEventListener("mouseover", (e) => {
-    const t = e.target.closest?.("[data-prw-tip]");
-    if (!t) return;
-    clearTimeout(tipTimer);
-    tipTimer = setTimeout(() => showTip(t), 350);
-  });
-  document.addEventListener("mouseout", (e) => {
-    if (e.target.closest?.("[data-prw-tip]")) hideTip();
-  });
-  document.addEventListener("mousedown", hideTip, true);
+  // Fast tooltips for [data-prw-tip] elements. Init after the re-injection guard
+  // above so the document listeners bind exactly once.
+  initTooltips();
 
   // ── tour overlay ─────────────────────────────────────────────────────────────
   let spec = null;
