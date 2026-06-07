@@ -104,28 +104,35 @@ function rangeBounds(rows: Element[]): { top: number; bottom: number; vh: number
 }
 
 /** True when the whole step range is already on screen, so re-issuing the jump
- * (pressing the button again) shouldn't re-scroll. A range taller than the
- * viewport can never fully fit, so for it "top-anchored" counts as in view. */
-function rowsInView(rows: Element[]): boolean {
+ * (pressing the button again) shouldn't re-scroll. `overlay` is the height of any
+ * sticky bar covering the top of the viewport: a row tucked under it is NOT
+ * visible. A range taller than the usable height can never fully fit, so for it
+ * "anchored just below the bar" counts as in view. */
+function rowsInView(rows: Element[], overlay: number): boolean {
   const { top, bottom, vh } = rangeBounds(rows);
-  if (bottom - top > vh) return top >= 0 && top <= vh * 0.15;
-  return top >= 0 && bottom <= vh;
+  const view = vh - overlay; // usable height below the sticky bar
+  if (bottom - top > view) return top >= overlay && top <= overlay + view * 0.15;
+  return top >= overlay && bottom <= vh;
 }
 
 // Bring a step onto screen, then highlight. Most files are already rendered, so
 // this lands on the first try; only a still-lazy-loading file makes us poll, and
 // only until it appears. The whole range is brought into view — centered when it
-// fits, top-aligned when it's taller than the viewport. When it's already on
-// screen we just (re)paint — no scroll — so a repeat jump-button press is a no-op.
+// fits, top-aligned (offset past the sticky bar) when it's taller. When it's
+// already on screen we just (re)paint — no scroll — so a repeat press is a no-op.
 export function showStep(step: HighlightableStep): void {
   let tries = 0;
   const run = () => {
     const rows = highlightStep(step);
     if (rows.length) {
-      if (!rowsInView(rows)) {
+      const cont = document.getElementById(step.anchor);
+      const overlay = cont ? stickyOverlayHeight(cont, 0) : 0;
+      if (!rowsInView(rows, overlay)) {
         const { top, bottom, vh } = rangeBounds(rows);
-        const fits = bottom - top <= vh;
-        const target = fits ? rows[Math.floor(rows.length / 2)] : rows[0];
+        const fits = bottom - top <= vh - overlay;
+        const target = rows[fits ? Math.floor(rows.length / 2) : 0];
+        // top-aligning would tuck the first row under the sticky bar; offset past it
+        if (!fits && overlay && target instanceof HTMLElement) target.style.scrollMarginTop = `${overlay}px`;
         target.scrollIntoView({ behavior: "smooth", block: fits ? "center" : "start" });
       }
       return;

@@ -31,6 +31,7 @@ afterEach(() => {
   vi.useRealTimers();
   vi.restoreAllMocks();
   vi.clearAllMocks();
+  Reflect.deleteProperty(document, "elementFromPoint"); // a test may stub it; jsdom has none
 });
 
 const lined = (c: Element) => rowsOf(c).filter((r) => r.classList.contains("prw-line"));
@@ -68,6 +69,26 @@ describe("connectMidgard command handling", () => {
       bottom: -2000,
     } as DOMRect);
     b.send("highlight:step", { anchor: "diff-abc123", lines: { start: 10, end: 12 }, highlight: null });
+    expect(scrolls).toHaveBeenCalledWith({ behavior: "smooth", block: "start" });
+  });
+
+  it("offsets a top-aligned jump below a sticky overlay bar", () => {
+    const b = createBifrost();
+    connectMidgard(b);
+    buildContainer();
+    // a range taller than the viewport → top-align path
+    vi.spyOn(Element.prototype, "getBoundingClientRect").mockReturnValue({
+      top: -5000,
+      bottom: -2000,
+      left: 0,
+    } as DOMRect);
+    // a 48px sticky bar covers the top of the viewport (a node outside the diff)
+    const bar = document.createElement("div");
+    bar.getBoundingClientRect = () => ({ bottom: 48 }) as DOMRect;
+    document.elementFromPoint = () => bar; // jsdom doesn't implement it
+    b.send("highlight:step", { anchor: "diff-abc123", lines: { start: 10, end: 12 }, highlight: null });
+    const first = rowsOf(document.getElementById("diff-abc123")!)[0] as HTMLElement;
+    expect(first.style.scrollMarginTop).toBe("48px");
     expect(scrolls).toHaveBeenCalledWith({ behavior: "smooth", block: "start" });
   });
 
