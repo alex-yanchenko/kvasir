@@ -27,7 +27,7 @@ export function TabsTrigger({
   return (
     <TabsPrimitive.Trigger
       className={cn(
-        "inline-flex h-full items-center justify-center gap-1.5 whitespace-nowrap rounded-[5px] border border-transparent px-2.5 text-xs font-medium transition-colors focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 cursor-pointer [&_svg]:size-3.5 hover:text-foreground data-[state=active]:border-border data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm",
+        "inline-flex h-full items-center justify-center gap-1.5 whitespace-nowrap rounded-[5px] border border-transparent px-2.5 text-xs font-medium transition-[color,background-color,border-color] duration-150 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 cursor-pointer [&_svg]:size-3.5 hover:text-foreground data-[state=inactive]:hover:border-border/60 data-[state=inactive]:hover:bg-card/50 data-[state=active]:border-border data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm",
         className,
       )}
       {...props}
@@ -41,7 +41,10 @@ export function TabsContent({
 }: React.ComponentProps<typeof TabsPrimitive.Content>): JSX.Element {
   return (
     <TabsPrimitive.Content
-      className={cn("flex-1 overflow-hidden focus-visible:outline-none", className)}
+      className={cn(
+        "flex-1 overflow-hidden focus-visible:outline-none motion-safe:[animation:prw-tab-in_150ms_ease-out]",
+        className,
+      )}
       {...props}
     />
   );
