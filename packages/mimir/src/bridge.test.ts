@@ -106,9 +106,7 @@ describe("pairing routes + the token gate", () => {
     expect(deps.pairing.request).toHaveBeenLastCalledWith("unnamed extension");
   });
 
-  it("maps not-armed to 403, busy to 409, malformed body to 400", async () => {
-    deps.pairing.request.mockReturnValue({ ok: false, reason: "not-armed" });
-    expect((await call("/pair", { method: "POST", body: { name: "x" } })).status).toBe(403);
+  it("maps a busy slot to 409 and a malformed body to 400", async () => {
     deps.pairing.request.mockReturnValue({ ok: false, reason: "busy" });
     expect((await call("/pair", { method: "POST", body: { name: "x" } })).status).toBe(409);
     const noBody = await handler(

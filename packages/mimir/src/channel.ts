@@ -92,7 +92,7 @@ const server = new Server(
       "Each step has two text parts: body = a concise summary/explanation shown by default; detail = a deeper, in-depth explanation (edge cases, rationale, interactions, gotchas) revealed when the user expands the step. Write a substantive detail for steps where there's more worth knowing.",
       "All walkthrough text (overview, step body/detail, code_question answers, suggested questions) is a user-facing artifact rendered in the browser: write it in normal, full prose. Session-wide compression/brevity modes (e.g. caveman) do NOT apply to this content — treat it like code or commit messages, which those modes already exempt.",
       '  <channel source="pr-walkthrough" event_type="generate_walkthrough" pr=... mode=... since=... > — the user clicked Run/Regenerate review. For mode="new", build a fresh walkthrough (start_walkthrough → publish_walkthrough). For mode="incremental", author steps for ONLY what changed since the `since` commit and publish a spec containing ONLY those new steps (do NOT re-include earlier steps — fewer steps means less data and a faster update). There is no id to answer — just publish.',
-      "Pairing: when the user asks to pair/connect the extension, call open_pairing, then tell them to click Pair in the extension's settings. A pairing_request event arrives with a 6-character code; ask the user to confirm it matches the code shown in their extension panel, and only then call approve_pairing with it. A pairing_denied event means a second, possibly hostile request raced the first — tell the user.",
+      "Pairing: the user clicks Pair in the extension's settings, which sends a pairing_request event here with a 6-character code. Ask the user to confirm it matches the code shown in their extension panel, and only then call approve_pairing with it. If a pairing_request arrives that the user did NOT initiate, tell them and do not approve. A pairing_denied event means a second, possibly hostile request raced the first.",
       "While the user reviews, two kinds of events arrive from the browser:",
       '  <channel source="pr-walkthrough" event_type="code_question" id=... > — the user selected code and asked a question. Stream the reply: call progress_note(id, note) before slow work (reading files, running commands); use answer_chunk(id, text) only for a finished part you can state before digging further (one complete markdown block per call, never back-to-back splitting of a composed answer); close with answer_question(id, "") — or answer_question(id, full_answer) if you did not chunk.',
       '  <channel source="pr-walkthrough" event_type="suggest_questions" id=... > — the user opened the ask-modal on a selection; reply via answer_question with a JSON array of 3-4 short suggested questions.',
@@ -122,12 +122,6 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         properties: { spec: { type: "object", description: "WalkthroughSpec JSON" } },
         required: ["spec"],
       },
-    },
-    {
-      name: "open_pairing",
-      description:
-        "Open a 60s pairing window so the user's extension can request the bridge token. Run when the user says to pair the extension; then they click Pair in the extension's settings.",
-      inputSchema: { type: "object" as const, properties: {} },
     },
     {
       name: "approve_pairing",
@@ -207,18 +201,6 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
         {
           type: "text" as const,
           text: `Published ${spec.steps.length} steps. Open the PR; the extension will render it.`,
-        },
-      ],
-    };
-  }
-
-  if (name === "open_pairing") {
-    const { until } = pairing.arm();
-    return {
-      content: [
-        {
-          type: "text" as const,
-          text: `Pairing window open until ${new Date(until).toLocaleTimeString()} (60s). Tell the user to click Pair in the extension's settings panel; a pairing_request event with a code will arrive here.`,
         },
       ],
     };

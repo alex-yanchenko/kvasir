@@ -1,9 +1,8 @@
 // Pairing: how the extension earns the bridge token. Bluetooth-style code
 // confirmation through the user's own Claude session:
 //
-//   arm()      — the user says "pair my extension" in chat; opens a short window
-//   request()  — the extension asks to pair (only inside the window, one at a
-//                time); gets {requestId, code} and shows the code in its panel
+//   request()  — the extension asks to pair (one at a time); gets {requestId,
+//                code}, shows the code in its panel, and pushes it to the session
 //   approve()  — the user compares codes and approves THE CODE in chat; an
 //                attacker's racing request holds a different code shown nowhere
 //   claim()    — the extension polls with its private requestId and collects the
@@ -20,25 +19,20 @@ import { randomBytes, timingSafeEqual } from "node:crypto";
 /** No 0/O/1/I/L — the user reads this code off a screen and types it. */
 const CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
 
-export const PAIR_WINDOW_MS = 60_000;
 export const PAIR_REQUEST_TTL_MS = 120_000;
 
 export interface PairingDeps {
   pushEvent(content: string, meta: Record<string, string>): Promise<void>;
-  windowMs?: number;
   requestTtlMs?: number;
 }
 
-export type PairRequestResult =
-  | { ok: true; requestId: string; code: string }
-  | { ok: false; reason: "not-armed" | "busy" };
+export type PairRequestResult = { ok: true; requestId: string; code: string } | { ok: false; reason: "busy" };
 
 export type PairClaimResult = { status: "pending" } | { token: string } | null;
 
 export interface Pairing {
-  /** Open the pairing window (the open_pairing tool). Returns its close time. */
-  arm(): { until: number };
-  /** The extension asks to pair. One pending request at a time, window-gated. */
+  /** The extension asks to pair. One pending request at a time. The user
+   * confirms the returned code in their session before it becomes a token. */
   request(name: string): PairRequestResult;
   /** The user approves the code they read off the extension panel. */
   approve(code: string): boolean;
@@ -62,9 +56,7 @@ const newCode = (): string =>
   Array.from(randomBytes(6), (b) => CODE_ALPHABET[b % CODE_ALPHABET.length]).join("");
 
 export function createPairing(deps: PairingDeps): Pairing {
-  const windowMs = deps.windowMs ?? PAIR_WINDOW_MS;
   const requestTtlMs = deps.requestTtlMs ?? PAIR_REQUEST_TTL_MS;
-  let armedUntil = 0;
   let pending: PendingPair | null = null;
   let cachedToken: string | null = null;
 
@@ -79,13 +71,7 @@ export function createPairing(deps: PairingDeps): Pairing {
   };
 
   return {
-    arm() {
-      armedUntil = Date.now() + windowMs;
-      return { until: armedUntil };
-    },
-
     request(name) {
-      if (Date.now() > armedUntil) return { ok: false, reason: "not-armed" };
       if (livePending()) {
         // a second request while one is pending is exactly the confusion race —
         // refuse it and make it loud in the session
@@ -122,7 +108,6 @@ export function createPairing(deps: PairingDeps): Pairing {
       if (!p || p.requestId !== requestId) return null;
       if (!p.approved) return { status: "pending" };
       pending = null;
-      armedUntil = 0; // one pairing per armed window
       return { token: ensureToken() };
     },
 

@@ -41,9 +41,15 @@ describe("pairingStore", () => {
   });
 
   it("a failed /pair surfaces the bridge's error detail", async () => {
-    vi.mocked(api).mockResolvedValue({ ok: false, data: { error: "pairing not armed" } });
+    vi.mocked(api).mockResolvedValue({
+      ok: false,
+      data: { error: "another pairing request is already pending" },
+    });
     await pairingStore.pair();
-    expect(pairingStore.state()).toEqual({ phase: "error", message: "pairing not armed" });
+    expect(pairingStore.state()).toEqual({
+      phase: "error",
+      message: "another pairing request is already pending",
+    });
 
     vi.mocked(api).mockResolvedValue({ ok: false, error: "failed to fetch" });
     await pairingStore.pair();

@@ -62,11 +62,7 @@ export function createFetchHandler(deps: BridgeDeps): (req: Request) => Promise<
       const b = await readJsonBody(req);
       if (!b) return json(req, { error: "bad request body" }, 400);
       const r = deps.pairing.request(str(b.name, 80) || "unnamed extension");
-      if (!r.ok) {
-        return r.reason === "not-armed"
-          ? json(req, { error: "pairing not armed — run open_pairing in your Claude session first" }, 403)
-          : json(req, { error: "another pairing request is already pending" }, 409);
-      }
+      if (!r.ok) return json(req, { error: "another pairing request is already pending" }, 409);
       return json(req, { requestId: r.requestId, code: r.code });
     }
 

@@ -3,12 +3,11 @@ import { createPairing, type Pairing } from "./pairing";
 
 let pushed: Array<{ content: string; meta: Record<string, string> }>;
 
-const mkPairing = (over: { windowMs?: number; requestTtlMs?: number } = {}): Pairing =>
+const mkPairing = (over: { requestTtlMs?: number } = {}): Pairing =>
   createPairing({
     pushEvent: async (content, meta) => {
       pushed.push({ content, meta });
     },
-    windowMs: 1000,
     requestTtlMs: 2000,
     ...over,
   });
@@ -22,7 +21,6 @@ afterEach(() => {
 });
 
 const pairFully = (pairing: Pairing): { token: string; code: string } => {
-  pairing.arm();
   const req = pairing.request("Chrome");
   if (!req.ok) throw new Error("expected pairing request to be accepted");
   expect(pairing.approve(req.code)).toBe(true);
@@ -32,7 +30,7 @@ const pairFully = (pairing: Pairing): { token: string; code: string } => {
 };
 
 describe("the happy pairing flow", () => {
-  it("arm → request → approve(code) → claim(requestId) yields an in-memory token", () => {
+  it("request → approve(code) → claim(requestId) yields an in-memory token", () => {
     const pairing = mkPairing();
     expect(pairing.enforced()).toBe(false);
     const { token } = pairFully(pairing);
@@ -45,7 +43,6 @@ describe("the happy pairing flow", () => {
 
   it("announces the request in the session with the code and the requester's name", () => {
     const pairing = mkPairing();
-    pairing.arm();
     const req = pairing.request("Chrome on MacBook");
     if (!req.ok) throw new Error("expected ok");
     expect(pushed).toEqual([
@@ -60,7 +57,6 @@ describe("the happy pairing flow", () => {
 
   it("approve tolerates whitespace and lowercase; re-pairing the same instance keeps the token", () => {
     const pairing = mkPairing();
-    pairing.arm();
     const req = pairing.request("a");
     if (!req.ok) throw new Error("expected ok");
     expect(pairing.approve(`  ${req.code.toLowerCase()} `)).toBe(true);
@@ -83,17 +79,8 @@ describe("the happy pairing flow", () => {
 });
 
 describe("the gates", () => {
-  it("requests outside an armed window are refused", () => {
-    const pairing = mkPairing();
-    expect(pairing.request("x")).toEqual({ ok: false, reason: "not-armed" });
-    pairing.arm();
-    vi.advanceTimersByTime(1001);
-    expect(pairing.request("x")).toEqual({ ok: false, reason: "not-armed" });
-  });
-
   it("a second request while one is pending is denied and reported loudly", () => {
     const pairing = mkPairing();
-    pairing.arm();
     expect(pairing.request("legit").ok).toBe(true);
     expect(pairing.request("racer")).toEqual({ ok: false, reason: "busy" });
     expect(pushed[1].meta).toEqual({ event_type: "pairing_denied" });
@@ -103,7 +90,6 @@ describe("the gates", () => {
   it("approve rejects a wrong code, a missing request, and a double approve+claim", () => {
     const pairing = mkPairing();
     expect(pairing.approve("AAAAAA")).toBe(false); // nothing pending
-    pairing.arm();
     const req = pairing.request("a");
     if (!req.ok) throw new Error("expected ok");
     expect(pairing.approve("WRONG1")).toBe(false);
@@ -116,7 +102,6 @@ describe("the gates", () => {
 
   it("claim is pending before approval, null for foreign ids and expired requests", () => {
     const pairing = mkPairing();
-    pairing.arm();
     const req = pairing.request("a");
     if (!req.ok) throw new Error("expected ok");
     expect(pairing.claim("someone-elses-id")).toBeNull();
@@ -126,10 +111,11 @@ describe("the gates", () => {
     expect(pairing.approve(req.code)).toBe(false);
   });
 
-  it("a successful claim closes the armed window (one pairing per arming)", () => {
+  it("after a claim the slot is free again — a later request starts fresh", () => {
     const pairing = mkPairing();
     pairFully(pairing);
-    expect(pairing.request("again")).toEqual({ ok: false, reason: "not-armed" });
+    const again = pairing.request("again");
+    expect(again.ok).toBe(true);
   });
 
   it("verify is false before any token exists", () => {

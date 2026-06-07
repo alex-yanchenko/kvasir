@@ -96,12 +96,15 @@ describe("Settings connection section", () => {
 
   it("shows the error with a Retry on a refused pairing", async () => {
     vi.mocked(storeGet).mockResolvedValue(undefined);
-    vi.mocked(api).mockResolvedValue({ ok: false, data: { error: "pairing not armed" } });
+    vi.mocked(api).mockResolvedValue({
+      ok: false,
+      data: { error: "another pairing request is already pending" },
+    });
     render(<Settings />);
     fireEvent.click(screen.getByLabelText("Settings"));
     fireEvent.click(await screen.findByText("Pair"));
-    await screen.findByText(/pairing not armed/);
+    await screen.findByText(/already pending/);
     fireEvent.click(screen.getByText("Retry")); // retry re-runs the same flow
-    await screen.findByText(/pairing not armed/);
+    await screen.findByText(/already pending/);
   });
 });
