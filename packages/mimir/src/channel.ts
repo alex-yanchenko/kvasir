@@ -30,8 +30,6 @@ import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { ListToolsRequestSchema, CallToolRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 
-import { homedir } from "node:os";
-import { join } from "node:path";
 import { createFetchHandler } from "./bridge";
 import { createAskBroker } from "./broker";
 import { createPairing } from "./pairing";
@@ -58,8 +56,9 @@ async function pushEvent(content: string, meta: Record<string, string>): Promise
 /** Pending questions live in the broker; answer_question (called by you) resolves them. */
 const broker = createAskBroker({ timeoutMs: ASK_TIMEOUT_MS, pushEvent });
 
-/** Extension pairing — code-confirmed through this session; the token persists. */
-const pairing = createPairing({ tokenFile: join(homedir(), ".pr-walkthrough", "token"), pushEvent });
+/** Extension pairing — code-confirmed through this session; the token lives only
+ * in memory, so restarting the session forces a fresh pairing. */
+const pairing = createPairing({ pushEvent });
 
 // ── HTTP bridge ──────────────────────────────────────────────────────────────
 // Routes + auth + prompts live in ./bridge (unit-tested); this just binds them.

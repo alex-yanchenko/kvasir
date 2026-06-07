@@ -10,12 +10,12 @@
 //                token exactly once; the id never appears in chat or on screen
 //   verify()   — every bridge call thereafter must carry the token
 //
-// The token persists in a chmod-600 file, so pairing survives restarts. Until a
-// token exists the bridge stays open (the pre-pairing status quo); the first
-// successful pairing locks it.
+// The token lives ONLY in this process's memory — never on disk. Restarting the
+// Claude session forgets it, so a new session always re-pairs: auth lifetime is
+// tied to the session, which is the trust anchor. The extension keeps its copy
+// in storage so a page refresh within a live session doesn't re-pair, but its
+// token goes stale the moment the session restarts and the bridge 401s it.
 import { randomBytes, timingSafeEqual } from "node:crypto";
-import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname } from "node:path";
 
 /** No 0/O/1/I/L — the user reads this code off a screen and types it. */
 const CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
@@ -24,7 +24,6 @@ export const PAIR_WINDOW_MS = 60_000;
 export const PAIR_REQUEST_TTL_MS = 120_000;
 
 export interface PairingDeps {
-  tokenFile: string;
   pushEvent(content: string, meta: Record<string, string>): Promise<void>;
   windowMs?: number;
   requestTtlMs?: number;
@@ -45,9 +44,9 @@ export interface Pairing {
   approve(code: string): boolean;
   /** The extension collects the token by its private requestId — exactly once. */
   claim(requestId: string): PairClaimResult;
-  /** Constant-time check of a presented token against the persisted one. */
+  /** Constant-time check of a presented token against the in-memory one. */
   verify(presented: string): boolean;
-  /** True once a token exists — the bridge requires it from then on. */
+  /** True once a token exists this session — the bridge requires it from then on. */
   enforced(): boolean;
 }
 
@@ -69,22 +68,9 @@ export function createPairing(deps: PairingDeps): Pairing {
   let pending: PendingPair | null = null;
   let cachedToken: string | null = null;
 
-  const readToken = (): string | null => {
-    if (cachedToken) return cachedToken;
-    if (!existsSync(deps.tokenFile)) return null;
-    cachedToken = readFileSync(deps.tokenFile, "utf8").trim();
-    return cachedToken;
-  };
-
   const ensureToken = (): string => {
-    const existing = readToken();
-    if (existing) return existing;
-    const token = randomBytes(32).toString("hex");
-    mkdirSync(dirname(deps.tokenFile), { recursive: true, mode: 0o700 });
-    writeFileSync(deps.tokenFile, token, { mode: 0o600 });
-    chmodSync(deps.tokenFile, 0o600); // writeFileSync mode is ignored when the file exists
-    cachedToken = token;
-    return token;
+    if (!cachedToken) cachedToken = randomBytes(32).toString("hex");
+    return cachedToken;
   };
 
   const livePending = (): PendingPair | null => {
@@ -141,13 +127,12 @@ export function createPairing(deps: PairingDeps): Pairing {
     },
 
     verify(presented) {
-      const token = readToken();
-      if (!token || presented.length !== token.length) return false;
-      return timingSafeEqual(Buffer.from(presented), Buffer.from(token));
+      if (!cachedToken || presented.length !== cachedToken.length) return false;
+      return timingSafeEqual(Buffer.from(presented), Buffer.from(cachedToken));
     },
 
     enforced() {
-      return readToken() !== null;
+      return cachedToken !== null;
     },
   };
 }

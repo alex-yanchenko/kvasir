@@ -1,16 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { createPairing, type Pairing } from "./pairing";
 
-let dir: string;
-let tokenFile: string;
 let pushed: Array<{ content: string; meta: Record<string, string> }>;
 
 const mkPairing = (over: { windowMs?: number; requestTtlMs?: number } = {}): Pairing =>
   createPairing({
-    tokenFile,
     pushEvent: async (content, meta) => {
       pushed.push({ content, meta });
     },
@@ -21,13 +15,10 @@ const mkPairing = (over: { windowMs?: number; requestTtlMs?: number } = {}): Pai
 
 beforeEach(() => {
   vi.useFakeTimers();
-  dir = mkdtempSync(join(tmpdir(), "prw-pairing-"));
-  tokenFile = join(dir, "deep", "token");
   pushed = [];
 });
 afterEach(() => {
   vi.useRealTimers();
-  rmSync(dir, { recursive: true, force: true });
 });
 
 const pairFully = (pairing: Pairing): { token: string; code: string } => {
@@ -41,13 +32,11 @@ const pairFully = (pairing: Pairing): { token: string; code: string } => {
 };
 
 describe("the happy pairing flow", () => {
-  it("arm → request → approve(code) → claim(requestId) yields a persisted 0600 token", () => {
+  it("arm → request → approve(code) → claim(requestId) yields an in-memory token", () => {
     const pairing = mkPairing();
     expect(pairing.enforced()).toBe(false);
     const { token } = pairFully(pairing);
     expect(token).toMatch(/^[0-9a-f]{64}$/);
-    expect(readFileSync(tokenFile, "utf8")).toBe(token);
-    expect(statSync(tokenFile).mode & 0o777).toBe(0o600);
     expect(pairing.enforced()).toBe(true);
     expect(pairing.verify(token)).toBe(true);
     expect(pairing.verify("x".repeat(64))).toBe(false);
@@ -69,7 +58,7 @@ describe("the happy pairing flow", () => {
     expect(req.code).toMatch(/^[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{6}$/);
   });
 
-  it("approve tolerates whitespace and lowercase; re-pairing reuses the persisted token", () => {
+  it("approve tolerates whitespace and lowercase; re-pairing the same instance keeps the token", () => {
     const pairing = mkPairing();
     pairing.arm();
     const req = pairing.request("a");
@@ -80,6 +69,16 @@ describe("the happy pairing flow", () => {
 
     const again = pairFully(pairing);
     expect(again.token).toBe(first.token);
+  });
+
+  it("a fresh instance (a restarted session) forgets the token — re-pair required", () => {
+    const first = mkPairing();
+    const a = pairFully(first);
+    const restarted = mkPairing();
+    expect(restarted.enforced()).toBe(false); // memory-only: nothing carried over
+    expect(restarted.verify(a.token)).toBe(false);
+    const b = pairFully(restarted);
+    expect(b.token).not.toBe(a.token); // a brand-new token each session
   });
 });
 
@@ -133,15 +132,9 @@ describe("the gates", () => {
     expect(pairing.request("again")).toEqual({ ok: false, reason: "not-armed" });
   });
 
-  it("verify is false before any token exists; an existing file is picked up", () => {
+  it("verify is false before any token exists", () => {
     const pairing = mkPairing();
+    expect(pairing.enforced()).toBe(false);
     expect(pairing.verify("anything")).toBe(false);
-    writeFileSync(join(dir, "flat-token"), "abc123\n");
-    const preSeeded = createPairing({
-      tokenFile: join(dir, "flat-token"),
-      pushEvent: async () => {},
-    });
-    expect(preSeeded.enforced()).toBe(true);
-    expect(preSeeded.verify("abc123")).toBe(true);
   });
 });
