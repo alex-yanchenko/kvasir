@@ -316,10 +316,10 @@ function ChatRail({ active }: { active: string | null }): JSX.Element {
         <Button
           variant="ghost"
           size="sm"
-          className="m-2 mt-1 text-muted-foreground"
+          className="m-2 mt-1 hover:border-destructive/40 hover:bg-destructive/10 hover:text-destructive"
           onClick={() => chatsStore.clearSessions()}
         >
-          Clear all
+          <Trash2 /> Clear all
         </Button>
       )}
     </div>

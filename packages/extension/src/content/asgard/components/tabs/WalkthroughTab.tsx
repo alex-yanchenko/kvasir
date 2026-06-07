@@ -120,7 +120,7 @@ function Steps(): JSX.Element {
     <div className="flex h-full flex-col">
       <div className="flex items-center gap-2 border-b border-border px-3 py-2">
         <span className="text-xs text-muted-foreground">
-          Step {idx + 1} / {count}
+          Step <span className="font-medium text-primary">{idx + 1}</span> / {count}
         </span>
         <div className="ml-auto flex items-center gap-1">
           <span data-prw-tip={idx === 0 ? "First step" : undefined}>
@@ -190,7 +190,7 @@ function Steps(): JSX.Element {
 
       <div className="flex items-center gap-2 border-t border-border px-3 py-2">
         <Button
-          variant="secondary"
+          variant="default"
           size="sm"
           onClick={() => {
             tourStore.askAboutStep();
@@ -199,10 +199,11 @@ function Steps(): JSX.Element {
         >
           <MessageSquare /> Ask about this step
         </Button>
+        {/* a pending update is worth the eye (filled accent); a plain regenerate stays quiet */}
         <Button
-          variant="ghost"
+          variant={launcherStore.newCommits() ? "default" : "ghost"}
           size="sm"
-          className={"ml-auto" + (launcherStore.newCommits() ? " text-primary" : "")}
+          className="ml-auto"
           onClick={() => setDialog(true)}
         >
           <RefreshCw /> {launcherStore.newCommits() ? "Update" : "Regenerate"}

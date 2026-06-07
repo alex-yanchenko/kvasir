@@ -30,7 +30,7 @@ function Segmented({
             size="sm"
             variant={value === o.value ? "default" : "ghost"}
             aria-pressed={value === o.value}
-            className="h-7"
+            className="h-7 border-0 shadow-none"
             onClick={() => onChange(o.value)}
           >
             {o.label}
