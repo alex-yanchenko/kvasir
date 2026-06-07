@@ -150,15 +150,48 @@ describe("jumpToRef", () => {
     expect(picked()).toEqual([]);
   });
 
-  it("a line-less ref re-seats the file header until the lazy layout settles", () => {
+  it("a line-less ref seats the header under a measured sticky bar until layout settles", () => {
     vi.useFakeTimers();
     const scrollBy = vi.fn();
     vi.stubGlobal("scrollBy", scrollBy);
+    const bar = document.createElement("div");
+    document.body.appendChild(bar);
+    vi.spyOn(bar, "getBoundingClientRect").mockReturnValue({
+      left: 0,
+      top: 0,
+      right: 0,
+      bottom: 48,
+      width: 0,
+      height: 48,
+      x: 0,
+      y: 0,
+      toJSON: () => null,
+    });
+    document.elementFromPoint = vi.fn().mockReturnValue(bar); // a sticky bar overlays the top
     expect(jumpToRef("src/app.ts", null, null)).toBe(true);
     expect(picked()).toEqual([]);
-    expect(scrollBy).toHaveBeenCalledWith(0, -60); // jsdom zero rect - the sticky offset
+    expect(scrollBy).toHaveBeenCalledWith(0, -48); // jsdom zero rect minus the measured bar
     vi.advanceTimersByTime(2000); // jsdom rects never settle, so every retry corrects
     expect(scrollBy).toHaveBeenCalledTimes(8);
+    bar.remove();
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+  });
+
+  it("a line-less ref leaves a header already at the very top alone when nothing overlays it", () => {
+    vi.useFakeTimers();
+    const scrollBy = vi.fn();
+    vi.stubGlobal("scrollBy", scrollBy);
+    // the probe hits the container itself — no sticky bar engaged near the page top
+    document.elementFromPoint = vi.fn().mockImplementation(() => container.firstElementChild);
+    expect(jumpToRef("src/app.ts", null, null)).toBe(true);
+    vi.advanceTimersByTime(2000);
+    expect(scrollBy).not.toHaveBeenCalled(); // zero rect top - zero overlay = seated
+    vi.advanceTimersByTime(0);
+    document.elementFromPoint = vi.fn().mockReturnValue(null); // probe misses entirely
+    expect(jumpToRef("src/app.ts", null, null)).toBe(true);
+    vi.advanceTimersByTime(2000);
+    expect(scrollBy).not.toHaveBeenCalled();
     vi.unstubAllGlobals();
     vi.useRealTimers();
   });

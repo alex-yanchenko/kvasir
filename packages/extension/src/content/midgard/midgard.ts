@@ -124,8 +124,15 @@ export function containerForFileLoose(file: string): Element | null {
 
 // Scroll the diff to a cited path:line(-end) and highlight it. Returns false when
 // the cited file isn't in this PR's diff, so callers can fall back.
-/** Clears GitHub's sticky PR toolbar so a jumped-to file header stays visible. */
-const FILE_JUMP_OFFSET = 60;
+/** Height of whatever sticky bar overlays a header parked at the viewport top.
+ * Measured live: GitHub's sticky toolbars vary by UI variant and only engage at
+ * scroll depth — near the page top nothing overlays, and the right seat is 0. */
+function stickyOverlayHeight(cont: Element): number {
+  const r = cont.getBoundingClientRect();
+  const probe = document.elementFromPoint?.(r.left + 24, 2);
+  if (!probe || cont.contains(probe)) return 0;
+  return Math.min(Math.max(probe.getBoundingClientRect().bottom, 0), 150);
+}
 
 export function jumpToRef(file: string, start: number | null, end: number | null): boolean {
   const cont = containerForFileLoose(file);
@@ -138,7 +145,7 @@ export function jumpToRef(file: string, start: number | null, end: number | null
     cont.scrollIntoView({ block: "start" });
     let tries = 0;
     const seat = (): void => {
-      const off = cont.getBoundingClientRect().top - FILE_JUMP_OFFSET;
+      const off = cont.getBoundingClientRect().top - stickyOverlayHeight(cont);
       if (Math.abs(off) > 4) window.scrollBy(0, off);
       if (++tries < 8) setTimeout(seat, 120);
     };
