@@ -11,6 +11,7 @@ import { useDrag } from "../hooks/useDrag";
 import { useResizePersist } from "../hooks/useResizePersist";
 import { Button } from "../ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
+import { HistoryTab } from "./tabs/HistoryTab";
 import { SettingsTab } from "./tabs/SettingsTab";
 
 const TAB_LABELS: Array<{ value: PanelTab; label: string }> = [
@@ -87,8 +88,8 @@ export function Panel(): JSX.Element | null {
         <TabsContent value={PANEL_TABS.CHAT}>
           <Placeholder name="Chat" />
         </TabsContent>
-        <TabsContent value={PANEL_TABS.HISTORY}>
-          <Placeholder name="History" />
+        <TabsContent value={PANEL_TABS.HISTORY} className="overflow-y-auto">
+          <HistoryTab />
         </TabsContent>
         <TabsContent value={PANEL_TABS.SETTINGS} className="overflow-y-auto">
           <SettingsTab />
