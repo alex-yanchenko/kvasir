@@ -132,14 +132,17 @@ export function jumpToRef(file: string, start: number | null, end: number | null
   if (!cont) return false;
   if (start === null) {
     // A bare file mention — land the file header at the top of the viewport.
-    // Two-step: an instant jump forces GitHub to render the lazy diff (heights
-    // shift while it renders, which made a single smooth scroll land short),
-    // then a corrective smooth scroll seats the header below the sticky toolbar.
+    // GitHub lazy-renders diffs, so content above keeps growing for a while
+    // after the first jump and a one-shot correction lands short. Re-seat the
+    // header every 120ms (~1s total) until the layout stops moving under us.
     cont.scrollIntoView({ block: "start" });
-    setTimeout(() => {
-      const top = cont.getBoundingClientRect().top + window.scrollY - FILE_JUMP_OFFSET;
-      window.scrollTo({ top, behavior: "smooth" });
-    }, 60);
+    let tries = 0;
+    const seat = (): void => {
+      const off = cont.getBoundingClientRect().top - FILE_JUMP_OFFSET;
+      if (Math.abs(off) > 4) window.scrollBy(0, off);
+      if (++tries < 8) setTimeout(seat, 120);
+    };
+    seat();
     return true;
   }
   cont.scrollIntoView({ block: "start" }); // GitHub lazy-renders; bring the file in first

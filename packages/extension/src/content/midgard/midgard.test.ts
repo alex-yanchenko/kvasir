@@ -150,14 +150,15 @@ describe("jumpToRef", () => {
     expect(picked()).toEqual([]);
   });
 
-  it("a line-less ref seats the file header below the sticky toolbar and paints nothing", () => {
+  it("a line-less ref re-seats the file header until the lazy layout settles", () => {
     vi.useFakeTimers();
-    const scrollTo = vi.fn();
-    vi.stubGlobal("scrollTo", scrollTo);
+    const scrollBy = vi.fn();
+    vi.stubGlobal("scrollBy", scrollBy);
     expect(jumpToRef("src/app.ts", null, null)).toBe(true);
     expect(picked()).toEqual([]);
-    vi.advanceTimersByTime(60); // the corrective scroll waits for the lazy render
-    expect(scrollTo).toHaveBeenCalledWith({ top: -60, behavior: "smooth" }); // jsdom zero rects - offset
+    expect(scrollBy).toHaveBeenCalledWith(0, -60); // jsdom zero rect - the sticky offset
+    vi.advanceTimersByTime(2000); // jsdom rects never settle, so every retry corrects
+    expect(scrollBy).toHaveBeenCalledTimes(8);
     vi.unstubAllGlobals();
     vi.useRealTimers();
   });
