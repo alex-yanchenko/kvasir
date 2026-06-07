@@ -9,6 +9,7 @@ import { launcherStore } from "../launcher";
 import { getSnapshot, PANEL_TABS, panelStore, subscribe, type PanelTab } from "../store";
 import { useDrag } from "../hooks/useDrag";
 import { useResizePersist } from "../hooks/useResizePersist";
+import { useScrollLock } from "../hooks/useScrollLock";
 import { Button } from "../ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { ChatTab } from "./tabs/ChatTab";
@@ -37,6 +38,7 @@ function PanelWindow(): JSX.Element {
     onEnd: (pos) => panelStore.setPos(pos),
   });
   useResizePersist(panelRef, (size) => panelStore.setSize(size));
+  useScrollLock(panelRef);
 
   const pos = panelStore.pos();
   const size = panelStore.size();
