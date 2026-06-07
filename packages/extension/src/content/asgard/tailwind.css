@@ -41,34 +41,34 @@
   --radius-sm: calc(var(--radius) - 4px);
 }
 
-/* Dev-tool palette (Linear/Raycast-leaning). Light = clean near-white; dark =
- * layered near-black. One restrained accent (the brand orange). Hairline borders,
- * compact 6px radius. Theme follows the system via the host's .dark toggle. */
+/* Dev-tool palette: cyan on graphite. Light = soft tinted (never pure white);
+ * dark = layered cool graphite. Cyan accent with dark ink on it for contrast.
+ * Hairline borders, compact 6px radius. Theme follows the system via .dark. */
 :host {
-  --background: #ffffff;
-  --foreground: #1c1c1f;
+  --background: #f6f8fa;
+  --foreground: #18202b;
   --card: #ffffff;
-  --card-foreground: #1c1c1f;
+  --card-foreground: #18202b;
   --popover: #ffffff;
-  --popover-foreground: #1c1c1f;
-  --primary: #d85a30;
+  --popover-foreground: #18202b;
+  --primary: #0e93ab;
   --primary-foreground: #ffffff;
-  --secondary: #f4f4f3;
-  --secondary-foreground: #1c1c1f;
-  --muted: #f4f4f3;
-  --muted-foreground: #71717a;
-  --accent: #f1f1ef;
-  --accent-foreground: #1c1c1f;
+  --secondary: #edf1f5;
+  --secondary-foreground: #18202b;
+  --muted: #edf1f5;
+  --muted-foreground: #5b6675;
+  --accent: #e6ecf1;
+  --accent-foreground: #18202b;
   --destructive: #dc2626;
   --destructive-foreground: #ffffff;
-  --border: #e6e6e4;
-  --input: #fbfbfa;
-  --ring: #d85a30;
+  --border: #dce3ea;
+  --input: #ffffff;
+  --ring: #0e93ab;
   --radius: 0.375rem;
 
   /* dev-tool depth + glow, referenced by the panel/popovers/inputs */
-  --elevation: 0 1px 2px rgba(24, 24, 27, 0.04), 0 8px 24px -8px rgba(24, 24, 27, 0.14);
-  --ring-soft: color-mix(in srgb, var(--primary) 30%, transparent);
+  --elevation: 0 1px 2px rgba(24, 32, 43, 0.05), 0 8px 24px -8px rgba(24, 32, 43, 0.16);
+  --ring-soft: color-mix(in srgb, var(--primary) 28%, transparent);
 
   color-scheme: light;
   font-family: var(--font-sans);
@@ -79,26 +79,26 @@
 }
 
 .dark {
-  --background: #0e0e10;
-  --foreground: #e6e6e9;
-  --card: #161618;
-  --card-foreground: #e6e6e9;
-  --popover: #161618;
-  --popover-foreground: #e6e6e9;
-  --primary: #e2683c;
-  --primary-foreground: #ffffff;
-  --secondary: #1c1c20;
-  --secondary-foreground: #e6e6e9;
-  --muted: #1c1c20;
-  --muted-foreground: #8b8b94;
-  --accent: #222226;
-  --accent-foreground: #e6e6e9;
+  --background: #0d1116;
+  --foreground: #e3e8ee;
+  --card: #151a21;
+  --card-foreground: #e3e8ee;
+  --popover: #151a21;
+  --popover-foreground: #e3e8ee;
+  --primary: #22b8cf;
+  --primary-foreground: #04222a;
+  --secondary: #1a212a;
+  --secondary-foreground: #e3e8ee;
+  --muted: #1a212a;
+  --muted-foreground: #8a95a3;
+  --accent: #212a35;
+  --accent-foreground: #e3e8ee;
   --destructive: #e5484d;
   --destructive-foreground: #ffffff;
-  --border: #26262b;
-  --input: #161618;
-  --ring: #e2683c;
+  --border: #232a33;
+  --input: #11161c;
+  --ring: #22b8cf;
 
-  --elevation: 0 1px 2px rgba(0, 0, 0, 0.4), 0 12px 32px -8px rgba(0, 0, 0, 0.6);
+  --elevation: 0 1px 2px rgba(0, 0, 0, 0.45), 0 12px 32px -10px rgba(0, 0, 0, 0.65);
   color-scheme: dark;
 }
