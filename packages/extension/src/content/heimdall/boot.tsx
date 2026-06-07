@@ -42,10 +42,6 @@ export function boot(): void {
   shadow.appendChild(style);
   const mount = document.createElement("div");
   shadow.appendChild(mount);
-  // Radix portals mount here (inside the shadow), so popovers/dialogs get the
-  // injected Tailwind instead of rendering unstyled in document.body.
-  const portal = document.createElement("div");
-  shadow.appendChild(portal);
   // The theme class lives on the host so :host / :host(.dark) tokens resolve.
-  createRoot(mount).render(<App themeTarget={host} portalContainer={portal} />);
+  createRoot(mount).render(<App themeTarget={host} />);
 }

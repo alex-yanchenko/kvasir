@@ -1,76 +1,6 @@
-/* Asgard's panel styles, injected into the shadow root by Heimdall. Each island
-   moves its rules here out of midgard.css. Theme tokens (--prw-*) are defined on
-   the page body by midgard.css and inherit through the shadow boundary. */
-/* the Chats pill needs .prw-pill inside the shadow root; midgard.css keeps the
-   light-DOM copy for the vanilla launcher until D3 moves it here for good. */
-.prw-pill {
-  position: absolute;
-  z-index: 2147483001;
-  background: var(--prw-accent);
-  color: #fff;
-  border: none;
-  border-radius: 8px;
-  padding: 5px 10px;
-  font-size: 12.5px;
-  font-weight: 600;
-  cursor: pointer;
-  white-space: nowrap;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
-}
-/* reopen-past-chats launcher + list */
-
-/* launcher block + regen dialog (moved from midgard.css at D3) */
-.prw-launch {
-  position: fixed;
-  bottom: 24px;
-  left: 68px;
-  z-index: 2147483000;
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-.prw-launch-status {
-  background: var(--prw-bg);
-  color: var(--prw-muted);
-  border: 1px solid var(--prw-border);
-  border-radius: 999px;
-  padding: 7px 14px;
-  font-size: 13px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
-}
-.prw-dismiss {
-  background: none;
-  border: none;
-  color: var(--prw-muted);
-  text-decoration: underline;
-  cursor: pointer;
-  font-size: 12px;
-  padding: 0 0 0 4px;
-}
-.prw-dismiss:hover {
-  color: var(--prw-fg);
-}
-.prw-dismiss-armed {
-  color: var(--prw-accent);
-  text-decoration: none;
-  font-weight: 600;
-}
-.prw-ghost {
-  background: var(--prw-bg) !important;
-  color: var(--prw-fg) !important;
-  border: 1px solid var(--prw-border) !important;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-}
-.prw-ghost:hover {
-  border-color: var(--prw-accent) !important;
-  color: var(--prw-accent) !important;
-}
-.prw-attn {
-  border-color: var(--prw-accent) !important;
-  color: var(--prw-accent) !important;
-}
-
-/* regenerate dialog */
+/* Asgard panel styles injected into the shadow root: chat thread + markdown,
+   option rows, tooltips, scrollbars. Layout/colour come from Tailwind on the
+   components; these cover the rich-markdown + chat internals. */
 .prw-dialog-back {
   position: fixed;
   inset: 0;
@@ -96,131 +26,6 @@
     system-ui,
     sans-serif;
 }
-.prw-dialog-title {
-  font-size: 16px;
-  font-weight: 600;
-  margin-bottom: 6px;
-}
-.prw-dialog-body {
-  color: var(--prw-muted);
-  font-size: 13px;
-  margin-bottom: 14px;
-}
-.prw-dialog-opt {
-  display: block;
-  width: 100%;
-  text-align: left;
-  background: var(--prw-surface);
-  color: var(--prw-fg);
-  border: 1px solid var(--prw-border);
-  border-radius: 10px;
-  padding: 10px 12px;
-  margin-bottom: 8px;
-  cursor: pointer;
-}
-.prw-dialog-opt:hover {
-  border-color: var(--prw-accent);
-}
-.prw-dialog-opt b {
-  display: block;
-  font-weight: 600;
-  font-size: 14px;
-}
-.prw-dialog-opt span {
-  display: block;
-  color: var(--prw-muted);
-  font-size: 12px;
-  margin-top: 2px;
-}
-.prw-dialog-cancel {
-  display: block;
-  width: 100%;
-  text-align: center;
-  background: none;
-  border: none;
-  color: var(--prw-muted);
-  padding: 8px;
-  cursor: pointer;
-  font-size: 13px;
-}
-.prw-dialog-cancel:hover {
-  color: var(--prw-accent);
-}
-/* launcher pills lay out in the flex block (not absolute like the selection pill) */
-.prw-launch .prw-pill {
-  position: static;
-  padding: 7px 14px;
-  font-size: 13px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
-}
-
-/* tour card (moved from midgard.css at D4; .prw-x/.prw-btn copies stay in
-   midgard.css for the vanilla chat until D5) */
-.prw-card {
-  position: fixed;
-  z-index: 2147483000;
-  background: var(--prw-bg);
-  color: var(--prw-fg);
-  border: 1px solid var(--prw-border);
-  border-radius: 14px;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
-  font:
-    14px/1.55 -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    system-ui,
-    sans-serif;
-}
-.prw-card {
-  bottom: 24px;
-  right: 24px;
-  box-sizing: border-box; /* same persisted-size round-trip as .prw-chat above */
-  width: 360px;
-  max-height: 80vh;
-  min-width: 300px;
-  min-height: 200px;
-  resize: both;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
-.prw-card .prw-body {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-}
-
-.prw-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--prw-border);
-  user-select: none;
-}
-.prw-eyebrow {
-  font-size: 12px;
-  letter-spacing: 0.04em;
-  color: var(--prw-accent);
-  font-weight: 600;
-}
-.prw-x {
-  cursor: pointer;
-  color: var(--prw-muted);
-  font-size: 18px;
-  line-height: 1;
-  background: none;
-  border: none;
-}
-.prw-body {
-  padding: 16px;
-}
-.prw-title {
-  font-size: 16px;
-  font-weight: 600;
-  margin: 0 0 8px;
-  color: var(--prw-fg);
-}
 .prw-prose {
   color: var(--prw-fg);
   opacity: 0.92;
@@ -242,131 +47,8 @@
   margin: 0.5em 0;
   padding-left: 1.4em;
 }
-.prw-more {
-  margin-top: 10px;
-  background: none;
-  border: none;
-  color: var(--prw-accent);
-  cursor: pointer;
-  font-size: 13px;
-  padding: 0;
-}
-.prw-more:hover {
-  text-decoration: underline;
-}
-.prw-detail {
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid var(--prw-border);
-}
 .prw-prose li {
   margin: 0.3em 0;
-}
-.prw-head-actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.prw-foot {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 16px;
-  border-top: 1px solid var(--prw-border);
-}
-
-.prw-btn {
-  background: transparent;
-  color: var(--prw-fg);
-  border: 1px solid var(--prw-border);
-  border-radius: 8px;
-  padding: 7px 12px;
-  cursor: pointer;
-  font-size: 13px;
-}
-.prw-btn:hover {
-  background: var(--prw-surface);
-}
-.prw-btn-primary {
-  background: var(--prw-accent);
-  color: #fff;
-  border: none;
-  font-weight: 600;
-}
-.prw-btn-primary:hover {
-  background: #e0673e;
-} /* keep it accent on hover (don't fall through to the grey .prw-btn:hover) */
-.prw-count {
-  margin-left: auto;
-  font-size: 12px;
-  color: var(--prw-muted);
-}
-
-/* inline selection chat + markdown + option rows + panel scrollbars (moved
-   from midgard.css at D5 — the chat window renders in the shadow root now) */
-/* ── inline selection chat ────────────────────────────────────────────────── */
-.prw-chat {
-  position: fixed;
-  z-index: 2147483002;
-  /* border-box so offsetWidth/Height (persisted by useResizePersist) equal the
-     width/height styles they're restored into — content-box re-adds the border
-     every cycle and the window grows 2px per observation, forever */
-  box-sizing: border-box;
-  width: 420px;
-  max-width: 92vw;
-  max-height: 85vh;
-  min-width: 320px;
-  min-height: 220px;
-  resize: both;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  background: var(--prw-bg);
-  color: var(--prw-fg);
-  border: 1px solid var(--prw-border);
-  border-radius: 14px;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
-  font:
-    14px/1.55 -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    system-ui,
-    sans-serif;
-  opacity: 0;
-  transform: scale(0.97);
-  transform-origin: top left;
-  transition:
-    opacity 0.15s ease,
-    transform 0.15s cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-.prw-chat.prw-in {
-  opacity: 1;
-  transform: scale(1);
-}
-.prw-chat-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 14px;
-  border-bottom: 1px solid var(--prw-border);
-  cursor: grab;
-  user-select: none;
-}
-.prw-chat-title {
-  font-size: 12px;
-  letter-spacing: 0.04em;
-  color: var(--prw-accent);
-  font-weight: 600;
-}
-.prw-chat-file {
-  font-size: 11px;
-  color: var(--prw-muted);
-  font-family: ui-monospace, monospace;
-  margin-left: auto;
-  max-width: 220px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 .prw-options {
   display: flex;
@@ -459,8 +141,6 @@
 .prw-iconbtn.prw-ok {
   color: #3fb950;
 }
-
-/* Rendered-markdown assistant messages: we emit <p>/<br>/<pre>, so drop pre-wrap. */
 .prw-md {
   white-space: normal;
 }
@@ -574,8 +254,6 @@
 .prw-ctxbanner-h:hover {
   text-decoration: underline;
 }
-/* Expanded context floats as a popover over the messages — it never reflows the
-   chat, so the thread and input stay put. */
 .prw-ctxbanner-b {
   position: absolute;
   top: 100%;
@@ -609,8 +287,6 @@
   border-color: var(--prw-accent);
   color: var(--prw-accent);
 }
-/* suggested questions — fixed-height rows: selectable text + an ask icon, so the
-   text can be selected/copied and loading vs loaded occupy identical space. */
 .prw-ai {
   display: flex;
   flex-direction: column;
@@ -687,7 +363,6 @@
   height: 14px;
   transition: transform 0.15s ease;
 }
-/* expanded row: drop the fixed single-line height and let the text wrap */
 .prw-srow-open {
   height: auto;
   min-height: 34px;
@@ -715,8 +390,6 @@
     background-position: -100% 0;
   }
 }
-
-/* assistant "typing" indicator while an answer is in flight */
 .prw-typing {
   display: inline-flex;
   gap: 4px;
@@ -749,7 +422,6 @@
     transform: translateY(-3px);
   }
 }
-
 .prw-input {
   flex: 1;
   background: var(--prw-input);
@@ -759,8 +431,6 @@
   padding: 8px 10px;
   font-size: 13px;
 }
-/* The chat input is a textarea so answers can span multiple lines; it grows with
-   content (capped in JS) and never shows the native drag-resize handle. */
 textarea.prw-chat-input {
   resize: none;
   overflow-y: auto;
@@ -768,10 +438,6 @@ textarea.prw-chat-input {
   line-height: 1.4;
   font-family: inherit;
 }
-
-/* Slim, theme-aware scrollbars for the overlay's scroll areas — the chunky native
-   ones look out of place against the panels. Firefox via scrollbar-*; Chrome (the
-   target) via ::-webkit-scrollbar. Scoped to our elements so the page is untouched. */
 .prw-thread,
 .prw-chats-list,
 .prw-code,
@@ -817,8 +483,6 @@ textarea.prw-chat-input::-webkit-scrollbar-thumb {
 textarea.prw-chat-input::-webkit-scrollbar-thumb:hover {
   background: var(--prw-muted);
 }
-
-/* fast custom tooltip (Asgard copy — the shadow root can't reach midgard.css) */
 .prw-tip {
   position: fixed;
   z-index: 2147483050;
@@ -837,8 +501,6 @@ textarea.prw-chat-input::-webkit-scrollbar-thumb:hover {
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
   pointer-events: none;
 }
-
-/* live-stream state inside the typing bubble */
 .prw-live-note {
   font-size: 11.5px;
   color: var(--prw-muted);

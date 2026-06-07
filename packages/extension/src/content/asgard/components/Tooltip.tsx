@@ -67,7 +67,7 @@ export function Tooltips(): JSX.Element {
     <>
       <span ref={probeRef} hidden />
       {tip && (
-        <div ref={tipRef} className="prw-tip">
+        <div ref={tipRef} role="tooltip" className="prw-tip">
           {tip.text}
         </div>
       )}
