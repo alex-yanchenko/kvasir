@@ -1,18 +1,17 @@
-// The chat window — Asgard's biggest island. The machine (chat.ts) owns the
-// sessions and the /ask flow; this renders the window: thread with markdown +
-// clickable path:line citations, per-answer actions (regenerate / jump / copy),
-// quick prompts + AI suggestions, the autosizing input, drag/resize persistence,
-// and the pending-answer resume after a refresh.
+// Chat tab — the chat thread, markdown answers with clickable citations,
+// per-answer actions, quick prompts + AI suggestions, the autosizing input, and
+// the live-stream bubble. The panel hosts it (no window chrome of its own); the
+// machine (chat.ts) owns the sessions and the /ask flow.
 import type { JSX } from "react";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { renderMarkdown } from "@prw/runes/markdown";
-import { bifrost } from "../../bifrost";
-import { changedFilePaths } from "../../midgard/diff";
-import { chatStore, QUICK, QUICK_PR } from "../chat";
-import { useDrag } from "../hooks/useDrag";
-import { useResizePersist } from "../hooks/useResizePersist";
-import { getSnapshot, subscribe } from "../store";
-import type { ChatMessage, ChatSession } from "../types";
+import { MessageSquare, X } from "lucide-react";
+import { bifrost } from "../../../bifrost";
+import { changedFilePaths } from "../../../midgard/diff";
+import { chatStore, QUICK, QUICK_PR } from "../../chat";
+import { getSnapshot, subscribe } from "../../store";
+import type { ChatMessage, ChatSession } from "../../types";
+import { Button } from "../../ui/button";
 
 const ICON = {
   copy: '<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/>',
@@ -270,62 +269,29 @@ function OptionRow({ label, onAsk }: { label: string; onAsk: () => void }): JSX.
   );
 }
 
-function computeInitialPos(sess: ChatSession): { left: number; top: number } {
-  const W = 420;
-  const M = 10;
-  let left: number;
-  let top: number;
-  const at = chatStore.anchor();
-  if (sess.pos) {
-    left = sess.pos.left;
-    top = sess.pos.top;
-  } else if (at) {
-    left = Math.min(at.left, window.innerWidth - W - M);
-    top = at.bottom + 8;
-    if (top + 360 > window.innerHeight) top = Math.max(M, at.top - 360 - 8);
-  } else {
-    left = 40;
-    top = 90;
-  }
-  // Keep clear of the walkthrough card (bottom-right) — slide left of it. Skip
-  // if the user already placed this chat themselves. (The card lives in our own
-  // shadow root, so this never touches GitHub's DOM.)
-  if (!sess.pos) {
-    const cr = document
-      .getElementById("prw-root")
-      ?.shadowRoot?.querySelector(".prw-card")
-      ?.getBoundingClientRect();
-    if (cr && left + W > cr.left - 8) left = Math.max(M, cr.left - W - 16);
-  }
-  return { left: Math.max(M, left), top: Math.max(M, top) };
-}
-
-export function ChatWindow(): JSX.Element | null {
+export function ChatTab(): JSX.Element {
   useSyncExternalStore(subscribe, getSnapshot);
   const sess = chatStore.active();
-  if (!sess) return null;
-  return <Window key={sess.key} sess={sess} />;
+  if (!sess) {
+    return (
+      <div className="flex flex-col items-center gap-2 p-8 text-center text-sm text-muted-foreground">
+        <MessageSquare className="size-6 opacity-50" />
+        No chat open — select code in the diff, pick one from History, or use “Ask about PR”.
+      </div>
+    );
+  }
+  return <Thread key={sess.key} sess={sess} />;
 }
 
-function Window({ sess }: { sess: ChatSession }): JSX.Element {
-  const winRef = useRef<HTMLDivElement>(null);
+function Thread({ sess }: { sess: ChatSession }): JSX.Element {
   const threadRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const bannerRef = useRef<HTMLDetailsElement>(null);
   const [busy, setBusy] = useState<Busy | null>(null);
   const [err, setErr] = useState<(Busy & { message: string }) | null>(null);
   const [streamIdx, setStreamIdx] = useState<number | null>(null);
-  const [entered, setEntered] = useState(false);
-  // ChatWindow subscribes to the store, so every live-stream touch() re-renders us.
   const liveRaw = chatStore.live();
   const liveAsk = liveRaw && liveRaw.key === sess.key ? liveRaw : null;
-  const initial = useMemo(() => computeInitialPos(sess), [sess.key]);
-
-  // slide-in: add the class one tick after mount so the CSS transition runs
-  useEffect(() => {
-    const t = setTimeout(() => setEntered(true), 0);
-    return () => clearTimeout(t);
-  }, []);
 
   // the step-context banner closes on any click outside it (shadow-safe)
   useEffect(() => {
@@ -363,19 +329,13 @@ function Window({ sess }: { sess: ChatSession }): JSX.Element {
   useEffect(() => {
     const tail = sess.messages[sess.messages.length - 1];
     if (tail && tail.role === "user") send(tail.content, { pushUser: false });
-    // once, when this window opens
+    // once, when this chat opens
   }, []);
 
   // suggestions prefetch (selection chats only; the PR chat has none)
   useEffect(() => {
     if (!sess.general) void chatStore.ensureSuggestions(sess.key);
   }, []);
-
-  const onHeadDown = useDrag(winRef, {
-    ignore: "button, select, input, textarea",
-    onEnd: (pos) => chatStore.setPos(sess.key, pos),
-  });
-  useResizePersist(winRef, (size) => chatStore.setSize(sess.key, size));
 
   const ask = (q: string) => send(q);
   const lineLabel = sess.lines
@@ -394,44 +354,21 @@ function Window({ sess }: { sess: ChatSession }): JSX.Element {
   };
 
   return (
-    <div
-      ref={winRef}
-      className={"prw-chat" + (entered ? " prw-in" : "")}
-      style={{
-        left: initial.left,
-        top: initial.top,
-        ...(sess.size ? { width: sess.size.w, height: sess.size.h } : null),
-      }}
-    >
-      <div className="prw-chat-head" onMouseDown={onHeadDown}>
-        <span className="prw-chat-title">ASK</span>
-        {/* textContent/title, never markup — the path comes from GitHub's DOM */}
-        <span className="prw-chat-file" data-prw-tip={fileTitle}>
+    <div className="flex h-full flex-col">
+      <div className="flex items-center gap-2 border-b border-border px-3 py-1.5">
+        <span className="truncate text-xs font-medium text-muted-foreground" data-prw-tip={fileTitle}>
           {fileLabel}
         </span>
-        <button
-          className="prw-x"
-          aria-label="Collapse to Chats list"
-          data-prw-tip="Collapse to Chats list"
-          onClick={() => {
-            const el = winRef.current!; // the window is mounted — its button was just clicked
-            const r = el.getBoundingClientRect();
-            chatStore.minimize({
-              pos: { left: r.left, top: r.top },
-              size: { w: el.offsetWidth, h: el.offsetHeight },
-            });
-          }}
-        >
-          –
-        </button>
-        <button
-          className="prw-x"
+        <Button
+          variant="ghost"
+          size="icon"
+          className="ml-auto h-6 w-6 text-muted-foreground"
           aria-label="Close and delete"
-          data-prw-tip="Close (delete) this chat"
+          data-prw-tip="Delete this chat"
           onClick={() => chatStore.deleteActive()}
         >
-          ×
-        </button>
+          <X />
+        </Button>
       </div>
       {sess.step && (
         <details ref={bannerRef} className="prw-ctxbanner">
@@ -525,9 +462,7 @@ function Window({ sess }: { sess: ChatSession }): JSX.Element {
             submit();
           }}
         />
-        <button className="prw-btn prw-btn-primary" onClick={submit}>
-          Ask
-        </button>
+        <Button onClick={submit}>Ask</Button>
       </div>
     </div>
   );

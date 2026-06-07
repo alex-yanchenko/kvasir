@@ -11,6 +11,7 @@ import { useDrag } from "../hooks/useDrag";
 import { useResizePersist } from "../hooks/useResizePersist";
 import { Button } from "../ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
+import { ChatTab } from "./tabs/ChatTab";
 import { HistoryTab } from "./tabs/HistoryTab";
 import { SettingsTab } from "./tabs/SettingsTab";
 import { WalkthroughTab } from "./tabs/WalkthroughTab";
@@ -82,8 +83,8 @@ export function Panel(): JSX.Element | null {
         <TabsContent value={PANEL_TABS.WALKTHROUGH} className="min-h-0">
           <WalkthroughTab />
         </TabsContent>
-        <TabsContent value={PANEL_TABS.CHAT}>
-          <div className="p-4 text-sm text-muted-foreground">Chat — coming soon.</div>
+        <TabsContent value={PANEL_TABS.CHAT} className="min-h-0">
+          <ChatTab />
         </TabsContent>
         <TabsContent value={PANEL_TABS.HISTORY} className="overflow-y-auto">
           <HistoryTab />

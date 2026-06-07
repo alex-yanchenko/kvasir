@@ -1,7 +1,8 @@
 // The chat machine — Asgard-owned. Sessions live in the store's backing state
-// as immutable updates; this opens/closes the one visible chat,
-// builds /ask requests (selection- or PR-level), regenerates answers in place,
-// and prefetches the AI suggestions. The window itself is a React component.
+// as immutable updates; this picks which session the Chat tab shows, builds
+// /ask requests (selection- or PR-level), regenerates answers in place, and
+// prefetches the AI suggestions. The panel owns window geometry; this owns the
+// content. Opening any session routes the panel to its Chat tab.
 
 import type { Bifrost, SelectionPayload } from "../bifrost";
 import { bifrost } from "../bifrost";
@@ -9,7 +10,7 @@ import { api } from "../api";
 import { chatsKey, prUrl } from "../keys";
 import { storeSet } from "../muninn";
 import { pairingStore } from "./pairing";
-import { state, touch } from "./store";
+import { PANEL_TABS, panelStore, state, touch } from "./store";
 import { tourStore } from "./tour";
 import type { ChatMessage, ChatSession } from "./types";
 
@@ -27,8 +28,6 @@ const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms
 
 let activeKey: string | null = null;
 let live: LiveAsk | null = null;
-/** Where the window first appears when the session has no remembered position. */
-let anchor: SelectionPayload["rect"] | null = null;
 
 const persist = (): void => storeSet(chatsKey(prUrl()), state.chatHistory);
 
@@ -132,15 +131,14 @@ const suggestionsOf = (data: unknown): string[] | null =>
 
 export const chatStore = {
   active: (): ChatSession | null => state.chatHistory.find((s) => s.key === activeKey) ?? null,
-  anchor: (): SelectionPayload["rect"] | null => anchor,
   live: (): LiveAsk | null => live,
 
-  /** Open a session (one window at a time; an open one minimizes first). */
-  open(sess: ChatSession, at: SelectionPayload["rect"] | null = null): void {
-    if (activeKey && activeKey !== sess.key) this.minimize();
-    anchor = at;
+  /** Show a session in the Chat tab; routes the panel there and repaints its
+   * selection on the page (general PR chat has none). */
+  open(sess: ChatSession): void {
     activeKey = sess.key;
     if (!sess.general) bifrost.send("pick:rehighlight", { file: sess.file ?? "", text: sess.text });
+    panelStore.open(PANEL_TABS.CHAT);
     touch();
   },
 
@@ -155,7 +153,6 @@ export const chatStore = {
         text: p.text,
         suggestions: null,
         messages: [],
-        pos: null,
       };
       state.chatHistory = [sess, ...state.chatHistory];
       persist();
@@ -164,7 +161,7 @@ export const chatStore = {
       update(sess.key, (s) => ({ ...s, step: tourStore.stepContext() }));
     }
     const latest = state.chatHistory.find((c) => c.key === p.selectionId);
-    if (latest) this.open(latest, p.rect);
+    if (latest) this.open(latest);
   },
 
   /** The single whole-PR chat — created on first use, resumed after. */
@@ -179,7 +176,6 @@ export const chatStore = {
         text: "",
         suggestions: [],
         messages: [],
-        pos: null,
       };
       state.chatHistory = [sess, ...state.chatHistory];
       persist();
@@ -187,34 +183,24 @@ export const chatStore = {
     this.open(sess);
   },
 
-  /** Collapse to the Chats list; the window's geometry is remembered. */
-  minimize(geometry?: { pos: { left: number; top: number }; size: { w: number; h: number } }): void {
-    const key = activeKey;
+  /** Leave the current chat (clear the page highlight); the session stays in
+   * History. The Chat tab falls back to its empty state. */
+  closeActive(): void {
     activeKey = null;
-    anchor = null;
     bifrost.send("pick:clear", undefined);
-    if (key && geometry) update(key, (s) => ({ ...s, pos: geometry.pos, size: geometry.size }));
-    else touch();
+    touch();
   },
 
-  /** Close for good: window + history + storage. */
+  /** Close for good: clears the active chat, history entry, storage, highlight. */
   deleteActive(): void {
     const key = activeKey;
     activeKey = null;
-    anchor = null;
     bifrost.send("pick:clear", undefined);
     if (key) {
       state.chatHistory = state.chatHistory.filter((s) => s.key !== key);
       persist();
     }
     touch();
-  },
-
-  setPos(key: string, pos: { left: number; top: number }): void {
-    update(key, (s) => ({ ...s, pos }));
-  },
-  setSize(key: string, size: { w: number; h: number }): void {
-    update(key, (s) => ({ ...s, size }));
   },
 
   /** Send a question. pushUser=false resumes an already-recorded trailing user

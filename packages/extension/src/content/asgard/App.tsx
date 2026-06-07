@@ -5,7 +5,6 @@
 import type { JSX } from "react";
 import { LauncherChip } from "./components/LauncherChip";
 import { Panel } from "./components/Panel";
-import { ChatWindow } from "./components/Chat";
 import { Tooltips } from "./components/Tooltip";
 import { useThemeClass } from "./hooks/useThemeClass";
 import { PortalContainerProvider } from "./ui/portal-container";
@@ -24,7 +23,6 @@ export function App({
       <LauncherChip />
       <Panel />
       {/* legacy widgets — removed one per island as each tab lands */}
-      <ChatWindow />
       <Tooltips />
     </PortalContainerProvider>
   );

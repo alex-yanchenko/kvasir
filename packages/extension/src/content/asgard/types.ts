@@ -16,8 +16,6 @@ export interface ChatSession {
   text: string;
   suggestions: string[] | null;
   messages: ChatMessage[];
-  pos: { left: number; top: number } | null;
-  size?: { w: number; h: number } | null;
   /** Compact walkthrough-step context captured when the chat was opened from a step. */
   step?: string;
   /** True only for the single whole-PR chat. */

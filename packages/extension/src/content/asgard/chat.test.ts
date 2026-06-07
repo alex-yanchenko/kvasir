@@ -23,7 +23,6 @@ const mkSession = (key: string, over: Partial<ChatSession> = {}): ChatSession =>
   text: "const a = 1;",
   suggestions: null,
   messages: [],
-  pos: null,
   ...over,
 });
 
@@ -41,7 +40,8 @@ beforeEach(() => {
   Object.defineProperty(window, "location", { value: new URL(`${PR}/files`), writable: true });
   state.spec = null;
   state.chatHistory = [];
-  chatStore.deleteActive(); // clears activeKey/anchor between tests
+  state.panel = { open: false, tab: "walkthrough", pos: null, size: null };
+  chatStore.deleteActive(); // clears activeKey between tests
   sends = [];
   offs = [
     bifrost.handle("pick:rehighlight", (p) => sends.push({ kind: "pick:rehighlight", payload: p })),
@@ -103,43 +103,47 @@ describe("friendlyError", () => {
   });
 });
 
-describe("open / minimize / delete", () => {
-  it("open marks the session active, stores the anchor, and repaints its pick", () => {
+describe("open / close / delete", () => {
+  it("open marks the session active, routes the panel to Chat, and repaints its pick", () => {
     const sess = mkSession("a");
     state.chatHistory = [sess];
-    chatStore.open(sess, payload.rect);
+    chatStore.open(sess);
     expect(chatStore.active()?.key).toBe("a");
-    expect(chatStore.anchor()).toEqual(payload.rect);
+    expect(state.panel.open).toBe(true);
+    expect(state.panel.tab).toBe("chat");
     expect(sends).toEqual([
       { kind: "pick:rehighlight", payload: { file: "src/app.ts", text: "const a = 1;" } },
     ]);
   });
 
-  it("opening another session minimizes the current one first; the PR chat skips the repaint", () => {
-    const a = mkSession("a");
+  it("the PR (general) chat skips the page repaint", () => {
     const b = mkSession("b", { general: true, file: null, text: "" });
-    state.chatHistory = [a, b];
-    chatStore.open(a);
+    state.chatHistory = [b];
     chatStore.open(b);
     expect(chatStore.active()?.key).toBe("b");
-    expect(sends.map((s) => s.kind)).toEqual(["pick:rehighlight", "pick:clear"]);
+    expect(sends).toEqual([]);
   });
 
-  it("minimize remembers geometry; delete removes the session and its pick", () => {
+  it("closeActive clears the active chat + pick but keeps it in history", () => {
     const sess = mkSession("a");
-    state.chatHistory = [sess, mkSession("b")];
+    state.chatHistory = [sess];
     chatStore.open(sess);
-    chatStore.minimize({ pos: { left: 5, top: 6 }, size: { w: 400, h: 300 } });
+    sends = [];
+    chatStore.closeActive();
     expect(chatStore.active()).toBeNull();
-    expect(state.chatHistory[0]).toEqual({ ...sess, pos: { left: 5, top: 6 }, size: { w: 400, h: 300 } });
+    expect(state.chatHistory.map((s) => s.key)).toEqual(["a"]);
+    expect(sends).toEqual([{ kind: "pick:clear", payload: undefined }]);
+  });
 
+  it("delete removes the session and clears the pick", () => {
+    state.chatHistory = [mkSession("a"), mkSession("b")];
     chatStore.open(state.chatHistory[1]);
     chatStore.deleteActive();
+    expect(chatStore.active()).toBeNull();
     expect(state.chatHistory.map((s) => s.key)).toEqual(["a"]);
   });
 
-  it("minimize/delete with nothing open are safe no-ops", () => {
-    chatStore.minimize();
+  it("delete with nothing open is a safe no-op", () => {
     chatStore.deleteActive();
     expect(chatStore.active()).toBeNull();
   });
@@ -149,15 +153,6 @@ describe("open / minimize / delete", () => {
     state.chatHistory = [sess];
     chatStore.open(sess);
     expect(sends).toEqual([{ kind: "pick:rehighlight", payload: { file: "", text: "const a = 1;" } }]);
-  });
-
-  it("setPos / setSize update the session geometry", () => {
-    state.chatHistory = [mkSession("a")];
-    chatStore.setPos("a", { left: 7, top: 8 });
-    chatStore.setSize("a", { w: 300, h: 200 });
-    expect(state.chatHistory).toEqual([
-      { ...mkSession("a"), pos: { left: 7, top: 8 }, size: { w: 300, h: 200 } },
-    ]);
   });
 });
 
@@ -172,7 +167,6 @@ describe("openSelection / openPrChat", () => {
         text: "const a = 1;",
         suggestions: null,
         messages: [],
-        pos: null,
       },
     ]);
     chatStore.openSelection(payload, false);
@@ -197,7 +191,6 @@ describe("openSelection / openPrChat", () => {
         text: "",
         suggestions: [],
         messages: [],
-        pos: null,
       },
     ]);
     expect(chatStore.active()?.general).toBe(true);
@@ -225,7 +218,8 @@ const mockStream = (...snaps: unknown[]) => {
 describe("send", () => {
   beforeEach(() => {
     vi.useFakeTimers();
-    state.chatHistory = [mkSession("a", { step: "Step: X" })];
+    // a second session so update()'s map exercises the non-matching (skip) arm
+    state.chatHistory = [mkSession("a", { step: "Step: X" }), mkSession("other")];
   });
   afterEach(() => {
     vi.useRealTimers();

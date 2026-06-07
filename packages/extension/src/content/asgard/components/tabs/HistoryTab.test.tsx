@@ -16,7 +16,6 @@ const mkSession = (key: string, over: Partial<ChatSession> = {}): ChatSession =>
   text: "const a = 1;",
   suggestions: [],
   messages: [],
-  pos: null,
   ...over,
 });
 

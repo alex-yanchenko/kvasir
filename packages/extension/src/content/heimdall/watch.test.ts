@@ -38,9 +38,7 @@ afterEach(() => {
 
 describe("loadPersisted", () => {
   it("restores stored chats and tour geometry for the current PR", async () => {
-    const chats = [
-      { key: "a", file: "f.ts", lines: null, text: "t", suggestions: [], messages: [], pos: null },
-    ];
+    const chats = [{ key: "a", file: "f.ts", lines: null, text: "t", suggestions: [], messages: [] }];
     vi.mocked(storeGet).mockImplementation(async (key: string) => {
       if (key === `prw:chats:${PR}`) return chats;
       if (key === `prw:panel:${PR}`) return { pos: { left: 9, top: 8 }, size: { w: 7, h: 6 } };
@@ -54,9 +52,7 @@ describe("loadPersisted", () => {
   });
 
   it("keeps in-memory chats, tolerates empty storage, defaults sparse tour fields", async () => {
-    const live = [
-      { key: "live", file: null, lines: null, text: "", suggestions: [], messages: [], pos: null },
-    ];
+    const live = [{ key: "live", file: null, lines: null, text: "", suggestions: [], messages: [] }];
     state.chatHistory = live;
     vi.mocked(storeGet).mockImplementation(async (key: string) =>
       key.startsWith("prw:chats:") ? [{ key: "stored" }] : {},
@@ -96,9 +92,7 @@ describe("watchUrl", () => {
   it("a same-PR URL change only refreshes the launcher; a PR switch resets and reloads", async () => {
     const refresh = vi.spyOn(launcherStore, "refresh").mockResolvedValue();
     const reset = vi.spyOn(launcherStore, "resetForPr").mockImplementation(() => {});
-    state.chatHistory = [
-      { key: "x", file: null, lines: null, text: "", suggestions: [], messages: [], pos: null },
-    ];
+    state.chatHistory = [{ key: "x", file: null, lines: null, text: "", suggestions: [], messages: [] }];
     state.panel = { open: true, tab: "chat", pos: { left: 1, top: 1 }, size: { w: 2, h: 2 } };
     stop = watchUrl(1500);
 
