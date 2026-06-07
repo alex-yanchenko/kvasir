@@ -37,6 +37,7 @@ beforeEach(() => {
   state.spec = null;
   state.chatHistory = [];
   state.panel = { open: true, tab: PANEL_TABS.CHAT, pos: null, size: null };
+  localStorage.clear();
   chatStore.deleteActive();
   jumps = [];
   offs = [
@@ -132,6 +133,37 @@ describe("ChatTab shell", () => {
     fireEvent.click(screen.getByLabelText("Close and delete"));
     expect(screen.getByText(/Pick a chat/)).toBeTruthy();
     expect(state.chatHistory.find((s) => s.key === "a")).toBeUndefined();
+  });
+
+  it("resizes the chat rail by dragging the divider and persists the width", () => {
+    render(<ChatTab />);
+    const sep = screen.getByRole("separator", { name: "Resize chat list" });
+    act(() => {
+      fireEvent.mouseDown(sep, { clientX: 152 });
+      fireEvent.mouseMove(document, { clientX: 210 });
+      fireEvent.mouseUp(document);
+    });
+    const rail = screen.getByRole("button", { name: "New chat" }).closest("[style]") as HTMLElement;
+    expect(rail.style.width).toBe("210px"); // jsdom row left = 0 → width = clientX
+    expect(localStorage.getItem("prw:chatRailW")).toBe("210");
+  });
+
+  it("restores a persisted rail width on mount", () => {
+    localStorage.setItem("prw:chatRailW", "200");
+    render(<ChatTab />);
+    const rail = screen.getByRole("button", { name: "New chat" }).closest("[style]") as HTMLElement;
+    expect(rail.style.width).toBe("200px");
+  });
+
+  it("clamps the rail width to its bounds", () => {
+    render(<ChatTab />);
+    const sep = screen.getByRole("separator", { name: "Resize chat list" });
+    act(() => {
+      fireEvent.mouseDown(sep, { clientX: 10 });
+      fireEvent.mouseMove(document, { clientX: 9999 });
+      fireEvent.mouseUp(document);
+    });
+    expect(localStorage.getItem("prw:chatRailW")).toBe("280"); // RAIL_MAX
   });
 
   it("the rail starts a new chat, switches between chats, deletes one, and clears all", () => {

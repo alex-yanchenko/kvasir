@@ -47,19 +47,19 @@
  * Hairline borders, compact 6px radius. Theme follows the system via .dark. */
 :host {
   --background: #f6f8fa;
-  --foreground: #18202b;
+  --foreground: #0c1219;
   --card: #ffffff;
-  --card-foreground: #18202b;
+  --card-foreground: #0c1219;
   --popover: #ffffff;
-  --popover-foreground: #18202b;
+  --popover-foreground: #0c1219;
   --primary: #0e93ab;
   --primary-foreground: #ffffff;
   --secondary: #edf1f5;
-  --secondary-foreground: #18202b;
+  --secondary-foreground: #0c1219;
   --muted: #edf1f5;
-  --muted-foreground: #5b6675;
+  --muted-foreground: #4a5563;
   --accent: #e6ecf1;
-  --accent-foreground: #18202b;
+  --accent-foreground: #0c1219;
   --destructive: #dc2626;
   --destructive-foreground: #ffffff;
   --border: #dce3ea;

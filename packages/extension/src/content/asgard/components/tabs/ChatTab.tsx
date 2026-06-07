@@ -2,7 +2,7 @@
 // per-answer actions, quick prompts + AI suggestions, the autosizing input, and
 // the live-stream bubble. The panel hosts it (no window chrome of its own); the
 // machine (chat.ts) owns the sessions and the /ask flow.
-import type { JSX } from "react";
+import type { JSX, MouseEvent as ReactMouseEvent } from "react";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { renderMarkdown } from "@prw/runes/markdown";
 import { MessageSquare, Plus, Trash2, X } from "lucide-react";
@@ -271,10 +271,10 @@ function OptionRow({ label, onAsk }: { label: string; onAsk: () => void }): JSX.
 
 /** The chat rail: New chat, the list of open chats (active highlighted, each with
  * a trash), and Clear all. Lets several chats run at once — pick any to view it. */
-function ChatRail({ active }: { active: string | null }): JSX.Element {
+function ChatRail({ active, width }: { active: string | null; width: number }): JSX.Element {
   const sessions = chatsStore.sessions();
   return (
-    <div className="flex w-36 shrink-0 flex-col border-r border-border">
+    <div className="flex shrink-0 flex-col" style={{ width }}>
       <div className="p-2">
         <Button size="sm" className="w-full" onClick={() => chatStore.newChat()}>
           <Plus /> New chat
@@ -326,12 +326,49 @@ function ChatRail({ active }: { active: string | null }): JSX.Element {
   );
 }
 
+const RAIL_KEY = "prw:chatRailW";
+const RAIL_MIN = 120;
+const RAIL_MAX = 280;
+const clampRail = (n: number): number => Math.min(RAIL_MAX, Math.max(RAIL_MIN, Math.round(n)));
+const initialRail = (): number => {
+  const stored = Number(localStorage.getItem(RAIL_KEY));
+  return Number.isFinite(stored) && stored > 0 ? clampRail(stored) : 152;
+};
+
 export function ChatTab(): JSX.Element {
   useSyncExternalStore(subscribe, getSnapshot);
   const sess = chatStore.active();
+  const rowRef = useRef<HTMLDivElement>(null);
+  const [railW, setRailW] = useState(initialRail);
+
+  // Drag the divider to resize the rail; persist the final width (a global UI
+  // pref, like the theme — localStorage, not the per-PR chrome store).
+  const onResize = (e: ReactMouseEvent): void => {
+    e.preventDefault();
+    const left = rowRef.current!.getBoundingClientRect().left; // the row is mounted — the handle lives in it
+    const move = (ev: MouseEvent): void => setRailW(clampRail(ev.clientX - left));
+    const up = (): void => {
+      document.removeEventListener("mousemove", move);
+      document.removeEventListener("mouseup", up);
+      setRailW((w) => {
+        localStorage.setItem(RAIL_KEY, String(w));
+        return w;
+      });
+    };
+    document.addEventListener("mousemove", move);
+    document.addEventListener("mouseup", up);
+  };
+
   return (
-    <div className="flex h-full min-h-0">
-      <ChatRail active={sess?.key ?? null} />
+    <div ref={rowRef} className="flex h-full min-h-0">
+      <ChatRail active={sess?.key ?? null} width={railW} />
+      <div
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="Resize chat list"
+        className="w-px shrink-0 cursor-col-resize bg-border transition-colors hover:bg-primary"
+        onMouseDown={onResize}
+      />
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         {sess ? (
           <Thread key={sess.key} sess={sess} />
