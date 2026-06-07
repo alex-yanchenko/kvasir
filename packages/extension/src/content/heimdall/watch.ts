@@ -2,7 +2,7 @@
 // state (chats, tour), pushes the theme across the Bifrost, and polls the URL:
 // GitHub is a SPA, so PR navigation never re-runs the content script.
 import { bifrost } from "../bifrost";
-import { chatsKey, prUrl, tourKey } from "../keys";
+import { chatsKey, panelKey, prUrl, tourKey } from "../keys";
 import { storeGet } from "../muninn";
 import type { TourState } from "../asgard/store";
 import { state } from "../asgard/store";
@@ -27,6 +27,12 @@ export async function loadPersisted(): Promise<void> {
       size: stored.size || null,
     };
   }
+  const p = await storeGet(panelKey(pr));
+  if (typeof p === "object" && p !== null) {
+    const stored = p as { pos?: typeof state.panel.pos; size?: typeof state.panel.size };
+    state.panel.pos = stored.pos || null;
+    state.panel.size = stored.size || null;
+  }
 }
 
 export function applyTheme(): void {
@@ -50,8 +56,9 @@ export function watchUrl(intervalMs = 1500): () => void {
     if (pr !== curPr) {
       curPr = pr;
       state.chatHistory = [];
-      touch(); // React drops the chats button and any open chat with it
+      touch(); // React drops the panel content with the old PR's state
       state.tourState = { step: 0, pos: null, size: null };
+      state.panel = { open: false, tab: state.panel.tab, pos: null, size: null };
       state.spec = null;
       launcherStore.resetForPr();
       void loadPersisted();

@@ -8,12 +8,28 @@
 
 import type { WalkthroughSpec, WalkthroughStep } from "@prw/runes/spec";
 import { storeSet } from "../muninn";
-import { chatsKey, prUrl } from "../keys";
+import { chatsKey, panelKey, prUrl } from "../keys";
 import type { ChatSession } from "./types";
 import { bifrost } from "../bifrost";
 
 export interface TourState {
   step: number;
+  pos: { left: number; top: number } | null;
+  size: { w: number; h: number } | null;
+}
+
+/** The consolidated panel's tabs (the redesign IA). */
+export const PANEL_TABS = {
+  WALKTHROUGH: "walkthrough",
+  CHAT: "chat",
+  HISTORY: "history",
+  SETTINGS: "settings",
+} as const;
+export type PanelTab = (typeof PANEL_TABS)[keyof typeof PANEL_TABS];
+
+interface PanelState {
+  open: boolean;
+  tab: PanelTab;
   pos: { left: number; top: number } | null;
   size: { w: number; h: number } | null;
 }
@@ -25,6 +41,7 @@ export const state: {
   hlStyle: string; // "tint" | "github"
   tourState: TourState;
   chatHistory: ChatSession[]; // session objects, most recent first
+  panel: PanelState;
 } = {
   spec: null,
   activeStep: null,
@@ -32,6 +49,7 @@ export const state: {
   hlStyle: localStorage.getItem("prwHl") || "tint",
   tourState: { step: 0, pos: null, size: null },
   chatHistory: [],
+  panel: { open: false, tab: PANEL_TABS.WALKTHROUGH, pos: null, size: null },
 };
 
 type Listener = () => void;
@@ -90,6 +108,44 @@ export const chatsStore = {
     state.chatHistory = [];
     persistChats();
     touch();
+  },
+};
+
+// ── panel slice ──────────────────────────────────────────────────────────────
+// The one consolidated panel: open/closed, which tab, and its movable/resizable
+// geometry (persisted per-PR). Content lives in the tab bodies, which reuse the
+// existing machines (tour/chat/launcher/pairing).
+
+const persistPanel = (): void =>
+  storeSet(panelKey(prUrl()), { pos: state.panel.pos, size: state.panel.size });
+
+export const panelStore = {
+  isOpen: (): boolean => state.panel.open,
+  tab: (): PanelTab => state.panel.tab,
+  pos: () => state.panel.pos,
+  size: () => state.panel.size,
+
+  /** Show the panel (optionally on a specific tab). */
+  open(tab?: PanelTab): void {
+    state.panel.open = true;
+    if (tab) state.panel.tab = tab;
+    touch();
+  },
+  close(): void {
+    state.panel.open = false;
+    touch();
+  },
+  setTab(tab: PanelTab): void {
+    state.panel.tab = tab;
+    touch();
+  },
+  setPos(pos: { left: number; top: number }): void {
+    state.panel.pos = pos;
+    persistPanel();
+  },
+  setSize(size: { w: number; h: number }): void {
+    state.panel.size = size;
+    persistPanel();
   },
 };
 

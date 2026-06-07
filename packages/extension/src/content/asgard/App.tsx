@@ -5,6 +5,8 @@
 import type { JSX } from "react";
 import { ChatsButton } from "./components/ChatsButton";
 import { Launcher } from "./components/Launcher";
+import { LauncherChip } from "./components/LauncherChip";
+import { Panel } from "./components/Panel";
 import { TourCard } from "./components/TourCard";
 import { ChatWindow } from "./components/Chat";
 import { Settings } from "./components/Settings";
@@ -22,6 +24,10 @@ export function App({
   useThemeClass(themeTarget);
   return (
     <PortalContainerProvider container={portalContainer}>
+      {/* new consolidated panel (tabs filled in island by island) */}
+      <LauncherChip />
+      <Panel />
+      {/* legacy widgets — removed one per island as each tab lands */}
       <Settings />
       <ChatsButton />
       <Launcher />

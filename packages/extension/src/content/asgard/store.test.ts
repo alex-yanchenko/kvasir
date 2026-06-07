@@ -125,3 +125,48 @@ describe("chatsStore", () => {
     ).toBe("This PR — summarize");
   });
 });
+
+describe("panelStore", () => {
+  let setSpy: ReturnType<typeof vi.fn>;
+  beforeEach(() => {
+    Object.defineProperty(window, "location", {
+      value: new URL("https://github.com/acme/widget-api/pull/7/files"),
+      writable: true,
+    });
+    setSpy = vi.fn();
+    vi.stubGlobal("chrome", { storage: { local: { set: setSpy } } });
+    storeModule.state.panel = { open: false, tab: storeModule.PANEL_TABS.WALKTHROUGH, pos: null, size: null };
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("open shows the panel and can target a tab; close hides it", () => {
+    expect(storeModule.panelStore.isOpen()).toBe(false);
+    storeModule.panelStore.open();
+    expect(storeModule.panelStore.isOpen()).toBe(true);
+    expect(storeModule.panelStore.tab()).toBe("walkthrough"); // unchanged default
+    storeModule.panelStore.open(storeModule.PANEL_TABS.CHAT);
+    expect(storeModule.panelStore.tab()).toBe("chat");
+    storeModule.panelStore.close();
+    expect(storeModule.panelStore.isOpen()).toBe(false);
+  });
+
+  it("setTab switches the active tab", () => {
+    storeModule.panelStore.setTab(storeModule.PANEL_TABS.HISTORY);
+    expect(storeModule.panelStore.tab()).toBe("history");
+  });
+
+  it("setPos / setSize update geometry and persist per-PR", () => {
+    storeModule.panelStore.setPos({ left: 12, top: 34 });
+    storeModule.panelStore.setSize({ w: 500, h: 600 });
+    expect(storeModule.panelStore.pos()).toEqual({ left: 12, top: 34 });
+    expect(storeModule.panelStore.size()).toEqual({ w: 500, h: 600 });
+    expect(setSpy).toHaveBeenLastCalledWith({
+      "prw:panel:https://github.com/acme/widget-api/pull/7": {
+        pos: { left: 12, top: 34 },
+        size: { w: 500, h: 600 },
+      },
+    });
+  });
+});

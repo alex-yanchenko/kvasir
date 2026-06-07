@@ -24,6 +24,7 @@ beforeEach(() => {
   state.spec = null;
   state.chatHistory = [];
   state.tourState = { step: 0, pos: null, size: null };
+  state.panel = { open: false, tab: "walkthrough", pos: null, size: null };
   stop = null;
   vi.mocked(storeGet).mockResolvedValue(undefined);
 });
@@ -40,12 +41,16 @@ describe("loadPersisted", () => {
     const chats = [
       { key: "a", file: "f.ts", lines: null, text: "t", suggestions: [], messages: [], pos: null },
     ];
-    vi.mocked(storeGet).mockImplementation(async (key: string) =>
-      key === `prw:chats:${PR}` ? chats : { step: 2, pos: { left: 1, top: 2 }, size: { w: 3, h: 4 } },
-    );
+    vi.mocked(storeGet).mockImplementation(async (key: string) => {
+      if (key === `prw:chats:${PR}`) return chats;
+      if (key === `prw:panel:${PR}`) return { pos: { left: 9, top: 8 }, size: { w: 7, h: 6 } };
+      return { step: 2, pos: { left: 1, top: 2 }, size: { w: 3, h: 4 } };
+    });
     await loadPersisted();
     expect(state.chatHistory).toEqual(chats);
     expect(state.tourState).toEqual({ step: 2, pos: { left: 1, top: 2 }, size: { w: 3, h: 4 } });
+    expect(state.panel.pos).toEqual({ left: 9, top: 8 });
+    expect(state.panel.size).toEqual({ w: 7, h: 6 });
   });
 
   it("keeps in-memory chats, tolerates empty storage, defaults sparse tour fields", async () => {
@@ -94,6 +99,7 @@ describe("watchUrl", () => {
     state.chatHistory = [
       { key: "x", file: null, lines: null, text: "", suggestions: [], messages: [], pos: null },
     ];
+    state.panel = { open: true, tab: "chat", pos: { left: 1, top: 1 }, size: { w: 2, h: 2 } };
     stop = watchUrl(1500);
 
     vi.advanceTimersByTime(1500); // no URL change — nothing happens
@@ -111,6 +117,7 @@ describe("watchUrl", () => {
     expect(refresh).toHaveBeenCalledTimes(2);
     expect(state.chatHistory).toEqual([]);
     expect(state.tourState).toEqual({ step: 0, pos: null, size: null });
+    expect(state.panel).toEqual({ open: false, tab: "chat", pos: null, size: null }); // closed, geometry cleared
     expect(state.spec).toBeNull();
     expect(vi.mocked(storeGet)).toHaveBeenCalledWith(`prw:chats:${OTHER}`);
   });
