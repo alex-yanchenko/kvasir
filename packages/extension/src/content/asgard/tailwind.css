@@ -11,8 +11,9 @@
 /* rich chat/markdown/tooltip styles — read the same dev-tool tokens defined below */
 @import "./asgard.css";
 
-/* class-based dark (default v4 is prefers-color-scheme); the host carries .dark */
-@custom-variant dark (&:is(.dark *));
+/* class-based dark (default v4 is prefers-color-scheme); the shadow host carries
+ * .dark, so dark: utilities must resolve against :host(.dark), not a .dark ancestor */
+@custom-variant dark (&:is(:host(.dark) *));
 
 @theme inline {
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, "Helvetica Neue", Arial, sans-serif;
@@ -78,7 +79,10 @@
   text-rendering: optimizeLegibility;
 }
 
-.dark {
+/* The theme store toggles `.dark` on the shadow HOST (light DOM). A plain `.dark`
+ * rule inside this shadow stylesheet can't reach the host, so the dark tokens
+ * must hang off :host(.dark) — that matches the host carrying the class. */
+:host(.dark) {
   --background: #0d1116;
   --foreground: #e3e8ee;
   --card: #151a21;
