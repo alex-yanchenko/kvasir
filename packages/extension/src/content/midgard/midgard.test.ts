@@ -196,6 +196,50 @@ describe("jumpToRef", () => {
     vi.useRealTimers();
   });
 
+  it("a line-less ref corrects an inner scroller (/changes UI) and flushes it to the viewport top", () => {
+    vi.useFakeTimers();
+    const scrollBy = vi.fn();
+    vi.stubGlobal("scrollBy", scrollBy);
+    document.elementFromPoint = vi.fn().mockReturnValue(null);
+    const scroller = document.createElement("div");
+    scroller.style.overflowY = "auto";
+    Object.defineProperty(scroller, "scrollHeight", { value: 1000 });
+    Object.defineProperty(scroller, "clientHeight", { value: 100 });
+    container.parentElement!.insertBefore(scroller, container);
+    scroller.appendChild(container);
+    vi.spyOn(scroller, "getBoundingClientRect").mockReturnValue({
+      left: 0,
+      top: 120, // the scroller sits below the PR header
+      right: 0,
+      bottom: 0,
+      width: 0,
+      height: 0,
+      x: 0,
+      y: 120,
+      toJSON: () => null,
+    });
+    vi.spyOn(container, "getBoundingClientRect").mockReturnValue({
+      left: 0,
+      top: 330, // the file header sits 210px into the scroller's viewport
+      right: 0,
+      bottom: 0,
+      width: 0,
+      height: 0,
+      x: 0,
+      y: 330,
+      toJSON: () => null,
+    });
+    expect(jumpToRef("src/app.ts", null, null)).toBe(true);
+    expect(scroller.scrollTop).toBe(210); // inner correction: 330 - 120
+    expect(scrollBy).toHaveBeenCalledWith(0, 120); // window flush hides the PR header
+    vi.advanceTimersByTime(2000); // mocked rects never settle — every retry re-corrects
+    expect(scroller.scrollTop).toBe(210 * 8);
+    document.body.appendChild(container); // restore the shared fixture
+    scroller.remove();
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+  });
+
   it("returns false when the cited file is not in the diff", () => {
     expect(jumpToRef("missing.ts", 1, null)).toBe(false);
     expect(jumpToRef("missing.ts", null, null)).toBe(false);

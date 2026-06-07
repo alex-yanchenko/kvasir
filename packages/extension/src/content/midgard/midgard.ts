@@ -124,14 +124,25 @@ export function containerForFileLoose(file: string): Element | null {
 
 // Scroll the diff to a cited path:line(-end) and highlight it. Returns false when
 // the cited file isn't in this PR's diff, so callers can fall back.
-/** Height of whatever sticky bar overlays a header parked at the viewport top.
- * Measured live: GitHub's sticky toolbars vary by UI variant and only engage at
- * scroll depth — near the page top nothing overlays, and the right seat is 0. */
-function stickyOverlayHeight(cont: Element): number {
+/** The nearest scrollable ancestor — GitHub's /changes UI scrolls diffs in an
+ * inner container, where window scrolling is a no-op. Null = the window scrolls. */
+function scrollParentOf(el: Element): Element | null {
+  for (let p = el.parentElement; p; p = p.parentElement) {
+    if (/(auto|scroll|overlay)/.test(getComputedStyle(p).overflowY) && p.scrollHeight > p.clientHeight)
+      return p;
+  }
+  return null;
+}
+
+/** Height of whatever sticky bar overlays a header parked at `top`. Measured
+ * live: GitHub's sticky toolbars vary by UI variant and only engage at scroll
+ * depth — near the top nothing overlays, and the right seat is 0. Ancestors of
+ * the container (the scroller itself) are layout, not overlay — ignored. */
+function stickyOverlayHeight(cont: Element, top: number): number {
   const r = cont.getBoundingClientRect();
-  const probe = document.elementFromPoint?.(r.left + 24, 2);
-  if (!probe || cont.contains(probe)) return 0;
-  return Math.min(Math.max(probe.getBoundingClientRect().bottom, 0), 150);
+  const probe = document.elementFromPoint?.(r.left + 24, top + 2);
+  if (!probe || cont.contains(probe) || probe.contains(cont)) return 0;
+  return Math.min(Math.max(probe.getBoundingClientRect().bottom - top, 0), 150);
 }
 
 export function jumpToRef(file: string, start: number | null, end: number | null): boolean {
@@ -145,8 +156,19 @@ export function jumpToRef(file: string, start: number | null, end: number | null
     cont.scrollIntoView({ block: "start" });
     let tries = 0;
     const seat = (): void => {
-      const off = cont.getBoundingClientRect().top - stickyOverlayHeight(cont);
-      if (Math.abs(off) > 4) window.scrollBy(0, off);
+      const sp = scrollParentOf(cont);
+      const target = sp ? Math.max(sp.getBoundingClientRect().top, 0) : 0;
+      const off = cont.getBoundingClientRect().top - target - stickyOverlayHeight(cont, target);
+      if (Math.abs(off) > 4) {
+        if (sp) sp.scrollTop += off;
+        else window.scrollBy(0, off);
+      }
+      // an inner scroller sitting below the PR header: scroll the window too so
+      // the header leaves the screen and the file truly tops the viewport
+      if (sp) {
+        const flush = sp.getBoundingClientRect().top;
+        if (flush > 4) window.scrollBy(0, flush);
+      }
       if (++tries < 8) setTimeout(seat, 120);
     };
     seat();
