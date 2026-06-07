@@ -22,7 +22,8 @@ export function LauncherChip(): JSX.Element | null {
   const generating = launcherStore.generating();
   return (
     <Button
-      className="fixed bottom-5 right-5 z-[2147483000] shadow-lg"
+      className="fixed bottom-5 right-5 z-[2147483000]"
+      style={{ boxShadow: "var(--elevation)" }}
       size="lg"
       onClick={() => panelStore.open()}
       aria-label="Open PR Walkthrough"
