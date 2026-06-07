@@ -76,13 +76,15 @@ function PanelWindow(): JSX.Element {
         onValueChange={(v) => panelStore.setTab(v as PanelTab)}
         className="flex min-h-0 flex-1 flex-col"
       >
-        <TabsList className="w-full justify-between px-2">
-          {TAB_LABELS.map((t) => (
-            <TabsTrigger key={t.value} value={t.value} className="flex-1">
-              {t.label}
-            </TabsTrigger>
-          ))}
-        </TabsList>
+        <div className="px-2 pt-1">
+          <TabsList className="justify-between">
+            {TAB_LABELS.map((t) => (
+              <TabsTrigger key={t.value} value={t.value} className="flex-1">
+                {t.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </div>
         <TabsContent value={PANEL_TABS.WALKTHROUGH} className="min-h-0">
           <WalkthroughTab />
         </TabsContent>
