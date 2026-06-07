@@ -4,12 +4,20 @@
 // page refresh keeps waiting, and poll until a spec with a NEW signature lands.
 
 import { isWalkthroughSpec, type WalkthroughSpec } from "@prw/runes/spec";
-import { api } from "../api";
+import { api, type BridgeResponse } from "../api";
 import { genKey, onFilesTab, prUrl, specKey, tourKey } from "../keys";
 import { storeGet, storeRemove, storeSet } from "../muninn";
+import { pairingStore } from "./pairing";
 import { state } from "./store";
 import { touch } from "./store";
 import { tourStore } from "./tour";
+
+/** Any 401 from the bridge means the token is stale/absent — flip to unpaired so
+ * the panel surfaces the Pair prompt instead of silently doing nothing. */
+function noteAuth(r: BridgeResponse): BridgeResponse {
+  if (r.status === 401) pairingStore.markUnpaired();
+  return r;
+}
 
 // Content signature — changes on any republish (timestamp, step count, or size),
 // so completion detection doesn't depend on the model bumping generatedAt.
@@ -49,7 +57,7 @@ function pollForSpec(pr: string, prevSig: string): void {
   genPoll = setInterval(() => {
     void (async () => {
       tries++;
-      const r = await api(`/walkthrough?pr=${encodeURIComponent(pr)}`);
+      const r = noteAuth(await api(`/walkthrough?pr=${encodeURIComponent(pr)}`));
       const got = r.ok && isWalkthroughSpec(r.data) ? r.data : null;
       if (got && specSig(got) !== prevSig) {
         if (genPoll) clearInterval(genPoll);
@@ -90,7 +98,14 @@ export const launcherStore = {
     genStartAt = Date.now();
     storeSet(genKey(pr), { prevSig, at: genStartAt });
     touch();
-    await api("/generate", "POST", { pr, mode, sinceSha });
+    const r = noteAuth(await api("/generate", "POST", { pr, mode, sinceSha }));
+    if (!r.ok) {
+      // unpaired (or the channel is down) — don't spin a 20-minute poll on nothing
+      generating = false;
+      storeRemove(genKey(pr));
+      touch();
+      return;
+    }
     pollForSpec(pr, prevSig);
   },
 
@@ -121,7 +136,7 @@ export const launcherStore = {
     const pr = prUrl();
     if (!pr) return;
     let data: WalkthroughSpec | null = null;
-    const r = await api(`/walkthrough?pr=${encodeURIComponent(pr)}`);
+    const r = noteAuth(await api(`/walkthrough?pr=${encodeURIComponent(pr)}`));
     if (r.ok && isWalkthroughSpec(r.data)) {
       data = r.data;
       storeSet(specKey(pr), data); // cache fresh spec
@@ -153,7 +168,7 @@ export const launcherStore = {
     }
     if (state.spec && !generating) {
       // detect new commits since the reviewed head
-      const h = await api(`/head?pr=${encodeURIComponent(pr)}`);
+      const h = noteAuth(await api(`/head?pr=${encodeURIComponent(pr)}`));
       let headSha: string | null = null;
       if (h.ok && typeof h.data === "object" && h.data !== null && "headSha" in h.data) {
         headSha = typeof h.data.headSha === "string" ? h.data.headSha : null;

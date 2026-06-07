@@ -6,6 +6,7 @@ import { createRoot } from "react-dom/client";
 import { App } from "../asgard/App";
 import { connectChat } from "../asgard/chat";
 import { launcherStore } from "../asgard/launcher";
+import { pairingStore } from "../asgard/pairing";
 import { bifrost } from "../bifrost";
 import { connectMidgard } from "../midgard/connect";
 import { connectGrip } from "../midgard/grip";
@@ -29,6 +30,7 @@ export function boot(): void {
 
   applyTheme();
   void loadPersisted();
+  void pairingStore.refresh(); // resolve paired/unpaired up front so the panel can prompt
   void launcherStore.refresh();
   watchUrl();
 

@@ -125,6 +125,10 @@ describe("requestGenerate → poll → spec lands", () => {
 
 describe("dismissGen", () => {
   it("stops watching and drops the marker; generation keeps running server-side", async () => {
+    // accept /generate so a poll is actually running for dismissGen to clear
+    vi.mocked(api).mockImplementation(async (p: string) =>
+      p.startsWith("/walkthrough") ? { ok: false } : { ok: true },
+    );
     await launcherStore.requestGenerate("new");
     launcherStore.dismissGen();
     expect(launcherStore.generating()).toBe(false);
@@ -217,9 +221,22 @@ describe("refresh", () => {
 
 describe("branch edges", () => {
   it("a second requestGenerate replaces the running poll", async () => {
+    // /generate accepted, /walkthrough never returns a spec → the poll stays alive
+    vi.mocked(api).mockImplementation(async (p: string) =>
+      p.startsWith("/walkthrough") ? { ok: false } : { ok: true },
+    );
     await launcherStore.requestGenerate("new");
     await launcherStore.requestGenerate("new");
     expect(launcherStore.generating()).toBe(true); // no crash, one poll alive
+  });
+
+  it("an unpaired generate (401) aborts without polling and flips to unpaired", async () => {
+    const { pairingStore } = await import("./pairing");
+    pairingStore.reset();
+    vi.mocked(api).mockResolvedValue({ ok: false, status: 401, data: { error: "not paired" } });
+    await launcherStore.requestGenerate("new");
+    expect(launcherStore.generating()).toBe(false);
+    expect(pairingStore.state()).toEqual({ phase: "unpaired" });
   });
 
   it("poll completion computes newCommits against the live head", async () => {
@@ -283,6 +300,10 @@ describe("branch edges", () => {
   });
 
   it("refresh during an active poll skips the resume probe", async () => {
+    // accept /generate so the poll is alive; /walkthrough never lands a spec
+    vi.mocked(api).mockImplementation(async (p: string) =>
+      p.startsWith("/walkthrough") ? { ok: false } : { ok: true },
+    );
     await launcherStore.requestGenerate("new");
     vi.mocked(storeGet).mockClear();
     await launcherStore.refresh();
