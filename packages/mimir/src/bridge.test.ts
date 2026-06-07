@@ -45,8 +45,8 @@ beforeEach(() => {
       request: vi.fn().mockReturnValue({ ok: true, requestId: "rid-1", code: "ABC234" }),
       approve: vi.fn(),
       claim: vi.fn().mockReturnValue({ status: "pending" }),
-      verify: vi.fn().mockReturnValue(false),
-      enforced: vi.fn().mockReturnValue(false),
+      verify: vi.fn().mockReturnValue(true),
+      enforced: vi.fn().mockReturnValue(true),
     },
   };
   handler = createFetchHandler(deps as unknown as BridgeDeps);
@@ -130,12 +130,20 @@ describe("pairing routes + the token gate", () => {
     expect((await call("/pair/claim")).status).toBe(400);
   });
 
-  it("once enforced, routes demand the token — pairing and /health stay open", async () => {
-    deps.pairing.enforced.mockReturnValue(true);
+  it("every protected route demands the token — no grace period; /health and /pair stay open", async () => {
+    deps.pairing.verify.mockReturnValue(false);
     const denied = await call(`/walkthrough?pr=${encodeURIComponent(PR)}`);
     expect(denied.status).toBe(401);
     expect(await denied.json()).toEqual({ error: "not paired" });
     expect(deps.pairing.verify).toHaveBeenCalledWith(""); // no header presented
+    expect((await call("/ask", { method: "POST", body: { selection: "x", question: "q" } })).status).toBe(
+      401,
+    );
+
+    // pairing the bridge is still possible while unpaired
+    expect((await call("/health")).status).toBe(200);
+    expect((await call("/pair", { method: "POST", body: { name: "x" } })).status).toBe(200);
+    expect((await call("/pair/claim?id=rid-1")).status).not.toBe(401);
 
     deps.pairing.verify.mockReturnValue(true);
     const allowed = await call(`/walkthrough?pr=${encodeURIComponent(PR)}`, {
@@ -143,10 +151,6 @@ describe("pairing routes + the token gate", () => {
     });
     expect(allowed.status).toBe(200);
     expect(deps.pairing.verify).toHaveBeenLastCalledWith("t0k");
-
-    deps.pairing.verify.mockReturnValue(false);
-    expect((await call("/health")).status).toBe(200);
-    expect((await call("/pair/claim?id=rid-1")).status).not.toBe(401);
   });
 });
 

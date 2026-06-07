@@ -4,7 +4,7 @@
 // until the token lands and persist it for Huginn to attach on every request.
 import { api } from "../api";
 import { TOKEN_KEY } from "../keys";
-import { storeGet, storeSet } from "../muninn";
+import { storeGet, storeRemove, storeSet } from "../muninn";
 import { touch } from "./store";
 
 export const CLAIM_POLL_MS = 1000;
@@ -47,6 +47,14 @@ export const pairingStore = {
   /** Back to square one (tests; the machine is a module singleton). */
   reset(): void {
     set({ phase: "unknown" });
+  },
+
+  /** A 401 from the bridge means our token is stale/absent — drop it and force
+   * a re-pair. Safe to call repeatedly; only fires the state change once. */
+  markUnpaired(): void {
+    if (state.phase === "unpaired") return;
+    storeRemove(TOKEN_KEY);
+    set({ phase: "unpaired" });
   },
 
   /** Resolve unknown → paired/unpaired from storage (once, on settings open). */

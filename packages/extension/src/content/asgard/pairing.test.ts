@@ -5,11 +5,12 @@ vi.mock("../api", () => ({ api: vi.fn() }));
 vi.mock("../muninn", () => ({ storeGet: vi.fn(), storeSet: vi.fn(), storeRemove: vi.fn() }));
 
 import { api } from "../api";
-import { storeGet, storeSet } from "../muninn";
+import { storeGet, storeRemove, storeSet } from "../muninn";
 import { CLAIM_POLL_MS, CLAIM_POLL_TRIES, pairingStore } from "./pairing";
 
 beforeEach(() => {
   vi.useFakeTimers();
+  pairingStore.reset(); // module singleton — start each test from "unknown"
   vi.mocked(storeGet).mockResolvedValue(undefined);
   vi.mocked(api).mockResolvedValue({ ok: false });
 });
@@ -20,6 +21,15 @@ afterEach(() => {
 });
 
 describe("pairingStore", () => {
+  it("markUnpaired drops the stored token and flips to unpaired, idempotently", () => {
+    pairingStore.markUnpaired();
+    expect(pairingStore.state()).toEqual({ phase: "unpaired" });
+    expect(vi.mocked(storeRemove)).toHaveBeenCalledWith("prw:token");
+    vi.mocked(storeRemove).mockClear();
+    pairingStore.markUnpaired(); // already unpaired — no second clear
+    expect(vi.mocked(storeRemove)).not.toHaveBeenCalled();
+  });
+
   it("refresh resolves unknown -> unpaired without a stored token, then never re-runs", async () => {
     expect(pairingStore.state()).toEqual({ phase: "unknown" });
     await pairingStore.refresh();

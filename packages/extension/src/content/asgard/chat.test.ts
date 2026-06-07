@@ -10,6 +10,7 @@ import { storeSet } from "../muninn";
 import { bifrost } from "../bifrost";
 import { state } from "./store";
 import { chatStore, connectChat, friendlyError, POLL_MS, reviewContext } from "./chat";
+import { pairingStore } from "./pairing";
 import { tourStore } from "./tour";
 import type { ChatSession } from "./types";
 
@@ -314,6 +315,29 @@ describe("send", () => {
     expect(state.chatHistory[0].messages).toEqual([{ role: "user", content: "why?" }]);
   });
 
+  it("a 401 from /ask flips the extension to unpaired and returns the pair hint", async () => {
+    vi.mocked(api).mockResolvedValue({ ok: false, status: 401, data: { error: "not paired" } });
+    const r = await chatStore.send("a", "why?");
+    expect(r).toEqual({ ok: false, error: "Not paired — open Settings (gear) and pair the extension." });
+    expect(pairingStore.state()).toEqual({ phase: "unpaired" });
+  });
+
+  it("a 401 mid-stream (poll) also flips to unpaired", async () => {
+    pairingStore.reset();
+    vi.mocked(api).mockImplementation(async (path: string) =>
+      path.startsWith("/poll")
+        ? { ok: false, status: 401, data: { error: "not paired" } }
+        : { ok: true, data: { id: "q-test" } },
+    );
+    const pending = chatStore.send("a", "q");
+    await vi.advanceTimersByTimeAsync(POLL_MS);
+    expect(await pending).toEqual({
+      ok: false,
+      error: "Not paired — open Settings (gear) and pair the extension.",
+    });
+    expect(pairingStore.state()).toEqual({ phase: "unpaired" });
+  });
+
   it("a vanished session fails fast", async () => {
     expect(await chatStore.send("gone", "q")).toEqual({ ok: false, error: "this chat no longer exists" });
   });
@@ -378,6 +402,15 @@ describe("ensureSuggestions", () => {
     await chatStore.ensureSuggestions("b");
     expect(state.chatHistory[0].suggestions).toEqual([]);
     await chatStore.ensureSuggestions("gone"); // vanished session is a no-op
+  });
+
+  it("a 401 while fetching suggestions flips to unpaired and caches nothing", async () => {
+    pairingStore.reset();
+    state.chatHistory = [mkSession("a")];
+    vi.mocked(api).mockResolvedValue({ ok: false, status: 401, data: { error: "not paired" } });
+    await chatStore.ensureSuggestions("a");
+    expect(state.chatHistory[0].suggestions).toBeNull(); // not cached — retried after pairing
+    expect(pairingStore.state()).toEqual({ phase: "unpaired" });
   });
 });
 

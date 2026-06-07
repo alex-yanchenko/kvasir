@@ -8,6 +8,7 @@ import { bifrost } from "../bifrost";
 import { api } from "../api";
 import { chatsKey, prUrl } from "../keys";
 import { storeSet } from "../muninn";
+import { pairingStore } from "./pairing";
 import { state, touch } from "./store";
 import { tourStore } from "./tour";
 import type { ChatMessage, ChatSession } from "./types";
@@ -76,6 +77,14 @@ export function reviewContext(): string {
     })
     .join("\n");
   return (head + steps).slice(0, 12000);
+}
+
+/** A 401 from any bridge call means our token is stale/absent: drop it so the
+ * UI flips to "pair to continue". Returns true when it handled a 401. */
+function handleAuth(r: { status?: number }): boolean {
+  if (r.status !== 401) return false;
+  pairingStore.markUnpaired();
+  return true;
 }
 
 export function friendlyError(r: { data?: unknown; error?: string }): string {
@@ -235,6 +244,7 @@ export const chatStore = {
       step: sess.step, // present when the chat is scoped to a walkthrough step
       messages: history,
     });
+    handleAuth(r);
     const id = r.ok ? idOf(r.data) : null;
     if (!id) return { ok: false, error: friendlyError(r) };
 
@@ -249,7 +259,10 @@ export const chatStore = {
         await sleep(POLL_MS);
         const poll = await api(`/poll?id=${encodeURIComponent(id)}`);
         const snap = poll.ok ? snapOf(poll.data) : null;
-        if (!snap) return { ok: false, error: friendlyError(poll) };
+        if (!snap) {
+          handleAuth(poll);
+          return { ok: false, error: friendlyError(poll) };
+        }
         const note = snap.notes.length ? snap.notes[snap.notes.length - 1] : null;
         if (note !== live.note || snap.text !== live.text) {
           live = { key, note, text: snap.text };
@@ -291,6 +304,7 @@ export const chatStore = {
       file: sess.file,
       selection: sess.text.slice(0, 6000),
     });
+    if (handleAuth(r)) return; // unpaired — don't cache an empty list, re-fetch after pairing
     const list = (r.ok && suggestionsOf(r.data)) || [];
     update(key, (s) => ({ ...s, suggestions: list }));
   },

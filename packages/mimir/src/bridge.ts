@@ -77,9 +77,11 @@ export function createFetchHandler(deps: BridgeDeps): (req: Request) => Promise<
       return r ? json(req, r) : json(req, { error: "unknown, expired, or already claimed" }, 404);
     }
 
-    // Once a token exists every other route requires it; before the first
-    // pairing the bridge stays open (the pre-pairing status quo).
-    if (deps.pairing.enforced() && !deps.pairing.verify(req.headers.get("x-prw-token") ?? "")) {
+    // Every route past here requires the paired token — no grace period. An
+    // unpaired extension (or any other local process) gets 401 and must pair
+    // through the session first; /health and the two /pair routes above are the
+    // only token-less doors, and those only START pairing, they never answer.
+    if (!deps.pairing.verify(req.headers.get("x-prw-token") ?? "")) {
       return json(req, { error: "not paired" }, 401);
     }
 
