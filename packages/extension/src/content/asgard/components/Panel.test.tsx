@@ -7,12 +7,16 @@ vi.mock("../../muninn", () => ({ storeGet: vi.fn(), storeSet: vi.fn(), storeRemo
 import { PANEL_TABS, panelStore, state } from "../store";
 import { Panel } from "./Panel";
 
+let observed: Element[];
 class ROStub {
-  observe(): void {}
+  observe(el: Element): void {
+    observed.push(el);
+  }
   disconnect(): void {}
 }
 
 beforeEach(() => {
+  observed = [];
   vi.stubGlobal("ResizeObserver", ROStub);
   Object.defineProperty(window, "location", {
     value: new URL("https://github.com/acme/widget-api/pull/7/files"),
@@ -32,6 +36,13 @@ describe("Panel", () => {
   it("renders nothing while closed", () => {
     const { container } = render(<Panel />);
     expect(container.innerHTML).toBe("");
+  });
+
+  it("attaches the resize observer only once the panel opens (so size persists across refresh)", () => {
+    render(<Panel />);
+    expect(observed).toEqual([]); // closed at boot — nothing to observe yet
+    act(() => panelStore.open());
+    expect(observed).toEqual([screen.getByRole("dialog", { name: "PR Walkthrough" })]);
   });
 
   it("opens with the four tabs and a default title, switching tab on click", () => {

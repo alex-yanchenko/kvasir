@@ -23,8 +23,16 @@ const TAB_LABELS: Array<{ value: PanelTab; label: string }> = [
   { value: PANEL_TABS.SETTINGS, label: "Settings" },
 ];
 
+// The panel mounts only while open, so the resize observer (a mount-only effect)
+// attaches to the live element. Keeping the hooks above an `isOpen` early-return
+// instead would run them once at boot — when the panel is closed and the ref is
+// still null — and never re-attach when it later opens, dropping size persistence.
 export function Panel(): JSX.Element | null {
   useSyncExternalStore(subscribe, getSnapshot);
+  return panelStore.isOpen() ? <PanelWindow /> : null;
+}
+
+function PanelWindow(): JSX.Element {
   const panelRef = useRef<HTMLDivElement>(null);
   const onHeadDown = useDrag(panelRef, {
     ignore: "button",
@@ -32,7 +40,6 @@ export function Panel(): JSX.Element | null {
   });
   useResizePersist(panelRef, (size) => panelStore.setSize(size));
 
-  if (!panelStore.isOpen()) return null;
   const pos = panelStore.pos();
   const size = panelStore.size();
   const title = launcherStore.spec()?.pr?.title ?? "PR Walkthrough";
