@@ -58,19 +58,12 @@ export const tourStore = {
     touch();
   },
 
-  /** The footer button: advances, or finishes (closes) on the last step. */
+  /** Advance to the next step; a no-op on the last (the Next control is disabled). */
   next(): void {
     if (state.spec && stepIdx < state.spec.steps.length - 1) this.goto(stepIdx + 1);
-    else this.close();
   },
   back(): void {
     if (stepIdx > 0) this.goto(stepIdx - 1);
-  },
-
-  /** Re-open from the first step after the walkthrough was finished. */
-  restart(): void {
-    open = true;
-    this.goto(0);
   },
 
   close(): void {

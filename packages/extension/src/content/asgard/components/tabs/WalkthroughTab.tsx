@@ -3,18 +3,8 @@
 // tourStore drives the page highlights; the tab mount/unmount starts/stops the
 // tour so switching tabs or closing the panel clears the highlight.
 import type { JSX } from "react";
-import { useEffect, useLayoutEffect, useState, useSyncExternalStore } from "react";
-import {
-  CheckCircle2,
-  ChevronLeft,
-  ChevronRight,
-  Link2,
-  Loader2,
-  MessageSquare,
-  Play,
-  RefreshCw,
-  RotateCcw,
-} from "lucide-react";
+import { useEffect, useState, useSyncExternalStore } from "react";
+import { ChevronLeft, ChevronRight, Link2, Loader2, MessageSquare, Play, RefreshCw } from "lucide-react";
 import { sanitizeSpecHtml } from "../../../sanitize";
 import { fmtElapsed, launcherStore } from "../../launcher";
 import { pairingStore } from "../../pairing";
@@ -77,26 +67,6 @@ function Empty(): JSX.Element {
   );
 }
 
-/** Shown when the walkthrough has been finished (tour closed but the spec is
- * still here) — the spec exists, so this is NOT the no-spec empty state. */
-function Finished(): JSX.Element {
-  return (
-    <div className="flex flex-col items-center gap-3 p-8 text-center">
-      <CheckCircle2 className="size-6 text-primary" />
-      <p className="text-sm font-medium">Walkthrough complete</p>
-      <p className="text-xs text-muted-foreground">You've been through all {tourStore.stepCount()} steps.</p>
-      <div className="flex gap-2">
-        <Button variant="outline" size="sm" onClick={() => tourStore.restart()}>
-          <RotateCcw /> Start over
-        </Button>
-        <Button variant="ghost" size="sm" onClick={() => panelStore.close()}>
-          Close
-        </Button>
-      </div>
-    </div>
-  );
-}
-
 function Steps(): JSX.Element {
   const [showDetail, setShowDetail] = useState(false);
   const [dialog, setDialog] = useState(false);
@@ -105,9 +75,8 @@ function Steps(): JSX.Element {
   const count = tourStore.stepCount();
 
   // Start the tour while this tab is shown; clear the highlight when it unmounts
-  // (tab switch or panel close). A layout effect opens it before paint, so the
-  // first frame is the step — never a flash of the finished/empty view.
-  useLayoutEffect(() => {
+  // (tab switch or panel close). Re-runs are cheap: start() resumes the step.
+  useEffect(() => {
     tourStore.start();
     return () => tourStore.close();
   }, []);
@@ -117,7 +86,6 @@ function Steps(): JSX.Element {
   // shield keeps shadow-origin keys off the document), skipping editable fields.
   useEffect(() => {
     const keys = (e: KeyboardEvent): void => {
-      if (!tourStore.open()) return; // finished/closed — don't move the highlight
       const t = e.target;
       if (t instanceof HTMLElement && (/^(TEXTAREA|INPUT|SELECT)$/.test(t.tagName) || t.isContentEditable))
         return;
@@ -138,7 +106,7 @@ function Steps(): JSX.Element {
     };
   }, []);
 
-  if (!step) return <Finished />;
+  if (!step) return <Empty />;
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center gap-2 border-b border-border px-3 py-2">
@@ -156,15 +124,18 @@ function Steps(): JSX.Element {
           >
             <ChevronLeft />
           </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            className="h-7 w-7"
-            aria-label="Next step"
-            onClick={() => tourStore.next()}
-          >
-            <ChevronRight />
-          </Button>
+          <span data-prw-tip={idx >= count - 1 ? "Last step" : undefined}>
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-7 w-7"
+              aria-label="Next step"
+              disabled={idx >= count - 1}
+              onClick={() => tourStore.next()}
+            >
+              <ChevronRight />
+            </Button>
+          </span>
           <Button
             variant="ghost"
             size="icon"

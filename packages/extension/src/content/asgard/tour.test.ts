@@ -107,14 +107,13 @@ describe("navigation", () => {
     expect(vi.mocked(storeSet)).toHaveBeenCalledWith(`prw:tour:${PR}`, state.tourState);
   });
 
-  it("next advances; on the last step it finishes (closes)", () => {
+  it("next advances and is a no-op on the last step (it stays open)", () => {
     tourStore.start();
     tourStore.next();
     expect(tourStore.stepIdx()).toBe(1);
-    tourStore.next();
-    expect(tourStore.open()).toBe(false);
-    expect(sent.some((s) => s.kind === "highlight:clear")).toBe(true);
-    expect(state.activeStep).toBeNull();
+    tourStore.next(); // already on the last step
+    expect(tourStore.stepIdx()).toBe(1);
+    expect(tourStore.open()).toBe(true);
   });
 
   it("back stops at the first step", () => {
