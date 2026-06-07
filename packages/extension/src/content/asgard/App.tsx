@@ -3,10 +3,8 @@
 // the in-shadow portal container (so Radix popovers stay styled). The redesign
 // migrates the scattered widgets into one tabbed panel island by island.
 import type { JSX } from "react";
-import { Launcher } from "./components/Launcher";
 import { LauncherChip } from "./components/LauncherChip";
 import { Panel } from "./components/Panel";
-import { TourCard } from "./components/TourCard";
 import { ChatWindow } from "./components/Chat";
 import { Tooltips } from "./components/Tooltip";
 import { useThemeClass } from "./hooks/useThemeClass";
@@ -26,8 +24,6 @@ export function App({
       <LauncherChip />
       <Panel />
       {/* legacy widgets — removed one per island as each tab lands */}
-      <Launcher />
-      <TourCard />
       <ChatWindow />
       <Tooltips />
     </PortalContainerProvider>

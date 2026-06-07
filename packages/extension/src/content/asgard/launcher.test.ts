@@ -68,9 +68,12 @@ describe("fmtElapsed / specSig", () => {
 describe("requestGenerate → poll → spec lands", () => {
   it("persists the marker, closes the tour, polls, and installs the new spec", async () => {
     const fresh = mkSpec({ generatedAt: "2026-02-02T00:00:00Z" });
-    vi.mocked(api).mockImplementation(async (path: string) =>
-      path.startsWith("/walkthrough") ? { ok: true, data: fresh } : { ok: true },
-    );
+    let walkthroughCalls = 0;
+    vi.mocked(api).mockImplementation(async (path: string) => {
+      if (!path.startsWith("/walkthrough")) return { ok: true };
+      // first poll tick comes back empty (not ready yet), then the fresh spec
+      return ++walkthroughCalls === 1 ? { ok: false } : { ok: true, data: fresh };
+    });
 
     await launcherStore.requestGenerate("new");
     expect(tourStore.close).toHaveBeenCalledTimes(1);
@@ -85,7 +88,9 @@ describe("requestGenerate → poll → spec lands", () => {
       sinceSha: undefined,
     });
 
-    await vi.advanceTimersByTimeAsync(GEN_POLL_INTERVAL_MS);
+    await vi.advanceTimersByTimeAsync(GEN_POLL_INTERVAL_MS); // empty tick — still generating
+    expect(launcherStore.generating()).toBe(true);
+    await vi.advanceTimersByTimeAsync(GEN_POLL_INTERVAL_MS); // spec lands
     expect(state.spec).toEqual(fresh);
     expect(launcherStore.generating()).toBe(false);
     expect(vi.mocked(storeSet)).toHaveBeenCalledWith(`prw:spec:${PR}`, fresh);

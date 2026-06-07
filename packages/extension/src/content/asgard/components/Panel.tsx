@@ -13,6 +13,7 @@ import { Button } from "../ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { HistoryTab } from "./tabs/HistoryTab";
 import { SettingsTab } from "./tabs/SettingsTab";
+import { WalkthroughTab } from "./tabs/WalkthroughTab";
 
 const TAB_LABELS: Array<{ value: PanelTab; label: string }> = [
   { value: PANEL_TABS.WALKTHROUGH, label: "Walkthrough" },
@@ -20,10 +21,6 @@ const TAB_LABELS: Array<{ value: PanelTab; label: string }> = [
   { value: PANEL_TABS.HISTORY, label: "History" },
   { value: PANEL_TABS.SETTINGS, label: "Settings" },
 ];
-
-function Placeholder({ name }: { name: string }): JSX.Element {
-  return <div className="p-4 text-sm text-muted-foreground">{name} — coming soon.</div>;
-}
 
 export function Panel(): JSX.Element | null {
   useSyncExternalStore(subscribe, getSnapshot);
@@ -82,11 +79,11 @@ export function Panel(): JSX.Element | null {
             ))}
           </TabsList>
         </div>
-        <TabsContent value={PANEL_TABS.WALKTHROUGH}>
-          <Placeholder name="Walkthrough" />
+        <TabsContent value={PANEL_TABS.WALKTHROUGH} className="min-h-0">
+          <WalkthroughTab />
         </TabsContent>
         <TabsContent value={PANEL_TABS.CHAT}>
-          <Placeholder name="Chat" />
+          <div className="p-4 text-sm text-muted-foreground">Chat — coming soon.</div>
         </TabsContent>
         <TabsContent value={PANEL_TABS.HISTORY} className="overflow-y-auto">
           <HistoryTab />

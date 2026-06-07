@@ -130,16 +130,6 @@ describe("navigation", () => {
   });
 });
 
-describe("persisted geometry", () => {
-  it("setPos / setSize write through", () => {
-    tourStore.setPos({ left: 10, top: 20 });
-    tourStore.setSize({ w: 300, h: 200 });
-    expect(state.tourState.pos).toEqual({ left: 10, top: 20 });
-    expect(state.tourState.size).toEqual({ w: 300, h: 200 });
-    expect(vi.mocked(storeSet)).toHaveBeenCalledTimes(2);
-  });
-});
-
 describe("step context + ask", () => {
   it("stepContext strips markup and cites the location", () => {
     tourStore.start();

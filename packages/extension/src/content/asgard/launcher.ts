@@ -79,10 +79,6 @@ export const launcherStore = {
   newCommits: (): boolean => newCommits,
   spec: (): WalkthroughSpec | null => state.spec,
 
-  openTour(): void {
-    tourStore.start();
-  },
-
   /** Ask the session (via the channel) to (re)generate; persist a marker so the
    * "generating" state survives a refresh, then poll for the new spec. */
   async requestGenerate(mode: "new" | "incremental", sinceSha?: string): Promise<void> {

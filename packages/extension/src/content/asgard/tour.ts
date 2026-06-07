@@ -29,8 +29,6 @@ export const tourStore = {
   stepIdx: (): number => stepIdx,
   stepCount: (): number => state.spec?.steps.length ?? 0,
   step: (): WalkthroughStep | null => (open && state.spec ? state.spec.steps[stepIdx] : null),
-  pos: () => state.tourState.pos,
-  size: () => state.tourState.size,
 
   start(): void {
     if (!state.spec) return;
@@ -75,15 +73,6 @@ export const tourStore = {
     state.activeStep = null;
     bifrost.send("grip:context", { hasActiveStep: false });
     touch();
-  },
-
-  setPos(pos: { left: number; top: number }): void {
-    state.tourState = { ...state.tourState, pos };
-    storeSet(tourKey(prUrl()), state.tourState);
-  },
-  setSize(size: { w: number; h: number }): void {
-    state.tourState = { ...state.tourState, size };
-    storeSet(tourKey(prUrl()), state.tourState);
   },
 
   /** Compact text of the current step — passed to chat so answers are framed by it. */

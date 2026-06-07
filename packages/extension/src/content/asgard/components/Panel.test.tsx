@@ -35,7 +35,7 @@ describe("Panel", () => {
     render(<Panel />);
     act(() => panelStore.open());
     expect(screen.getByRole("dialog", { name: "PR Walkthrough" })).toBeTruthy();
-    expect(screen.getByText("Walkthrough — coming soon.")).toBeTruthy();
+    expect(screen.getByText(/No walkthrough yet/)).toBeTruthy(); // walkthrough tab, no spec
 
     // Radix Tabs (automatic activation) selects on focus — deterministic in jsdom
     act(() => screen.getByRole("tab", { name: "Settings" }).focus());

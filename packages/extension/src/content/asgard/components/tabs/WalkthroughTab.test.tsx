@@ -1,0 +1,198 @@
+// @vitest-environment jsdom
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import type { WalkthroughSpec } from "@prw/runes/spec";
+
+vi.mock("../../../muninn", () => ({ storeGet: vi.fn(), storeSet: vi.fn(), storeRemove: vi.fn() }));
+
+import { launcherStore } from "../../launcher";
+import { PANEL_TABS, panelStore, state } from "../../store";
+import { tourStore } from "../../tour";
+import { WalkthroughTab } from "./WalkthroughTab";
+
+const mkSpec = (): WalkthroughSpec => ({
+  version: 1,
+  pr: { url: "u", owner: "a", repo: "b", number: 7, title: "T" },
+  generatedAt: "t",
+  steps: [
+    {
+      id: "s1",
+      title: "First step",
+      body: "<b>body one</b>",
+      detail: "deep one",
+      file: "f.ts",
+      anchor: "d1",
+    },
+    { id: "s2", title: "Second step", body: "body two", file: "g.ts", anchor: "d2" },
+  ],
+});
+
+beforeEach(() => {
+  Object.defineProperty(window, "location", {
+    value: new URL("https://github.com/acme/widget-api/pull/7/files"),
+    writable: true,
+  });
+  state.spec = null;
+  state.tourState = { step: 0, pos: null, size: null };
+  state.panel = { open: true, tab: PANEL_TABS.WALKTHROUGH, pos: null, size: null };
+  if (tourStore.open()) tourStore.close();
+});
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+  vi.clearAllMocks();
+});
+
+describe("WalkthroughTab", () => {
+  it("empty state runs a review", () => {
+    const gen = vi.spyOn(launcherStore, "requestGenerate").mockResolvedValue();
+    render(<WalkthroughTab />);
+    fireEvent.click(screen.getByRole("button", { name: "Run review" }));
+    expect(gen).toHaveBeenCalledWith("new");
+  });
+
+  it("generating state shows the timer and can stop watching", () => {
+    vi.useFakeTimers();
+    vi.spyOn(launcherStore, "generating").mockReturnValue(true);
+    vi.spyOn(launcherStore, "genStartAt").mockReturnValue(Date.now() - 5000);
+    const dismiss = vi.spyOn(launcherStore, "dismissGen").mockImplementation(() => {});
+    render(<WalkthroughTab />);
+    expect(screen.getByText("Generating review…")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Stop watching" }));
+    expect(dismiss).toHaveBeenCalled();
+    vi.useRealTimers();
+  });
+
+  it("renders the current step, navigates, and starts/stops the tour", () => {
+    state.spec = mkSpec();
+    const { unmount } = render(<WalkthroughTab />);
+    expect(tourStore.open()).toBe(true); // started on mount
+    expect(screen.getByText("First step")).toBeTruthy();
+    expect(screen.getByTestId("step-body").innerHTML).toContain("<b>body one</b>");
+
+    fireEvent.click(screen.getByLabelText("Next step"));
+    expect(screen.getByText("Second step")).toBeTruthy();
+    fireEvent.click(screen.getByLabelText("Previous step"));
+    expect(screen.getByText("First step")).toBeTruthy();
+
+    unmount();
+    expect(tourStore.open()).toBe(false); // cleared on unmount
+  });
+
+  it("toggles step detail", () => {
+    state.spec = mkSpec();
+    render(<WalkthroughTab />);
+    expect(screen.queryByTestId("step-detail")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Show details" }));
+    expect(screen.getByTestId("step-detail")).toBeTruthy();
+  });
+
+  it("arrow keys navigate; Ask about this step routes to the Chat tab", () => {
+    state.spec = mkSpec();
+    const ask = vi.spyOn(tourStore, "askAboutStep").mockImplementation(() => {});
+    render(<WalkthroughTab />);
+    act(() => {
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight" }));
+    });
+    expect(screen.getByText("Second step")).toBeTruthy();
+    act(() => {
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowLeft" }));
+    });
+    expect(screen.getByText("First step")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Ask about this step" }));
+    expect(ask).toHaveBeenCalled();
+    expect(panelStore.tab()).toBe("chat");
+  });
+
+  it("a keystroke inside an editable field does not navigate", () => {
+    state.spec = mkSpec();
+    render(<WalkthroughTab />);
+    const input = document.createElement("textarea");
+    document.body.appendChild(input);
+    act(() => {
+      input.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
+    });
+    expect(screen.getByText("First step")).toBeTruthy(); // unchanged
+    input.remove();
+  });
+
+  it("opens the regenerate dialog and closes it", () => {
+    state.spec = mkSpec();
+    render(<WalkthroughTab />);
+    fireEvent.click(screen.getByRole("button", { name: /Regenerate|Update/ }));
+    expect(screen.getByText(/Regenerate this review|New commits/)).toBeTruthy();
+    fireEvent.click(screen.getByText("Cancel"));
+    expect(screen.queryByText(/Regenerate this review|New commits/)).toBeNull();
+  });
+
+  it("re-scroll redraws the current step", () => {
+    state.spec = mkSpec();
+    const goto = vi.spyOn(tourStore, "goto");
+    render(<WalkthroughTab />);
+    goto.mockClear();
+    fireEvent.click(screen.getByLabelText("Re-scroll and redraw"));
+    expect(goto).toHaveBeenCalledWith(0);
+  });
+
+  it("arrow keys at the boundaries and inside contentEditable are no-ops", () => {
+    state.spec = mkSpec();
+    render(<WalkthroughTab />);
+    // at the first step, ArrowLeft does nothing
+    act(() => {
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowLeft" }));
+    });
+    expect(screen.getByText("First step")).toBeTruthy();
+    // go to the last step, then ArrowRight does nothing
+    fireEvent.click(screen.getByLabelText("Next step"));
+    act(() => {
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight" }));
+    });
+    expect(screen.getByText("Second step")).toBeTruthy();
+    // a key from a contentEditable target is ignored
+    const editable = document.createElement("div");
+    Object.defineProperty(editable, "isContentEditable", { value: true });
+    document.body.appendChild(editable);
+    act(() => {
+      editable.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true }));
+    });
+    expect(screen.getByText("Second step")).toBeTruthy();
+    editable.remove();
+  });
+
+  it("also binds keys on the shadow root when mounted inside one", () => {
+    state.spec = mkSpec();
+    const host = document.createElement("div");
+    host.id = "prw-root";
+    document.body.appendChild(host);
+    const shadow = host.attachShadow({ mode: "open" });
+    const mount = document.createElement("div");
+    shadow.appendChild(mount);
+    render(<WalkthroughTab />, { container: mount });
+    expect(mount.textContent).toContain("First step");
+    act(() => {
+      shadow.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
+    });
+    expect(mount.textContent).toContain("Second step"); // screen can't see into the shadow
+    cleanup();
+    host.remove();
+  });
+
+  it("shows the Update label when there are new commits", () => {
+    state.spec = mkSpec();
+    vi.spyOn(launcherStore, "newCommits").mockReturnValue(true);
+    render(<WalkthroughTab />);
+    expect(screen.getByRole("button", { name: "Update" })).toBeTruthy();
+  });
+
+  it("a step without detail shows no details toggle", () => {
+    state.spec = {
+      version: 1,
+      pr: { url: "u", owner: "a", repo: "b", number: 7 },
+      generatedAt: "t",
+      steps: [{ id: "s", title: "Only step", body: "b", file: "f.ts", anchor: "d" }],
+    };
+    render(<WalkthroughTab />);
+    expect(screen.queryByRole("button", { name: "Show details" })).toBeNull();
+  });
+});
