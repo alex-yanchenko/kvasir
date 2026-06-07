@@ -5,11 +5,11 @@
 import type { JSX } from "react";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { renderMarkdown } from "@prw/runes/markdown";
-import { MessageSquare, X } from "lucide-react";
+import { MessageSquare, Plus, Trash2, X } from "lucide-react";
 import { bifrost } from "../../../bifrost";
 import { changedFilePaths } from "../../../midgard/diff";
 import { chatStore, QUICK, QUICK_PR } from "../../chat";
-import { getSnapshot, subscribe } from "../../store";
+import { chatSnippet, chatsStore, getSnapshot, subscribe } from "../../store";
 import type { ChatMessage, ChatSession } from "../../types";
 import { Button } from "../../ui/button";
 
@@ -269,18 +269,81 @@ function OptionRow({ label, onAsk }: { label: string; onAsk: () => void }): JSX.
   );
 }
 
+/** The chat rail: New chat, the list of open chats (active highlighted, each with
+ * a trash), and Clear all. Lets several chats run at once — pick any to view it. */
+function ChatRail({ active }: { active: string | null }): JSX.Element {
+  const sessions = chatsStore.sessions();
+  return (
+    <div className="flex w-36 shrink-0 flex-col border-r border-border">
+      <div className="p-2">
+        <Button size="sm" className="w-full" onClick={() => chatStore.newChat()}>
+          <Plus /> New chat
+        </Button>
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto px-1">
+        {sessions.length === 0 ? (
+          <p className="px-2 py-1 text-xs text-muted-foreground">No chats yet.</p>
+        ) : (
+          sessions.map((sess) => (
+            <div
+              key={sess.key}
+              className={
+                "group flex items-center rounded-md " +
+                (sess.key === active ? "bg-accent" : "hover:bg-accent")
+              }
+            >
+              <button
+                className="flex-1 truncate px-2 py-1.5 text-left text-xs"
+                title={chatSnippet(sess)}
+                onClick={() => chatStore.open(sess)}
+              >
+                {chatSnippet(sess)}
+              </button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 shrink-0 text-muted-foreground opacity-0 hover:text-destructive group-hover:opacity-100"
+                aria-label="Delete this chat"
+                onClick={() => chatStore.deleteSession(sess.key)}
+              >
+                <Trash2 />
+              </Button>
+            </div>
+          ))
+        )}
+      </div>
+      {sessions.length > 0 && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="m-2 mt-1 text-muted-foreground"
+          onClick={() => chatsStore.clearSessions()}
+        >
+          Clear all
+        </Button>
+      )}
+    </div>
+  );
+}
+
 export function ChatTab(): JSX.Element {
   useSyncExternalStore(subscribe, getSnapshot);
   const sess = chatStore.active();
-  if (!sess) {
-    return (
-      <div className="flex flex-col items-center gap-2 p-8 text-center text-sm text-muted-foreground">
-        <MessageSquare className="size-6 opacity-50" />
-        No chat open — select code in the diff, pick one from History, or use “Ask about PR”.
+  return (
+    <div className="flex h-full min-h-0">
+      <ChatRail active={sess?.key ?? null} />
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        {sess ? (
+          <Thread key={sess.key} sess={sess} />
+        ) : (
+          <div className="flex flex-1 flex-col items-center justify-center gap-2 p-6 text-center text-sm text-muted-foreground">
+            <MessageSquare className="size-6 opacity-50" />
+            Pick a chat, start a New chat, or select code in the diff.
+          </div>
+        )}
       </div>
-    );
-  }
-  return <Thread key={sess.key} sess={sess} />;
+    </div>
+  );
 }
 
 function Thread({ sess }: { sess: ChatSession }): JSX.Element {

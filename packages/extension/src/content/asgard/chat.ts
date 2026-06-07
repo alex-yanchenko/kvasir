@@ -10,7 +10,7 @@ import { api } from "../api";
 import { chatsKey, prUrl } from "../keys";
 import { storeSet } from "../muninn";
 import { pairingStore } from "./pairing";
-import { PANEL_TABS, panelStore, state, touch } from "./store";
+import { chatsStore, PANEL_TABS, panelStore, state, touch } from "./store";
 import { tourStore } from "./tour";
 import type { ChatMessage, ChatSession } from "./types";
 
@@ -162,6 +162,33 @@ export const chatStore = {
     }
     const latest = state.chatHistory.find((c) => c.key === p.selectionId);
     if (latest) this.open(latest);
+  },
+
+  /** Start a fresh whole-PR chat (the Chat rail's "New chat"). Unlike openPrChat
+   * this always makes a new session, so several can run side by side. */
+  newChat(): void {
+    const sess: ChatSession = {
+      key: `chat:${Date.now()}`,
+      general: true,
+      file: null,
+      lines: null,
+      text: "",
+      suggestions: [],
+      messages: [],
+    };
+    state.chatHistory = [sess, ...state.chatHistory];
+    persist();
+    this.open(sess);
+  },
+
+  /** Delete any session by key (the rail's per-row trash). Clears the page
+   * highlight and the active slot when it's the one being removed. */
+  deleteSession(key: string): void {
+    if (key === activeKey) {
+      activeKey = null;
+      bifrost.send("pick:clear", undefined);
+    }
+    chatsStore.dropSession(key); // filters state.chatHistory, persists, touches
   },
 
   /** The single whole-PR chat — created on first use, resumed after. */

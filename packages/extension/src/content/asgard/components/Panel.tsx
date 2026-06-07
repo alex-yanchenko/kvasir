@@ -12,14 +12,12 @@ import { useResizePersist } from "../hooks/useResizePersist";
 import { Button } from "../ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { ChatTab } from "./tabs/ChatTab";
-import { HistoryTab } from "./tabs/HistoryTab";
 import { SettingsTab } from "./tabs/SettingsTab";
 import { WalkthroughTab } from "./tabs/WalkthroughTab";
 
 const TAB_LABELS: Array<{ value: PanelTab; label: string }> = [
   { value: PANEL_TABS.WALKTHROUGH, label: "Walkthrough" },
   { value: PANEL_TABS.CHAT, label: "Chat" },
-  { value: PANEL_TABS.HISTORY, label: "History" },
   { value: PANEL_TABS.SETTINGS, label: "Settings" },
 ];
 
@@ -92,9 +90,6 @@ function PanelWindow(): JSX.Element {
         </TabsContent>
         <TabsContent value={PANEL_TABS.CHAT} className="min-h-0">
           <ChatTab />
-        </TabsContent>
-        <TabsContent value={PANEL_TABS.HISTORY} className="overflow-y-auto">
-          <HistoryTab />
         </TabsContent>
         <TabsContent value={PANEL_TABS.SETTINGS} className="overflow-y-auto">
           <SettingsTab />

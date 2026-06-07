@@ -45,11 +45,12 @@ describe("Panel", () => {
     expect(observed).toEqual([screen.getByRole("dialog", { name: "PR Walkthrough" })]);
   });
 
-  it("opens with the four tabs and a default title, switching tab on click", () => {
+  it("opens with the three tabs and a default title, switching tab on click", () => {
     render(<Panel />);
     act(() => panelStore.open());
     expect(screen.getByRole("dialog", { name: "PR Walkthrough" })).toBeTruthy();
     expect(screen.getByText(/No walkthrough yet/)).toBeTruthy(); // walkthrough tab, no spec
+    expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual(["Walkthrough", "Chat", "Settings"]);
 
     // Radix Tabs (automatic activation) selects on focus — deterministic in jsdom
     act(() => screen.getByRole("tab", { name: "Settings" }).focus());

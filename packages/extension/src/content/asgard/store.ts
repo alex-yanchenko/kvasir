@@ -18,11 +18,11 @@ export interface TourState {
   size: { w: number; h: number } | null;
 }
 
-/** The consolidated panel's tabs (the redesign IA). */
+/** The consolidated panel's tabs (the redesign IA). Chat owns its own session
+ * switcher (a left rail), so there is no separate History tab. */
 export const PANEL_TABS = {
   WALKTHROUGH: "walkthrough",
   CHAT: "chat",
-  HISTORY: "history",
   SETTINGS: "settings",
 } as const;
 export type PanelTab = (typeof PANEL_TABS)[keyof typeof PANEL_TABS];

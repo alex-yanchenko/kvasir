@@ -113,7 +113,7 @@ describe("REF_RE + linkifyRefs + closeFences", () => {
 describe("ChatTab shell", () => {
   it("shows the empty state without an active session", () => {
     render(<ChatTab />);
-    expect(screen.getByText(/No chat open/)).toBeTruthy();
+    expect(screen.getByText(/Pick a chat/)).toBeTruthy();
   });
 
   it("labels a selection chat by file:line and the general one as This PR; single line collapses", () => {
@@ -123,14 +123,49 @@ describe("ChatTab shell", () => {
     openSession(mkSession("a1", { lines: { start: 4, end: 4 } }));
     expect(screen.getByText("app.ts:4")).toBeTruthy();
     openSession(mkSession("g", { general: true, file: null, lines: null, text: "", suggestions: [] }));
-    expect(screen.getByText("This PR")).toBeTruthy();
+    expect(screen.getAllByText("This PR").length).toBeGreaterThan(0); // rail entry + thread header
   });
 
   it("delete removes the active session and falls back to the empty state", () => {
     render(<ChatTab />);
     openSession(mkSession("a"));
     fireEvent.click(screen.getByLabelText("Close and delete"));
-    expect(screen.getByText(/No chat open/)).toBeTruthy();
+    expect(screen.getByText(/Pick a chat/)).toBeTruthy();
+    expect(state.chatHistory.find((s) => s.key === "a")).toBeUndefined();
+  });
+
+  it("the rail starts a new chat, switches between chats, deletes one, and clears all", () => {
+    render(<ChatTab />);
+    expect(screen.getByText("No chats yet.")).toBeTruthy();
+
+    act(() => fireEvent.click(screen.getByRole("button", { name: "New chat" })));
+    expect(state.chatHistory.length).toBe(1);
+    expect(state.chatHistory[0].general).toBe(true);
+    expect(chatStore.active()?.key).toBe(state.chatHistory[0].key); // new chat opens
+
+    // a second selection chat — both live in the rail at once
+    openSession(mkSession("sel"));
+    expect(chatStore.active()?.key).toBe("sel");
+    // switch back to the general one via its rail entry
+    act(() => fireEvent.click(screen.getByText("This PR")));
+    expect(chatStore.active()?.general).toBe(true);
+
+    // delete the selection chat from the rail (it's not active → active is unchanged)
+    act(() => fireEvent.click(screen.getAllByLabelText("Delete this chat")[0])); // "sel" is first
+    expect(state.chatHistory.find((s) => s.key === "sel")).toBeUndefined();
+    expect(chatStore.active()?.general).toBe(true); // still on the general chat
+
+    act(() => fireEvent.click(screen.getByRole("button", { name: "Clear all" })));
+    expect(state.chatHistory).toEqual([]);
+    expect(screen.getByText(/Pick a chat/)).toBeTruthy();
+  });
+
+  it("deleting the active chat from the rail clears the active slot and the highlight", () => {
+    render(<ChatTab />);
+    openSession(mkSession("a"));
+    jumps = [];
+    act(() => fireEvent.click(screen.getAllByLabelText("Delete this chat")[0]));
+    expect(chatStore.active()).toBeNull();
     expect(state.chatHistory.find((s) => s.key === "a")).toBeUndefined();
   });
 
@@ -351,7 +386,7 @@ describe("message actions", () => {
     await act(async () => {
       await vi.advanceTimersByTimeAsync(600);
     });
-    expect(screen.getByText(/No chat open/)).toBeTruthy();
+    expect(screen.getByText(/Pick a chat/)).toBeTruthy();
     vi.useRealTimers();
   });
 

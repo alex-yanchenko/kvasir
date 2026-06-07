@@ -153,8 +153,8 @@ describe("panelStore", () => {
   });
 
   it("setTab switches the active tab", () => {
-    storeModule.panelStore.setTab(storeModule.PANEL_TABS.HISTORY);
-    expect(storeModule.panelStore.tab()).toBe("history");
+    storeModule.panelStore.setTab(storeModule.PANEL_TABS.SETTINGS);
+    expect(storeModule.panelStore.tab()).toBe("settings");
   });
 
   it("setPos / setSize update geometry and persist per-PR", () => {
