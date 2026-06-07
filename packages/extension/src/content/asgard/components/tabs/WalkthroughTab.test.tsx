@@ -167,7 +167,7 @@ describe("WalkthroughTab", () => {
     const goto = vi.spyOn(tourStore, "goto");
     render(<WalkthroughTab />);
     goto.mockClear();
-    fireEvent.click(screen.getByLabelText("Re-scroll and redraw"));
+    fireEvent.click(screen.getByLabelText("Scroll to this step's code"));
     expect(goto).toHaveBeenCalledWith(0);
   });
 

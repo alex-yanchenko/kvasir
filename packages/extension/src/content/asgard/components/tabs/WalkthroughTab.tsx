@@ -4,7 +4,16 @@
 // tour so switching tabs or closing the panel clears the highlight.
 import type { JSX } from "react";
 import { useEffect, useState, useSyncExternalStore } from "react";
-import { ChevronLeft, ChevronRight, Link2, Loader2, MessageSquare, Play, RefreshCw } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Crosshair,
+  Link2,
+  Loader2,
+  MessageSquare,
+  Play,
+  RefreshCw,
+} from "lucide-react";
 import { sanitizeSpecHtml } from "../../../sanitize";
 import { fmtElapsed, launcherStore } from "../../launcher";
 import { pairingStore } from "../../pairing";
@@ -114,16 +123,18 @@ function Steps(): JSX.Element {
           Step {idx + 1} / {count}
         </span>
         <div className="ml-auto flex items-center gap-1">
-          <Button
-            variant="outline"
-            size="icon"
-            className="h-7 w-7"
-            aria-label="Previous step"
-            disabled={idx === 0}
-            onClick={() => tourStore.back()}
-          >
-            <ChevronLeft />
-          </Button>
+          <span data-prw-tip={idx === 0 ? "First step" : undefined}>
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-7 w-7"
+              aria-label="Previous step"
+              disabled={idx === 0}
+              onClick={() => tourStore.back()}
+            >
+              <ChevronLeft />
+            </Button>
+          </span>
           <span data-prw-tip={idx >= count - 1 ? "Last step" : undefined}>
             <Button
               variant="outline"
@@ -140,10 +151,11 @@ function Steps(): JSX.Element {
             variant="ghost"
             size="icon"
             className="h-7 w-7"
-            aria-label="Re-scroll and redraw"
+            aria-label="Scroll to this step's code"
+            data-prw-tip="Scroll to this step's code"
             onClick={() => tourStore.goto(idx)}
           >
-            <RefreshCw />
+            <Crosshair />
           </Button>
         </div>
       </div>
