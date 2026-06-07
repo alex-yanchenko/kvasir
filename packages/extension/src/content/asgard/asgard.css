@@ -1,66 +1,6 @@
 /* Asgard's panel styles, injected into the shadow root by Heimdall. Each island
    moves its rules here out of midgard.css. Theme tokens (--prw-*) are defined on
    the page body by midgard.css and inherit through the shadow boundary. */
-.prw-gear {
-  position: fixed;
-  bottom: 24px;
-  left: 24px;
-  z-index: 2147483000;
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  background: var(--prw-bg);
-  color: var(--prw-fg);
-  border: 1px solid var(--prw-border);
-  border-radius: 10px;
-  cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
-}
-.prw-gear:hover {
-  border-color: var(--prw-accent);
-  color: var(--prw-accent);
-}
-.prw-gear svg {
-  width: 18px;
-  height: 18px;
-}
-.prw-settings-pop {
-  position: fixed;
-  bottom: 110px;
-  left: 24px;
-  z-index: 2147483001;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  background: var(--prw-bg);
-  color: var(--prw-fg);
-  border: 1px solid var(--prw-border);
-  border-radius: 12px;
-  padding: 12px 14px;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
-}
-.prw-settings-pop label {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  color: var(--prw-muted);
-}
-.prw-settings-pop select {
-  background: var(--prw-surface);
-  color: var(--prw-fg);
-  border: 1px solid var(--prw-border);
-  border-radius: 6px;
-  padding: 3px 6px;
-  font-size: 12px;
-}
-
 /* the Chats pill needs .prw-pill inside the shadow root; midgard.css keeps the
    light-DOM copy for the vanilla launcher until D3 moves it here for good. */
 .prw-pill {
@@ -347,31 +287,6 @@
   background: none;
   border: none;
 }
-
-.prw-settings {
-  display: flex;
-  gap: 14px;
-  padding: 8px 16px;
-  border-bottom: 1px solid var(--prw-border);
-  font-size: 11px;
-  color: var(--prw-muted);
-}
-.prw-settings label {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-}
-.prw-settings select {
-  background: var(--prw-surface);
-  color: var(--prw-fg);
-  border: 1px solid var(--prw-border);
-  border-radius: 6px;
-  padding: 2px 4px;
-  font-size: 11px;
-}
-
 .prw-body {
   padding: 16px;
 }
@@ -1006,25 +921,4 @@ textarea.prw-chat-input::-webkit-scrollbar-thumb:hover {
 }
 .prw-live-text {
   white-space: pre-wrap;
-}
-
-/* pairing row in the settings popover */
-.prw-pairing {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 8px;
-  padding-top: 8px;
-  border-top: 1px solid var(--prw-border);
-  font-size: 12px;
-}
-.prw-pair-ok {
-  color: var(--prw-accent);
-}
-.prw-pair-err {
-  color: #e5534b;
-}
-.prw-pair-code {
-  font-family: ui-monospace, monospace;
-  letter-spacing: 2px;
 }

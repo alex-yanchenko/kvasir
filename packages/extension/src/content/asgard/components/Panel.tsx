@@ -11,6 +11,7 @@ import { useDrag } from "../hooks/useDrag";
 import { useResizePersist } from "../hooks/useResizePersist";
 import { Button } from "../ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
+import { SettingsTab } from "./tabs/SettingsTab";
 
 const TAB_LABELS: Array<{ value: PanelTab; label: string }> = [
   { value: PANEL_TABS.WALKTHROUGH, label: "Walkthrough" },
@@ -89,8 +90,8 @@ export function Panel(): JSX.Element | null {
         <TabsContent value={PANEL_TABS.HISTORY}>
           <Placeholder name="History" />
         </TabsContent>
-        <TabsContent value={PANEL_TABS.SETTINGS}>
-          <Placeholder name="Settings" />
+        <TabsContent value={PANEL_TABS.SETTINGS} className="overflow-y-auto">
+          <SettingsTab />
         </TabsContent>
       </Tabs>
     </div>

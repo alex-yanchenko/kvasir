@@ -37,12 +37,10 @@ describe("Panel", () => {
     expect(screen.getByRole("dialog", { name: "PR Walkthrough" })).toBeTruthy();
     expect(screen.getByText("Walkthrough — coming soon.")).toBeTruthy();
 
-    const settingsTab = screen.getByRole("tab", { name: "Settings" });
-    fireEvent.pointerDown(settingsTab, { button: 0 }); // Radix tabs activate on pointerdown+mousedown
-    fireEvent.mouseDown(settingsTab, { button: 0 });
-    fireEvent.click(settingsTab);
+    // Radix Tabs (automatic activation) selects on focus — deterministic in jsdom
+    act(() => screen.getByRole("tab", { name: "Settings" }).focus());
     expect(panelStore.tab()).toBe("settings");
-    expect(screen.getByText("Settings — coming soon.")).toBeTruthy();
+    expect(screen.getByText("Theme")).toBeTruthy(); // the real SettingsTab now renders here
   });
 
   it("uses the PR title from the spec when present", () => {

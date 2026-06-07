@@ -1,14 +1,27 @@
 // @vitest-environment jsdom
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, afterEach, beforeEach, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach } from "vitest";
+import { PANEL_TABS, state } from "./store";
 import { App } from "./App";
 
-afterEach(cleanup);
+beforeEach(() => {
+  state.panel = { open: false, tab: PANEL_TABS.WALKTHROUGH, pos: null, size: null };
+});
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
 
 describe("App", () => {
-  it("renders the landed islands (Settings)", () => {
+  it("mounts the launcher chip", () => {
     render(<App />);
-    expect(screen.getByLabelText("Settings")).toBeTruthy();
+    expect(screen.getByLabelText("Open PR Walkthrough")).toBeTruthy();
+  });
+
+  it("toggles the theme class on the given target", () => {
+    state.theme = "dark";
+    const host = document.createElement("div");
+    render(<App themeTarget={host} />);
+    expect(host.classList.contains("dark")).toBe(true);
   });
 });

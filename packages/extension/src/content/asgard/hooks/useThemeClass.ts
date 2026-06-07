@@ -8,13 +8,13 @@ export function useThemeClass(target: HTMLElement | null): void {
   const theme = settingsStore.theme();
   useEffect(() => {
     if (!target) return;
-    const mql = window.matchMedia("(prefers-color-scheme: dark)");
+    // matchMedia is only consulted for "auto" — fixed light/dark never touch it.
+    const mql = theme === "auto" ? window.matchMedia("(prefers-color-scheme: dark)") : null;
     const apply = (): void => {
-      const dark = theme === "dark" || (theme === "auto" && mql.matches);
-      target.classList.toggle("dark", dark);
+      target.classList.toggle("dark", theme === "dark" || (theme === "auto" && !!mql?.matches));
     };
     apply();
-    if (theme !== "auto") return;
+    if (!mql) return;
     mql.addEventListener("change", apply);
     return () => mql.removeEventListener("change", apply);
   }, [target, theme]);
