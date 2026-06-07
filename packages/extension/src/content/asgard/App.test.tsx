@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, afterEach, beforeEach, vi } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
-import { PANEL_TABS, state } from "./store";
+import { act, cleanup, render, screen } from "@testing-library/react";
+import { PANEL_TABS, settingsStore, state } from "./store";
 import { App } from "./App";
 
 beforeEach(() => {
@@ -22,6 +22,15 @@ describe("App", () => {
     state.theme = "dark";
     const host = document.createElement("div");
     render(<App themeTarget={host} />);
+    expect(host.classList.contains("dark")).toBe(true);
+  });
+
+  it("re-applies the theme live when the store changes (no refresh needed)", () => {
+    state.theme = "light";
+    const host = document.createElement("div");
+    render(<App themeTarget={host} />);
+    expect(host.classList.contains("dark")).toBe(false);
+    act(() => settingsStore.setTheme("dark"));
     expect(host.classList.contains("dark")).toBe(true);
   });
 });
