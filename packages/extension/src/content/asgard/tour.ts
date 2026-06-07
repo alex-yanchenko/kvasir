@@ -67,6 +67,12 @@ export const tourStore = {
     if (stepIdx > 0) this.goto(stepIdx - 1);
   },
 
+  /** Re-open from the first step after the walkthrough was finished. */
+  restart(): void {
+    open = true;
+    this.goto(0);
+  },
+
   close(): void {
     open = false;
     bifrost.send("highlight:clear", undefined);

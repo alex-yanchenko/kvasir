@@ -104,6 +104,36 @@ describe("WalkthroughTab", () => {
     expect(tourStore.open()).toBe(false); // cleared on unmount
   });
 
+  it("finishing the last step shows the completion view, not the no-spec empty", () => {
+    state.spec = mkSpec();
+    render(<WalkthroughTab />);
+    fireEvent.click(screen.getByLabelText("Next step")); // to the last step
+    fireEvent.click(screen.getByLabelText("Next step")); // past the end → finish
+    expect(screen.getByText("Walkthrough complete")).toBeTruthy();
+    expect(screen.queryByText(/No walkthrough yet/)).toBeNull();
+    expect(tourStore.open()).toBe(false);
+
+    // arrow keys while finished must not move the (cleared) highlight
+    const goto = vi.spyOn(tourStore, "goto");
+    act(() => {
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight" }));
+    });
+    expect(goto).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Start over" }));
+    expect(screen.getByText("First step")).toBeTruthy();
+    expect(tourStore.open()).toBe(true);
+  });
+
+  it("the completion view can close the panel", () => {
+    state.spec = mkSpec();
+    render(<WalkthroughTab />);
+    fireEvent.click(screen.getByLabelText("Next step"));
+    fireEvent.click(screen.getByLabelText("Next step"));
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    expect(panelStore.isOpen()).toBe(false);
+  });
+
   it("toggles step detail", () => {
     state.spec = mkSpec();
     render(<WalkthroughTab />);
