@@ -1,0 +1,86 @@
+// The pairing machine — Asgard's side of earning the bridge token. The user
+// arms pairing in their Claude session (open_pairing), clicks Pair here, reads
+// the code off this panel, and approves that code in chat; we poll the claim
+// until the token lands and persist it for Huginn to attach on every request.
+import { api } from "../api";
+import { TOKEN_KEY } from "../keys";
+import { storeGet, storeSet } from "../muninn";
+import { touch } from "./store";
+
+export const CLAIM_POLL_MS = 1000;
+export const CLAIM_POLL_TRIES = 120;
+
+const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
+
+export type PairingPhase =
+  | { phase: "unknown" }
+  | { phase: "unpaired" }
+  | { phase: "waiting"; code: string }
+  | { phase: "paired" }
+  | { phase: "error"; message: string };
+
+let state: PairingPhase = { phase: "unknown" };
+
+const set = (next: PairingPhase): void => {
+  state = next;
+  touch();
+};
+
+const requestIdOf = (data: unknown): { requestId: string; code: string } | null =>
+  typeof data === "object" &&
+  data !== null &&
+  "requestId" in data &&
+  typeof data.requestId === "string" &&
+  "code" in data &&
+  typeof data.code === "string"
+    ? { requestId: data.requestId, code: data.code }
+    : null;
+
+const tokenOf = (data: unknown): string | null =>
+  typeof data === "object" && data !== null && "token" in data && typeof data.token === "string"
+    ? data.token
+    : null;
+
+export const pairingStore = {
+  state: (): PairingPhase => state,
+
+  /** Back to square one (tests; the machine is a module singleton). */
+  reset(): void {
+    set({ phase: "unknown" });
+  },
+
+  /** Resolve unknown → paired/unpaired from storage (once, on settings open). */
+  async refresh(): Promise<void> {
+    if (state.phase !== "unknown") return;
+    const token = await storeGet(TOKEN_KEY);
+    set(typeof token === "string" && token ? { phase: "paired" } : { phase: "unpaired" });
+  },
+
+  /** Ask the bridge to pair, show the code, poll the claim until the token lands. */
+  async pair(): Promise<void> {
+    const r = await api("/pair", "POST", { name: "PR Walkthrough Chrome extension" });
+    const req = r.ok ? requestIdOf(r.data) : null;
+    if (!req) {
+      const detail =
+        typeof r.data === "object" && r.data !== null && "error" in r.data ? String(r.data.error) : r.error;
+      set({ phase: "error", message: detail || "pairing request failed" });
+      return;
+    }
+    set({ phase: "waiting", code: req.code });
+    for (let i = 0; i < CLAIM_POLL_TRIES; i++) {
+      await sleep(CLAIM_POLL_MS);
+      const c = await api(`/pair/claim?id=${encodeURIComponent(req.requestId)}`);
+      if (!c.ok) {
+        set({ phase: "error", message: "pairing expired or was denied — try again" });
+        return;
+      }
+      const token = tokenOf(c.data);
+      if (token) {
+        storeSet(TOKEN_KEY, token);
+        set({ phase: "paired" });
+        return;
+      }
+    }
+    set({ phase: "error", message: "pairing timed out — try again" });
+  },
+};

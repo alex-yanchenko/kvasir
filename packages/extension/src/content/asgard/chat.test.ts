@@ -94,6 +94,7 @@ describe("reviewContext", () => {
 describe("friendlyError", () => {
   it("maps the known failure classes to human messages", () => {
     expect(friendlyError({ data: { error: "request timed out" } })).toMatch(/session may be busy/);
+    expect(friendlyError({ data: { error: "not paired" } })).toMatch(/open Settings/);
     expect(friendlyError({ error: "extension reloaded — refresh the page" })).toMatch(/refresh the page/);
     expect(friendlyError({ error: "failed to fetch" })).toMatch(/Claude session running/);
     expect(friendlyError({ error: "boom" })).toBe("Something went wrong: boom");

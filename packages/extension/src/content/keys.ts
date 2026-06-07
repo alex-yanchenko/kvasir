@@ -14,3 +14,6 @@ export const chatsKey = (pr: string | null): string => `prw:chats:${pr}`;
 export const specKey = (pr: string | null): string => `prw:spec:${pr}`;
 export const tourKey = (pr: string | null): string => `prw:tour:${pr}`;
 export const genKey = (pr: string | null): string => `prw:gen:${pr}`;
+
+/** The bridge token's storage key — global, not per-PR (one bridge per machine). */
+export const TOKEN_KEY = "prw:token";

@@ -4,6 +4,7 @@
 // Node; channel.ts supplies the live deps and hands the handler to Bun.serve.
 import { prKey, PR_URL_RE, type WalkthroughSpec } from "@prw/runes";
 import type { QuestionSnapshot } from "./broker";
+import type { Pairing } from "./pairing";
 import { authorizedLocalCaller, corsHeaders, readJsonBody, str, prOrNull } from "./guard";
 
 export interface BridgeDeps {
@@ -18,6 +19,7 @@ export interface BridgeDeps {
   /** Fire-and-forget event push into the session (no pending answer). */
   pushEvent(content: string, meta: Record<string, string>): Promise<void>;
   getHeadSha(pr: string): Promise<string>;
+  pairing: Pairing;
 }
 
 function json(req: Request, body: unknown, status = 200): Response {
@@ -54,6 +56,32 @@ export function createFetchHandler(deps: BridgeDeps): (req: Request) => Promise<
     if (!authorizedLocalCaller(req)) return json(req, { error: "forbidden" }, 403);
 
     if (url.pathname === "/health") return json(req, { ok: true, specs: deps.specs.size });
+
+    // ── pairing (the only token-less routes besides /health) ─────────────────
+    if (url.pathname === "/pair" && req.method === "POST") {
+      const b = await readJsonBody(req);
+      if (!b) return json(req, { error: "bad request body" }, 400);
+      const r = deps.pairing.request(str(b.name, 80) || "unnamed extension");
+      if (!r.ok) {
+        return r.reason === "not-armed"
+          ? json(req, { error: "pairing not armed — run open_pairing in your Claude session first" }, 403)
+          : json(req, { error: "another pairing request is already pending" }, 409);
+      }
+      return json(req, { requestId: r.requestId, code: r.code });
+    }
+
+    if (url.pathname === "/pair/claim" && req.method === "GET") {
+      const id = str(url.searchParams.get("id"), 100);
+      if (!id) return json(req, { error: "need an id" }, 400);
+      const r = deps.pairing.claim(id);
+      return r ? json(req, r) : json(req, { error: "unknown, expired, or already claimed" }, 404);
+    }
+
+    // Once a token exists every other route requires it; before the first
+    // pairing the bridge stays open (the pre-pairing status quo).
+    if (deps.pairing.enforced() && !deps.pairing.verify(req.headers.get("x-prw-token") ?? "")) {
+      return json(req, { error: "not paired" }, 401);
+    }
 
     if (url.pathname === "/walkthrough" && req.method === "GET") {
       const pr = prOrNull(url.searchParams.get("pr"));

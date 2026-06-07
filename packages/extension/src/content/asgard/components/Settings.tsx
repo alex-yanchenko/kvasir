@@ -1,8 +1,43 @@
 // The settings gear + popover — Asgard's first island. Choices live in the store;
-// the page only ever hears about them through the theme:apply command.
+// the page only ever hears about them through the theme:apply command. The
+// connection section drives the pairing machine (see pairing.ts for the flow).
 import type { JSX } from "react";
-import { useState, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
+import { pairingStore } from "../pairing";
 import { getSnapshot, settingsStore, subscribe } from "../store";
+
+function Connection(): JSX.Element {
+  const p = pairingStore.state();
+  useEffect(() => {
+    void pairingStore.refresh();
+  }, []);
+  return (
+    <div className="prw-pairing">
+      {p.phase === "paired" && <span className="prw-pair-ok">connected ✓ paired</span>}
+      {(p.phase === "unknown" || p.phase === "unpaired") && (
+        <>
+          <span>{p.phase === "unpaired" ? "not paired" : "…"}</span>
+          <button className="prw-btn" onClick={() => void pairingStore.pair()}>
+            Pair
+          </button>
+        </>
+      )}
+      {p.phase === "waiting" && (
+        <span>
+          code <b className="prw-pair-code">{p.code}</b> — confirm it in your Claude session
+        </span>
+      )}
+      {p.phase === "error" && (
+        <>
+          <span className="prw-pair-err">{p.message}</span>
+          <button className="prw-btn" onClick={() => void pairingStore.pair()}>
+            Retry
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
 
 export function Settings(): JSX.Element {
   const [open, setOpen] = useState(false);
@@ -52,6 +87,7 @@ export function Settings(): JSX.Element {
               <option value="github">github-style</option>
             </select>
           </label>
+          <Connection />
         </div>
       )}
     </>

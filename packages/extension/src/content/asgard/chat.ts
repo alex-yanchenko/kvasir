@@ -84,6 +84,7 @@ export function friendlyError(r: { data?: unknown; error?: string }): string {
       ? r.data.error
       : "";
   const e = fromData || r.error || "";
+  if (/not paired/i.test(e)) return "Not paired — open Settings (gear) and pair the extension.";
   if (/timed out/i.test(e)) return "No response yet — the session may be busy or paused in your terminal.";
   if (/refresh the page/i.test(e)) return "Extension was reloaded — refresh the page, then retry.";
   if (/fetch|reach|no response|network/i.test(e))

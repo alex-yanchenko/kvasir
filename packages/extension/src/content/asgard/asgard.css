@@ -1007,3 +1007,24 @@ textarea.prw-chat-input::-webkit-scrollbar-thumb:hover {
 .prw-live-text {
   white-space: pre-wrap;
 }
+
+/* pairing row in the settings popover */
+.prw-pairing {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--prw-border);
+  font-size: 12px;
+}
+.prw-pair-ok {
+  color: var(--prw-accent);
+}
+.prw-pair-err {
+  color: #e5534b;
+}
+.prw-pair-code {
+  font-family: ui-monospace, monospace;
+  letter-spacing: 2px;
+}

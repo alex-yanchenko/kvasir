@@ -21,6 +21,14 @@ let deps: {
   snapshot: ReturnType<typeof vi.fn>;
   pushEvent: ReturnType<typeof vi.fn>;
   getHeadSha: ReturnType<typeof vi.fn>;
+  pairing: {
+    arm: ReturnType<typeof vi.fn>;
+    request: ReturnType<typeof vi.fn>;
+    approve: ReturnType<typeof vi.fn>;
+    claim: ReturnType<typeof vi.fn>;
+    verify: ReturnType<typeof vi.fn>;
+    enforced: ReturnType<typeof vi.fn>;
+  };
 };
 let handler: (req: Request) => Promise<Response>;
 
@@ -32,6 +40,14 @@ beforeEach(() => {
     snapshot: vi.fn().mockReturnValue(null),
     pushEvent: vi.fn().mockResolvedValue(undefined),
     getHeadSha: vi.fn().mockResolvedValue("abc123"),
+    pairing: {
+      arm: vi.fn(),
+      request: vi.fn().mockReturnValue({ ok: true, requestId: "rid-1", code: "ABC234" }),
+      approve: vi.fn(),
+      claim: vi.fn().mockReturnValue({ status: "pending" }),
+      verify: vi.fn().mockReturnValue(false),
+      enforced: vi.fn().mockReturnValue(false),
+    },
   };
   handler = createFetchHandler(deps as unknown as BridgeDeps);
 });
@@ -78,6 +94,59 @@ describe("gate + plumbing", () => {
     deps.specs.set(prKey(PR), mkSpec());
     const r = await call("/health");
     expect(await r.json()).toEqual({ ok: true, specs: 1 });
+  });
+});
+
+describe("pairing routes + the token gate", () => {
+  it("POST /pair forwards the trimmed name and returns the request handle", async () => {
+    const r = await call("/pair", { method: "POST", body: { name: "Chrome on MacBook" } });
+    expect(await r.json()).toEqual({ requestId: "rid-1", code: "ABC234" });
+    expect(deps.pairing.request).toHaveBeenCalledWith("Chrome on MacBook");
+    await call("/pair", { method: "POST", body: {} });
+    expect(deps.pairing.request).toHaveBeenLastCalledWith("unnamed extension");
+  });
+
+  it("maps not-armed to 403, busy to 409, malformed body to 400", async () => {
+    deps.pairing.request.mockReturnValue({ ok: false, reason: "not-armed" });
+    expect((await call("/pair", { method: "POST", body: { name: "x" } })).status).toBe(403);
+    deps.pairing.request.mockReturnValue({ ok: false, reason: "busy" });
+    expect((await call("/pair", { method: "POST", body: { name: "x" } })).status).toBe(409);
+    const noBody = await handler(
+      new Request("http://localhost:8799/pair", {
+        method: "POST",
+        body: "zzz",
+        headers: { host: "localhost:8799", [GUARD_HEADER]: "1", "content-type": "application/json" },
+      }),
+    );
+    expect(noBody.status).toBe(400);
+  });
+
+  it("GET /pair/claim relays pending/token and 404s unknown ids, 400 without one", async () => {
+    expect(await (await call("/pair/claim?id=rid-1")).json()).toEqual({ status: "pending" });
+    deps.pairing.claim.mockReturnValue({ token: "t0k" });
+    expect(await (await call("/pair/claim?id=rid-1")).json()).toEqual({ token: "t0k" });
+    deps.pairing.claim.mockReturnValue(null);
+    expect((await call("/pair/claim?id=zzz")).status).toBe(404);
+    expect((await call("/pair/claim")).status).toBe(400);
+  });
+
+  it("once enforced, routes demand the token — pairing and /health stay open", async () => {
+    deps.pairing.enforced.mockReturnValue(true);
+    const denied = await call(`/walkthrough?pr=${encodeURIComponent(PR)}`);
+    expect(denied.status).toBe(401);
+    expect(await denied.json()).toEqual({ error: "not paired" });
+    expect(deps.pairing.verify).toHaveBeenCalledWith(""); // no header presented
+
+    deps.pairing.verify.mockReturnValue(true);
+    const allowed = await call(`/walkthrough?pr=${encodeURIComponent(PR)}`, {
+      headers: { "x-prw-token": "t0k" },
+    });
+    expect(allowed.status).toBe(200);
+    expect(deps.pairing.verify).toHaveBeenLastCalledWith("t0k");
+
+    deps.pairing.verify.mockReturnValue(false);
+    expect((await call("/health")).status).toBe(200);
+    expect((await call("/pair/claim?id=rid-1")).status).not.toBe(401);
   });
 });
 
