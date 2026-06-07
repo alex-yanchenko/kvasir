@@ -12,7 +12,8 @@ import { connectGrip } from "../midgard/grip";
 import { initTooltips } from "../midgard/tooltip";
 import { shieldHotkeys } from "./shield";
 import { applyTheme, loadPersisted, watchUrl } from "./watch";
-import asgardCss from "../asgard/asgard.css";
+// Compiled Tailwind + legacy panel CSS (build.mjs produces this from tailwind.css).
+import asgardCss from "../asgard/asgard.compiled.css";
 
 export function boot(): void {
   if (document.getElementById("prw-root")) return; // re-injection guard
@@ -41,5 +42,10 @@ export function boot(): void {
   shadow.appendChild(style);
   const mount = document.createElement("div");
   shadow.appendChild(mount);
-  createRoot(mount).render(<App />);
+  // Radix portals mount here (inside the shadow), so popovers/dialogs get the
+  // injected Tailwind instead of rendering unstyled in document.body.
+  const portal = document.createElement("div");
+  shadow.appendChild(portal);
+  // The theme class lives on the host so :host / :host(.dark) tokens resolve.
+  createRoot(mount).render(<App themeTarget={host} portalContainer={portal} />);
 }

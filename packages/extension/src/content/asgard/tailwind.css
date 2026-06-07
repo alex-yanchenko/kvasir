@@ -1,0 +1,85 @@
+/* Asgard's Tailwind entry — compiled (build.mjs) into asgard.compiled.css and
+ * injected as text into the shadow root. NOT imported directly anywhere.
+ *
+ * Self-themed inside the shadow: shadcn design tokens live on :host (light) with
+ * a .dark override, toggled on the host element by the theme store — so Asgard
+ * no longer depends on GitHub's light-DOM --prw-* inheritance. During the
+ * island-by-island redesign the legacy asgard.css is @imported below for
+ * coexistence; each block is deleted as its island migrates. */
+
+@import "tailwindcss";
+/* legacy panel styles — authoritative for not-yet-migrated widgets (removed per island) */
+@import "./asgard.css";
+
+/* class-based dark (default v4 is prefers-color-scheme); the host carries .dark */
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
+}
+
+:host {
+  --background: #ffffff;
+  --foreground: #1f1f1c;
+  --card: #ffffff;
+  --card-foreground: #1f1f1c;
+  --popover: #ffffff;
+  --popover-foreground: #1f1f1c;
+  --primary: #d85a30;
+  --primary-foreground: #ffffff;
+  --secondary: #f2f1ea;
+  --secondary-foreground: #1f1f1c;
+  --muted: #f2f1ea;
+  --muted-foreground: #6b6a64;
+  --accent: #f2f1ea;
+  --accent-foreground: #1f1f1c;
+  --destructive: #e5534b;
+  --destructive-foreground: #ffffff;
+  --border: #d8d6cf;
+  --input: #ffffff;
+  --ring: #d85a30;
+  --radius: 0.625rem;
+}
+
+.dark {
+  --background: #1b1b18;
+  --foreground: #ece9e2;
+  --card: #1b1b18;
+  --card-foreground: #ece9e2;
+  --popover: #1b1b18;
+  --popover-foreground: #ece9e2;
+  --primary: #d85a30;
+  --primary-foreground: #ffffff;
+  --secondary: #24231f;
+  --secondary-foreground: #ece9e2;
+  --muted: #24231f;
+  --muted-foreground: #8a877e;
+  --accent: #24231f;
+  --accent-foreground: #ece9e2;
+  --destructive: #e5534b;
+  --destructive-foreground: #ffffff;
+  --border: #3a3934;
+  --input: #111110;
+  --ring: #d85a30;
+}

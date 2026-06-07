@@ -9,14 +9,41 @@
 // rebuild on change (keeps the edit -> reload loop fast).
 
 import { context } from "esbuild";
-import { copyFile, mkdir } from "node:fs/promises";
+import { copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import postcss from "postcss";
+import tailwindcss from "@tailwindcss/postcss";
+import remToPx from "@thedutchcoder/postcss-rem-to-px";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const src = resolve(here, "src");
 const dist = resolve(here, "dist");
 const watch = process.argv.includes("--watch");
+
+// Compile Asgard's Tailwind entry → asgard.compiled.css, which boot.tsx imports
+// as text for shadow-root injection. rem→px keeps Asgard's sizing independent of
+// GitHub's <html> font-size (an isolation leak otherwise). Run in esbuild's
+// onStart so a one-shot build and every --watch rebuild both regenerate the CSS
+// before esbuild reads the import — no compile/read race, no parallel watcher.
+const tailwindEntry = resolve(src, "content/asgard/tailwind.css");
+const tailwindOut = resolve(src, "content/asgard/asgard.compiled.css");
+const cssProcessor = postcss([tailwindcss(), remToPx()]);
+
+const compileTailwind = {
+  name: "compile-tailwind",
+  setup(build) {
+    build.onStart(async () => {
+      try {
+        const input = await readFile(tailwindEntry, "utf8");
+        const result = await cssProcessor.process(input, { from: tailwindEntry, to: tailwindOut });
+        await writeFile(tailwindOut, result.css);
+      } catch (e) {
+        return { errors: [{ text: `Tailwind compile failed: ${e.message}` }] };
+      }
+    });
+  },
+};
 
 // Copy midgard.css on every successful build so --watch keeps it in sync.
 const copyAssets = {
@@ -52,7 +79,7 @@ const ctx = await context({
   minify: true,
   sourcemap: true,
   logLevel: "info",
-  plugins: [copyAssets],
+  plugins: [compileTailwind, copyAssets],
 });
 
 if (watch) {
