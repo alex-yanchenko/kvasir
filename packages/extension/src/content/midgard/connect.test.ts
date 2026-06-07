@@ -37,12 +37,23 @@ const lined = (c: Element) => rowsOf(c).filter((r) => r.classList.contains("prw-
 const picked = (c: Element) => rowsOf(c).filter((r) => r.classList.contains("prw-pick"));
 
 describe("connectMidgard command handling", () => {
-  it("highlight:step paints the step's rows when the file is already rendered", () => {
+  it("highlight:step paints the step's rows without scrolling when they're already in view", () => {
     const b = createBifrost();
     connectMidgard(b);
     const c = buildContainer();
     b.send("highlight:step", { anchor: "diff-abc123", lines: { start: 10, end: 11 }, highlight: null });
     expect(lined(c)).toEqual(rowsOf(c).slice(0, 2));
+    expect(scrolls).not.toHaveBeenCalled(); // jsdom rows sit at top 0 → in view → no re-jump
+  });
+
+  it("highlight:step scrolls the rows into view when they're off screen", () => {
+    const b = createBifrost();
+    connectMidgard(b);
+    const c = buildContainer();
+    vi.spyOn(Element.prototype, "getBoundingClientRect").mockReturnValue({ top: -999 } as DOMRect);
+    b.send("highlight:step", { anchor: "diff-abc123", lines: { start: 10, end: 11 }, highlight: null });
+    expect(lined(c)).toEqual(rowsOf(c).slice(0, 2));
+    expect(scrolls).toHaveBeenCalledWith({ behavior: "smooth", block: "center" });
   });
 
   it("highlight:step keeps retrying until a lazy-rendered file appears", () => {

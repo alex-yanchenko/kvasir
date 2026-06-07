@@ -93,22 +93,33 @@ export function rehighlightSession(s: RehighlightableSession): Element[] {
   return [];
 }
 
-// Bring a step onto screen: scroll its file in, then highlight as soon as the
-// rows exist. Most files are already rendered, so this lands on the first try;
-// only a still-lazy-loading file makes us poll, and only until it appears.
+/** True when the step's first row already sits comfortably in the viewport, so
+ * re-issuing the jump (pressing the button again) shouldn't re-scroll. A centered
+ * row lands near the middle, which stays within the band — making repeats no-ops. */
+function rowsInView(rows: Element[]): boolean {
+  const vh = window.innerHeight || document.documentElement.clientHeight || 0;
+  const top = rows[0].getBoundingClientRect().top;
+  return top >= 0 && top <= vh * 0.85;
+}
+
+// Bring a step onto screen, then highlight. Most files are already rendered, so
+// this lands on the first try; only a still-lazy-loading file makes us poll, and
+// only until it appears. When the rows are already on screen we just (re)paint —
+// no scroll — so pressing the jump button again is a no-op rather than a re-jump.
 export function showStep(step: HighlightableStep): void {
-  const cont = document.getElementById(step.anchor);
-  if (cont) cont.scrollIntoView({ block: "start" });
   let tries = 0;
-  const tryHighlight = () => {
+  const run = () => {
     const rows = highlightStep(step);
     if (rows.length) {
-      rows[0].scrollIntoView({ behavior: "smooth", block: "center" });
-    } else if (++tries < 20) {
-      setTimeout(tryHighlight, 40); // up to ~0.8s, only if the file isn't there yet
+      if (!rowsInView(rows)) rows[0].scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
     }
+    // rows absent — likely a lazy-mounted file; bring its container in to force
+    // the render, then retry until the rows appear (~0.8s).
+    document.getElementById(step.anchor)?.scrollIntoView({ block: "start" });
+    if (++tries < 20) setTimeout(run, 40);
   };
-  tryHighlight();
+  run();
 }
 
 // Find a diff container by a cited path, tolerating short/long path variants.
