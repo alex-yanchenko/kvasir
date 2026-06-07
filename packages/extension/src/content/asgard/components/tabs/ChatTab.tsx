@@ -366,7 +366,7 @@ export function ChatTab(): JSX.Element {
         role="separator"
         aria-orientation="vertical"
         aria-label="Resize chat list"
-        className="w-px shrink-0 cursor-col-resize bg-border transition-colors hover:bg-primary"
+        className="w-[5px] shrink-0 cursor-col-resize border-x border-border bg-transparent transition-colors hover:border-primary/40 hover:bg-primary/60"
         onMouseDown={onResize}
       />
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
