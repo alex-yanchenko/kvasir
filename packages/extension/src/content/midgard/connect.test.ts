@@ -46,14 +46,29 @@ describe("connectMidgard command handling", () => {
     expect(scrolls).not.toHaveBeenCalled(); // jsdom rows sit at top 0 → in view → no re-jump
   });
 
-  it("highlight:step scrolls the rows into view when they're off screen", () => {
+  it("centers an off-screen range that fits the viewport (so every line shows)", () => {
     const b = createBifrost();
     connectMidgard(b);
     const c = buildContainer();
-    vi.spyOn(Element.prototype, "getBoundingClientRect").mockReturnValue({ top: -999 } as DOMRect);
+    vi.spyOn(Element.prototype, "getBoundingClientRect").mockReturnValue({
+      top: -999,
+      bottom: -980,
+    } as DOMRect);
     b.send("highlight:step", { anchor: "diff-abc123", lines: { start: 10, end: 11 }, highlight: null });
     expect(lined(c)).toEqual(rowsOf(c).slice(0, 2));
     expect(scrolls).toHaveBeenCalledWith({ behavior: "smooth", block: "center" });
+  });
+
+  it("top-aligns an off-screen range taller than the viewport", () => {
+    const b = createBifrost();
+    connectMidgard(b);
+    buildContainer();
+    vi.spyOn(Element.prototype, "getBoundingClientRect").mockReturnValue({
+      top: -5000,
+      bottom: -2000,
+    } as DOMRect);
+    b.send("highlight:step", { anchor: "diff-abc123", lines: { start: 10, end: 12 }, highlight: null });
+    expect(scrolls).toHaveBeenCalledWith({ behavior: "smooth", block: "start" });
   });
 
   it("highlight:step keeps retrying until a lazy-rendered file appears", () => {

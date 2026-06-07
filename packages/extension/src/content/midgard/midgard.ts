@@ -93,25 +93,41 @@ export function rehighlightSession(s: RehighlightableSession): Element[] {
   return [];
 }
 
-/** True when the step's first row already sits comfortably in the viewport, so
- * re-issuing the jump (pressing the button again) shouldn't re-scroll. A centered
- * row lands near the middle, which stays within the band — making repeats no-ops. */
+/** Viewport bounds of the whole step range: the top of the first row, the bottom
+ * of the last, and the viewport height — so we judge the entire span, not one row. */
+function rangeBounds(rows: Element[]): { top: number; bottom: number; vh: number } {
+  return {
+    top: rows[0].getBoundingClientRect().top,
+    bottom: rows[rows.length - 1].getBoundingClientRect().bottom,
+    vh: window.innerHeight || document.documentElement.clientHeight || 0,
+  };
+}
+
+/** True when the whole step range is already on screen, so re-issuing the jump
+ * (pressing the button again) shouldn't re-scroll. A range taller than the
+ * viewport can never fully fit, so for it "top-anchored" counts as in view. */
 function rowsInView(rows: Element[]): boolean {
-  const vh = window.innerHeight || document.documentElement.clientHeight || 0;
-  const top = rows[0].getBoundingClientRect().top;
-  return top >= 0 && top <= vh * 0.85;
+  const { top, bottom, vh } = rangeBounds(rows);
+  if (bottom - top > vh) return top >= 0 && top <= vh * 0.15;
+  return top >= 0 && bottom <= vh;
 }
 
 // Bring a step onto screen, then highlight. Most files are already rendered, so
 // this lands on the first try; only a still-lazy-loading file makes us poll, and
-// only until it appears. When the rows are already on screen we just (re)paint —
-// no scroll — so pressing the jump button again is a no-op rather than a re-jump.
+// only until it appears. The whole range is brought into view — centered when it
+// fits, top-aligned when it's taller than the viewport. When it's already on
+// screen we just (re)paint — no scroll — so a repeat jump-button press is a no-op.
 export function showStep(step: HighlightableStep): void {
   let tries = 0;
   const run = () => {
     const rows = highlightStep(step);
     if (rows.length) {
-      if (!rowsInView(rows)) rows[0].scrollIntoView({ behavior: "smooth", block: "center" });
+      if (!rowsInView(rows)) {
+        const { top, bottom, vh } = rangeBounds(rows);
+        const fits = bottom - top <= vh;
+        const target = fits ? rows[Math.floor(rows.length / 2)] : rows[0];
+        target.scrollIntoView({ behavior: "smooth", block: fits ? "center" : "start" });
+      }
       return;
     }
     // rows absent — likely a lazy-mounted file; bring its container in to force
