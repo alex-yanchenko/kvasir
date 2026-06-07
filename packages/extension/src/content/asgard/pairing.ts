@@ -57,11 +57,23 @@ export const pairingStore = {
     set({ phase: "unpaired" });
   },
 
-  /** Resolve unknown → paired/unpaired from storage (once, on settings open). */
+  /** Resolve unknown → paired/unpaired (once, on boot). A stored token is not
+   * enough: the bridge holds the token in memory, so a session restart leaves a
+   * stale token on disk — verify it against the bridge and drop it if rejected. */
   async refresh(): Promise<void> {
     if (state.phase !== "unknown") return;
     const token = await storeGet(TOKEN_KEY);
-    set(typeof token === "string" && token ? { phase: "paired" } : { phase: "unpaired" });
+    if (typeof token !== "string" || !token) {
+      set({ phase: "unpaired" });
+      return;
+    }
+    const r = await api("/auth");
+    if (r.ok) {
+      set({ phase: "paired" });
+    } else {
+      storeRemove(TOKEN_KEY);
+      set({ phase: "unpaired" });
+    }
   },
 
   /** Ask the bridge to pair, show the code, poll the claim until the token lands. */

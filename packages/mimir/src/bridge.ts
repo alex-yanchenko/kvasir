@@ -81,6 +81,11 @@ export function createFetchHandler(deps: BridgeDeps): (req: Request) => Promise<
       return json(req, { error: "not paired" }, 401);
     }
 
+    // Cheap, PR-independent token check: lets the extension verify on page load
+    // that its stored token still works (the token is in-memory server-side, so a
+    // session restart invalidates it) without guessing a PR to hit a real route.
+    if (url.pathname === "/auth" && req.method === "GET") return json(req, { paired: true });
+
     if (url.pathname === "/walkthrough" && req.method === "GET") {
       const pr = prOrNull(url.searchParams.get("pr"));
       if (!pr) return json(req, { error: "bad or missing pr" }, 400);

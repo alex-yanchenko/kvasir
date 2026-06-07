@@ -34,10 +34,28 @@ describe("pairingStore", () => {
     expect(pairingStore.state()).toEqual({ phase: "unknown" });
     await pairingStore.refresh();
     expect(pairingStore.state()).toEqual({ phase: "unpaired" });
+    expect(vi.mocked(api)).not.toHaveBeenCalled(); // no token -> no bridge round-trip
     vi.mocked(storeGet).mockResolvedValue("tok");
     await pairingStore.refresh(); // already resolved — storage not consulted again
     expect(pairingStore.state()).toEqual({ phase: "unpaired" });
     expect(vi.mocked(storeGet)).toHaveBeenCalledTimes(1);
+  });
+
+  it("refresh verifies a stored token against the bridge and lands paired when it works", async () => {
+    vi.mocked(storeGet).mockResolvedValue("tok");
+    vi.mocked(api).mockResolvedValue({ ok: true, data: { paired: true } });
+    await pairingStore.refresh();
+    expect(vi.mocked(api)).toHaveBeenCalledWith("/auth");
+    expect(pairingStore.state()).toEqual({ phase: "paired" });
+  });
+
+  it("refresh drops a stale stored token the bridge rejects (session restarted) -> unpaired", async () => {
+    vi.mocked(storeGet).mockResolvedValue("stale");
+    vi.mocked(api).mockResolvedValue({ ok: false, status: 401 });
+    await pairingStore.refresh();
+    expect(vi.mocked(api)).toHaveBeenCalledWith("/auth");
+    expect(vi.mocked(storeRemove)).toHaveBeenCalledWith("prw:token");
+    expect(pairingStore.state()).toEqual({ phase: "unpaired" });
   });
 
   it("a failed /pair surfaces the bridge's error detail", async () => {

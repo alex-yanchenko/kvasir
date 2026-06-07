@@ -4,9 +4,10 @@
 // tour so switching tabs or closing the panel clears the highlight.
 import type { JSX } from "react";
 import { useEffect, useState, useSyncExternalStore } from "react";
-import { ChevronLeft, ChevronRight, Loader2, MessageSquare, Play, RefreshCw } from "lucide-react";
+import { ChevronLeft, ChevronRight, Link2, Loader2, MessageSquare, Play, RefreshCw } from "lucide-react";
 import { sanitizeSpecHtml } from "../../../sanitize";
 import { fmtElapsed, launcherStore } from "../../launcher";
+import { pairingStore } from "../../pairing";
 import { getSnapshot, PANEL_TABS, panelStore, subscribe } from "../../store";
 import { tourStore } from "../../tour";
 import { Button } from "../../ui/button";
@@ -33,6 +34,29 @@ function Generating(): JSX.Element {
 }
 
 function Empty(): JSX.Element {
+  const pairing = pairingStore.state();
+  // Until the extension is paired, "Run review" would just 401 — so make pairing
+  // the call to action here instead of handing the user a button that does nothing.
+  if (pairing.phase === "unpaired" || pairing.phase === "waiting" || pairing.phase === "error") {
+    return (
+      <div className="flex flex-col items-center gap-3 p-8 text-center">
+        <p className="text-sm text-muted-foreground">
+          Pair this extension with your Claude session to generate a review.
+        </p>
+        {pairing.phase === "waiting" ? (
+          <p className="text-xs text-muted-foreground">
+            Confirm code <b className="font-mono tracking-widest text-foreground">{pairing.code}</b> in your
+            Claude session…
+          </p>
+        ) : (
+          <Button onClick={() => void pairingStore.pair()}>
+            <Link2 /> Pair with Claude
+          </Button>
+        )}
+        {pairing.phase === "error" && <p className="text-xs text-destructive">{pairing.message}</p>}
+      </div>
+    );
+  }
   return (
     <div className="flex flex-col items-center gap-3 p-8 text-center">
       <p className="text-sm text-muted-foreground">No walkthrough yet for this PR.</p>

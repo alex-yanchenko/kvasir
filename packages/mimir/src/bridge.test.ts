@@ -150,6 +150,12 @@ describe("pairing routes + the token gate", () => {
     expect(allowed.status).toBe(200);
     expect(deps.pairing.verify).toHaveBeenLastCalledWith("t0k");
   });
+
+  it("GET /auth confirms a valid token (200) and is gated behind it (401)", async () => {
+    expect(await (await call("/auth")).json()).toEqual({ paired: true });
+    deps.pairing.verify.mockReturnValue(false);
+    expect((await call("/auth")).status).toBe(401);
+  });
 });
 
 describe("/walkthrough + /head", () => {

@@ -2,11 +2,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 
-vi.mock("../../api", () => ({ api: vi.fn() }));
 vi.mock("../../muninn", () => ({ storeGet: vi.fn(), storeSet: vi.fn(), storeRemove: vi.fn() }));
 
-import { api } from "../../api";
-import { pairingStore } from "../pairing";
 import { PANEL_TABS, panelStore, state } from "../store";
 import { Panel } from "./Panel";
 
@@ -23,7 +20,6 @@ beforeEach(() => {
   });
   state.spec = null;
   state.panel = { open: false, tab: PANEL_TABS.WALKTHROUGH, pos: null, size: null };
-  pairingStore.reset(); // unknown → the pairing banner stays hidden
 });
 afterEach(() => {
   cleanup();
@@ -68,39 +64,6 @@ describe("Panel", () => {
     act(() => panelStore.open());
     fireEvent.click(screen.getByLabelText("Close panel"));
     expect(panelStore.isOpen()).toBe(false);
-  });
-
-  it("shows a pairing banner with a Pair button while unpaired, hidden once paired", async () => {
-    render(<Panel />);
-    act(() => panelStore.open());
-    expect(screen.queryByRole("button", { name: "Pair" })).toBeNull(); // unknown → hidden
-    act(() => pairingStore.markUnpaired());
-    expect(screen.getByText(/Not paired/)).toBeTruthy();
-    vi.mocked(api).mockResolvedValue({ ok: true, data: { requestId: "r", code: "Z9Y8X7" } });
-    await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Pair" }));
-    });
-    expect(screen.getByText("Z9Y8X7")).toBeTruthy(); // Pair → waiting
-  });
-
-  it("the banner shows the code while waiting and the message on error", async () => {
-    vi.useFakeTimers();
-    render(<Panel />);
-    act(() => panelStore.open());
-
-    vi.mocked(api).mockResolvedValue({ ok: true, data: { requestId: "r", code: "ABC234" } });
-    await act(async () => {
-      void pairingStore.pair();
-    });
-    expect(screen.getByText("ABC234")).toBeTruthy(); // waiting branch
-
-    pairingStore.reset();
-    vi.mocked(api).mockResolvedValue({ ok: false, data: { error: "channel down" } });
-    await act(async () => {
-      void pairingStore.pair();
-    });
-    expect(screen.getByText("channel down")).toBeTruthy(); // error branch
-    vi.useRealTimers();
   });
 
   it("dragging the header persists the final position", () => {

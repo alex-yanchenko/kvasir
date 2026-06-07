@@ -89,7 +89,7 @@ export function createPairing(deps: PairingDeps): Pairing {
         approved: false,
       };
       void deps.pushEvent(
-        `Pairing request from "${name}" — code ${pending.code}. If this matches the code shown in the extension's settings panel, call approve_pairing with it. If you did not initiate this, ignore it and let it expire.`,
+        `Pairing request from "${name}" — code ${pending.code}. Confirm with the user via the AskUserQuestion tool (options "Approve" / "Decline", with this code in the question) and call approve_pairing only if they Approve. If you did not initiate this, ignore it and let it expire.`,
         { event_type: "pairing_request", code: pending.code },
       );
       return { ok: true, requestId: pending.requestId, code: pending.code };

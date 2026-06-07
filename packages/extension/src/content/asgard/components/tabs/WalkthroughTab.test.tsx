@@ -6,6 +6,7 @@ import type { WalkthroughSpec } from "@prw/runes/spec";
 vi.mock("../../../muninn", () => ({ storeGet: vi.fn(), storeSet: vi.fn(), storeRemove: vi.fn() }));
 
 import { launcherStore } from "../../launcher";
+import { pairingStore } from "../../pairing";
 import { PANEL_TABS, panelStore, state } from "../../store";
 import { tourStore } from "../../tour";
 import { WalkthroughTab } from "./WalkthroughTab";
@@ -35,6 +36,7 @@ beforeEach(() => {
   state.spec = null;
   state.tourState = { step: 0, pos: null, size: null };
   state.panel = { open: true, tab: PANEL_TABS.WALKTHROUGH, pos: null, size: null };
+  pairingStore.reset(); // singleton — "unknown" so the empty state offers Run review
   if (tourStore.open()) tourStore.close();
 });
 afterEach(() => {
@@ -49,6 +51,29 @@ describe("WalkthroughTab", () => {
     render(<WalkthroughTab />);
     fireEvent.click(screen.getByRole("button", { name: "Run review" }));
     expect(gen).toHaveBeenCalledWith("new");
+  });
+
+  it("when unpaired the empty state offers Pair instead of a dead Run review", () => {
+    const pair = vi.spyOn(pairingStore, "pair").mockResolvedValue();
+    pairingStore.markUnpaired();
+    render(<WalkthroughTab />);
+    expect(screen.queryByRole("button", { name: "Run review" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Pair with Claude" }));
+    expect(pair).toHaveBeenCalled();
+  });
+
+  it("while pairing is waiting the empty state shows the confirmation code", () => {
+    vi.spyOn(pairingStore, "state").mockReturnValue({ phase: "waiting", code: "ABC234" });
+    render(<WalkthroughTab />);
+    expect(screen.getByText("ABC234")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Pair with Claude" })).toBeNull();
+  });
+
+  it("a pairing error is shown with the Pair button to retry", () => {
+    vi.spyOn(pairingStore, "state").mockReturnValue({ phase: "error", message: "channel down" });
+    render(<WalkthroughTab />);
+    expect(screen.getByText("channel down")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Pair with Claude" })).toBeTruthy();
   });
 
   it("generating state shows the timer and can stop watching", () => {

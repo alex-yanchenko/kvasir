@@ -60,6 +60,7 @@ describe("SettingsTab", () => {
 
   it("shows paired status when a token is stored", async () => {
     vi.mocked(storeGet).mockResolvedValue("tok");
+    vi.mocked(api).mockResolvedValue({ ok: true, data: { paired: true } }); // /auth confirms the token
     render(<SettingsTab />);
     await screen.findByText(/Paired with your Claude session/);
     expect(screen.queryByRole("button", { name: "Pair" })).toBeNull();
