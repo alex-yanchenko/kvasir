@@ -91,7 +91,7 @@ export function linkifyRefs(root: HTMLElement): void {
       let link: HTMLAnchorElement | null;
       if (/:\d+(?:-\d+)?$/.test(full)) {
         const colon = full.lastIndexOf(":");
-        const [start, end] = full.slice(colon + 1).split("-");
+        const [start = "", end] = full.slice(colon + 1).split("-");
         link = mkRefLink(full, { file: full.slice(0, colon), start: +start, end: end ? +end : null });
       } else {
         const file = canonical(full);
@@ -168,7 +168,8 @@ function Typewriter({ text, onDone }: { text: string; onDone: () => void }): JSX
 
 interface Busy {
   question: string;
-  replaceIdx?: number;
+  // options-bag field: callers pass through a maybe-undefined index, so allow it
+  replaceIdx?: number | undefined;
 }
 
 function Message({
@@ -204,7 +205,7 @@ function Message({
       // jump to a specific one directly)
       const a = refs[refIdx.current % refs.length];
       refIdx.current++;
-      a.click();
+      a?.click();
     } else if (!sess.general) {
       bifrost.send("pick:rehighlight", { file: sess.file ?? "", text: sess.text, scroll: true });
     }
@@ -439,7 +440,7 @@ function Thread({ sess }: { sess: ChatSession }): JSX.Element {
     if (t) t.scrollTop = t.scrollHeight;
   });
 
-  const send = (question: string, opts: { pushUser?: boolean; replaceIdx?: number } = {}) => {
+  const send = (question: string, opts: { pushUser?: boolean; replaceIdx?: number | undefined } = {}) => {
     setErr(null);
     setBusy({ question, replaceIdx: opts.replaceIdx });
     void chatStore.send(sess.key, question, opts).then((r) => {

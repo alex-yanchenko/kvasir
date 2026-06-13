@@ -32,6 +32,6 @@ export function renderMarkdown(src: string): string {
     .map((p) => (p.trim() ? `<p>${p.replace(/\n/g, "<br>")}</p>` : ""))
     .join("");
   return s
-    .replace(/<p>\u0000B(\d+)\u0000<\/p>/g, (_m: string, i: string) => blocks[+i])
-    .replace(/\u0000B(\d+)\u0000/g, (_m: string, i: string) => blocks[+i]);
+    .replace(/<p>\u0000B(\d+)\u0000<\/p>/g, (_m: string, i: string) => blocks[+i] ?? "")
+    .replace(/\u0000B(\d+)\u0000/g, (_m: string, i: string) => blocks[+i] ?? "");
 }

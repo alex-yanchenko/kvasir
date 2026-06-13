@@ -97,7 +97,12 @@ function buildDiscussion(
     if (!r.body?.trim()) continue; // a bare approve/request-changes carries no prose
     dated.push({
       at: r.submitted_at ?? "",
-      item: { kind: "review", ...authorOf(r.user), state: r.state, body: trim(r.body, CAP_ITEM) },
+      item: {
+        kind: "review",
+        ...authorOf(r.user),
+        ...(r.state !== undefined ? { state: r.state } : {}),
+        body: trim(r.body, CAP_ITEM),
+      },
     });
   }
   for (const c of inlineComments) {
@@ -108,7 +113,7 @@ function buildDiscussion(
       item: {
         kind: "inline",
         ...authorOf(c.user),
-        file: c.path,
+        ...(c.path !== undefined ? { file: c.path } : {}),
         line: c.line ?? c.original_line ?? null,
         body: trim(c.body, CAP_ITEM),
       },
@@ -196,7 +201,7 @@ export async function getManifest(url: string): Promise<PrManifest> {
     status: f.status,
     additions: f.additions,
     deletions: f.deletions,
-    patch: f.patch,
+    ...(f.patch !== undefined ? { patch: f.patch } : {}), // omit for binary/huge files
   }));
 
   return {

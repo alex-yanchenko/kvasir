@@ -51,15 +51,16 @@ export function connectGrip(bifrost: Bifrost): void {
   function payloadFor(s: Selection): SelectionPayload | null {
     const file = filePathFromContainer(s.container);
     const text = codeForRows(s.rows);
-    if (!file || !text) return null;
-    const a = lineOfRow(s.rows[0]);
-    const b = lineOfRow(s.rows[s.rows.length - 1]);
+    const first = s.rows[0];
+    if (!file || !text || !first) return null;
+    const a = lineOfRow(first);
+    const b = lineOfRow(s.rows[s.rows.length - 1] ?? first);
     return {
       selectionId: file + "::" + text.slice(0, 200),
       file,
       text,
       lines: a != null && b != null ? { start: Math.min(a, b), end: Math.max(a, b) } : null,
-      rect: rowRect(s.rows[0]),
+      rect: rowRect(first),
     };
   }
 
@@ -115,7 +116,7 @@ export function connectGrip(bifrost: Bifrost): void {
     // Order left→right: context chat on the left, plain chat always rightmost.
     if (hasActiveStep) mk("Ask about these lines — with the current step's context", true, "prw-askbtn-ctx");
     mk("Ask about these lines — plain chat", false);
-    const r = rowRect(rows[0]);
+    const r = rowRect(rows[0] ?? null);
     bar.style.top = `${r.top + (r.height - 22) / 2}px`;
     bar.style.display = "flex";
     // Sit in the empty left margin, ending just before the line-number gutter, so

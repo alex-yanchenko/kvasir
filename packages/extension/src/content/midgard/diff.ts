@@ -151,12 +151,13 @@ export const rowBandsOf = (container: Element): RowBand[] =>
 // when y falls in a gap between rows, snaps to the row whose band center is
 // nearest. Always returns a row (the fallback only covers an empty band list).
 export function rowAtY(bands: RowBand[], y: number, fallbackRow: Element): Element {
-  if (!bands.length) return fallbackRow;
-  if (y <= bands[0].top) return bands[0].row;
+  const first = bands[0];
+  if (!first) return fallbackRow;
+  if (y <= first.top) return first.row;
   const last = bands[bands.length - 1];
-  if (y >= last.bottom) return last.row;
+  if (last && y >= last.bottom) return last.row;
   for (const band of bands) if (y >= band.top && y <= band.bottom) return band.row;
-  let best = bands[0];
+  let best = first;
   let nearest = Infinity;
   for (const band of bands) {
     const d = Math.abs((band.top + band.bottom) / 2 - y);

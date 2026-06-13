@@ -1,0 +1,7 @@
+{
+  "//": "Tests get every strict flag EXCEPT noUncheckedIndexedAccess — that flag guards against out-of-bounds on real runtime data, but test fixtures are built in-place and indexing them is safe. Production code (tsconfig.json) keeps it on.",
+  "extends": "./tsconfig.json",
+  "compilerOptions": { "noUncheckedIndexedAccess": false },
+  "include": ["src"],
+  "exclude": []
+}

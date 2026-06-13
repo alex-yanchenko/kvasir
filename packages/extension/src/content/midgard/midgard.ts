@@ -79,7 +79,8 @@ export function rehighlightSession(s: RehighlightableSession): Element[] {
   for (let i = 0; i + want.length <= rows.length; i++) {
     let ok = true;
     for (let k = 0; k < want.length; k++) {
-      if (cleanLine(rows[i + k]) !== want[k]) {
+      const row = rows[i + k];
+      if (!row || cleanLine(row) !== want[k]) {
         ok = false;
         break;
       }
@@ -96,11 +97,12 @@ export function rehighlightSession(s: RehighlightableSession): Element[] {
 /** Viewport bounds of the whole step range: the top of the first row, the bottom
  * of the last, and the viewport height — so we judge the entire span, not one row. */
 function rangeBounds(rows: Element[]): { top: number; bottom: number; vh: number } {
-  return {
-    top: rows[0].getBoundingClientRect().top,
-    bottom: rows[rows.length - 1].getBoundingClientRect().bottom,
-    vh: window.innerHeight || document.documentElement.clientHeight || 0,
-  };
+  const first = rows[0];
+  const last = rows[rows.length - 1];
+  /* v8 ignore next 2 */ // callers always pass a non-empty range; the 0 fallbacks are index-narrows only
+  const top = first ? first.getBoundingClientRect().top : 0;
+  const bottom = last ? last.getBoundingClientRect().bottom : 0;
+  return { top, bottom, vh: window.innerHeight || document.documentElement.clientHeight || 0 };
 }
 
 /** True when the whole step range is already on screen, so re-issuing the jump
@@ -126,6 +128,8 @@ function scrollRowsIntoView(rows: Element[], cont: Element): void {
     const { top, bottom, vh } = rangeBounds(rows);
     const fits = bottom - top <= vh - overlay;
     const target = rows[fits ? Math.floor(rows.length / 2) : 0];
+    /* v8 ignore next */ // rows is always non-empty here (callers guard) — index-narrow only
+    if (!target) return;
     if (!fits && overlay && target instanceof HTMLElement) target.style.scrollMarginTop = `${overlay}px`;
     target.scrollIntoView({ behavior: "smooth", block: fits ? "center" : "start" });
   };
@@ -248,6 +252,7 @@ export function jumpToRef(file: string, start: number | null, end: number | null
   // (the file IS in the diff); the highlight lands once the rows render.
   let tries = 0;
   const land = (): void => {
+    if (!cont.isConnected) return; // the file (or page) went away — stop retrying
     const single = rowForLine(cont, start);
     const rows = end ? rowsInRange(cont, start, end) : single ? [single] : [];
     if (rows.length) {
@@ -269,5 +274,5 @@ export function stepCode(step: HighlightableStep): { text: string; rect: ReturnT
   const container = document.getElementById(step.anchor);
   const rows = container && step.lines ? rowsInRange(container, step.lines.start, step.lines.end) : [];
   if (!rows.length) return null;
-  return { text: codeForRows(rows), rect: rowRect(rows[0]) };
+  return { text: codeForRows(rows), rect: rowRect(rows[0] ?? null) };
 }

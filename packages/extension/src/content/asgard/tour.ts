@@ -28,7 +28,7 @@ export const tourStore = {
   open: (): boolean => open,
   stepIdx: (): number => stepIdx,
   stepCount: (): number => state.spec?.steps.length ?? 0,
-  step: (): WalkthroughStep | null => (open && state.spec ? state.spec.steps[stepIdx] : null),
+  step: (): WalkthroughStep | null => (open && state.spec ? (state.spec.steps[stepIdx] ?? null) : null),
 
   start(): void {
     if (!state.spec) return;
@@ -48,6 +48,7 @@ export const tourStore = {
     state.tourState = { ...state.tourState, step: stepIdx }; // remember where we are
     storeSet(tourKey(prUrl()), state.tourState);
     const s = state.spec.steps[stepIdx];
+    if (!s) return; // empty spec / out-of-range — nothing to highlight
     state.activeStep = s; // current step → available as chat context
     bifrost.send("grip:context", { hasActiveStep: true });
     bifrost.send("highlight:step", {

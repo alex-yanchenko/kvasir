@@ -14,7 +14,9 @@ export const PR_URL_RE = /^https:\/\/github\.com\/[A-Za-z0-9._-]+\/[A-Za-z0-9._-
 export function parsePrUrl(url: string): ParsedPr {
   const m = url.match(/^https:\/\/github\.com\/([A-Za-z0-9._-]+)\/([A-Za-z0-9._-]+)\/pull\/(\d+)(?:[/?#]|$)/);
   if (!m) throw new Error("Not a GitHub PR URL");
-  const [, owner, repo] = m;
+  const [, ownerRaw, repoRaw] = m; // groups 1-2 always present when m matched
+  const owner = ownerRaw ?? "";
+  const repo = repoRaw ?? "";
   if (/^\.\.?$/.test(owner) || /^\.\.?$/.test(repo)) throw new Error("Not a GitHub PR URL");
   return { owner, repo, number: Number(m[3]) };
 }

@@ -49,7 +49,7 @@ export function createAskBroker(opts: {
     q.done = true;
     q.timedOut = timedOut;
     q.resolve?.(timedOut ? "" : q.text);
-    q.resolve = undefined;
+    delete q.resolve; // one-shot: drop it so a late poll can't resolve twice
     // Keep the finished state pollable briefly, then drop it.
     q.timer = setTimeout(() => questions.delete(id), DONE_TTL_MS);
   };

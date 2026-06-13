@@ -116,6 +116,16 @@ describe("navigation", () => {
     expect(tourStore.open()).toBe(true);
   });
 
+  it("is safe on an empty-steps spec and with no spec", () => {
+    state.spec = { ...mkSpec(), steps: [] };
+    tourStore.start(); // opens, goto(0) → no step at the clamped index → guarded no-op
+    expect(tourStore.step()).toBeNull();
+    expect(sent.some((s) => s.kind === "highlight:step")).toBe(false);
+
+    state.spec = null;
+    expect(() => tourStore.next()).not.toThrow(); // no-spec guard in next() → no-op
+  });
+
   it("back stops at the first step", () => {
     tourStore.start();
     tourStore.back();
@@ -169,7 +179,7 @@ describe("step context + ask", () => {
     tourStore.askAboutStep();
     expect(open).toHaveBeenCalledWith(expect.objectContaining({ text: "b line" }), true);
 
-    state.activeStep = { ...state.spec!.steps[0], highlight: undefined };
+    state.activeStep = { ...state.spec!.steps[0] }; // step one has no highlight
     tourStore.askAboutStep();
     expect(open).toHaveBeenLastCalledWith(
       expect.objectContaining({
@@ -211,7 +221,7 @@ describe("guard and formatting arms", () => {
     opened.mockClear();
     vi.mocked(stepCode).mockReturnValue(null);
     tourStore.start();
-    state.activeStep = { ...state.spec!.steps[0], highlight: undefined, body: "" };
+    state.activeStep = { ...state.spec!.steps[0], body: "" };
     tourStore.askAboutStep();
     expect(opened).toHaveBeenCalledWith(expect.objectContaining({ text: "" }), true);
   });

@@ -22,7 +22,7 @@ export const api = (path: string, method = "GET", body: unknown = null): Promise
       chrome.runtime.sendMessage({ path, method, body }, (r: BridgeResponse) => {
         const err = chrome.runtime?.lastError; // optional — runtime may be gone by now
         if (err) {
-          resolve({ ok: false, error: err.message });
+          resolve({ ok: false, error: err.message ?? "extension messaging error" });
           return;
         }
         resolve(r || { ok: false, error: "no response" });

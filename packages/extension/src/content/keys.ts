@@ -4,7 +4,7 @@
 
 export const prUrl = (): string | null => {
   const m = location.href.match(/(https:\/\/github\.com\/[^/]+\/[^/]+\/pull\/\d+)/);
-  return m ? m[1] : null;
+  return m?.[1] ?? null;
 };
 
 // GitHub's newer PR UI serves the diff at /changes; older at /files. Accept both.

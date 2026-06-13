@@ -15,7 +15,7 @@ const mkManifest = (files: Partial<PrManifest["files"][number]>[]): PrManifest =
     status: f.status ?? "modified",
     additions: f.additions ?? 0,
     deletions: f.deletions ?? 0,
-    patch: f.patch,
+    ...(f.patch !== undefined ? { patch: f.patch } : {}),
   })),
 });
 

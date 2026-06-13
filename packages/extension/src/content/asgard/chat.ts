@@ -236,7 +236,7 @@ export const chatStore = {
   async send(
     key: string,
     question: string,
-    opts: { pushUser?: boolean; replaceIdx?: number } = {},
+    opts: { pushUser?: boolean; replaceIdx?: number | undefined } = {},
   ): Promise<AskOutcome> {
     const sess = state.chatHistory.find((s) => s.key === key);
     if (!sess) return { ok: false, error: "this chat no longer exists" };
@@ -266,6 +266,8 @@ export const chatStore = {
     // and refresh-resume paths behave exactly as before streaming existed.
     live = { key, note: null, text: "" };
     touch();
+    let prevNote: string | null = null; // mirror the live bubble to diff without re-reading the nullable singleton
+    let prevText = "";
     let sawPartial = false; // any text shown before done → skip the cosmetic typewriter
     try {
       for (;;) {
@@ -276,8 +278,10 @@ export const chatStore = {
           handleAuth(poll);
           return { ok: false, error: friendlyError(poll) };
         }
-        const note = snap.notes.length ? snap.notes[snap.notes.length - 1] : null;
-        if (note !== live.note || snap.text !== live.text) {
+        const note = snap.notes[snap.notes.length - 1] ?? null;
+        if (note !== prevNote || snap.text !== prevText) {
+          prevNote = note;
+          prevText = snap.text;
           live = { key, note, text: snap.text };
           touch();
         }
