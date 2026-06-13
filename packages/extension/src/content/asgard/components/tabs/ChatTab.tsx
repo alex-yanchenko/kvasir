@@ -54,58 +54,67 @@ const mkRefLink = (label: string, ref: { file: string; start: number | null; end
   return a;
 };
 
+type Canonicalize = (mention: string) => string | null;
+
+const insidePreOrAnchor = (node: Text, root: HTMLElement): boolean => {
+  for (let p = node.parentElement; p && p !== root; p = p.parentElement) {
+    if (p.tagName === "PRE" || p.tagName === "A") return true;
+  }
+  return false;
+};
+
+// Text nodes that mention a ref/path and aren't already inside a code block or link.
+const collectRefNodes = (root: HTMLElement): Text[] => {
+  const nodes: Text[] = [];
+  const walk = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  for (let cur = walk.nextNode(); cur; cur = walk.nextNode()) {
+    const node = cur;
+    if (!(node instanceof Text) || !node.nodeValue) continue;
+    if (!REF_RE.test(node.nodeValue) && !FILE_RE.test(node.nodeValue)) continue;
+    if (!insidePreOrAnchor(node, root)) nodes.push(node);
+  }
+  return nodes;
+};
+
+// A `path:line` match becomes a jump-to-code link; a bare path becomes a jump-to-file
+// link only when it names a file in the PR's diff (else it stays plain text).
+const linkForMatch = (full: string, canonical: Canonicalize): HTMLAnchorElement | null => {
+  if (/:\d+(?:-\d+)?$/.test(full)) {
+    const colon = full.lastIndexOf(":");
+    const [start = "", end] = full.slice(colon + 1).split("-");
+    return mkRefLink(full, { file: full.slice(0, colon), start: +start, end: end ? +end : null });
+  }
+  const file = canonical(full);
+  return file ? mkRefLink(full, { file, start: null, end: null }) : null;
+};
+
+const linkifyTextNode = (node: Text, canonical: Canonicalize): void => {
+  const text = String(node.nodeValue); // collected nodes all matched a pattern — never null
+  const frag = document.createDocumentFragment();
+  // SAFE: built from the constant regex literals above, never user input. The
+  // :line form is first so the alternation prefers it over the bare path.
+  const re = new RegExp(`${REF_RE.source}|${FILE_RE.source}`, "g");
+  let last = 0;
+  let m;
+  while ((m = re.exec(text))) {
+    const link = linkForMatch(m[0], canonical);
+    if (!link) continue; // a path that isn't in the PR stays plain text
+    if (m.index > last) frag.append(document.createTextNode(text.slice(last, m.index)));
+    frag.append(link);
+    last = m.index + m[0].length;
+  }
+  if (last === 0) return; // nothing linkable in this node after validation
+  if (last < text.length) frag.append(document.createTextNode(text.slice(last)));
+  node.parentNode?.replaceChild(frag, node);
+};
+
 export function linkifyRefs(root: HTMLElement): void {
   // bare paths only become links when they name a file in the PR's diff —
   // otherwise every npm package or URL fragment would turn into a dead link
   const known = changedFilePaths();
-  const canonical = (mention: string): string | null =>
+  const canonical: Canonicalize = (mention) =>
     known.find((p) => p === mention || p.endsWith("/" + mention) || mention.endsWith("/" + p)) ?? null;
-
-  const nodes: Text[] = [];
-  const walk = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-  let cur = walk.nextNode();
-  while (cur) {
-    const node = cur;
-    cur = walk.nextNode();
-    if (!(node instanceof Text) || !node.nodeValue) continue;
-    if (!REF_RE.test(node.nodeValue) && !FILE_RE.test(node.nodeValue)) continue;
-    let skip = false;
-    for (let p = node.parentElement; p && p !== root; p = p.parentElement) {
-      if (p.tagName === "PRE" || p.tagName === "A") {
-        skip = true;
-        break;
-      }
-    }
-    if (!skip) nodes.push(node);
-  }
-  nodes.forEach((node) => {
-    const text = String(node.nodeValue); // collected nodes all matched a pattern — never null
-    const frag = document.createDocumentFragment();
-    // SAFE: built from the constant regex literals above, never user input. The
-    // :line form is first so the alternation prefers it over the bare path.
-    const re = new RegExp(`${REF_RE.source}|${FILE_RE.source}`, "g");
-    let last = 0;
-    let m;
-    while ((m = re.exec(text))) {
-      const full = m[0];
-      let link: HTMLAnchorElement | null;
-      if (/:\d+(?:-\d+)?$/.test(full)) {
-        const colon = full.lastIndexOf(":");
-        const [start = "", end] = full.slice(colon + 1).split("-");
-        link = mkRefLink(full, { file: full.slice(0, colon), start: +start, end: end ? +end : null });
-      } else {
-        const file = canonical(full);
-        link = file ? mkRefLink(full, { file, start: null, end: null }) : null;
-      }
-      if (!link) continue; // a path that isn't in the PR stays plain text
-      if (m.index > last) frag.append(document.createTextNode(text.slice(last, m.index)));
-      frag.append(link);
-      last = m.index + full.length;
-    }
-    if (last === 0) return; // nothing linkable in this node after validation
-    if (last < text.length) frag.append(document.createTextNode(text.slice(last)));
-    node.parentNode?.replaceChild(frag, node);
-  });
+  for (const node of collectRefNodes(root)) linkifyTextNode(node, canonical);
 }
 
 /** A streaming partial can end mid-code-fence; close it so the block renders as

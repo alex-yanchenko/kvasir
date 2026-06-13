@@ -132,6 +132,50 @@ const suggestionsOf = (data: unknown): string[] | null =>
     ? data.suggestions.map(String)
     : null;
 
+type PollResult = { ok: true; text: string; streamed: boolean } | { ok: false; error: string };
+
+/** Poll the answer stream to completion, mirroring it into the live bubble (notes +
+ * partial text). Resolves to the finished text plus whether any partial was shown
+ * (so the caller can skip the cosmetic typewriter replay). */
+async function pollAnswer(key: string, id: string): Promise<PollResult> {
+  live = { key, note: null, text: "" };
+  touch();
+  let prevNote: string | null = null; // mirror the live bubble to diff without re-reading the nullable singleton
+  let prevText = "";
+  let sawPartial = false; // any text shown before done → skip the cosmetic typewriter
+  // Repaint the live bubble only when the note or text actually changed.
+  const mirror = (note: string | null, text: string): void => {
+    if (note === prevNote && text === prevText) return;
+    prevNote = note;
+    prevText = text;
+    live = { key, note, text };
+    touch();
+  };
+  try {
+    for (;;) {
+      await sleep(POLL_MS);
+      const poll = await api(`/poll?id=${encodeURIComponent(id)}`);
+      const snap = poll.ok ? snapOf(poll.data) : null;
+      if (!snap) {
+        handleAuth(poll);
+        return { ok: false, error: friendlyError(poll) };
+      }
+      mirror(snap.notes.at(-1) ?? null, snap.text);
+      if (!snap.done) {
+        if (snap.text) sawPartial = true;
+        continue;
+      }
+      if (!snap.text) {
+        return { ok: false, error: friendlyError({ error: snap.timedOut ? "request timed out" : "" }) };
+      }
+      return { ok: true, text: snap.text, streamed: sawPartial };
+    }
+  } finally {
+    live = null;
+    touch();
+  }
+}
+
 export const chatStore = {
   active: (): ChatSession | null => state.chatHistory.find((s) => s.key === activeKey) ?? null,
   live: (): LiveAsk | null => live,
@@ -266,55 +310,20 @@ export const chatStore = {
     const id = r.ok ? idOf(r.data) : null;
     if (!id) return { ok: false, error: friendlyError(r) };
 
-    // Poll the stream. The live state (notes + partial text) is ephemeral UI —
-    // only the finished answer lands in the session's messages, so the error
-    // and refresh-resume paths behave exactly as before streaming existed.
-    live = { key, note: null, text: "" };
-    touch();
-    let prevNote: string | null = null; // mirror the live bubble to diff without re-reading the nullable singleton
-    let prevText = "";
-    let sawPartial = false; // any text shown before done → skip the cosmetic typewriter
-    try {
-      for (;;) {
-        await sleep(POLL_MS);
-        const poll = await api(`/poll?id=${encodeURIComponent(id)}`);
-        const snap = poll.ok ? snapOf(poll.data) : null;
-        if (!snap) {
-          handleAuth(poll);
-          return { ok: false, error: friendlyError(poll) };
-        }
-        const note = snap.notes.at(-1) ?? null;
-        if (note !== prevNote || snap.text !== prevText) {
-          prevNote = note;
-          prevText = snap.text;
-          live = { key, note, text: snap.text };
-          touch();
-        }
-        if (!snap.done) {
-          if (snap.text) sawPartial = true;
-          continue;
-        }
-        if (!snap.text) {
-          return {
-            ok: false,
-            error: friendlyError({ error: snap.timedOut ? "request timed out" : "" }),
-          };
-        }
-        const streamed = sawPartial;
-        const msg: ChatMessage = { role: "assistant", content: snap.text };
-        update(key, (s) => ({
-          ...s,
-          messages:
-            opts.replaceIdx !== undefined
-              ? s.messages.map((m, i) => (i === opts.replaceIdx ? msg : m))
-              : [...s.messages, msg],
-        }));
-        return { ok: true, streamed };
-      }
-    } finally {
-      live = null;
-      touch();
-    }
+    // The live state (notes + partial text) is ephemeral UI — only the finished
+    // answer lands in the session's messages, so the error and refresh-resume
+    // paths behave exactly as before streaming existed.
+    const result = await pollAnswer(key, id);
+    if (!result.ok) return result;
+    const msg: ChatMessage = { role: "assistant", content: result.text };
+    update(key, (s) => ({
+      ...s,
+      messages:
+        opts.replaceIdx !== undefined
+          ? s.messages.map((m, i) => (i === opts.replaceIdx ? msg : m))
+          : [...s.messages, msg],
+    }));
+    return { ok: true, streamed: result.streamed };
   },
 
   /** Prefetch the AI suggestions once per session; cached on the session. */

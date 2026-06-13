@@ -80,6 +80,51 @@ function pollForSpec(pr: string, prevSig: string): void {
   }, GEN_POLL_INTERVAL_MS);
 }
 
+/** Load the live spec (and cache it), else fall back to the cached one. */
+async function loadSpec(pr: string): Promise<void> {
+  const r = noteAuth(await api(`/walkthrough?pr=${encodeURIComponent(pr)}`));
+  if (r.ok && isWalkthroughSpec(r.data)) {
+    state.spec = r.data;
+    storeSet(specKey(pr), r.data); // cache fresh spec
+  } else {
+    const cached = await storeGet(specKey(pr));
+    state.spec = isWalkthroughSpec(cached) ? cached : null;
+  }
+  touch();
+}
+
+/** Resume a generation that was in flight before a refresh — within the same window
+ * the poll watches, so the timer keeps counting from the original start. Returns true
+ * if it took over polling (caller should stop). A finished/stale marker is dropped. */
+async function resumeGeneration(pr: string): Promise<boolean> {
+  const gen = await storeGet(genKey(pr));
+  const marker = isGenMarker(gen) ? gen : null;
+  const at = marker?.at || 0;
+  const fresh = Date.now() - at < GEN_MAX_TRIES * GEN_POLL_INTERVAL_MS;
+  if (marker && fresh && (!state.spec || specSig(state.spec) === marker.prevSig)) {
+    generating = true;
+    genStartAt = at;
+    touch();
+    pollForSpec(pr, marker.prevSig ?? "");
+    return true;
+  }
+  if (marker) storeRemove(genKey(pr)); // finished (spec already changed), or stale — drop it
+  return false;
+}
+
+/** Detect commits pushed since the reviewed head. */
+async function detectNewCommits(pr: string): Promise<void> {
+  const h = noteAuth(await api(`/head?pr=${encodeURIComponent(pr)}`));
+  let headSha: string | null = null;
+  if (h.ok && typeof h.data === "object" && h.data !== null && "headSha" in h.data) {
+    headSha = typeof h.data.headSha === "string" ? h.data.headSha : null;
+  }
+  if (!headSha) return;
+  curHead = headSha;
+  newCommits = !!state.spec?.pr?.headSha && state.spec.pr.headSha !== curHead;
+  touch();
+}
+
 export const launcherStore = {
   generating: (): boolean => generating,
   genStartAt: (): number => genStartAt,
@@ -134,49 +179,12 @@ export const launcherStore = {
   async refresh(): Promise<void> {
     const pr = prUrl();
     if (!pr) return;
-    let data: WalkthroughSpec | null = null;
-    const r = noteAuth(await api(`/walkthrough?pr=${encodeURIComponent(pr)}`));
-    if (r.ok && isWalkthroughSpec(r.data)) {
-      data = r.data;
-      storeSet(specKey(pr), data); // cache fresh spec
-    } else {
-      const cached = await storeGet(specKey(pr));
-      if (isWalkthroughSpec(cached)) data = cached; // fall back to cache
-    }
-    state.spec = data;
-    touch();
+    await loadSpec(pr);
     if (state.spec && onFilesTab() && sessionStorage.getItem("prwAutoStart") === "1") {
       sessionStorage.removeItem("prwAutoStart");
       setTimeout(() => tourStore.start(), 900);
     }
-    if (!genPoll) {
-      // resume a generation that was in flight before a refresh — within the same
-      // window the poll watches, so the timer keeps counting from the original start
-      const gen = await storeGet(genKey(pr));
-      const marker = isGenMarker(gen) ? gen : null;
-      const at = marker?.at || 0;
-      const fresh = Date.now() - at < GEN_MAX_TRIES * GEN_POLL_INTERVAL_MS;
-      if (marker && fresh && (!state.spec || specSig(state.spec) === marker.prevSig)) {
-        generating = true;
-        genStartAt = at;
-        touch();
-        pollForSpec(pr, marker.prevSig ?? "");
-        return;
-      }
-      if (marker) storeRemove(genKey(pr)); // finished (spec already changed), or stale — drop it
-    }
-    if (state.spec && !generating) {
-      // detect new commits since the reviewed head
-      const h = noteAuth(await api(`/head?pr=${encodeURIComponent(pr)}`));
-      let headSha: string | null = null;
-      if (h.ok && typeof h.data === "object" && h.data !== null && "headSha" in h.data) {
-        headSha = typeof h.data.headSha === "string" ? h.data.headSha : null;
-      }
-      if (headSha) {
-        curHead = headSha;
-        newCommits = !!state.spec.pr?.headSha && state.spec.pr.headSha !== curHead;
-        touch();
-      }
-    }
+    if (!genPoll && (await resumeGeneration(pr))) return;
+    if (state.spec && !generating) await detectNewCommits(pr);
   },
 };

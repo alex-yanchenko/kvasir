@@ -71,31 +71,25 @@ const authorOf = (u: RawUser | null | undefined): { author: string; bot: boolean
 /** Merge the three comment sources into one time-ordered, capped list. Inline
  * comments whose anchor line no longer exists (position === null) are dropped as
  * outdated; everything else is kept, oldest trimmed first if we exceed the budget. */
-function buildDiscussion(
-  issueComments: { user?: RawUser; body?: string; created_at?: string }[],
-  reviews: { user?: RawUser; body?: string; state?: string; submitted_at?: string }[],
-  inlineComments: {
-    user?: RawUser;
-    body?: string;
-    path?: string;
-    line?: number | null;
-    original_line?: number | null;
-    position?: number | null;
-    created_at?: string;
-  }[],
-): DiscussionItem[] {
-  const dated: { at: string; item: DiscussionItem }[] = [];
+type Dated = { at: string; item: DiscussionItem };
 
+const commentItems = (issueComments: GhIssueComment[]): Dated[] => {
+  const out: Dated[] = [];
   for (const c of issueComments) {
     if (!c.body?.trim()) continue;
-    dated.push({
+    out.push({
       at: c.created_at ?? "",
       item: { kind: "comment", ...authorOf(c.user), body: trim(c.body, CAP_ITEM) },
     });
   }
+  return out;
+};
+
+const reviewItems = (reviews: GhReview[]): Dated[] => {
+  const out: Dated[] = [];
   for (const r of reviews) {
     if (!r.body?.trim()) continue; // a bare approve/request-changes carries no prose
-    dated.push({
+    out.push({
       at: r.submitted_at ?? "",
       item: {
         kind: "review",
@@ -105,10 +99,15 @@ function buildDiscussion(
       },
     });
   }
+  return out;
+};
+
+const inlineItems = (inlineComments: GhInline[]): Dated[] => {
+  const out: Dated[] = [];
   for (const c of inlineComments) {
     if (c.position === null || c.position === undefined) continue; // outdated: anchor line is gone
     if (!c.body?.trim()) continue;
-    dated.push({
+    out.push({
       at: c.created_at ?? "",
       item: {
         kind: "inline",
@@ -119,7 +118,15 @@ function buildDiscussion(
       },
     });
   }
+  return out;
+};
 
+function buildDiscussion(
+  issueComments: GhIssueComment[],
+  reviews: GhReview[],
+  inlineComments: GhInline[],
+): DiscussionItem[] {
+  const dated = [...commentItems(issueComments), ...reviewItems(reviews), ...inlineItems(inlineComments)];
   dated.sort((a, b) => a.at.localeCompare(b.at)); // oldest → newest
   let total = dated.reduce((n, d) => n + d.item.body.length, 0);
   while (total > CAP_TOTAL) {

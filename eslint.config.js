@@ -103,9 +103,6 @@ export default [
       // the rigorous ReDoS analyzer adopted earlier — this heuristic even flags
       // regexes that one proved safe (e.g. the markdown fence).
       "sonarjs/slow-regex": "off",
-      // Real maintainability signal (bridge router at 92), but reducing it is a
-      // scoped refactor, not a lint-ladder edit — tracked as follow-up, not silenced.
-      "sonarjs/cognitive-complexity": "off",
       // The codebase uses idiomatic chained ternaries in JSX render paths and
       // key→value maps; extracting them adds indirection without clarity.
       "sonarjs/no-nested-conditional": "off",
