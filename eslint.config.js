@@ -8,6 +8,7 @@ import jsxA11y from "eslint-plugin-jsx-a11y";
 import eslintComments from "@eslint-community/eslint-plugin-eslint-comments";
 import unicorn from "eslint-plugin-unicorn";
 import sonarjs from "eslint-plugin-sonarjs";
+import vitest from "@vitest/eslint-plugin";
 import globals from "globals";
 
 // Import hygiene shared by every TypeScript surface. no-cycle catches accidental
@@ -179,6 +180,9 @@ export default [
     ...tseslint.configs.disableTypeChecked,
     languageOptions: { parserOptions: { projectService: false, project: false } },
   },
+
+  // Test-quality rules: focused/skipped tests, duplicate titles, vacuous expects.
+  { ...vitest.configs.recommended, files: ["packages/**/*.test.{ts,tsx}"] },
 
   // Extension: browser content scripts still in plain JS until their Phase 4 split.
   {

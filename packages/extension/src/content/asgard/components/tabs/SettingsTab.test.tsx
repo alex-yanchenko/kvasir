@@ -76,6 +76,6 @@ describe("SettingsTab", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Pair" }));
     await screen.findByText(/already pending/);
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
-    await screen.findByText(/already pending/);
+    expect(await screen.findByText(/already pending/)).toBeTruthy();
   });
 });

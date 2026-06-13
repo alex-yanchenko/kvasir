@@ -74,6 +74,7 @@ describe("useScrollLock", () => {
 
   it("is a no-op when the ref is empty", () => {
     renderHook(() => useScrollLock({ current: null }));
-    // nothing to assert beyond not throwing — the effect returns early
+    // No element to bind to → no wheel handler is installed, so the page still scrolls.
+    expect(wheel(document.body, 40).defaultPrevented).toBe(false);
   });
 });
