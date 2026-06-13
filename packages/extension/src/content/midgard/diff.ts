@@ -58,7 +58,7 @@ export function changedFilePaths(): string[] {
 export function diffContainerOf(node: Node | null): Element | null {
   let element: Element | null = node instanceof Element ? node : (node?.parentElement ?? null);
   while (element && !(element.id && element.id.startsWith("diff-"))) element = element.parentElement;
-  return element || null;
+  return element ?? null;
 }
 
 // Find a file's diff container by its path (for re-highlighting a reopened chat).

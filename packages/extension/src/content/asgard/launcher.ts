@@ -99,7 +99,7 @@ async function loadSpec(pr: string): Promise<void> {
 async function resumeGeneration(pr: string): Promise<boolean> {
   const gen = await storeGet(genKey(pr));
   const marker = isGenMarker(gen) ? gen : null;
-  const at = marker?.at || 0;
+  const at = marker?.at ?? 0;
   const fresh = Date.now() - at < GEN_MAX_TRIES * GEN_POLL_INTERVAL_MS;
   if (marker && fresh && (!state.spec || specSig(state.spec) === marker.previousSig)) {
     generating = true;

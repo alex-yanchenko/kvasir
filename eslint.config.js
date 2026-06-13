@@ -49,6 +49,9 @@ const typeAwareRules = {
   "@typescript-eslint/unbound-method": "error",
   "@typescript-eslint/require-await": "error",
   "@typescript-eslint/no-deprecated": "error",
+  // String `||` chains often intend falsy-fallthrough ("" → next); enforce ?? only
+  // where the footgun is real (a falsy number/object silently taking the fallback).
+  "@typescript-eslint/prefer-nullish-coalescing": ["error", { ignorePrimitives: { string: true } }],
 };
 const parserOptions = { projectService: true, tsconfigRootDir: import.meta.dirname };
 

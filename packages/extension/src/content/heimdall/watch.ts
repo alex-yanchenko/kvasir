@@ -22,16 +22,16 @@ export async function loadPersisted(): Promise<void> {
   if (typeof t === "object" && t !== null) {
     const stored = t as Partial<TourState>; // shape-checked field by field below
     state.tourState = {
-      step: stored.step || 0,
-      pos: stored.pos || null,
-      size: stored.size || null,
+      step: stored.step ?? 0,
+      pos: stored.pos ?? null,
+      size: stored.size ?? null,
     };
   }
   const p = await storeGet(panelKey(pr));
   if (typeof p === "object" && p !== null) {
     const stored = p as { pos?: typeof state.panel.pos; size?: typeof state.panel.size };
-    state.panel.pos = stored.pos || null;
-    state.panel.size = stored.size || null;
+    state.panel.pos = stored.pos ?? null;
+    state.panel.size = stored.size ?? null;
   }
 }
 

@@ -92,7 +92,7 @@ export const tourStore = {
     const page = stepCode({ anchor: s.anchor, lines: s.lines ?? null });
     const text =
       page?.text ||
-      (s.highlight || []).join("\n") ||
+      (s.highlight ?? []).join("\n") ||
       (s.body || "").replaceAll(/<[^>]+>/g, "").slice(0, 1000);
     const rect = page?.rect ?? { left: 60, top: 90, bottom: 114, height: 24 };
     chatStore.openSelection(

@@ -337,6 +337,7 @@ export const chatStore = {
       selection: sess.text.slice(0, 6000),
     });
     if (handleAuth(r)) return; // unpaired — don't cache an empty list, re-fetch after pairing
+    // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- the && yields `false` when !r.ok; || (not ??) must catch that falsy case.
     const list = (r.ok && suggestionsOf(r.data)) || [];
     update(key, (s) => ({ ...s, suggestions: list }));
   },
