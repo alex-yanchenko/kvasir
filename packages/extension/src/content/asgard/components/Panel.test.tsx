@@ -4,6 +4,7 @@ import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 
 vi.mock("../../muninn", () => ({ storeGet: vi.fn(), storeSet: vi.fn(), storeRemove: vi.fn() }));
 
+import { pairingStore } from "../pairing";
 import { PANEL_TABS, panelStore, state } from "../store";
 import { tourStore } from "../tour";
 import { Panel } from "./Panel";
@@ -25,6 +26,7 @@ beforeEach(() => {
   });
   state.spec = null;
   state.panel = { open: false, tab: PANEL_TABS.WALKTHROUGH, pos: null, size: null };
+  pairingStore.reset(); // "unknown" → no banner unless a test sets the phase
 });
 afterEach(() => {
   cleanup();
@@ -84,6 +86,32 @@ describe("Panel", () => {
     expect(tourStore.open()).toBe(true);
     act(() => panelStore.close());
     expect(tourStore.open()).toBe(false);
+  });
+
+  it("shows a global pair banner whenever unpaired, on any tab but Settings", () => {
+    const pair = vi.spyOn(pairingStore, "pair").mockResolvedValue();
+    render(<Panel />);
+    act(() => panelStore.open());
+    expect(screen.queryByRole("button", { name: "Pair" })).toBeNull(); // unknown → hidden
+    act(() => pairingStore.markUnpaired());
+    // the banner's distinct phrasing (SettingsTab's Connection block also says "Not paired")
+    expect(screen.getByText(/connect to your Claude session to continue/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Pair" }));
+    expect(pair).toHaveBeenCalled();
+    // hidden on Settings (its own Connection block handles pairing there)
+    act(() => panelStore.setTab(PANEL_TABS.SETTINGS));
+    expect(screen.queryByText(/connect to your Claude session to continue/)).toBeNull();
+  });
+
+  it("the pair banner shows the waiting code and the error message", () => {
+    render(<Panel />);
+    act(() => panelStore.open());
+    vi.spyOn(pairingStore, "state").mockReturnValue({ phase: "waiting", code: "ABC234" });
+    act(() => panelStore.setTab(PANEL_TABS.CHAT)); // any non-settings tab; forces a re-render
+    expect(screen.getByText("ABC234")).toBeTruthy();
+    vi.mocked(pairingStore.state).mockReturnValue({ phase: "error", message: "channel down" });
+    act(() => panelStore.setTab(PANEL_TABS.WALKTHROUGH));
+    expect(screen.getByText("channel down")).toBeTruthy();
   });
 
   it("the close button hides the panel", () => {

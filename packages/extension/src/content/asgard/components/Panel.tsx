@@ -6,6 +6,7 @@ import type { JSX } from "react";
 import { useEffect, useRef, useSyncExternalStore } from "react";
 import { X } from "lucide-react";
 import { launcherStore } from "../launcher";
+import { pairingStore } from "../pairing";
 import { tourStore } from "../tour";
 import { getSnapshot, PANEL_TABS, panelStore, subscribe, type PanelTab } from "../store";
 import { useDrag } from "../hooks/useDrag";
@@ -22,6 +23,34 @@ const TAB_LABELS: Array<{ value: PanelTab; label: string }> = [
   { value: PANEL_TABS.CHAT, label: "Chat" },
   { value: PANEL_TABS.SETTINGS, label: "Settings" },
 ];
+
+/** Shown on every tab (except Settings, which has its own Connection block)
+ * whenever the extension isn't paired — so ANY 401 from the bridge (regenerate,
+ * chat, suggestions, head) surfaces a way to pair, not just the no-spec empty
+ * state. The 401 handlers flip pairingStore to unpaired; this reacts to it. */
+function PairBanner(): JSX.Element | null {
+  const p = pairingStore.state();
+  if (p.phase === "paired" || p.phase === "unknown" || panelStore.tab() === PANEL_TABS.SETTINGS) return null;
+  return (
+    <div className="flex items-center gap-2 border-b border-border bg-secondary px-3 py-1.5 text-xs">
+      {p.phase === "waiting" ? (
+        <span className="text-muted-foreground">
+          Confirm code <b className="font-mono tracking-widest text-foreground">{p.code}</b> in your Claude
+          session
+        </span>
+      ) : (
+        <>
+          <span className={p.phase === "error" ? "text-destructive" : "text-muted-foreground"}>
+            {p.phase === "error" ? p.message : "Not paired — connect to your Claude session to continue."}
+          </span>
+          <Button size="sm" className="ml-auto h-6" onClick={() => void pairingStore.pair()}>
+            Pair
+          </Button>
+        </>
+      )}
+    </div>
+  );
+}
 
 // The panel mounts only while open, so the resize observer (a mount-only effect)
 // attaches to the live element. Keeping the hooks above an `isOpen` early-return
@@ -74,6 +103,8 @@ function PanelWindow(): JSX.Element {
           <X />
         </Button>
       </div>
+
+      <PairBanner />
 
       <Tabs
         value={panelStore.tab()}
