@@ -27,3 +27,7 @@ asgard.compiled.css
 # Playwright e2e artifacts
 test-results/
 playwright-report/
+
+# Stryker mutation reports + sandbox
+reports/
+.stryker-tmp/
