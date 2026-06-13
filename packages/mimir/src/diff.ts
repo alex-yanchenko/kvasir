@@ -72,9 +72,9 @@ const authorOf = (u: RawUser | null | undefined): { author: string; bot: boolean
  * comments whose anchor line no longer exists (position === null) are dropped as
  * outdated; everything else is kept, oldest trimmed first if we exceed the budget. */
 function buildDiscussion(
-  issueComments: Array<{ user?: RawUser; body?: string; created_at?: string }>,
-  reviews: Array<{ user?: RawUser; body?: string; state?: string; submitted_at?: string }>,
-  inlineComments: Array<{
+  issueComments: { user?: RawUser; body?: string; created_at?: string }[],
+  reviews: { user?: RawUser; body?: string; state?: string; submitted_at?: string }[],
+  inlineComments: {
     user?: RawUser;
     body?: string;
     path?: string;
@@ -82,9 +82,9 @@ function buildDiscussion(
     original_line?: number | null;
     position?: number | null;
     created_at?: string;
-  }>,
+  }[],
 ): DiscussionItem[] {
-  const dated: Array<{ at: string; item: DiscussionItem }> = [];
+  const dated: { at: string; item: DiscussionItem }[] = [];
 
   for (const c of issueComments) {
     if (!c.body?.trim()) continue;
@@ -122,8 +122,10 @@ function buildDiscussion(
 
   dated.sort((a, b) => a.at.localeCompare(b.at)); // oldest → newest
   let total = dated.reduce((n, d) => n + d.item.body.length, 0);
-  while (total > CAP_TOTAL && dated.length) {
-    total -= dated.shift()!.item.body.length; // drop the oldest until under budget
+  while (total > CAP_TOTAL) {
+    const dropped = dated.shift(); // drop the oldest until under budget
+    if (!dropped) break;
+    total -= dropped.item.body.length;
   }
   return dated.map((d) => d.item);
 }
@@ -149,10 +151,52 @@ export function uncoveredFiles(manifest: PrManifest, stepFiles: string[]): strin
     .filter((p) => !isCovered(p));
 }
 
+// The gh-JSON shapes we read. Only the fields we use — gh returns much more.
+interface GhPull {
+  title: string;
+  body?: string;
+  head?: { sha?: string };
+}
+interface GhFile {
+  filename: string;
+  status: string;
+  additions: number;
+  deletions: number;
+  patch?: string;
+}
+interface GhIssueComment {
+  user?: RawUser;
+  body?: string;
+  created_at?: string;
+}
+interface GhReview {
+  user?: RawUser;
+  body?: string;
+  state?: string;
+  submitted_at?: string;
+}
+interface GhInline {
+  user?: RawUser;
+  body?: string;
+  path?: string;
+  line?: number | null;
+  original_line?: number | null;
+  position?: number | null;
+  created_at?: string;
+}
+
+/** A `gh` subprocess exited non-zero — named so callers can discriminate it. */
+class GhError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "GhError";
+  }
+}
+
 /** Current head commit SHA of a PR (for detecting new pushes since a review). */
 export async function getHeadSha(url: string): Promise<string> {
   const { owner, repo, number } = parsePrUrl(url);
-  const pull = JSON.parse(await gh(["api", `repos/${owner}/${repo}/pulls/${number}`]));
+  const pull = await ghJson<GhPull>(["api", `repos/${owner}/${repo}/pulls/${number}`]);
   return pull.head?.sha ?? "";
 }
 
@@ -162,10 +206,14 @@ async function gh(args: string[]): Promise<string> {
   const err = await new Response(proc.stderr).text();
   const code = await proc.exited;
   if (code !== 0) {
-    throw new Error(`gh ${args.join(" ")} failed (exit ${code}): ${err.trim() || out.trim()}`);
+    throw new GhError(`gh ${args.join(" ")} failed (exit ${code}): ${err.trim() || out.trim()}`);
   }
   return out;
 }
+
+// Parse a gh response to a known shape. Typing the external IO boundary here (like
+// a projected .lean<T>() read) keeps the unsafe-any out of the rest of the module.
+const ghJson = async <T>(args: string[]): Promise<T> => JSON.parse(await gh(args)) as T;
 
 /**
  * Fetch the changed-files manifest for a PR via `gh api`. This is the starting
@@ -180,22 +228,14 @@ export async function getManifest(url: string): Promise<PrManifest> {
   // comment sources. The diff is the substance; description + discussion are the
   // context the author weighs when writing the spec (see channel instructions).
   const [pull, filesRaw, issueComments, reviews, inlineComments] = await Promise.all([
-    gh(["api", `${base}/pulls/${number}`]).then(JSON.parse),
-    gh(["api", "--paginate", `${base}/pulls/${number}/files`]).then(JSON.parse),
-    gh(["api", "--paginate", `${base}/issues/${number}/comments`]).then(JSON.parse),
-    gh(["api", "--paginate", `${base}/pulls/${number}/reviews`]).then(JSON.parse),
-    gh(["api", "--paginate", `${base}/pulls/${number}/comments`]).then(JSON.parse),
+    ghJson<GhPull>(["api", `${base}/pulls/${number}`]),
+    ghJson<GhFile[]>(["api", "--paginate", `${base}/pulls/${number}/files`]),
+    ghJson<GhIssueComment[]>(["api", "--paginate", `${base}/issues/${number}/comments`]),
+    ghJson<GhReview[]>(["api", "--paginate", `${base}/pulls/${number}/reviews`]),
+    ghJson<GhInline[]>(["api", "--paginate", `${base}/pulls/${number}/comments`]),
   ]);
 
-  const files: ChangedFile[] = (
-    filesRaw as Array<{
-      filename: string;
-      status: string;
-      additions: number;
-      deletions: number;
-      patch?: string;
-    }>
-  ).map((f) => ({
+  const files: ChangedFile[] = filesRaw.map((f) => ({
     path: f.filename,
     anchor: anchorFor(f.filename),
     status: f.status,
