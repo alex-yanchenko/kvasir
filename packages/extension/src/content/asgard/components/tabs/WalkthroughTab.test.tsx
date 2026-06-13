@@ -6,6 +6,7 @@ import type { WalkthroughSpec } from "@prw/runes/spec";
 vi.mock("../../../muninn", () => ({ storeGet: vi.fn(), storeSet: vi.fn(), storeRemove: vi.fn() }));
 
 import { launcherStore } from "../../launcher";
+import { pairingStore } from "../../pairing";
 import { PANEL_TABS, panelStore, state } from "../../store";
 import { tourStore } from "../../tour";
 import { WalkthroughTab } from "./WalkthroughTab";
@@ -35,6 +36,7 @@ beforeEach(() => {
   state.spec = null;
   state.tourState = { step: 0, pos: null, size: null };
   state.panel = { open: true, tab: PANEL_TABS.WALKTHROUGH, pos: null, size: null };
+  pairingStore.reset(); // "unknown" → backend actions enabled unless a test sets unpaired
   if (tourStore.open()) tourStore.close();
 });
 afterEach(() => {
@@ -49,6 +51,16 @@ describe("WalkthroughTab", () => {
     render(<WalkthroughTab />);
     fireEvent.click(screen.getByRole("button", { name: "Run review" }));
     expect(gen).toHaveBeenCalledWith("new");
+  });
+
+  it("disables backend actions while unpaired", () => {
+    pairingStore.markUnpaired();
+    state.spec = mkSpec();
+    render(<WalkthroughTab />);
+    expect((screen.getByLabelText("Ask about this step") as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByLabelText("Regenerate") as HTMLButtonElement).disabled).toBe(true);
+    // local nav stays usable
+    expect((screen.getByLabelText("Next step") as HTMLButtonElement).disabled).toBe(false);
   });
 
   it("generating state shows the timer and can stop watching", () => {

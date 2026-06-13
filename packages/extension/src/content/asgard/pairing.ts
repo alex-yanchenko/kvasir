@@ -44,6 +44,11 @@ const tokenOf = (data: unknown): string | null =>
 export const pairingStore = {
   state: (): PairingPhase => state,
 
+  /** True while a bridge call would 401 — used to disable backend-dependent
+   * controls so they don't look clickable. "unknown" (pre-boot-check) stays
+   * enabled; it resolves to paired/unpaired within a moment of load. */
+  needsPairing: (): boolean => state.phase !== "paired" && state.phase !== "unknown",
+
   /** Back to square one (tests; the machine is a module singleton). */
   reset(): void {
     set({ phase: "unknown" });

@@ -7,6 +7,7 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import { ChevronLeft, ChevronRight, Crosshair, Loader2, MessageSquare, Play, RefreshCw } from "lucide-react";
 import { sanitizeSpecHtml } from "../../../sanitize";
 import { fmtElapsed, launcherStore } from "../../launcher";
+import { pairingStore } from "../../pairing";
 import { getSnapshot, PANEL_TABS, panelStore, subscribe } from "../../store";
 import { tourStore } from "../../tour";
 import { Button } from "../../ui/button";
@@ -38,7 +39,10 @@ function Empty(): JSX.Element {
   return (
     <div className="flex flex-col items-center gap-3 p-8 text-center">
       <p className="text-sm text-muted-foreground">No walkthrough yet for this PR.</p>
-      <Button onClick={() => void launcherStore.requestGenerate("new")}>
+      <Button
+        disabled={pairingStore.needsPairing()}
+        onClick={() => void launcherStore.requestGenerate("new")}
+      >
         <Play /> Run review
       </Button>
     </div>
@@ -103,6 +107,7 @@ function Steps(): JSX.Element {
             className="h-7 w-7"
             aria-label="Ask about this step"
             data-prw-tip="Ask about this step"
+            disabled={pairingStore.needsPairing()}
             onClick={() => {
               tourStore.askAboutStep();
               panelStore.setTab(PANEL_TABS.CHAT);
@@ -126,6 +131,7 @@ function Steps(): JSX.Element {
             className={"h-7 w-7" + (newCommits ? " text-primary" : "")}
             aria-label={newCommits ? "Update" : "Regenerate"}
             data-prw-tip={newCommits ? "Update — new commits since this review" : "Regenerate review"}
+            disabled={pairingStore.needsPairing()}
             onClick={() => setDialog(true)}
           >
             <RefreshCw />

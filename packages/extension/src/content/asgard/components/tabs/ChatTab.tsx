@@ -20,6 +20,7 @@ import {
 import { bifrost } from "../../../bifrost";
 import { changedFilePaths } from "../../../midgard/diff";
 import { chatStore, QUICK, QUICK_PR } from "../../chat";
+import { pairingStore } from "../../pairing";
 import { chatSnippet, chatsStore, getSnapshot, subscribe } from "../../store";
 import type { ChatMessage, ChatSession } from "../../types";
 import { Button } from "../../ui/button";
@@ -244,7 +245,15 @@ function Message({
 
 /** An option row: selectable text + a → button (only the button sends). The
  * expand chevron appears when the text is clipped at the current width. */
-function OptionRow({ label, onAsk }: { label: string; onAsk: () => void }): JSX.Element {
+function OptionRow({
+  label,
+  onAsk,
+  disabled,
+}: {
+  label: string;
+  onAsk: () => void;
+  disabled?: boolean;
+}): JSX.Element {
   const textRef = useRef<HTMLSpanElement>(null);
   const [clipped, setClipped] = useState(false);
   const [open, setOpen] = useState(false);
@@ -271,7 +280,13 @@ function OptionRow({ label, onAsk }: { label: string; onAsk: () => void }): JSX.
       <span ref={textRef} className="prw-srow-text" data-prw-tip={label}>
         {label}
       </span>
-      <button className="prw-srow-ask" data-prw-tip="Ask this" aria-label="Ask this question" onClick={onAsk}>
+      <button
+        className="prw-srow-ask"
+        data-prw-tip="Ask this"
+        aria-label="Ask this question"
+        disabled={disabled}
+        onClick={onAsk}
+      >
         <ArrowRight />
       </button>
     </div>
@@ -401,6 +416,9 @@ function Thread({ sess }: { sess: ChatSession }): JSX.Element {
   const [streamIdx, setStreamIdx] = useState<number | null>(null);
   const liveRaw = chatStore.live();
   const liveAsk = liveRaw && liveRaw.key === sess.key ? liveRaw : null;
+  // Asking hits the bridge; while unpaired those controls are disabled (the panel's
+  // PairBanner explains why) so a click can't silently 401 into nothing.
+  const blocked = pairingStore.needsPairing();
 
   // the step-context banner closes on any click outside it (shadow-safe)
   useEffect(() => {
@@ -488,7 +506,7 @@ function Thread({ sess }: { sess: ChatSession }): JSX.Element {
       <div className="prw-options">
         <div className="prw-quick">
           {(sess.general ? QUICK_PR : QUICK).map((a) => (
-            <button key={a.label} className="prw-chip" onClick={() => ask(a.q)}>
+            <button key={a.label} className="prw-chip" disabled={blocked} onClick={() => ask(a.q)}>
               {a.label}
             </button>
           ))}
@@ -496,7 +514,9 @@ function Thread({ sess }: { sess: ChatSession }): JSX.Element {
         <div className={"prw-ai" + (sess.general || sess.suggestions?.length === 0 ? "" : " prw-has")}>
           {!sess.general &&
             (sess.suggestions
-              ? sess.suggestions.slice(0, 3).map((q) => <OptionRow key={q} label={q} onAsk={() => ask(q)} />)
+              ? sess.suggestions
+                  .slice(0, 3)
+                  .map((q) => <OptionRow key={q} label={q} onAsk={() => ask(q)} disabled={blocked} />)
               : [0, 1, 2].map((i) => <div key={i} className="prw-srow prw-skel" />))}
         </div>
       </div>
@@ -550,7 +570,10 @@ function Thread({ sess }: { sess: ChatSession }): JSX.Element {
           ref={inputRef}
           className="prw-input prw-chat-input"
           rows={1}
-          placeholder="Ask…  (Enter to send · ⌘/Ctrl+Enter for a new line)"
+          disabled={blocked}
+          placeholder={
+            blocked ? "Pair the extension to chat…" : "Ask…  (Enter to send · ⌘/Ctrl+Enter for a new line)"
+          }
           onInput={(e) => autosize(e.currentTarget)}
           onKeyDown={(e) => {
             if (e.key !== "Enter") return;
@@ -571,7 +594,9 @@ function Thread({ sess }: { sess: ChatSession }): JSX.Element {
             submit();
           }}
         />
-        <Button onClick={submit}>Ask</Button>
+        <Button disabled={blocked} onClick={submit}>
+          Ask
+        </Button>
       </div>
     </div>
   );

@@ -8,6 +8,7 @@ vi.mock("../../../muninn", () => ({ storeGet: vi.fn(), storeSet: vi.fn(), storeR
 import { api } from "../../../api";
 import { bifrost } from "../../../bifrost";
 import { chatStore } from "../../chat";
+import { pairingStore } from "../../pairing";
 import { PANEL_TABS, state } from "../../store";
 import type { ChatSession } from "../../types";
 import { ChatTab, closeFences, linkifyRefs, REF_RE } from "./ChatTab";
@@ -38,6 +39,7 @@ beforeEach(() => {
   state.chatHistory = [];
   state.panel = { open: true, tab: PANEL_TABS.CHAT, pos: null, size: null };
   localStorage.clear();
+  pairingStore.reset(); // "unknown" → composer/chips enabled unless a test sets unpaired
   chatStore.deleteActive();
   jumps = [];
   offs = [
@@ -164,6 +166,15 @@ describe("ChatTab shell", () => {
       fireEvent.mouseUp(document);
     });
     expect(localStorage.getItem("prw:chatRailW")).toBe("280"); // RAIL_MAX
+  });
+
+  it("disables the composer and quick chips while unpaired", () => {
+    pairingStore.markUnpaired();
+    render(<ChatTab />);
+    openSession(mkSession("a"));
+    expect(document.querySelector<HTMLTextAreaElement>(".prw-chat-input")!.disabled).toBe(true);
+    expect((screen.getByRole("button", { name: "Ask" }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByText("Explain") as HTMLButtonElement).disabled).toBe(true);
   });
 
   it("the rail starts a new chat, switches between chats, deletes one, and clears all", () => {

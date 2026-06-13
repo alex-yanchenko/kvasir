@@ -273,6 +273,17 @@
   background: var(--accent);
   border-color: color-mix(in srgb, var(--primary) 45%, var(--border));
 }
+.prw-chip:disabled,
+.prw-srow-ask:disabled,
+.prw-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.prw-chip:disabled:hover {
+  color: var(--muted-foreground);
+  background: transparent;
+  border-color: var(--border);
+}
 
 /* ── step-context disclosure banner ─────────────────────────────────────────── */
 .prw-ctxbanner {
