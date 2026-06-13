@@ -1,0 +1,14 @@
+[
+  {
+    "name": "content script (gz)",
+    "path": "packages/extension/dist/content.js",
+    "limit": "115 kB",
+    "gzip": true
+  },
+  {
+    "name": "background worker (gz)",
+    "path": "packages/extension/dist/huginn.js",
+    "limit": "2 kB",
+    "gzip": true
+  }
+]
