@@ -131,6 +131,19 @@ function Steps(): JSX.Element {
             variant="ghost"
             size="icon"
             className="h-7 w-7"
+            aria-label="Ask about this step"
+            data-prw-tip="Ask about this step"
+            onClick={() => {
+              tourStore.askAboutStep();
+              panelStore.setTab(PANEL_TABS.CHAT);
+            }}
+          >
+            <MessageSquare />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
             aria-label="Scroll to this step's code"
             data-prw-tip="Scroll to this step's code"
             onClick={() => tourStore.goto(idx)}
@@ -176,18 +189,6 @@ function Steps(): JSX.Element {
             )}
           </>
         )}
-        {/* contextual action, right under the content it's about */}
-        <Button
-          variant="secondary"
-          size="sm"
-          className="mt-3"
-          onClick={() => {
-            tourStore.askAboutStep();
-            panelStore.setTab(PANEL_TABS.CHAT);
-          }}
-        >
-          <MessageSquare /> Ask about this step
-        </Button>
       </div>
 
       {/* wizard footer: Back (quiet) · progress dots · Next (accent) */}
