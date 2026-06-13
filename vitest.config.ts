@@ -10,6 +10,12 @@ export default defineConfig({
   test: {
     include: ["packages/**/src/**/*.test.{ts,tsx}"],
     environment: "node",
+    // Global mock lifecycle (before every test) so no suite can leak state into the
+    // next: clear call records, restore spied originals, and undo vi.stubGlobal.
+    // Replaces per-file afterEach(restoreAllMocks/clearAllMocks) boilerplate.
+    clearMocks: true,
+    restoreMocks: true,
+    unstubGlobals: true,
     coverage: {
       provider: "v8",
       include: ["packages/*/src/**"],
