@@ -116,37 +116,17 @@ function Steps(): JSX.Element {
   }, []);
 
   if (!step) return <Empty />;
+  const newCommits = launcherStore.newCommits();
+  const atFirst = idx === 0;
+  const atLast = idx >= count - 1;
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center gap-2 border-b border-border px-3 py-2">
+      {/* header: where you are + low-frequency utilities (re-scroll, regenerate) */}
+      <div className="flex items-center gap-1 border-b border-border px-3 py-2">
         <span className="text-xs text-muted-foreground">
           Step <span className="font-medium text-primary">{idx + 1}</span> / {count}
         </span>
         <div className="ml-auto flex items-center gap-1">
-          <span data-prw-tip={idx === 0 ? "First step" : undefined}>
-            <Button
-              variant="outline"
-              size="icon"
-              className="h-7 w-7"
-              aria-label="Previous step"
-              disabled={idx === 0}
-              onClick={() => tourStore.back()}
-            >
-              <ChevronLeft />
-            </Button>
-          </span>
-          <span data-prw-tip={idx >= count - 1 ? "Last step" : undefined}>
-            <Button
-              variant="outline"
-              size="icon"
-              className="h-7 w-7"
-              aria-label="Next step"
-              disabled={idx >= count - 1}
-              onClick={() => tourStore.next()}
-            >
-              <ChevronRight />
-            </Button>
-          </span>
           <Button
             variant="ghost"
             size="icon"
@@ -156,6 +136,16 @@ function Steps(): JSX.Element {
             onClick={() => tourStore.goto(idx)}
           >
             <Crosshair />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className={"h-7 w-7" + (newCommits ? " text-primary" : "")}
+            aria-label={newCommits ? "Update" : "Regenerate"}
+            data-prw-tip={newCommits ? "Update — new commits since this review" : "Regenerate review"}
+            onClick={() => setDialog(true)}
+          >
+            <RefreshCw />
           </Button>
         </div>
       </div>
@@ -186,12 +176,11 @@ function Steps(): JSX.Element {
             )}
           </>
         )}
-      </div>
-
-      <div className="flex items-center gap-2 border-t border-border px-3 py-2">
+        {/* contextual action, right under the content it's about */}
         <Button
-          variant="default"
+          variant="secondary"
           size="sm"
+          className="mt-3"
           onClick={() => {
             tourStore.askAboutStep();
             panelStore.setTab(PANEL_TABS.CHAT);
@@ -199,15 +188,46 @@ function Steps(): JSX.Element {
         >
           <MessageSquare /> Ask about this step
         </Button>
-        {/* a pending update is worth the eye (filled accent); a plain regenerate stays quiet */}
-        <Button
-          variant={launcherStore.newCommits() ? "default" : "ghost"}
-          size="sm"
-          className="ml-auto"
-          onClick={() => setDialog(true)}
-        >
-          <RefreshCw /> {launcherStore.newCommits() ? "Update" : "Regenerate"}
-        </Button>
+      </div>
+
+      {/* wizard footer: Back (quiet) · progress dots · Next (accent) */}
+      <div className="flex items-center gap-2 border-t border-border px-3 py-2">
+        <span data-prw-tip={atFirst ? "First step" : undefined}>
+          <Button
+            variant="ghost"
+            size="sm"
+            aria-label="Previous step"
+            disabled={atFirst}
+            onClick={() => tourStore.back()}
+          >
+            <ChevronLeft /> Back
+          </Button>
+        </span>
+        <div className="mx-auto flex items-center gap-1.5">
+          {Array.from({ length: count }, (_unused, i) => (
+            <button
+              key={i}
+              aria-label={`Go to step ${i + 1}`}
+              data-prw-tip={`Step ${i + 1}`}
+              onClick={() => tourStore.goto(i)}
+              className={
+                "h-1.5 cursor-pointer rounded-full transition-all " +
+                (i === idx ? "w-4 bg-primary" : "w-1.5 bg-border hover:bg-muted-foreground")
+              }
+            />
+          ))}
+        </div>
+        <span data-prw-tip={atLast ? "Last step" : undefined}>
+          <Button
+            variant="default"
+            size="sm"
+            aria-label="Next step"
+            disabled={atLast}
+            onClick={() => tourStore.next()}
+          >
+            Next <ChevronRight />
+          </Button>
+        </span>
       </div>
       {dialog && <RegenDialog onClose={() => setDialog(false)} />}
     </div>
