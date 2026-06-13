@@ -4,7 +4,7 @@
 // Node; channel.ts supplies the live deps and hands the handler to Bun.serve.
 import { prKey, PR_URL_RE, type WalkthroughSpec } from "@prw/runes";
 import type { QuestionSnapshot } from "./broker";
-import { authorizedLocalCaller, corsHeaders, readJsonBody, truncate, prOrNull } from "./guard";
+import { authorizedLocalCaller, corsHeaders, isRecord, readJsonBody, truncate, prOrNull } from "./guard";
 import type { Pairing } from "./pairing";
 
 export interface BridgeDeps {
@@ -167,7 +167,7 @@ async function handleAsk({ request, deps }: Context): Promise<Response> {
   // Cap every field server-side (cost + abuse control; don't trust the client).
   const pr = prOrNull(b.pr) ?? "a PR";
   const file = truncate(b.file, 400);
-  const ln = b.lines as { start?: number; end?: number } | undefined;
+  const ln = isRecord(b.lines) ? b.lines : null;
   const lines =
     ln && Number.isFinite(ln.start) && Number.isFinite(ln.end)
       ? { start: Number(ln.start), end: Number(ln.end) }
@@ -184,9 +184,12 @@ async function handleAsk({ request, deps }: Context): Promise<Response> {
   const lineSuffix = lines ? ` lines ${lines.start}-${lines.end}` : "";
   const where = file ? `${file}${lineSuffix}` : "this PR";
   const history = Array.isArray(b.messages)
-    ? (b.messages as Array<{ role?: string; content?: unknown }>)
+    ? b.messages
         .slice(-20)
-        .map((m) => `${m.role === "user" ? "User" : "You"}: ${truncate(m.content, 8000)}`)
+        .map((m) => {
+          const message: Record<string, unknown> = isRecord(m) ? m : {};
+          return `${message.role === "user" ? "User" : "You"}: ${truncate(message.content, 8000)}`;
+        })
         .join("\n")
     : "";
   const content = buildAskPrompt({ pr, where, review, step, selection, history, question, prLevel });

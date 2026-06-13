@@ -10,7 +10,7 @@ import { useResizePersist } from "../hooks/useResizePersist";
 import { useScrollLock } from "../hooks/useScrollLock";
 import { launcherStore } from "../launcher";
 import { pairingStore } from "../pairing";
-import { getSnapshot, PANEL_TABS, panelStore, subscribe, type PanelTab } from "../store";
+import { getSnapshot, isPanelTab, PANEL_TABS, panelStore, subscribe, type PanelTab } from "../store";
 import { tourStore } from "../tour";
 import { Button } from "../ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
@@ -109,7 +109,9 @@ function PanelWindow(): JSX.Element {
 
       <Tabs
         value={panelStore.tab()}
-        onValueChange={(v) => panelStore.setTab(v as PanelTab)}
+        onValueChange={(v) => {
+          if (isPanelTab(v)) panelStore.setTab(v);
+        }}
         className="flex min-h-0 flex-1 flex-col"
       >
         <div className="px-2 pt-1">

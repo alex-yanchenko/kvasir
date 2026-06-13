@@ -13,6 +13,10 @@ import { PR_URL_RE } from "@prw/runes";
  *  that does set it is forced through a CORS preflight we don't grant. */
 export const GUARD_HEADER = "x-pr-walkthrough";
 
+/** A non-null, non-array object — narrows `unknown` JSON to an indexable record. */
+export const isRecord = (v: unknown): v is Record<string, unknown> =>
+  typeof v === "object" && v !== null && !Array.isArray(v);
+
 /** 256 KB — these payloads are small; cap to avoid abuse. */
 export const MAX_BODY = 256 * 1024;
 
@@ -81,7 +85,7 @@ export async function readJsonBody(request: Request): Promise<Record<string, unk
     const text = await request.text();
     if (text.length > MAX_BODY) return null;
     const v: unknown = JSON.parse(text);
-    return v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : null;
+    return isRecord(v) ? v : null;
   } catch {
     return null;
   }

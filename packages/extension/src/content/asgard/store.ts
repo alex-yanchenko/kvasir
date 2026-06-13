@@ -26,6 +26,9 @@ export const PANEL_TABS = {
   SETTINGS: "settings",
 } as const;
 export type PanelTab = (typeof PANEL_TABS)[keyof typeof PANEL_TABS];
+const PANEL_TAB_VALUES: readonly string[] = Object.values(PANEL_TABS);
+/** Narrow a raw tab string (e.g. from Radix Tabs onValueChange) to a PanelTab. */
+export const isPanelTab = (v: string): v is PanelTab => PANEL_TAB_VALUES.includes(v);
 
 interface PanelState {
   open: boolean;

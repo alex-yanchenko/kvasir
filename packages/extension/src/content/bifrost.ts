@@ -101,8 +101,10 @@ export function createBifrost(): Bifrost {
 
   return {
     send: (kind, payload) => publish(commands, kind, payload),
+    // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- sound variance erasure: the per-event handler types are stored in one heterogeneous registry (Set<Handler<unknown>>); publish always supplies this event's matching payload. A Map can't hold per-key value types.
     handle: (kind, fn) => subscribe(commands, kind, fn as Handler<unknown>),
     report: (kind, payload) => publish(reports, kind, payload),
+    // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- see handle above.
     on: (kind, fn) => subscribe(reports, kind, fn as Handler<unknown>),
   };
 }

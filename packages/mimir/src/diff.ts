@@ -220,6 +220,7 @@ async function gh(args: string[]): Promise<string> {
 
 // Parse a gh response to a known shape. Typing the external IO boundary here (like
 // a projected .lean<T>() read) keeps the unsafe-any out of the rest of the module.
+// eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- trusted gh subprocess JSON; the generic documents the expected shape, and downstream guards validate what's actually used.
 const ghJson = async <T>(args: string[]): Promise<T> => JSON.parse(await gh(args)) as T;
 
 /**

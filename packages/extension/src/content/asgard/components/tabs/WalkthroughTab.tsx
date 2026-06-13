@@ -68,7 +68,8 @@ function Steps(): JSX.Element {
   // Arrow keys navigate; bound to the document AND the shadow root (the hotkey
   // shield keeps shadow-origin keys off the document), skipping editable fields.
   useEffect(() => {
-    const keys = (event: KeyboardEvent): void => {
+    const keys = (event: Event): void => {
+      if (!(event instanceof KeyboardEvent)) return;
       const t = event.target;
       if (t instanceof HTMLElement && (/^(?:TEXTAREA|INPUT|SELECT)$/.test(t.tagName) || t.isContentEditable))
         return;
@@ -82,10 +83,10 @@ function Steps(): JSX.Element {
     };
     const root = document.querySelector("#prw-root")?.shadowRoot ?? document;
     document.addEventListener("keydown", keys);
-    if (root !== document) root.addEventListener("keydown", keys as EventListener);
+    if (root !== document) root.addEventListener("keydown", keys);
     return () => {
       document.removeEventListener("keydown", keys);
-      if (root !== document) root.removeEventListener("keydown", keys as EventListener);
+      if (root !== document) root.removeEventListener("keydown", keys);
     };
   }, []);
 

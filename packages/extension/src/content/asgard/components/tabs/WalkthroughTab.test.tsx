@@ -129,6 +129,10 @@ describe("WalkthroughTab", () => {
       document.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowLeft" }));
     });
     expect(screen.getByText("First step")).toBeTruthy();
+    act(() => {
+      document.dispatchEvent(new Event("keydown")); // non-KeyboardEvent → guard returns, no nav
+    });
+    expect(screen.getByText("First step")).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "Ask about this step" }));
     expect(ask).toHaveBeenCalled();

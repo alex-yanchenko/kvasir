@@ -35,6 +35,9 @@ const importSettings = { "import-x/resolver": { typescript: true, node: true } }
 // real bugs: unawaited promises, `any` leaking through, stringifying objects,
 // deprecated APIs. They need the project service (parserOptions below).
 const typeAwareRules = {
+  // No type casts in source (tests may cast — see the test-files block). `as const`
+  // is still allowed. Forces real type guards / proper typing at boundaries.
+  "@typescript-eslint/consistent-type-assertions": ["error", { assertionStyle: "never" }],
   "@typescript-eslint/no-floating-promises": "error",
   "@typescript-eslint/no-misused-promises": "error",
   "@typescript-eslint/await-thenable": "error",
@@ -183,6 +186,11 @@ export default [
     files: ["packages/**/*.test.{ts,tsx}"],
     ...tseslint.configs.disableTypeChecked,
     languageOptions: { parserOptions: { projectService: false, project: false } },
+    // Tests may cast freely (mocks, fixtures) — the no-cast rule is source-only.
+    rules: {
+      ...tseslint.configs.disableTypeChecked.rules,
+      "@typescript-eslint/consistent-type-assertions": "off",
+    },
   },
 
   // Test-quality rules: focused/skipped tests, duplicate titles, vacuous expects.

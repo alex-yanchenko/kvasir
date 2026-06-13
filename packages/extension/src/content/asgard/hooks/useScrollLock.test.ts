@@ -37,6 +37,14 @@ describe("useScrollLock", () => {
     expect(wheel(inert, 40).defaultPrevented).toBe(true);
   });
 
+  it("swallows the wheel when the target isn't an element (no scroller to find)", () => {
+    const r = mount();
+    const textNode = r.appendChild(document.createTextNode("x"));
+    const e = new WheelEvent("wheel", { deltaY: 40, bubbles: true, cancelable: true });
+    textNode.dispatchEvent(e);
+    expect(e.defaultPrevented).toBe(true);
+  });
+
   it("lets an inner scroller with room consume the wheel (page untouched)", () => {
     const r = mount();
     const list = r.appendChild(document.createElement("div"));

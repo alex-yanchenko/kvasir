@@ -19,7 +19,8 @@ export function useScrollLock(targetRef: RefObject<HTMLElement | null>): void {
     const root = targetRef.current;
     if (!root) return;
     const onWheel = (event: WheelEvent): void => {
-      for (let node = event.target as HTMLElement | null; node; node = node.parentElement) {
+      const start = event.target instanceof HTMLElement ? event.target : null;
+      for (let node = start; node; node = node.parentElement) {
         if (canScroll(node, event.deltaY)) return; // an inner scroller will consume it
         if (node === root) break; // reached the panel edge without finding room
       }

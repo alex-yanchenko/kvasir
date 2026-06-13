@@ -251,6 +251,15 @@ describe("/ask", () => {
     expect(content).toContain('say "this", "this step"');
   });
 
+  it("tolerates a non-object item in the messages array", async () => {
+    await call("/ask", {
+      method: "POST",
+      body: { pr: PR, selection: "x", question: "q", messages: [7, { role: "user", content: "hi" }] },
+    });
+    const [, content] = deps.open.mock.calls[0];
+    expect(content).toContain("You: \nUser: hi"); // the bare 7 becomes an empty "You:" line
+  });
+
   it("a minimal selection question omits the optional blocks and tolerates bad fields", async () => {
     await call("/ask", {
       method: "POST",

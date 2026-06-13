@@ -20,7 +20,7 @@ export function Tooltips(): JSX.Element {
   const [tip, setTip] = useState<TipState | null>(null);
 
   useEffect(() => {
-    const root = probeRef.current!.getRootNode() as ShadowRoot | Document;
+    const root = probeRef.current!.getRootNode();
     const cancel = () => {
       if (timer.current !== null) clearTimeout(timer.current);
       timer.current = null;
