@@ -61,41 +61,32 @@ export default [
   // patterns). Syntactic — no type info needed, so it covers tests and plain JS too.
   { ...regexp.configs["flat/recommended"], files: ["packages/**/*.{ts,tsx,js}"] },
 
-  // Curated unicorn — its correctness/footgun rules + safe modernizations only.
-  // The bulk of unicorn is stylistic and fights this codebase's deliberate idioms
-  // (no-null: null is intentional across DOM/React/the channel contract;
-  // prevent-abbreviations: short conventional names; prefer-global-this: `window`
-  // is correct in a content script; filename-case: PascalCase components), so the
-  // recommended preset is NOT adopted wholesale — only these bug-catchers are.
+  // Unicorn: the full recommended preset is ON; only these are turned off, each
+  // for a stated reason. (Tests are fixtures — excluded.)
   {
+    ...unicorn.configs["flat/recommended"],
     files: ["packages/**/*.{ts,tsx,js}"],
     ignores: ["packages/**/*.test.{ts,tsx}"],
-    plugins: { unicorn },
     rules: {
-      "unicorn/no-array-callback-reference": "error",
-      "unicorn/no-invalid-remove-event-listener": "error",
-      "unicorn/no-invalid-fetch-options": "error",
-      "unicorn/no-useless-fallback-in-spread": "error",
-      "unicorn/new-for-builtins": "error",
-      "unicorn/throw-new-error": "error",
-      "unicorn/error-message": "error",
-      "unicorn/prefer-native-coercion-functions": "error",
-      "unicorn/prefer-string-replace-all": "error",
-      "unicorn/prefer-at": "error",
-      "unicorn/prefer-dom-node-append": "error",
-      "unicorn/prefer-response-static-json": "error",
-      "unicorn/prefer-single-call": "error",
-      "unicorn/prefer-includes": "error",
-      "unicorn/prefer-string-starts-ends-with": "error",
-      "unicorn/prefer-array-some": "error",
-      "unicorn/explicit-length-check": "error",
-      "unicorn/numeric-separators-style": "error",
-      "unicorn/prefer-spread": "error",
-      "unicorn/no-for-loop": "error",
-      "unicorn/escape-case": "error",
-      "unicorn/prefer-global-this": "error",
-      "unicorn/no-useless-spread": "error",
-      "unicorn/require-css-escape": "error",
+      ...unicorn.configs["flat/recommended"].rules,
+      // null is part of the JSON wire contract (absent ≠ explicit null) and is what
+      // DOM APIs / React refs return — undefined-only would change serialization.
+      "unicorn/no-null": "off",
+      // The hand-rolled object-literal stores call sibling methods via `this`.
+      "unicorn/no-this-outside-of-class": "off",
+      // Our getElementById calls all take dynamic GitHub-supplied ids; querySelector
+      // would force CSS.escape for no gain — getElementById is the right tool.
+      "unicorn/prefer-query-selector": "off",
+      // The pure diff readers type DOM as `Element` (querySelector), which has no
+      // `.dataset` — getAttribute is the type-safe accessor; the autofix is unsound here.
+      "unicorn/dom-node-dataset": "off",
+      // Bifrost commands carry an explicit `undefined`-typed payload (a required 2nd
+      // arg), and our promises resolve `unknown` — the autofix strips needed args.
+      "unicorn/no-useless-undefined": "off",
+      // Almost all hits are universal (loop `i`, React `props`/`*Ref`) or domain
+      // terms it would mis-rename (our `*Ref` means a code reference, not a React
+      // ref / "reference"); near-zero are genuine bad abbreviations.
+      "unicorn/prevent-abbreviations": "off",
       // Components are PascalCase, everything else camelCase — allow both.
       "unicorn/filename-case": ["error", { cases: { camelCase: true, pascalCase: true } }],
     },

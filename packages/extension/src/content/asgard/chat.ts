@@ -295,7 +295,7 @@ export const chatStore = {
       : sess.messages;
     if (pushUser) update(key, (s) => ({ ...s, messages }));
     const history =
-      opts.replaceIdx !== undefined ? messages.slice(0, opts.replaceIdx - 1) : messages.slice(0, -1);
+      opts.replaceIdx === undefined ? messages.slice(0, -1) : messages.slice(0, opts.replaceIdx - 1);
     const r = await api("/ask", "POST", {
       pr: prUrl(),
       file: sess.file,
@@ -319,9 +319,9 @@ export const chatStore = {
     update(key, (s) => ({
       ...s,
       messages:
-        opts.replaceIdx !== undefined
-          ? s.messages.map((m, i) => (i === opts.replaceIdx ? msg : m))
-          : [...s.messages, msg],
+        opts.replaceIdx === undefined
+          ? [...s.messages, msg]
+          : s.messages.map((m, i) => (i === opts.replaceIdx ? msg : m)),
     }));
     return { ok: true, streamed: result.streamed };
   },

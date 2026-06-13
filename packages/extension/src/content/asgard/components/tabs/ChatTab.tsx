@@ -47,10 +47,10 @@ const mkRefLink = (label: string, ref: { file: string; start: number | null; end
   a.className = "prw-ref";
   a.href = "#";
   a.textContent = label;
-  a.onclick = (e) => {
+  a.addEventListener("click", (e) => {
     e.preventDefault();
     bifrost.send("jump:ref", ref);
-  };
+  });
   return a;
 };
 
@@ -132,7 +132,7 @@ function Markdown({ text }: Readonly<{ text: string }>): JSX.Element {
   const html = useMemo(() => ({ __html: renderMarkdown(text) }), [text]);
   useEffect(() => {
     const el = ref.current!; // the span renders unconditionally; refs are set before effects
-    el.querySelectorAll("pre.prw-code").forEach((pre) => {
+    for (const pre of el.querySelectorAll("pre.prw-code")) {
       const code = pre.querySelector("code")!; // renderMarkdown always nests <code> in .prw-code
       const b = document.createElement("button");
       b.className = "prw-iconbtn prw-code-copy";
@@ -140,13 +140,13 @@ function Markdown({ text }: Readonly<{ text: string }>): JSX.Element {
       b.setAttribute("aria-label", "Copy code");
       // eslint-disable-next-line no-unsanitized/property -- static icon markup: svg() wraps a compile-time-constant ICON path string, no dynamic input.
       b.innerHTML = svg(ICON.copy);
-      b.onclick = () => {
+      b.addEventListener("click", () => {
         void navigator.clipboard?.writeText(String(code.textContent)); // textContent is never null on an element
         // eslint-disable-next-line no-unsanitized/property -- static icon markup (see above).
         b.innerHTML = svg(ICON.check);
-      };
+      });
       pre.append(b);
-    });
+    }
     linkifyRefs(el);
   }, [html]);
   return <span ref={ref} className="prw-md" dangerouslySetInnerHTML={html} />;

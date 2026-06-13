@@ -107,12 +107,12 @@ export function connectGrip(bifrost: Bifrost): void {
       b.setAttribute("aria-label", title);
       // eslint-disable-next-line no-unsanitized/property -- static icon markup: BUBBLE is a compile-time-constant path string.
       b.innerHTML = svgIcon(BUBBLE);
-      b.onclick = () => {
+      b.addEventListener("click", () => {
         const p = sel && payloadFor(sel);
         if (!p) return;
         bar.style.display = "none";
         bifrost.report("selection:ask", { ...p, withStep });
-      };
+      });
       bar.append(b);
     };
     // Order left→right: context chat on the left, plain chat always rightmost.

@@ -81,8 +81,8 @@ async function handleHead({ req, url, deps }: Ctx): Promise<Response> {
   if (!pr) return json(req, { error: "bad or missing pr" }, 400);
   try {
     return json(req, { headSha: await deps.getHeadSha(pr) });
-  } catch (e) {
-    console.error("[pr-walkthrough] /head failed:", e); // detail to stderr only
+  } catch (error) {
+    console.error("[pr-walkthrough] /head failed:", error); // detail to stderr only
     return json(req, { error: "could not fetch head sha" }, 502);
   }
 }

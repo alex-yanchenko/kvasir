@@ -93,8 +93,8 @@ export function createBifrost(): Bifrost {
     for (const fn of snapshot) {
       try {
         fn(payload);
-      } catch (e) {
-        console.error(`[prw bifrost] ${kind} handler failed:`, e);
+      } catch (error) {
+        console.error(`[prw bifrost] ${kind} handler failed:`, error);
       }
     }
   };

@@ -17,7 +17,7 @@ import { applyTheme, loadPersisted, watchUrl } from "./watch";
 // Compiled Tailwind + legacy panel CSS (build.mjs produces this from tailwind.css).
 
 export function boot(): void {
-  if (document.getElementById("prw-root")) return; // re-injection guard
+  if (document.querySelector("#prw-root")) return; // re-injection guard
 
   // Midgard listens on the Bifrost before anything sends a command; Asgard's
   // chat machine listens for the grip's completed asks.

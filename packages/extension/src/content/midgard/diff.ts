@@ -48,10 +48,10 @@ export function filePathFromContainer(cont: Element | null): string | null {
  * Asgard uses it to validate file mentions in answers before linkifying them. */
 export function changedFilePaths(): string[] {
   const out: string[] = [];
-  document.querySelectorAll('[id^="diff-"]').forEach((el) => {
+  for (const el of document.querySelectorAll('[id^="diff-"]')) {
     const path = filePathFromContainer(el);
     if (path) out.push(path);
-  });
+  }
   return out;
 }
 

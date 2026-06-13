@@ -24,5 +24,7 @@ export function connectMidgard(bifrost: Bifrost): () => void {
       document.body.dataset.prwHl = hlStyle;
     }),
   ];
-  return () => offs.forEach((off) => off());
+  return () => {
+    for (const off of offs) off();
+  };
 }

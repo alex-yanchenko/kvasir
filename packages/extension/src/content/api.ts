@@ -27,7 +27,7 @@ export const api = (path: string, method = "GET", body: unknown = null): Promise
         }
         resolve(r || { ok: false, error: "no response" });
       });
-    } catch (e) {
-      resolve({ ok: false, error: String(e) });
+    } catch (error) {
+      resolve({ ok: false, error: String(error) });
     }
   });

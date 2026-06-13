@@ -94,7 +94,7 @@ const reviewItems = (reviews: GhReview[]): Dated[] => {
       item: {
         kind: "review",
         ...authorOf(r.user),
-        ...(r.state !== undefined ? { state: r.state } : {}),
+        ...(r.state === undefined ? {} : { state: r.state }),
         body: trim(r.body, CAP_ITEM),
       },
     });
@@ -112,7 +112,7 @@ const inlineItems = (inlineComments: GhInline[]): Dated[] => {
       item: {
         kind: "inline",
         ...authorOf(c.user),
-        ...(c.path !== undefined ? { file: c.path } : {}),
+        ...(c.path === undefined ? {} : { file: c.path }),
         line: c.line ?? c.original_line ?? null,
         body: trim(c.body, CAP_ITEM),
       },
@@ -248,7 +248,7 @@ export async function getManifest(url: string): Promise<PrManifest> {
     status: f.status,
     additions: f.additions,
     deletions: f.deletions,
-    ...(f.patch !== undefined ? { patch: f.patch } : {}), // omit for binary/huge files
+    ...(f.patch === undefined ? {} : { patch: f.patch }), // omit for binary/huge files
   }));
 
   return {

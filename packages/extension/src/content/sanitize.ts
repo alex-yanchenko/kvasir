@@ -10,10 +10,13 @@ export function sanitizeSpecHtml(html: unknown): string {
   // eslint-disable-next-line no-unsanitized/property -- this IS the sanitizer: untrusted HTML is parsed into an inert, detached <template> (never the live DOM) and allowlist-stripped below before it's returned.
   t.innerHTML = typeof html === "string" ? html : ""; // only real strings; never "[object Object]"
   for (let pass = 0; pass < 2; pass++) {
-    t.content.querySelectorAll("*").forEach((el) => {
-      if (!SPEC_ALLOWED.has(el.tagName)) el.replaceWith(...el.childNodes);
-      else [...el.attributes].forEach((a) => el.removeAttribute(a.name));
-    });
+    for (const el of t.content.querySelectorAll("*")) {
+      if (SPEC_ALLOWED.has(el.tagName)) {
+        for (const a of el.attributes) el.removeAttribute(a.name);
+      } else {
+        el.replaceWith(...el.childNodes);
+      }
+    }
   }
   return t.innerHTML;
 }

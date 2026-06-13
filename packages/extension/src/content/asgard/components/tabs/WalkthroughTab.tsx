@@ -80,7 +80,7 @@ function Steps(): JSX.Element {
         tourStore.goto(tourStore.stepIdx() - 1);
       }
     };
-    const root = document.getElementById("prw-root")?.shadowRoot ?? document;
+    const root = document.querySelector("#prw-root")?.shadowRoot ?? document;
     document.addEventListener("keydown", keys);
     if (root !== document) root.addEventListener("keydown", keys as EventListener);
     return () => {

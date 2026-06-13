@@ -40,8 +40,8 @@ chrome.runtime.onMessage.addListener(
         const res = await fetch(BASE + msg.path, opts);
         const data: unknown = await res.json();
         sendResponse({ ok: res.ok, status: res.status, data });
-      } catch (e) {
-        sendResponse({ ok: false, error: String(e) });
+      } catch (error) {
+        sendResponse({ ok: false, error: String(error) });
       }
     })();
     return true; // keep the message channel open for the async response

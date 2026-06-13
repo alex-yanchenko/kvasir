@@ -32,8 +32,27 @@ interface RehighlightableSession {
   text?: string | null;
 }
 
-export const clearHL = (): void =>
-  document.querySelectorAll("tr.prw-line").forEach((r) => r.classList.remove("prw-line"));
+export const clearHL = (): void => {
+  for (const r of document.querySelectorAll("tr.prw-line")) r.classList.remove("prw-line");
+};
+
+// Unrendered (lazy) lines resolve to null and are skipped; dedupe as we go.
+function rowsByLines(cont: Element, lines: { start: number; end: number }): Element[] {
+  const rows: Element[] = [];
+  for (let n = lines.start; n <= lines.end; n++) {
+    const r = rowForLine(cont, n);
+    if (r && !rows.includes(r)) rows.push(r);
+  }
+  return rows;
+}
+function rowsByText(cont: Element, texts: string[]): Element[] {
+  const rows: Element[] = [];
+  for (const t of texts) {
+    const r = rowForText(cont, t);
+    if (r && !rows.includes(r)) rows.push(r);
+  }
+  return rows;
+}
 
 // Prefer the spec's exact line range; fall back to substring matches. Robust to
 // GitHub's lazy rendering — unrendered lines resolve to null and are skipped.
@@ -41,30 +60,19 @@ export function highlightStep(step: HighlightableStep): Element[] {
   clearHL();
   const cont = document.getElementById(step.anchor);
   if (!cont) return [];
-  const rows: Element[] = [];
-  if (step.lines) {
-    const { start, end } = step.lines;
-    for (let n = start; n <= end; n++) {
-      const r = rowForLine(cont, n);
-      if (r && !rows.includes(r)) rows.push(r);
-    }
-  }
-  if (rows.length === 0 && Array.isArray(step.highlight)) {
-    step.highlight.forEach((t) => {
-      const r = rowForText(cont, t);
-      if (r && !rows.includes(r)) rows.push(r);
-    });
-  }
-  rows.forEach((r) => r.classList.add("prw-line"));
+  let rows = step.lines ? rowsByLines(cont, step.lines) : [];
+  if (rows.length === 0 && Array.isArray(step.highlight)) rows = rowsByText(cont, step.highlight);
+  for (const r of rows) r.classList.add("prw-line");
   return rows;
 }
 
-export const clearPick = (): void =>
-  document.querySelectorAll("tr.prw-pick").forEach((r) => r.classList.remove("prw-pick"));
+export const clearPick = (): void => {
+  for (const r of document.querySelectorAll("tr.prw-pick")) r.classList.remove("prw-pick");
+};
 
 export function highlightRows(rows: Element[]): void {
   clearPick();
-  rows.forEach((r) => r.classList.add("prw-pick"));
+  for (const r of rows) r.classList.add("prw-pick");
 }
 
 // Re-paint a stored selection by matching its code text against the live rows —
