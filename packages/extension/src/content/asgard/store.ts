@@ -153,10 +153,10 @@ export const panelStore = {
 
 /** One line summarising a session for the chats list: where — first question. */
 export function chatSnippet(sess: ChatSession): string {
-  const base = sess.general
-    ? "This PR"
-    : (sess.file ?? "").split("/").pop() + (sess.lines ? `:${sess.lines.start}` : "");
+  const lineSuffix = sess.lines ? `:${sess.lines.start}` : "";
+  const base = sess.general ? "This PR" : (sess.file ?? "").split("/").pop() + lineSuffix;
   const firstQ = sess.messages.find((m) => m.role === "user");
-  const tail = firstQ ? firstQ.content : sess.general ? "" : sess.text.replaceAll(/\s+/g, " ").slice(0, 40);
+  const fallback = sess.general ? "" : sess.text.replaceAll(/\s+/g, " ").slice(0, 40);
+  const tail = firstQ ? firstQ.content : fallback;
   return tail ? `${base} — ${tail}` : base;
 }

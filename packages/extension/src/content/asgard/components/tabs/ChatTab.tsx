@@ -368,6 +368,7 @@ function ChatRail({ active, width }: Readonly<{ active: string | null; width: nu
 const RAIL_KEY = "prw:chatRailW";
 const RAIL_MIN = 120;
 const RAIL_MAX = 280;
+const RAIL_NUDGE: Record<string, number> = { ArrowLeft: -16, ArrowRight: 16 };
 const clampRail = (n: number): number => Math.min(RAIL_MAX, Math.max(RAIL_MIN, Math.round(n)));
 const initialRail = (): number => {
   const stored = Number(localStorage.getItem(RAIL_KEY));
@@ -400,7 +401,7 @@ export function ChatTab(): JSX.Element {
   // Keyboard equivalent of the drag (WAI-ARIA window-splitter pattern): arrows
   // nudge the rail, persisting like the drag's mouseup does.
   const onResizeKey = (e: ReactKeyboardEvent): void => {
-    const delta = e.key === "ArrowLeft" ? -16 : e.key === "ArrowRight" ? 16 : 0;
+    const delta = RAIL_NUDGE[e.key] ?? 0;
     if (!delta) return;
     e.preventDefault();
     setRailW((w) => {
@@ -478,8 +479,9 @@ function Thread({ sess }: Readonly<{ sess: ChatSession }>): JSX.Element {
       setBusy(null);
       if (r.ok) {
         const latest = chatStore.active();
+        const latestIdx = latest ? latest.messages.length - 1 : null;
         // already watched the text stream in → no cosmetic typewriter replay
-        setStreamIdx(r.streamed ? null : (opts.replaceIdx ?? (latest ? latest.messages.length - 1 : null)));
+        setStreamIdx(r.streamed ? null : (opts.replaceIdx ?? latestIdx));
       } else {
         setErr({ question, replaceIdx: opts.replaceIdx, message: r.error });
       }
@@ -504,9 +506,8 @@ function Thread({ sess }: Readonly<{ sess: ChatSession }>): JSX.Element {
   }, [blocked, sess.general, sess.key]);
 
   const ask = (q: string) => send(q);
-  const lineLabel = sess.lines
-    ? `:${sess.lines.start}${sess.lines.end !== sess.lines.start ? "-" + sess.lines.end : ""}`
-    : "";
+  const endSuffix = sess.lines && sess.lines.end !== sess.lines.start ? `-${sess.lines.end}` : "";
+  const lineLabel = sess.lines ? `:${sess.lines.start}${endSuffix}` : "";
   const fileLabel = sess.general ? "This PR" : (sess.file ?? "").split("/").pop() + lineLabel;
   const fileTitle = sess.general ? "Ask about the whole PR" : (sess.file ?? "") + lineLabel;
 
@@ -518,6 +519,17 @@ function Thread({ sess }: Readonly<{ sess: ChatSession }>): JSX.Element {
     autosize(input);
     ask(q);
   };
+
+  // Suggestion area: the cached AI suggestions, or skeleton shimmer while they
+  // load — but nothing once unpaired (no fetch is coming, so don't shimmer forever).
+  const suggestionRows = ((): JSX.Element[] | null => {
+    if (sess.suggestions)
+      return sess.suggestions
+        .slice(0, 3)
+        .map((q) => <OptionRow key={q} label={q} onAsk={() => ask(q)} disabled={blocked} />);
+    if (blocked) return null;
+    return [0, 1, 2].map((i) => <div key={i} className="prw-srow prw-skel" />);
+  })();
 
   return (
     <div className="flex h-full flex-col">
@@ -551,14 +563,7 @@ function Thread({ sess }: Readonly<{ sess: ChatSession }>): JSX.Element {
           ))}
         </div>
         <div className={"prw-ai" + (sess.general || sess.suggestions?.length === 0 ? "" : " prw-has")}>
-          {!sess.general &&
-            (sess.suggestions
-              ? sess.suggestions
-                  .slice(0, 3)
-                  .map((q) => <OptionRow key={q} label={q} onAsk={() => ask(q)} disabled={blocked} />)
-              : blocked
-                ? null // unpaired: no fetch is coming, so don't shimmer forever
-                : [0, 1, 2].map((i) => <div key={i} className="prw-srow prw-skel" />))}
+          {!sess.general && suggestionRows}
         </div>
       </div>
       <div className="prw-thread" ref={threadRef}>

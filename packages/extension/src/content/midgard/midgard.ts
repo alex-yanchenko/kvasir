@@ -254,7 +254,8 @@ export function jumpToRef(file: string, start: number | null, end: number | null
   const land = (): void => {
     if (!cont.isConnected) return; // the file (or page) went away — stop retrying
     const single = rowForLine(cont, start);
-    const rows = end ? rowsInRange(cont, start, end) : single ? [single] : [];
+    const singleRows = single ? [single] : [];
+    const rows = end ? rowsInRange(cont, start, end) : singleRows;
     if (rows.length) {
       highlightRows(rows);
       scrollRowsIntoView(rows, cont); // no-op when the cited line is already on screen
