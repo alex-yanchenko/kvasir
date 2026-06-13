@@ -201,7 +201,7 @@ export function containerForFileLoose(file: string): Element | null {
  * inner container, where window scrolling is a no-op. Null = the window scrolls. */
 function scrollParentOf(el: Element): Element | null {
   for (let p = el.parentElement; p; p = p.parentElement) {
-    if (/(auto|scroll|overlay)/.test(getComputedStyle(p).overflowY) && p.scrollHeight > p.clientHeight)
+    if (/auto|scroll|overlay/.test(getComputedStyle(p).overflowY) && p.scrollHeight > p.clientHeight)
       return p;
   }
   return null;

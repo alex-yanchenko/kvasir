@@ -16,7 +16,7 @@ export const GUARD_HEADER = "x-pr-walkthrough";
 /** 256 KB — these payloads are small; cap to avoid abuse. */
 export const MAX_BODY = 256 * 1024;
 
-const isLoopbackHost = (host: string): boolean => /^(localhost|127\.0\.0\.1)(:\d+)?$/.test(host);
+const isLoopbackHost = (host: string): boolean => /^(?:localhost|127\.0\.0\.1)(?::\d+)?$/.test(host);
 
 /** A foreign web origin is an http(s) origin that's neither the allowed one nor
  *  loopback. chrome-extension:// origins and an absent origin are NOT foreign — the
@@ -24,7 +24,7 @@ const isLoopbackHost = (host: string): boolean => /^(localhost|127\.0\.0\.1)(:\d
 export function isForeignWebOrigin(origin: string, allowedOrigin?: string): boolean {
   if (!/^https?:\/\//i.test(origin)) return false;
   if (origin === allowedOrigin) return false;
-  return !/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin);
+  return !/^http:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?$/i.test(origin);
 }
 
 export interface CallerSignals {

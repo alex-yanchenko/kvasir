@@ -2,6 +2,7 @@ import js from "@eslint/js";
 import tseslint from "typescript-eslint";
 import reactHooks from "eslint-plugin-react-hooks";
 import importX from "eslint-plugin-import-x";
+import * as regexp from "eslint-plugin-regexp";
 import globals from "globals";
 
 // Import hygiene shared by every TypeScript surface. no-cycle catches accidental
@@ -49,6 +50,10 @@ export default [
   {
     ignores: ["**/node_modules/**", "**/dist/**", "**/coverage/**", "**/*.min.js", "packages/mimir/bun.lock"],
   },
+
+  // Regex correctness/safety on every source surface (PR-URL/loopback/skip-coverage
+  // patterns). Syntactic — no type info needed, so it covers tests and plain JS too.
+  { ...regexp.configs["flat/recommended"], files: ["packages/**/*.{ts,tsx,js}"] },
 
   // Mimir (server) + Runes (shared contract): TypeScript (Node/Bun).
   ...tseslint.configs.recommended.map((c) => ({ ...c, files: ["packages/{mimir,runes}/**/*.ts"] })),

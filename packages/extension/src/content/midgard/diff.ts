@@ -34,7 +34,7 @@ export function filePathFromContainer(cont: Element | null): string | null {
   const heading = lblId ? document.getElementById(lblId) : null;
   if (heading) {
     const t = (heading.textContent ?? "")
-      .replace(/‎/g, "")
+      .replace(/\u200e/g, "")
       .replace(/^Collapse file/i, "")
       .trim();
     if (t) return t;

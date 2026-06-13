@@ -8,11 +8,11 @@ export interface ParsedPr {
  * Strict GitHub PR-URL matcher. owner/repo are restricted to GitHub's allowed
  * charset so nothing arbitrary can flow into a `gh` path or a session prompt.
  */
-export const PR_URL_RE = /^https:\/\/github\.com\/[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+\/pull\/\d+/;
+export const PR_URL_RE = /^https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/pull\/\d+/;
 
 /** Parse https://github.com/<owner>/<repo>/pull/<n>. Throws on anything else. */
 export function parsePrUrl(url: string): ParsedPr {
-  const m = url.match(/^https:\/\/github\.com\/([A-Za-z0-9._-]+)\/([A-Za-z0-9._-]+)\/pull\/(\d+)(?:[/?#]|$)/);
+  const m = url.match(/^https:\/\/github\.com\/([\w.-]+)\/([\w.-]+)\/pull\/(\d+)(?:[/?#]|$)/);
   if (!m) throw new Error("Not a GitHub PR URL");
   const [, ownerRaw, repoRaw] = m; // groups 1-2 always present when m matched
   const owner = ownerRaw ?? "";

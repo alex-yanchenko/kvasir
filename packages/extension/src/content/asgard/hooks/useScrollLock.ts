@@ -9,7 +9,7 @@ import type { RefObject } from "react";
 
 /** An element that can still scroll vertically in the wheel's direction. */
 function canScroll(node: HTMLElement, deltaY: number): boolean {
-  if (!/(auto|scroll)/.test(getComputedStyle(node).overflowY)) return false;
+  if (!/auto|scroll/.test(getComputedStyle(node).overflowY)) return false;
   if (node.scrollHeight <= node.clientHeight) return false;
   return deltaY < 0 ? node.scrollTop > 0 : node.scrollTop + node.clientHeight < node.scrollHeight;
 }

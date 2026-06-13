@@ -70,7 +70,7 @@ function Steps(): JSX.Element {
   useEffect(() => {
     const keys = (e: KeyboardEvent): void => {
       const t = e.target;
-      if (t instanceof HTMLElement && (/^(TEXTAREA|INPUT|SELECT)$/.test(t.tagName) || t.isContentEditable))
+      if (t instanceof HTMLElement && (/^(?:TEXTAREA|INPUT|SELECT)$/.test(t.tagName) || t.isContentEditable))
         return;
       if (e.key === "ArrowRight" && tourStore.stepIdx() < tourStore.stepCount() - 1) {
         e.preventDefault();

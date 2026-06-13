@@ -8,13 +8,17 @@ export const escapeHtml = (s: string): string =>
 export function renderMarkdown(src: string): string {
   let s = escapeHtml(src);
   const blocks: string[] = [];
-  // Code blocks are parked behind NUL-delimited placeholders so the inline/bold/
-  // paragraph passes can't rewrite their contents, then spliced back at the end.
-  s = s.replace(/```[ \t]*([\w.+#-]*)\n?([\s\S]*?)```/g, (_m: string, lang: string, code: string) => {
+  // Code blocks are parked behind placeholders delimited by U+E000 (a private-use
+  // codepoint that never occurs in real text) so the inline/bold/paragraph passes
+  // can't rewrite their contents, then spliced back at the end. The opening fence
+  // must end in a newline (CommonMark) — a mandatory boundary that also stops the
+  // info-string quantifiers from backtracking against the body (ReDoS-safe).
+  s = s.replace(/```([^\n]*)\n([\s\S]*?)```/g, (_m: string, info: string, code: string) => {
     const i = blocks.length;
+    const lang = /[\w.+#-]+/.exec(info)?.[0] ?? "";
     const label = lang ? `<span class="prw-code-lang">${lang}</span>` : "";
     blocks.push(`<pre class="prw-code">${label}<code>${code.replace(/\n+$/, "")}</code></pre>`);
-    return `\u0000B${i}\u0000`;
+    return `\uE000B${i}\uE000`;
   });
   s = s.replace(/`([^`\n]+)`/g, '<code class="prw-inline">$1</code>');
   s = s.replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>");
@@ -32,6 +36,6 @@ export function renderMarkdown(src: string): string {
     .map((p) => (p.trim() ? `<p>${p.replace(/\n/g, "<br>")}</p>` : ""))
     .join("");
   return s
-    .replace(/<p>\u0000B(\d+)\u0000<\/p>/g, (_m: string, i: string) => blocks[+i] ?? "")
-    .replace(/\u0000B(\d+)\u0000/g, (_m: string, i: string) => blocks[+i] ?? "");
+    .replace(/<p>\uE000B(\d+)\uE000<\/p>/g, (_m: string, i: string) => blocks[+i] ?? "")
+    .replace(/\uE000B(\d+)\uE000/g, (_m: string, i: string) => blocks[+i] ?? "");
 }

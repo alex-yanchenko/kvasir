@@ -52,7 +52,7 @@ describe("the happy pairing flow", () => {
       },
     ]);
     expect(pushed[0].content).toContain("Chrome on MacBook");
-    expect(req.code).toMatch(/^[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{6}$/);
+    expect(req.code).toMatch(/^[A-HJKMNP-Z2-9]{6}$/);
   });
 
   it("approve tolerates whitespace and lowercase; re-pairing the same instance keeps the token", () => {

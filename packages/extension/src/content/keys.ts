@@ -8,7 +8,7 @@ export const prUrl = (): string | null => {
 };
 
 // GitHub's newer PR UI serves the diff at /changes; older at /files. Accept both.
-export const onFilesTab = (): boolean => /\/pull\/\d+\/(files|changes)/.test(location.href);
+export const onFilesTab = (): boolean => /\/pull\/\d+\/(?:files|changes)/.test(location.href);
 
 export const chatsKey = (pr: string | null): string => `prw:chats:${pr}`;
 export const specKey = (pr: string | null): string => `prw:spec:${pr}`;
