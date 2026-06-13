@@ -5,7 +5,18 @@
 import type { JSX, MouseEvent as ReactMouseEvent } from "react";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { renderMarkdown } from "@prw/runes/markdown";
-import { MessageSquare, Plus, Trash2, X } from "lucide-react";
+import {
+  ArrowRight,
+  Check,
+  ChevronDown,
+  Copy,
+  Crosshair,
+  MessageSquare,
+  Plus,
+  RotateCw,
+  Trash2,
+  X,
+} from "lucide-react";
 import { bifrost } from "../../../bifrost";
 import { changedFilePaths } from "../../../midgard/diff";
 import { chatStore, QUICK, QUICK_PR } from "../../chat";
@@ -13,13 +24,11 @@ import { chatSnippet, chatsStore, getSnapshot, subscribe } from "../../store";
 import type { ChatMessage, ChatSession } from "../../types";
 import { Button } from "../../ui/button";
 
+// React-rendered icons use lucide components (below); these two strings exist only
+// for the per-code-block copy button, which is appended to non-React markdown DOM.
 const ICON = {
   copy: '<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/>',
   check: '<path d="M4 12l5 5L20 6"/>',
-  regen: '<path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/>',
-  locate: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>',
-  arrow: '<path d="M5 12h14M13 6l6 6-6 6"/>',
-  chevron: '<path d="M6 9l6 6 6-6"/>',
 };
 const svg = (inner: string): string =>
   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${inner}</svg>`;
@@ -205,15 +214,17 @@ function Message({
           data-prw-tip="Regenerate answer"
           aria-label="Regenerate answer"
           onClick={() => onRegenerate(index)}
-          dangerouslySetInnerHTML={{ __html: svg(ICON.regen) }}
-        />
+        >
+          <RotateCw />
+        </button>
         <button
           className="prw-iconbtn"
           data-prw-tip="Jump to the cited code"
           aria-label="Jump to the cited code"
           onClick={locate}
-          dangerouslySetInnerHTML={{ __html: svg(ICON.locate) }}
-        />
+        >
+          <Crosshair />
+        </button>
         <button
           className={"prw-iconbtn" + (copied ? " prw-ok" : "")}
           data-prw-tip="Copy message"
@@ -223,8 +234,9 @@ function Message({
             setCopied(true);
             setTimeout(() => setCopied(false), 1200);
           }}
-          dangerouslySetInnerHTML={{ __html: svg(copied ? ICON.check : ICON.copy) }}
-        />
+        >
+          {copied ? <Check /> : <Copy />}
+        </button>
       </div>
     </div>
   );
@@ -252,19 +264,16 @@ function OptionRow({ label, onAsk }: { label: string; onAsk: () => void }): JSX.
           data-prw-tip={open ? "Collapse" : "Show full text"}
           aria-label="Show full text"
           onClick={() => setOpen((o) => !o)}
-          dangerouslySetInnerHTML={{ __html: svg(ICON.chevron) }}
-        />
+        >
+          <ChevronDown />
+        </button>
       )}
       <span ref={textRef} className="prw-srow-text" data-prw-tip={label}>
         {label}
       </span>
-      <button
-        className="prw-srow-ask"
-        data-prw-tip="Ask this"
-        aria-label="Ask this question"
-        onClick={onAsk}
-        dangerouslySetInnerHTML={{ __html: svg(ICON.arrow) }}
-      />
+      <button className="prw-srow-ask" data-prw-tip="Ask this" aria-label="Ask this question" onClick={onAsk}>
+        <ArrowRight />
+      </button>
     </div>
   );
 }
