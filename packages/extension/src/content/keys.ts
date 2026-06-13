@@ -3,7 +3,7 @@
 // PR keeps its own chats/spec/tour/generation marker.
 
 export const prUrl = (): string | null => {
-  const m = location.href.match(/(https:\/\/github\.com\/[^/]+\/[^/]+\/pull\/\d+)/);
+  const m = /(https:\/\/github\.com\/[^/]+\/[^/]+\/pull\/\d+)/.exec(location.href);
   return m?.[1] ?? null;
 };
 

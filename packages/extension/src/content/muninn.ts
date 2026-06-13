@@ -11,16 +11,20 @@ export const storeGet = (k: string): Promise<unknown> =>
     }
   });
 export const storeSet = (k: string, v: unknown): void => {
-  try {
-    void chrome.storage?.local?.set({ [k]: v });
-  } catch {
-    /* ignore */
-  }
+  void (async () => {
+    try {
+      await chrome.storage?.local?.set({ [k]: v });
+    } catch {
+      /* best-effort persistence: ignore sync throws AND async rejection */
+    }
+  })();
 };
 export const storeRemove = (k: string): void => {
-  try {
-    void chrome.storage?.local?.remove(k);
-  } catch {
-    /* ignore */
-  }
+  void (async () => {
+    try {
+      await chrome.storage?.local?.remove(k);
+    } catch {
+      /* best-effort persistence: ignore sync throws AND async rejection */
+    }
+  })();
 };

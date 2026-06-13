@@ -7,6 +7,7 @@ import nounsanitized from "eslint-plugin-no-unsanitized";
 import jsxA11y from "eslint-plugin-jsx-a11y";
 import eslintComments from "@eslint-community/eslint-plugin-eslint-comments";
 import unicorn from "eslint-plugin-unicorn";
+import sonarjs from "eslint-plugin-sonarjs";
 import globals from "globals";
 
 // Import hygiene shared by every TypeScript surface. no-cycle catches accidental
@@ -86,6 +87,31 @@ export default [
       "unicorn/prefer-includes": "error",
       "unicorn/prefer-string-starts-ends-with": "error",
       "unicorn/prefer-array-some": "error",
+    },
+  },
+
+  // SonarJS bug-catchers (duplicate branches, identical conditions, dead code, …).
+  // The whole recommended suite is kept ON except these, each off for a reason:
+  {
+    ...sonarjs.configs.recommended,
+    files: ["packages/**/*.{ts,tsx}"],
+    ignores: ["packages/**/*.test.{ts,tsx}"],
+    rules: {
+      ...sonarjs.configs.recommended.rules,
+      // Redundant with (and less precise than) regexp/no-super-linear-backtracking,
+      // the rigorous ReDoS analyzer adopted earlier — this heuristic even flags
+      // regexes that one proved safe (e.g. the markdown fence).
+      "sonarjs/slow-regex": "off",
+      // Real maintainability signal (bridge router at 92), but reducing it is a
+      // scoped refactor, not a lint-ladder edit — tracked as follow-up, not silenced.
+      "sonarjs/cognitive-complexity": "off",
+      // Stylistic — the codebase uses nested ternaries/templates deliberately.
+      "sonarjs/no-nested-conditional": "off",
+      "sonarjs/no-nested-template-literals": "off",
+      // Opinionated — props are never mutated; not worth annotating every component.
+      "sonarjs/prefer-read-only-props": "off",
+      // TODO comments are allowed (and governed by our own comment hooks).
+      "sonarjs/todo-tag": "off",
     },
   },
 

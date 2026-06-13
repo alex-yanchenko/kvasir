@@ -12,7 +12,7 @@ export const PR_URL_RE = /^https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/pull\/\d+/;
 
 /** Parse https://github.com/<owner>/<repo>/pull/<n>. Throws on anything else. */
 export function parsePrUrl(url: string): ParsedPr {
-  const m = url.match(/^https:\/\/github\.com\/([\w.-]+)\/([\w.-]+)\/pull\/(\d+)(?:[/?#]|$)/);
+  const m = /^https:\/\/github\.com\/([\w.-]+)\/([\w.-]+)\/pull\/(\d+)(?:[/?#]|$)/.exec(url);
   if (!m) throw new Error("Not a GitHub PR URL");
   const [, ownerRaw, repoRaw] = m; // groups 1-2 always present when m matched
   const owner = ownerRaw ?? "";
