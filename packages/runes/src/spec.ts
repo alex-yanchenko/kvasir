@@ -54,17 +54,18 @@ export interface WalkthroughSpec {
   steps: WalkthroughStep[];
 }
 
+const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null;
+
 export function isWalkthroughSpec(x: unknown): x is WalkthroughSpec {
-  const s = x as WalkthroughSpec;
-  return (
-    !!s &&
-    typeof s === "object" &&
-    s.version === 1 &&
-    !!s.pr &&
-    typeof s.pr.url === "string" &&
-    Array.isArray(s.steps) &&
-    s.steps.every(
-      (st) => typeof st.id === "string" && typeof st.file === "string" && typeof st.anchor === "string",
-    )
+  if (!isRecord(x)) return false;
+  if (x.version !== 1) return false;
+  if (!isRecord(x.pr) || typeof x.pr.url !== "string") return false;
+  if (!Array.isArray(x.steps)) return false;
+  return x.steps.every(
+    (st) =>
+      isRecord(st) &&
+      typeof st.id === "string" &&
+      typeof st.file === "string" &&
+      typeof st.anchor === "string",
   );
 }
