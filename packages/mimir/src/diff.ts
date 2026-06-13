@@ -123,6 +123,27 @@ function buildDiscussion(
   return dated.map((d) => d.item);
 }
 
+// Coverage gate: a changed file with at least this many added lines is expected
+// to earn at least one walkthrough step. Generated/lockfile/vendored paths are
+// exempt — they bulk up additions but aren't review material.
+export const COVERAGE_MIN_ADDS = 30;
+const SKIP_COVERAGE =
+  /(?:^|\/)(?:package-lock\.json|yarn\.lock|pnpm-lock\.yaml|composer\.lock|Cargo\.lock|go\.sum)$|\.min\.(?:js|css)$|\.snap$|(?:^|\/)(?:dist|build|vendor|node_modules|__generated__)\//i;
+
+/** Changed files that look like real review material (≥ COVERAGE_MIN_ADDS added
+ * lines, not removed, not generated) but have no step covering them. Path match
+ * is lenient at the boundary so a step's `file` can be a short or long variant.
+ * Used to nudge the author once before publishing a walkthrough that skims a PR. */
+export function uncoveredFiles(manifest: PrManifest, stepFiles: string[]): string[] {
+  const covered = stepFiles.filter(Boolean);
+  const isCovered = (path: string): boolean =>
+    covered.some((c) => c === path || c.endsWith("/" + path) || path.endsWith("/" + c));
+  return manifest.files
+    .filter((f) => f.status !== "removed" && f.additions >= COVERAGE_MIN_ADDS && !SKIP_COVERAGE.test(f.path))
+    .map((f) => f.path)
+    .filter((p) => !isCovered(p));
+}
+
 /** Current head commit SHA of a PR (for detecting new pushes since a review). */
 export async function getHeadSha(url: string): Promise<string> {
   const { owner, repo, number } = parsePrUrl(url);

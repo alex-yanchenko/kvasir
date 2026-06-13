@@ -33,17 +33,33 @@ import { ListToolsRequestSchema, CallToolRequestSchema } from "@modelcontextprot
 import { createFetchHandler } from "./bridge";
 import { createAskBroker } from "./broker";
 import { createPairing } from "./pairing";
-import { getManifest, getHeadSha } from "./diff";
+import { getManifest, getHeadSha, uncoveredFiles, COVERAGE_MIN_ADDS, type PrManifest } from "./diff";
 import { isWalkthroughSpec, prKey, type WalkthroughSpec } from "@prw/runes";
 
 const PORT = Number(process.env.PR_WALKTHROUGH_PORT) || 8799;
 const ASK_TIMEOUT_MS = Number(process.env.ASK_TIMEOUT_MS) || 120_000;
+
+/** publish_walkthrough was called with a spec that failed schema validation. Named
+ * so a caller (or the MCP layer) can discriminate it from other tool failures. */
+class InvalidSpecError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "InvalidSpecError";
+  }
+}
 
 // ── State ────────────────────────────────────────────────────────────────────
 
 /** Published specs, keyed by `owner/repo#number`. In-memory for now; a restart
  * drops them and you'd re-run start_walkthrough. (TODO: optional disk cache.) */
 const specs = new Map<string, WalkthroughSpec>();
+
+/** Last manifest per PR (from start_walkthrough) — lets publish_walkthrough check
+ * that the spec actually covers the changed files. */
+const manifests = new Map<string, PrManifest>();
+/** Per-PR count of coverage rejections, so we nudge at most once and never loop. */
+const publishNudges = new Map<string, number>();
+const MAX_COVERAGE_NUDGES = 1;
 
 /** Push an event into the running Claude session. */
 async function pushEvent(content: string, meta: Record<string, string>): Promise<void> {
@@ -193,6 +209,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
   if (name === "start_walkthrough") {
     const pr = String((args as { pr?: string })?.pr ?? "");
     const manifest = await getManifest(pr);
+    manifests.set(prKey(pr), manifest); // remembered for the publish-time coverage check
     return {
       content: [
         {
@@ -209,16 +226,50 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
   if (name === "publish_walkthrough") {
     const spec = (args as { spec?: unknown })?.spec;
     if (!isWalkthroughSpec(spec)) {
-      throw new Error("spec failed validation — need version:1, pr.url, and steps[] with id/file/anchor");
+      throw new InvalidSpecError(
+        "spec failed validation — need version:1, pr.url, and steps[] with id/file/anchor",
+      );
     }
+    const key = prKey(spec.pr.url);
+
+    // Coverage gate (bounded): if significant changed files have no step, reject
+    // ONCE with the list so the author adds steps, then accept regardless — so a
+    // genuinely step-less file (or a stubborn model) can't loop generation forever.
+    const manifest = manifests.get(key);
+    const uncovered = manifest
+      ? uncoveredFiles(
+          manifest,
+          spec.steps.map((s) => s.file),
+        )
+      : [];
+    const nudges = publishNudges.get(key) ?? 0;
+    if (uncovered.length > 0 && nudges < MAX_COVERAGE_NUDGES) {
+      publishNudges.set(key, nudges + 1);
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text:
+              `NOT published — coverage check. These changed files have ≥${COVERAGE_MIN_ADDS} added lines but no step:\n` +
+              uncovered.map((p) => `  - ${p}`).join("\n") +
+              `\n\nAdd steps covering the significant changes in them (see the sizing checklist), then call publish_walkthrough again. ` +
+              `If a listed file genuinely needs no step (generated/config/trivial), just call publish_walkthrough again unchanged — it will go through.`,
+          },
+        ],
+      };
+    }
+
     spec.generatedAt = new Date().toISOString(); // stamp fresh on every publish so clients detect the update
-    specs.set(prKey(spec.pr.url), spec);
-    console.error(`[pr-walkthrough] published ${prKey(spec.pr.url)} (${spec.steps.length} steps)`);
+    specs.set(key, spec);
+    publishNudges.delete(key); // published — reset for the next regenerate
+    console.error(`[pr-walkthrough] published ${key} (${spec.steps.length} steps)`);
+    const coverageNote =
+      uncovered.length > 0 ? ` (${uncovered.length} changed file(s) still without a step)` : "";
     return {
       content: [
         {
           type: "text" as const,
-          text: `Published ${spec.steps.length} steps. Open the PR; the extension will render it.`,
+          text: `Published ${spec.steps.length} steps.${coverageNote} Open the PR; the extension will render it.`,
         },
       ],
     };

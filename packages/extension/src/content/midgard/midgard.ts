@@ -120,13 +120,27 @@ function rowsInView(rows: Element[], overlay: number): boolean {
  * Shared by the walkthrough step jump and the chat citation jump so both no-op
  * when the target is on screen instead of doing a jarring re-scroll. */
 function scrollRowsIntoView(rows: Element[], cont: Element): void {
-  const overlay = stickyOverlayHeight(cont, 0);
-  if (rowsInView(rows, overlay)) return;
-  const { top, bottom, vh } = rangeBounds(rows);
-  const fits = bottom - top <= vh - overlay;
-  const target = rows[fits ? Math.floor(rows.length / 2) : 0];
-  if (!fits && overlay && target instanceof HTMLElement) target.style.scrollMarginTop = `${overlay}px`;
-  target.scrollIntoView({ behavior: "smooth", block: fits ? "center" : "start" });
+  const doScroll = (): void => {
+    const overlay = stickyOverlayHeight(cont, 0);
+    if (rowsInView(rows, overlay)) return;
+    const { top, bottom, vh } = rangeBounds(rows);
+    const fits = bottom - top <= vh - overlay;
+    const target = rows[fits ? Math.floor(rows.length / 2) : 0];
+    if (!fits && overlay && target instanceof HTMLElement) target.style.scrollMarginTop = `${overlay}px`;
+    target.scrollIntoView({ behavior: "smooth", block: fits ? "center" : "start" });
+  };
+  doScroll();
+  // GitHub lazy-renders diffs, so content can grow above/below right after the
+  // jump and shove the target off-screen (you land at the bottom, file is way up).
+  // Re-seat for ~1s, but STOP as soon as it's on screen so we don't fight the
+  // user's own scrolling once it has settled.
+  let tries = 0;
+  const settle = (): void => {
+    if (!cont.isConnected || rowsInView(rows, stickyOverlayHeight(cont, 0))) return;
+    doScroll();
+    if (++tries < 6) setTimeout(settle, 150);
+  };
+  setTimeout(settle, 150);
 }
 
 // Bring a step onto screen, then highlight. Most files are already rendered, so
