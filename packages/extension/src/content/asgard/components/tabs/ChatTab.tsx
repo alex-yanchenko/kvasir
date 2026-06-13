@@ -452,17 +452,21 @@ function Thread({ sess }: { sess: ChatSession }): JSX.Element {
   };
 
   // A trailing user turn means the answer never arrived (the page was refreshed
-  // mid-request) — show the typing dots and re-issue it so the answer lands.
+  // mid-request) — re-issue it so the answer lands. Skip while unpaired: it would
+  // just 401, and opening a selection chat shouldn't fire a backend call.
   useEffect(() => {
+    if (blocked) return;
     const tail = sess.messages[sess.messages.length - 1];
     if (tail && tail.role === "user") send(tail.content, { pushUser: false });
     // once, when this chat opens
   }, []);
 
-  // suggestions prefetch (selection chats only; the PR chat has none)
+  // Suggestions prefetch (selection chats only; the PR chat has none). Runs once
+  // paired — re-attempted when pairing flips so a chat opened while unpaired still
+  // gets its suggestions afterwards (ensureSuggestions is a no-op once cached).
   useEffect(() => {
-    if (!sess.general) void chatStore.ensureSuggestions(sess.key);
-  }, []);
+    if (!sess.general && !blocked) void chatStore.ensureSuggestions(sess.key);
+  }, [blocked]);
 
   const ask = (q: string) => send(q);
   const lineLabel = sess.lines
@@ -517,7 +521,9 @@ function Thread({ sess }: { sess: ChatSession }): JSX.Element {
               ? sess.suggestions
                   .slice(0, 3)
                   .map((q) => <OptionRow key={q} label={q} onAsk={() => ask(q)} disabled={blocked} />)
-              : [0, 1, 2].map((i) => <div key={i} className="prw-srow prw-skel" />))}
+              : blocked
+                ? null // unpaired: no fetch is coming, so don't shimmer forever
+                : [0, 1, 2].map((i) => <div key={i} className="prw-srow prw-skel" />))}
         </div>
       </div>
       <div className="prw-thread" ref={threadRef}>

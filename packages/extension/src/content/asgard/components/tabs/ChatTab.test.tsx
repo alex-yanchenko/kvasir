@@ -168,13 +168,18 @@ describe("ChatTab shell", () => {
     expect(localStorage.getItem("prw:chatRailW")).toBe("280"); // RAIL_MAX
   });
 
-  it("disables the composer and quick chips while unpaired", () => {
+  it("disables the composer/chips and fires no backend call while unpaired", () => {
     pairingStore.markUnpaired();
+    const ask = vi.spyOn(chatStore, "send");
+    const suggest = vi.spyOn(chatStore, "ensureSuggestions");
     render(<ChatTab />);
-    openSession(mkSession("a"));
+    openSession(mkSession("a", { suggestions: null, messages: [{ role: "user", content: "pending?" }] }));
     expect(document.querySelector<HTMLTextAreaElement>(".prw-chat-input")!.disabled).toBe(true);
     expect((screen.getByRole("button", { name: "Ask" }) as HTMLButtonElement).disabled).toBe(true);
     expect((screen.getByText("Explain") as HTMLButtonElement).disabled).toBe(true);
+    expect(document.querySelector(".prw-skel")).toBeNull(); // no endless shimmer
+    expect(suggest).not.toHaveBeenCalled(); // no prefetch
+    expect(ask).not.toHaveBeenCalled(); // trailing user turn NOT auto-resent
   });
 
   it("the rail starts a new chat, switches between chats, deletes one, and clears all", () => {
