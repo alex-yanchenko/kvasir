@@ -14,8 +14,8 @@ export function RegenDialog({ onClose }: Readonly<{ onClose: () => void }>): JSX
   };
   // Escape closes the modal — the keyboard equivalent of the backdrop click.
   useEffect(() => {
-    const onKey = (e: KeyboardEvent): void => {
-      if (e.key === "Escape") onClose();
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.key === "Escape") onClose();
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
@@ -24,8 +24,8 @@ export function RegenDialog({ onClose }: Readonly<{ onClose: () => void }>): JSX
     // eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events -- backdrop click-to-dismiss is a mouse convenience; keyboard users close via the Cancel button or Escape (handler above).
     <div
       className="prw-dialog-back fixed inset-0 z-[2147483010] flex items-center justify-center bg-black/45"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
+      onClick={(event) => {
+        if (event.target === event.currentTarget) onClose();
       }}
     >
       <div

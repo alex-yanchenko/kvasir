@@ -37,20 +37,20 @@ export const fmtElapsed = (ms: number): string => {
 };
 
 interface GenMarker {
-  prevSig?: string;
+  previousSig?: string;
   at?: number;
 }
 const isGenMarker = (x: unknown): x is GenMarker => typeof x === "object" && x !== null;
 
 let generating = false;
 let newCommits = false;
-let curHead: string | null = null;
+let currentHead: string | null = null;
 let genPoll: ReturnType<typeof setInterval> | null = null;
 let genStartAt = 0;
 
-// Poll until a spec different from prevSig lands. Shared by a fresh request and
+// Poll until a spec different from previousSig lands. Shared by a fresh request and
 // by resuming after a page refresh.
-function pollForSpec(pr: string, prevSig: string): void {
+function pollForSpec(pr: string, previousSig: string): void {
   let tries = 0;
   if (genPoll) clearInterval(genPoll);
   genPoll = setInterval(() => {
@@ -58,7 +58,7 @@ function pollForSpec(pr: string, prevSig: string): void {
       tries++;
       const r = noteAuth(await api(`/walkthrough?pr=${encodeURIComponent(pr)}`));
       const got = r.ok && isWalkthroughSpec(r.data) ? r.data : null;
-      if (got && specSig(got) !== prevSig) {
+      if (got && specSig(got) !== previousSig) {
         if (genPoll) clearInterval(genPoll);
         genPoll = null;
         state.spec = got;
@@ -66,7 +66,7 @@ function pollForSpec(pr: string, prevSig: string): void {
         storeRemove(genKey(pr));
         state.tourState = { ...state.tourState, step: 0 };
         storeSet(tourKey(pr), state.tourState); // new review → first step; keep pos + size
-        newCommits = !!(curHead && got.pr?.headSha && got.pr.headSha !== curHead);
+        newCommits = !!(currentHead && got.pr?.headSha && got.pr.headSha !== currentHead);
         generating = false;
         touch();
       } else if (tries > GEN_MAX_TRIES) {
@@ -101,11 +101,11 @@ async function resumeGeneration(pr: string): Promise<boolean> {
   const marker = isGenMarker(gen) ? gen : null;
   const at = marker?.at || 0;
   const fresh = Date.now() - at < GEN_MAX_TRIES * GEN_POLL_INTERVAL_MS;
-  if (marker && fresh && (!state.spec || specSig(state.spec) === marker.prevSig)) {
+  if (marker && fresh && (!state.spec || specSig(state.spec) === marker.previousSig)) {
     generating = true;
     genStartAt = at;
     touch();
-    pollForSpec(pr, marker.prevSig ?? "");
+    pollForSpec(pr, marker.previousSig ?? "");
     return true;
   }
   if (marker) storeRemove(genKey(pr)); // finished (spec already changed), or stale — drop it
@@ -120,8 +120,8 @@ async function detectNewCommits(pr: string): Promise<void> {
     headSha = typeof h.data.headSha === "string" ? h.data.headSha : null;
   }
   if (!headSha) return;
-  curHead = headSha;
-  newCommits = !!state.spec?.pr?.headSha && state.spec.pr.headSha !== curHead;
+  currentHead = headSha;
+  newCommits = !!state.spec?.pr?.headSha && state.spec.pr.headSha !== currentHead;
   touch();
 }
 
@@ -136,11 +136,11 @@ export const launcherStore = {
   async requestGenerate(mode: "new" | "incremental", sinceSha?: string): Promise<void> {
     const pr = prUrl();
     if (!pr) return;
-    const prevSig = specSig(state.spec);
+    const previousSig = specSig(state.spec);
     tourStore.close(); // don't leave a stale walkthrough open while it regenerates
     generating = true;
     genStartAt = Date.now();
-    storeSet(genKey(pr), { prevSig, at: genStartAt });
+    storeSet(genKey(pr), { previousSig, at: genStartAt });
     touch();
     const r = noteAuth(await api("/generate", "POST", { pr, mode, sinceSha }));
     if (!r.ok) {
@@ -150,7 +150,7 @@ export const launcherStore = {
       touch();
       return;
     }
-    pollForSpec(pr, prevSig);
+    pollForSpec(pr, previousSig);
   },
 
   /** Stop watching — generation keeps running in the session; reopen later. */
@@ -169,7 +169,7 @@ export const launcherStore = {
     genPoll = null;
     generating = false;
     newCommits = false;
-    curHead = null;
+    currentHead = null;
     genStartAt = 0;
     touch();
   },

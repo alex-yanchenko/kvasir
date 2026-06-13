@@ -13,28 +13,28 @@ interface DragOptions {
 
 export function useDrag(
   targetRef: RefObject<HTMLElement | null>,
-  opts: DragOptions,
-): (e: ReactMouseEvent) => void {
-  return (e) => {
-    const el = targetRef.current;
-    if (!el) return;
-    if (opts.ignore && e.target instanceof Element && e.target.closest(opts.ignore)) return;
-    e.preventDefault();
-    const r = el.getBoundingClientRect();
-    const ox = e.clientX - r.left;
-    const oy = e.clientY - r.top;
-    const move = (ev: MouseEvent) => {
-      opts.onMoved?.();
-      el.style.left = `${ev.clientX - ox}px`;
-      el.style.top = `${ev.clientY - oy}px`;
-      el.style.right = "auto";
-      el.style.bottom = "auto";
+  options: DragOptions,
+): (event: ReactMouseEvent) => void {
+  return (event) => {
+    const element = targetRef.current;
+    if (!element) return;
+    if (options.ignore && event.target instanceof Element && event.target.closest(options.ignore)) return;
+    event.preventDefault();
+    const r = element.getBoundingClientRect();
+    const ox = event.clientX - r.left;
+    const oy = event.clientY - r.top;
+    const move = (event: MouseEvent) => {
+      options.onMoved?.();
+      element.style.left = `${event.clientX - ox}px`;
+      element.style.top = `${event.clientY - oy}px`;
+      element.style.right = "auto";
+      element.style.bottom = "auto";
     };
     const up = () => {
       document.removeEventListener("mousemove", move);
       document.removeEventListener("mouseup", up);
-      const b = el.getBoundingClientRect();
-      opts.onEnd({ left: b.left, top: b.top });
+      const b = element.getBoundingClientRect();
+      options.onEnd({ left: b.left, top: b.top });
     };
     document.addEventListener("mousemove", move);
     document.addEventListener("mouseup", up);

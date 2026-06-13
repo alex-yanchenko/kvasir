@@ -11,7 +11,7 @@ import { chatStore } from "../../chat";
 import { pairingStore } from "../../pairing";
 import { PANEL_TABS, state } from "../../store";
 import type { ChatSession } from "../../types";
-import { ChatTab, closeFences, linkifyRefs, REF_RE } from "./ChatTab";
+import { ChatTab, closeFences, linkifyReferences, REF_RE } from "./ChatTab";
 
 const PR = "https://github.com/acme/widget-api/pull/7";
 
@@ -80,7 +80,7 @@ const mockStream = (...snaps: unknown[]) => {
   });
 };
 
-describe("REF_RE + linkifyRefs + closeFences", () => {
+describe("REF_RE + linkifyReferences + closeFences", () => {
   it("linkifies path:line and ranged refs outside code; bare files only when in the PR diff", () => {
     const cont = document.createElement("div");
     cont.id = "diff-f1";
@@ -90,7 +90,7 @@ describe("REF_RE + linkifyRefs + closeFences", () => {
     el.innerHTML =
       "see src/app.ts:4 and src/app.ts:4-6 then src/app.ts but <pre>x.ts:9</pre> and vendor/lib.ts";
     el.append(document.createTextNode("")); // empty node is skipped
-    linkifyRefs(el);
+    linkifyReferences(el);
     const refs = [...el.querySelectorAll<HTMLAnchorElement>(".prw-ref")];
     expect(refs.map((a) => a.textContent)).toEqual(["src/app.ts:4", "src/app.ts:4-6", "src/app.ts"]);
     refs[0].click();

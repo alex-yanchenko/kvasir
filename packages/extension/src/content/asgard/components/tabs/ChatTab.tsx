@@ -47,8 +47,8 @@ const mkRefLink = (label: string, ref: { file: string; start: number | null; end
   a.className = "prw-ref";
   a.href = "#";
   a.textContent = label;
-  a.addEventListener("click", (e) => {
-    e.preventDefault();
+  a.addEventListener("click", (event) => {
+    event.preventDefault();
     bifrost.send("jump:ref", ref);
   });
   return a;
@@ -67,8 +67,8 @@ const insidePreOrAnchor = (node: Text, root: HTMLElement): boolean => {
 const collectRefNodes = (root: HTMLElement): Text[] => {
   const nodes: Text[] = [];
   const walk = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-  for (let cur = walk.nextNode(); cur; cur = walk.nextNode()) {
-    const node = cur;
+  for (let current = walk.nextNode(); current; current = walk.nextNode()) {
+    const node = current;
     if (!(node instanceof Text) || !node.nodeValue) continue;
     if (!REF_RE.test(node.nodeValue) && !FILE_RE.test(node.nodeValue)) continue;
     if (!insidePreOrAnchor(node, root)) nodes.push(node);
@@ -108,7 +108,7 @@ const linkifyTextNode = (node: Text, canonical: Canonicalize): void => {
   node.parentNode?.replaceChild(frag, node);
 };
 
-export function linkifyRefs(root: HTMLElement): void {
+export function linkifyReferences(root: HTMLElement): void {
   // bare paths only become links when they name a file in the PR's diff —
   // otherwise every npm package or URL fragment would turn into a dead link
   const known = changedFilePaths();
@@ -131,8 +131,8 @@ function Markdown({ text }: Readonly<{ text: string }>): JSX.Element {
   // citation links this effect adds on every unrelated re-render (copy flash).
   const html = useMemo(() => ({ __html: renderMarkdown(text) }), [text]);
   useEffect(() => {
-    const el = ref.current!; // the span renders unconditionally; refs are set before effects
-    for (const pre of el.querySelectorAll("pre.prw-code")) {
+    const element = ref.current!; // the span renders unconditionally; references are set before effects
+    for (const pre of element.querySelectorAll("pre.prw-code")) {
       const code = pre.querySelector("code")!; // renderMarkdown always nests <code> in .prw-code
       const b = document.createElement("button");
       b.className = "prw-iconbtn prw-code-copy";
@@ -147,7 +147,7 @@ function Markdown({ text }: Readonly<{ text: string }>): JSX.Element {
       });
       pre.append(b);
     }
-    linkifyRefs(el);
+    linkifyReferences(element);
   }, [html]);
   return <span ref={ref} className="prw-md" dangerouslySetInnerHTML={html} />;
 }
@@ -163,8 +163,8 @@ function Typewriter({ text, onDone }: Readonly<{ text: string; onDone: () => voi
   useEffect(() => {
     const step = Math.max(2, Math.round(text.length / 120));
     const tick = setInterval(() => {
-      setShown((i) => {
-        const next = Math.min(text.length, i + step);
+      setShown((index) => {
+        const next = Math.min(text.length, index + step);
         if (next >= text.length) {
           clearInterval(tick);
           onDoneRef.current();
@@ -185,46 +185,50 @@ interface Busy {
 
 function Message({
   sess,
-  msg,
+  message,
   index,
   onRegenerate,
   streaming,
   onStreamed,
 }: Readonly<{
   sess: ChatSession;
-  msg: ChatMessage;
+  message: ChatMessage;
   index: number;
   onRegenerate: (mi: number) => void;
   streaming: boolean;
   onStreamed: () => void;
 }>): JSX.Element {
   const bodyRef = useRef<HTMLDivElement>(null);
-  const refIdx = useRef(0);
+  const refIndex = useRef(0);
   const [copied, setCopied] = useState(false);
-  if (msg.role === "user") {
+  if (message.role === "user") {
     return (
-      <div className="prw-msg prw-msg-user">
-        <span>{msg.content}</span>
+      <div className="prw-message prw-message-user">
+        <span>{message.content}</span>
       </div>
     );
   }
   const locate = () => {
     // bodyRef is on this message's root div — set before any click can land
-    const refs = bodyRef.current!.querySelectorAll<HTMLAnchorElement>(".prw-ref");
-    if (refs.length > 0) {
+    const references = bodyRef.current!.querySelectorAll<HTMLAnchorElement>(".prw-ref");
+    if (references.length > 0) {
       // several citations: each click advances to the next (the inline links
       // jump to a specific one directly)
-      const a = refs[refIdx.current % refs.length];
-      refIdx.current++;
+      const a = references[refIndex.current % references.length];
+      refIndex.current++;
       a?.click();
     } else if (!sess.general) {
       bifrost.send("pick:rehighlight", { file: sess.file ?? "", text: sess.text, scroll: true });
     }
   };
   return (
-    <div className="prw-msg prw-msg-bot" ref={bodyRef}>
-      {streaming ? <Typewriter text={msg.content} onDone={onStreamed} /> : <Markdown text={msg.content} />}
-      <div className="prw-msg-actions">
+    <div className="prw-message prw-message-bot" ref={bodyRef}>
+      {streaming ? (
+        <Typewriter text={message.content} onDone={onStreamed} />
+      ) : (
+        <Markdown text={message.content} />
+      )}
+      <div className="prw-message-actions">
         <button
           className="prw-iconbtn"
           data-prw-tip="Regenerate answer"
@@ -246,7 +250,7 @@ function Message({
           data-prw-tip="Copy message"
           aria-label="Copy message"
           onClick={() => {
-            void navigator.clipboard?.writeText(msg.content);
+            void navigator.clipboard?.writeText(message.content);
             setCopied(true);
             setTimeout(() => setCopied(false), 1200);
           }}
@@ -273,11 +277,11 @@ function OptionRow({
   const [clipped, setClipped] = useState(false);
   const [open, setOpen] = useState(false);
   useEffect(() => {
-    const el = textRef.current!; // the span renders unconditionally; refs are set before effects
-    const check = () => setClipped(el.scrollWidth > el.clientWidth + 4);
+    const element = textRef.current!; // the span renders unconditionally; references are set before effects
+    const check = () => setClipped(element.scrollWidth > element.clientWidth + 4);
     check();
     const ro = new ResizeObserver(check);
-    ro.observe(el);
+    ro.observe(element);
     return () => ro.disconnect();
   }, []);
   return (
@@ -383,10 +387,10 @@ export function ChatTab(): JSX.Element {
 
   // Drag the divider to resize the rail; persist the final width (a global UI
   // pref, like the theme — localStorage, not the per-PR chrome store).
-  const onResize = (e: ReactMouseEvent): void => {
-    e.preventDefault();
+  const onResize = (event: ReactMouseEvent): void => {
+    event.preventDefault();
     const left = rowRef.current!.getBoundingClientRect().left; // the row is mounted — the handle lives in it
-    const move = (ev: MouseEvent): void => setRailW(clampRail(ev.clientX - left));
+    const move = (event: MouseEvent): void => setRailW(clampRail(event.clientX - left));
     const up = (): void => {
       document.removeEventListener("mousemove", move);
       document.removeEventListener("mouseup", up);
@@ -400,10 +404,10 @@ export function ChatTab(): JSX.Element {
   };
   // Keyboard equivalent of the drag (WAI-ARIA window-splitter pattern): arrows
   // nudge the rail, persisting like the drag's mouseup does.
-  const onResizeKey = (e: ReactKeyboardEvent): void => {
-    const delta = RAIL_NUDGE[e.key] ?? 0;
+  const onResizeKey = (event: ReactKeyboardEvent): void => {
+    const delta = RAIL_NUDGE[event.key] ?? 0;
     if (!delta) return;
-    e.preventDefault();
+    event.preventDefault();
     setRailW((w) => {
       const next = clampRail(w + delta);
       localStorage.setItem(RAIL_KEY, String(next));
@@ -448,8 +452,8 @@ function Thread({ sess }: Readonly<{ sess: ChatSession }>): JSX.Element {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const bannerRef = useRef<HTMLDetailsElement>(null);
   const [busy, setBusy] = useState<Busy | null>(null);
-  const [err, setErr] = useState<(Busy & { message: string }) | null>(null);
-  const [streamIdx, setStreamIdx] = useState<number | null>(null);
+  const [error, setError] = useState<(Busy & { message: string }) | null>(null);
+  const [streamIndex, setStreamIndex] = useState<number | null>(null);
   const liveRaw = chatStore.live();
   const liveAsk = liveRaw && liveRaw.key === sess.key ? liveRaw : null;
   // Asking hits the bridge; while unpaired those controls are disabled (the panel's
@@ -458,9 +462,9 @@ function Thread({ sess }: Readonly<{ sess: ChatSession }>): JSX.Element {
 
   // the step-context banner closes on any click outside it (shadow-safe)
   useEffect(() => {
-    const away = (e: MouseEvent) => {
+    const away = (event: MouseEvent) => {
       const b = bannerRef.current;
-      if (b?.open && !e.composedPath().includes(b)) b.open = false;
+      if (b?.open && !event.composedPath().includes(b)) b.open = false;
     };
     document.addEventListener("mousedown", away, true);
     return () => document.removeEventListener("mousedown", away, true);
@@ -472,18 +476,18 @@ function Thread({ sess }: Readonly<{ sess: ChatSession }>): JSX.Element {
     if (t) t.scrollTop = t.scrollHeight;
   });
 
-  const send = (question: string, opts: { pushUser?: boolean; replaceIdx?: number | undefined } = {}) => {
-    setErr(null);
-    setBusy({ question, replaceIdx: opts.replaceIdx });
-    void chatStore.send(sess.key, question, opts).then((r) => {
+  const send = (question: string, options: { pushUser?: boolean; replaceIdx?: number | undefined } = {}) => {
+    setError(null);
+    setBusy({ question, replaceIdx: options.replaceIdx });
+    void chatStore.send(sess.key, question, options).then((r) => {
       setBusy(null);
       if (r.ok) {
         const latest = chatStore.active();
-        const latestIdx = latest ? latest.messages.length - 1 : null;
+        const latestIndex = latest ? latest.messages.length - 1 : null;
         // already watched the text stream in → no cosmetic typewriter replay
-        setStreamIdx(r.streamed ? null : (opts.replaceIdx ?? latestIdx));
+        setStreamIndex(r.streamed ? null : (options.replaceIdx ?? latestIndex));
       } else {
-        setErr({ question, replaceIdx: opts.replaceIdx, message: r.error });
+        setError({ question, replaceIdx: options.replaceIdx, message: r.error });
       }
     });
   };
@@ -528,7 +532,7 @@ function Thread({ sess }: Readonly<{ sess: ChatSession }>): JSX.Element {
         .slice(0, 3)
         .map((q) => <OptionRow key={q} label={q} onAsk={() => ask(q)} disabled={blocked} />);
     if (blocked) return null;
-    return [0, 1, 2].map((i) => <div key={i} className="prw-srow prw-skel" />);
+    return [0, 1, 2].map((index) => <div key={index} className="prw-srow prw-skel" />);
   })();
 
   return (
@@ -567,14 +571,14 @@ function Thread({ sess }: Readonly<{ sess: ChatSession }>): JSX.Element {
         </div>
       </div>
       <div className="prw-thread" ref={threadRef}>
-        {sess.messages.map((m, i) => (
+        {sess.messages.map((m, index) => (
           <Message
-            key={i}
+            key={index}
             sess={sess}
-            msg={m}
-            index={i}
-            streaming={streamIdx === i}
-            onStreamed={() => setStreamIdx(null)}
+            message={m}
+            index={index}
+            streaming={streamIndex === index}
+            onStreamed={() => setStreamIndex(null)}
             onRegenerate={(mi) => {
               const q = sess.messages[mi - 1]?.content;
               if (q && mi >= 1) send(q, { replaceIdx: mi });
@@ -582,7 +586,7 @@ function Thread({ sess }: Readonly<{ sess: ChatSession }>): JSX.Element {
           />
         ))}
         {busy && (
-          <div className="prw-msg prw-msg-bot">
+          <div className="prw-message prw-message-bot">
             {liveAsk?.note && <div className="prw-live-note">⚙ {liveAsk.note}</div>}
             {liveAsk?.text && (
               <span className="prw-live-text">
@@ -597,13 +601,13 @@ function Thread({ sess }: Readonly<{ sess: ChatSession }>): JSX.Element {
             </span>
           </div>
         )}
-        {err && (
-          <div className="prw-msg prw-msg-bot prw-msg-note">
+        {error && (
+          <div className="prw-message prw-message-bot prw-message-note">
             <span>
-              ⚠ {err.message}{" "}
+              ⚠ {error.message}{" "}
               <button
                 className="prw-note-retry"
-                onClick={() => send(err.question, { pushUser: false, replaceIdx: err.replaceIdx })}
+                onClick={() => send(error.question, { pushUser: false, replaceIdx: error.replaceIdx })}
               >
                 Retry
               </button>
@@ -620,14 +624,14 @@ function Thread({ sess }: Readonly<{ sess: ChatSession }>): JSX.Element {
           placeholder={
             blocked ? "Pair the extension to chat…" : "Ask…  (Enter to send · ⌘/Ctrl+Enter for a new line)"
           }
-          onInput={(e) => autosize(e.currentTarget)}
-          onKeyDown={(e) => {
-            if (e.key !== "Enter") return;
+          onInput={(event) => autosize(event.currentTarget)}
+          onKeyDown={(event) => {
+            if (event.key !== "Enter") return;
             // ⌘/Ctrl+Enter inserts a newline at the cursor (a textarea won't on
             // its own); Shift+Enter keeps the native newline; plain Enter sends.
-            if (e.metaKey || e.ctrlKey) {
-              e.preventDefault();
-              const input = e.currentTarget;
+            if (event.metaKey || event.ctrlKey) {
+              event.preventDefault();
+              const input = event.currentTarget;
               const start = input.selectionStart;
               const end = input.selectionEnd;
               input.value = input.value.slice(0, start) + "\n" + input.value.slice(end);
@@ -635,8 +639,8 @@ function Thread({ sess }: Readonly<{ sess: ChatSession }>): JSX.Element {
               autosize(input);
               return;
             }
-            if (e.shiftKey) return;
-            e.preventDefault();
+            if (event.shiftKey) return;
+            event.preventDefault();
             submit();
           }}
         />

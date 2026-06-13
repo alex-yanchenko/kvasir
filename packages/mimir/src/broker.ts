@@ -35,7 +35,7 @@ export interface AskBroker {
   snapshot(id: string): QuestionSnapshot | null;
 }
 
-export function createAskBroker(opts: {
+export function createAskBroker(options: {
   timeoutMs: number;
   pushEvent: (content: string, meta: Record<string, string>) => Promise<void>;
 }): AskBroker {
@@ -62,10 +62,10 @@ export function createAskBroker(opts: {
         text: "",
         done: false,
         timedOut: false,
-        timer: setTimeout(() => close(id, q, true), opts.timeoutMs),
+        timer: setTimeout(() => close(id, q, true), options.timeoutMs),
       };
       questions.set(id, q);
-      void opts.pushEvent(content, { ...meta, event_type: eventType, id });
+      void options.pushEvent(content, { ...meta, event_type: eventType, id });
       return id;
     },
 

@@ -3,45 +3,45 @@
 // attribute. Self-contained — owns its own tip element and hover timer. (Asgard
 // has its own shadow-scoped Tooltips component — events don't cross the boundary.)
 
-let tipEl: HTMLElement | null = null;
+let tipElement: HTMLElement | null = null;
 let tipTimer: ReturnType<typeof setTimeout> | null = null;
 
 function hideTip(): void {
   if (tipTimer !== null) clearTimeout(tipTimer);
   tipTimer = null;
-  if (tipEl) tipEl.style.display = "none";
+  if (tipElement) tipElement.style.display = "none";
 }
 
 function showTip(target: Element): void {
   const text = target.getAttribute("data-prw-tip");
   if (!text) return;
-  if (!tipEl) {
-    tipEl = document.createElement("div");
-    tipEl.className = "prw-tip";
-    document.body.append(tipEl);
+  if (!tipElement) {
+    tipElement = document.createElement("div");
+    tipElement.className = "prw-tip";
+    document.body.append(tipElement);
   }
-  tipEl.textContent = text;
-  tipEl.style.display = "block";
+  tipElement.textContent = text;
+  tipElement.style.display = "block";
   const r = target.getBoundingClientRect();
-  const tr = tipEl.getBoundingClientRect();
+  const tr = tipElement.getBoundingClientRect();
   let top = r.top - tr.height - 6;
   if (top < 4) top = r.bottom + 6;
   const left = Math.max(6, Math.min(r.left + r.width / 2 - tr.width / 2, window.innerWidth - tr.width - 6));
-  tipEl.style.left = `${left}px`;
-  tipEl.style.top = `${top}px`;
+  tipElement.style.left = `${left}px`;
+  tipElement.style.top = `${top}px`;
 }
 
 // Called by Heimdall's boot after its re-injection guard so the document listeners
 // bind exactly once, even if the content script is injected twice.
 export function initTooltips(): void {
-  document.addEventListener("mouseover", (e) => {
-    const t = e.target instanceof Element ? e.target.closest("[data-prw-tip]") : null;
+  document.addEventListener("mouseover", (event) => {
+    const t = event.target instanceof Element ? event.target.closest("[data-prw-tip]") : null;
     if (!t) return;
     if (tipTimer !== null) clearTimeout(tipTimer);
     tipTimer = setTimeout(() => showTip(t), 350);
   });
-  document.addEventListener("mouseout", (e) => {
-    if (e.target instanceof Element && e.target.closest("[data-prw-tip]")) hideTip();
+  document.addEventListener("mouseout", (event) => {
+    if (event.target instanceof Element && event.target.closest("[data-prw-tip]")) hideTip();
   });
   document.addEventListener("mousedown", hideTip, true);
 }

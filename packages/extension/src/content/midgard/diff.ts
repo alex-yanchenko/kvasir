@@ -48,17 +48,17 @@ export function filePathFromContainer(cont: Element | null): string | null {
  * Asgard uses it to validate file mentions in answers before linkifying them. */
 export function changedFilePaths(): string[] {
   const out: string[] = [];
-  for (const el of document.querySelectorAll('[id^="diff-"]')) {
-    const path = filePathFromContainer(el);
+  for (const element of document.querySelectorAll('[id^="diff-"]')) {
+    const path = filePathFromContainer(element);
     if (path) out.push(path);
   }
   return out;
 }
 
 export function diffContainerOf(node: Node | null): Element | null {
-  let el: Element | null = node instanceof Element ? node : (node?.parentElement ?? null);
-  while (el && !(el.id && el.id.startsWith("diff-"))) el = el.parentElement;
-  return el || null;
+  let element: Element | null = node instanceof Element ? node : (node?.parentElement ?? null);
+  while (element && !(element.id && element.id.startsWith("diff-"))) element = element.parentElement;
+  return element || null;
 }
 
 // Find a file's diff container by its path (for re-highlighting a reopened chat).
@@ -118,11 +118,11 @@ export const cleanLine = (row: Element): string => {
 };
 export function rowsBetween(container: Element, rowA: Element, rowB: Element): Element[] {
   const all = rowsOf(container);
-  let i = all.indexOf(rowA),
-    j = all.indexOf(rowB);
-  if (i < 0 || j < 0) return [];
-  if (i > j) [i, j] = [j, i];
-  return all.slice(i, j + 1);
+  let indexA = all.indexOf(rowA),
+    indexB = all.indexOf(rowB);
+  if (indexA < 0 || indexB < 0) return [];
+  if (indexA > indexB) [indexA, indexB] = [indexB, indexA];
+  return all.slice(indexA, indexB + 1);
 }
 // Rows whose visible line number falls in [start, end]. Used for spec-defined
 // step ranges (the generator emits new-side numbers).

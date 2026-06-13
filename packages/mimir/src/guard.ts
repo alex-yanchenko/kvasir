@@ -47,14 +47,14 @@ export function isAuthorizedCaller(s: CallerSignals, allowedOrigin?: string): bo
 }
 
 /** Request-reading wrapper around isAuthorizedCaller. */
-export function authorizedLocalCaller(req: Request): boolean {
+export function authorizedLocalCaller(request: Request): boolean {
   return isAuthorizedCaller(
     {
-      origin: req.headers.get("origin") ?? "",
-      host: req.headers.get("host") ?? "",
-      hasGuardHeader: req.headers.get(GUARD_HEADER) !== null,
-      method: req.method,
-      contentType: req.headers.get("content-type") ?? "",
+      origin: request.headers.get("origin") ?? "",
+      host: request.headers.get("host") ?? "",
+      hasGuardHeader: request.headers.get(GUARD_HEADER) !== null,
+      method: request.method,
+      contentType: request.headers.get("content-type") ?? "",
     },
     process.env.PR_WALKTHROUGH_ORIGIN,
   );
@@ -63,8 +63,8 @@ export function authorizedLocalCaller(req: Request): boolean {
 /** No wildcard, and no github.com by default: the extension talks to us through its
  *  privileged background worker (not subject to CORS), so nothing legitimate needs a
  *  cross-origin grant. Only an explicit env override is reflected. */
-export function corsHeaders(req: Request): Record<string, string> {
-  const origin = req.headers.get("origin") ?? "";
+export function corsHeaders(request: Request): Record<string, string> {
+  const origin = request.headers.get("origin") ?? "";
   const headers: Record<string, string> = {
     "access-control-allow-methods": "GET,POST,OPTIONS",
     "access-control-allow-headers": "content-type," + GUARD_HEADER,
@@ -75,10 +75,10 @@ export function corsHeaders(req: Request): Record<string, string> {
 }
 
 /** Parse a JSON object body with a hard size limit; null on anything malformed/oversized. */
-export async function readJsonBody(req: Request): Promise<Record<string, unknown> | null> {
-  if (Number(req.headers.get("content-length") ?? 0) > MAX_BODY) return null;
+export async function readJsonBody(request: Request): Promise<Record<string, unknown> | null> {
+  if (Number(request.headers.get("content-length") ?? 0) > MAX_BODY) return null;
   try {
-    const text = await req.text();
+    const text = await request.text();
     if (text.length > MAX_BODY) return null;
     const v: unknown = JSON.parse(text);
     return v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : null;
@@ -88,11 +88,11 @@ export async function readJsonBody(req: Request): Promise<Record<string, unknown
 }
 
 /** Coerce to a string and cap its length (cost + abuse control; never trust the client). */
-export const str = (v: unknown, max: number): string => (typeof v === "string" ? v.slice(0, max) : "");
+export const truncate = (v: unknown, max: number): string => (typeof v === "string" ? v.slice(0, max) : "");
 
 /** Accept a value only if it's a well-formed GitHub PR URL — so nothing arbitrary
  *  lands in a `gh` path or a session prompt. */
 export const prOrNull = (v: unknown): string | null => {
-  const s = str(v, 300);
+  const s = truncate(v, 300);
   return PR_URL_RE.test(s) ? s : null;
 };

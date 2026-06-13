@@ -18,12 +18,12 @@ export function useScrollLock(targetRef: RefObject<HTMLElement | null>): void {
   useEffect(() => {
     const root = targetRef.current;
     if (!root) return;
-    const onWheel = (e: WheelEvent): void => {
-      for (let node = e.target as HTMLElement | null; node; node = node.parentElement) {
-        if (canScroll(node, e.deltaY)) return; // an inner scroller will consume it
+    const onWheel = (event: WheelEvent): void => {
+      for (let node = event.target as HTMLElement | null; node; node = node.parentElement) {
+        if (canScroll(node, event.deltaY)) return; // an inner scroller will consume it
         if (node === root) break; // reached the panel edge without finding room
       }
-      e.preventDefault(); // nothing inside can scroll further → don't scroll the page
+      event.preventDefault(); // nothing inside can scroll further → don't scroll the page
     };
     // non-passive so preventDefault actually blocks the scroll
     root.addEventListener("wheel", onWheel, { passive: false });

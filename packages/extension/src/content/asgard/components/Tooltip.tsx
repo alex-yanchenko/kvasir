@@ -26,8 +26,8 @@ export function Tooltips(): JSX.Element {
       timer.current = null;
       setTip(null);
     };
-    const over = (e: Event) => {
-      const t = e.target instanceof Element ? e.target.closest("[data-prw-tip]") : null;
+    const over = (event: Event) => {
+      const t = event.target instanceof Element ? event.target.closest("[data-prw-tip]") : null;
       if (!t) return;
       if (timer.current !== null) clearTimeout(timer.current);
       timer.current = setTimeout(
@@ -36,8 +36,8 @@ export function Tooltips(): JSX.Element {
         TIP_DELAY_MS,
       );
     };
-    const out = (e: Event) => {
-      if (e.target instanceof Element && e.target.closest("[data-prw-tip]")) cancel();
+    const out = (event: Event) => {
+      if (event.target instanceof Element && event.target.closest("[data-prw-tip]")) cancel();
     };
     root.addEventListener("mouseover", over);
     root.addEventListener("mouseout", out);
@@ -53,14 +53,14 @@ export function Tooltips(): JSX.Element {
   // and to flip below when it would poke past the viewport top.
   useLayoutEffect(() => {
     if (!tip) return;
-    const el = tipRef.current!; // the tip div renders whenever tip is set
+    const element = tipRef.current!; // the tip div renders whenever tip is set
     const r = tip.anchor;
-    const tr = el.getBoundingClientRect();
+    const tr = element.getBoundingClientRect();
     let top = r.top - tr.height - 6;
     if (top < 4) top = r.bottom + 6;
     const left = Math.max(6, Math.min(r.left + r.width / 2 - tr.width / 2, window.innerWidth - tr.width - 6));
-    el.style.left = `${left}px`;
-    el.style.top = `${top}px`;
+    element.style.left = `${left}px`;
+    element.style.top = `${top}px`;
   }, [tip]);
 
   return (

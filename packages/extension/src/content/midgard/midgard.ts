@@ -84,17 +84,17 @@ export function rehighlightSession(s: RehighlightableSession): Element[] {
   s.container = container;
   const want = s.text.split("\n");
   const rows = rowsOf(container);
-  for (let i = 0; i + want.length <= rows.length; i++) {
+  for (let index = 0; index + want.length <= rows.length; index++) {
     let ok = true;
     for (const [k, element] of want.entries()) {
-      const row = rows[i + k];
+      const row = rows[index + k];
       if (!row || cleanLine(row) !== element) {
         ok = false;
         break;
       }
     }
     if (ok) {
-      const span = rows.slice(i, i + want.length);
+      const span = rows.slice(index, index + want.length);
       highlightRows(span);
       return span;
     }
@@ -160,11 +160,11 @@ function scrollRowsIntoView(rows: Element[], cont: Element): void {
  * inside the file's container if present, returning whether we did — the caller
  * keeps polling until the rows render. */
 function loadDiffIfPresent(cont: Element): boolean {
-  const btn = [...cont.querySelectorAll('button, a, [role="button"]')].find((el) =>
-    /load diff/i.test(el.textContent ?? ""),
+  const button = [...cont.querySelectorAll('button, a, [role="button"]')].find((element) =>
+    /load diff/i.test(element.textContent ?? ""),
   );
-  if (!(btn instanceof HTMLElement)) return false;
-  btn.click();
+  if (!(button instanceof HTMLElement)) return false;
+  button.click();
   return true;
 }
 
@@ -196,9 +196,9 @@ export function showStep(step: HighlightableStep): void {
 export function containerForFileLoose(file: string): Element | null {
   const exact = containerForFile(file);
   if (exact) return exact;
-  for (const el of document.querySelectorAll('[id^="diff-"]')) {
-    const p = filePathFromContainer(el);
-    if (p && (p === file || p.endsWith("/" + file) || file.endsWith("/" + p))) return el;
+  for (const element of document.querySelectorAll('[id^="diff-"]')) {
+    const p = filePathFromContainer(element);
+    if (p && (p === file || p.endsWith("/" + file) || file.endsWith("/" + p))) return element;
   }
   return null;
 }
@@ -207,8 +207,8 @@ export function containerForFileLoose(file: string): Element | null {
 // the cited file isn't in this PR's diff, so callers can fall back.
 /** The nearest scrollable ancestor — GitHub's /changes UI scrolls diffs in an
  * inner container, where window scrolling is a no-op. Null = the window scrolls. */
-function scrollParentOf(el: Element): Element | null {
-  for (let p = el.parentElement; p; p = p.parentElement) {
+function scrollParentOf(element: Element): Element | null {
+  for (let p = element.parentElement; p; p = p.parentElement) {
     if (/auto|scroll|overlay/.test(getComputedStyle(p).overflowY) && p.scrollHeight > p.clientHeight)
       return p;
   }

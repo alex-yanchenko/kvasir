@@ -94,13 +94,14 @@ export function friendlyError(r: { data?: unknown; error?: string }): string {
     typeof r.data === "object" && r.data !== null && "error" in r.data && typeof r.data.error === "string"
       ? r.data.error
       : "";
-  const e = fromData || r.error || "";
-  if (/not paired/i.test(e)) return "Not paired — open Settings (gear) and pair the extension.";
-  if (/timed out/i.test(e)) return "No response yet — the session may be busy or paused in your terminal.";
-  if (/refresh the page/i.test(e)) return "Extension was reloaded — refresh the page, then retry.";
-  if (/fetch|reach|no response|network/i.test(e))
+  const event = fromData || r.error || "";
+  if (/not paired/i.test(event)) return "Not paired — open Settings (gear) and pair the extension.";
+  if (/timed out/i.test(event))
+    return "No response yet — the session may be busy or paused in your terminal.";
+  if (/refresh the page/i.test(event)) return "Extension was reloaded — refresh the page, then retry.";
+  if (/fetch|reach|no response|network/i.test(event))
     return "Can't reach the channel — is your Claude session running?";
-  return e ? `Something went wrong: ${e}` : "No answer came back.";
+  return event ? `Something went wrong: ${event}` : "No answer came back.";
 }
 
 const idOf = (data: unknown): string | null =>
@@ -140,14 +141,14 @@ type PollResult = { ok: true; text: string; streamed: boolean } | { ok: false; e
 async function pollAnswer(key: string, id: string): Promise<PollResult> {
   live = { key, note: null, text: "" };
   touch();
-  let prevNote: string | null = null; // mirror the live bubble to diff without re-reading the nullable singleton
-  let prevText = "";
+  let previousNote: string | null = null; // mirror the live bubble to diff without re-reading the nullable singleton
+  let previousText = "";
   let sawPartial = false; // any text shown before done → skip the cosmetic typewriter
   // Repaint the live bubble only when the note or text actually changed.
   const mirror = (note: string | null, text: string): void => {
-    if (note === prevNote && text === prevText) return;
-    prevNote = note;
-    prevText = text;
+    if (note === previousNote && text === previousText) return;
+    previousNote = note;
+    previousText = text;
     live = { key, note, text };
     touch();
   };
@@ -280,22 +281,22 @@ export const chatStore = {
   },
 
   /** Send a question. pushUser=false resumes an already-recorded trailing user
-   * turn (e.g. after a refresh dropped the in-flight request); replaceIdx
+   * turn (event.g. after a refresh dropped the in-flight request); replaceIdx
    * overwrites that assistant turn in place (regenerate). */
   async send(
     key: string,
     question: string,
-    opts: { pushUser?: boolean; replaceIdx?: number | undefined } = {},
+    options: { pushUser?: boolean; replaceIdx?: number | undefined } = {},
   ): Promise<AskOutcome> {
     const sess = state.chatHistory.find((s) => s.key === key);
     if (!sess) return { ok: false, error: "this chat no longer exists" };
-    const pushUser = opts.pushUser !== false && opts.replaceIdx === undefined;
+    const pushUser = options.pushUser !== false && options.replaceIdx === undefined;
     const messages: ChatMessage[] = pushUser
       ? [...sess.messages, { role: "user", content: question }]
       : sess.messages;
     if (pushUser) update(key, (s) => ({ ...s, messages }));
     const history =
-      opts.replaceIdx === undefined ? messages.slice(0, -1) : messages.slice(0, opts.replaceIdx - 1);
+      options.replaceIdx === undefined ? messages.slice(0, -1) : messages.slice(0, options.replaceIdx - 1);
     const r = await api("/ask", "POST", {
       pr: prUrl(),
       file: sess.file,
@@ -315,13 +316,13 @@ export const chatStore = {
     // paths behave exactly as before streaming existed.
     const result = await pollAnswer(key, id);
     if (!result.ok) return result;
-    const msg: ChatMessage = { role: "assistant", content: result.text };
+    const message: ChatMessage = { role: "assistant", content: result.text };
     update(key, (s) => ({
       ...s,
       messages:
-        opts.replaceIdx === undefined
-          ? [...s.messages, msg]
-          : s.messages.map((m, i) => (i === opts.replaceIdx ? msg : m)),
+        options.replaceIdx === undefined
+          ? [...s.messages, message]
+          : s.messages.map((m, index) => (index === options.replaceIdx ? message : m)),
     }));
     return { ok: true, streamed: result.streamed };
   },

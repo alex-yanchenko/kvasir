@@ -55,8 +55,8 @@ const CAP_ITEM = 800;
 const CAP_TOTAL = 16_000;
 
 const trim = (s: unknown, n: number): string => {
-  const str = typeof s === "string" ? s.trim() : "";
-  return str.length > n ? str.slice(0, n) + "…" : str;
+  const trimmed = typeof s === "string" ? s.trim() : "";
+  return trimmed.length > n ? trimmed.slice(0, n) + "…" : trimmed;
 };
 
 interface RawUser {
@@ -210,10 +210,10 @@ export async function getHeadSha(url: string): Promise<string> {
 async function gh(args: string[]): Promise<string> {
   const proc = Bun.spawn(["gh", ...args], { stdout: "pipe", stderr: "pipe" });
   const out = await new Response(proc.stdout).text();
-  const err = await new Response(proc.stderr).text();
+  const error = await new Response(proc.stderr).text();
   const code = await proc.exited;
   if (code !== 0) {
-    throw new GhError(`gh ${args.join(" ")} failed (exit ${code}): ${err.trim() || out.trim()}`);
+    throw new GhError(`gh ${args.join(" ")} failed (exit ${code}): ${error.trim() || out.trim()}`);
   }
   return out;
 }

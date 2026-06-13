@@ -44,7 +44,7 @@ export function applyTheme(): void {
  * reloaded out from under the page (orphaned content script). */
 export function watchUrl(intervalMs = 1500): () => void {
   let lastUrl = location.href;
-  let curPr = prUrl();
+  let currentPr = prUrl();
   const poll = setInterval(() => {
     if (!chrome.runtime?.id) {
       clearInterval(poll);
@@ -53,8 +53,8 @@ export function watchUrl(intervalMs = 1500): () => void {
     if (location.href === lastUrl) return;
     lastUrl = location.href;
     const pr = prUrl();
-    if (pr !== curPr) {
-      curPr = pr;
+    if (pr !== currentPr) {
+      currentPr = pr;
       state.chatHistory = [];
       touch(); // React drops the panel content with the old PR's state
       state.tourState = { step: 0, pos: null, size: null };

@@ -83,10 +83,23 @@ export default [
       // Bifrost commands carry an explicit `undefined`-typed payload (a required 2nd
       // arg), and our promises resolve `unknown` — the autofix strips needed args.
       "unicorn/no-useless-undefined": "off",
-      // Almost all hits are universal (loop `i`, React `props`/`*Ref`) or domain
-      // terms it would mis-rename (our `*Ref` means a code reference, not a React
-      // ref / "reference"); near-zero are genuine bad abbreviations.
-      "unicorn/prevent-abbreviations": "off",
+      // Expand genuine abbreviations, but allow the idioms it would wrongly mangle:
+      // React props/refs and our domain `Ref` (a code reference), plus loop counters.
+      "unicorn/prevent-abbreviations": [
+        "error",
+        {
+          replacements: {
+            props: false,
+            ref: false,
+            args: false,
+            params: false,
+            fn: false,
+            db: false,
+            env: false,
+          },
+          allowList: { Ref: true, Props: true },
+        },
+      ],
       // Components are PascalCase, everything else camelCase — allow both.
       "unicorn/filename-case": ["error", { cases: { camelCase: true, pascalCase: true } }],
     },

@@ -1,10 +1,10 @@
 // The localhost HTTP bridge — the routes the Chrome extension calls. Pure
-// (req: Request) => Response over injected dependencies, so the whole surface
+// (request: Request) => Response over injected dependencies, so the whole surface
 // (auth gate, validation, prompt building, response codes) is unit-testable on
 // Node; channel.ts supplies the live deps and hands the handler to Bun.serve.
 import { prKey, PR_URL_RE, type WalkthroughSpec } from "@prw/runes";
 import type { QuestionSnapshot } from "./broker";
-import { authorizedLocalCaller, corsHeaders, readJsonBody, str, prOrNull } from "./guard";
+import { authorizedLocalCaller, corsHeaders, readJsonBody, truncate, prOrNull } from "./guard";
 import type { Pairing } from "./pairing";
 
 export interface BridgeDeps {
@@ -22,10 +22,10 @@ export interface BridgeDeps {
   pairing: Pairing;
 }
 
-function json(req: Request, body: unknown, status = 200): Response {
+function json(request: Request, body: unknown, status = 200): Response {
   return Response.json(body, {
     status,
-    headers: { "content-type": "application/json", ...corsHeaders(req) },
+    headers: { "content-type": "application/json", ...corsHeaders(request) },
   });
 }
 
@@ -48,58 +48,58 @@ export function parseSuggestions(raw: string): string[] {
 }
 
 /** Per-request context threaded to each route handler. */
-type Ctx = { req: Request; url: URL; deps: BridgeDeps };
+type Context = { request: Request; url: URL; deps: BridgeDeps };
 
 // ── token-less routes ────────────────────────────────────────────────────────
 
-async function handlePair({ req, deps }: Ctx): Promise<Response> {
-  const b = await readJsonBody(req);
-  if (!b) return json(req, { error: "bad request body" }, 400);
-  const r = deps.pairing.request(str(b.name, 80) || "unnamed extension");
-  if (!r.ok) return json(req, { error: "another pairing request is already pending" }, 409);
-  return json(req, { requestId: r.requestId, code: r.code });
+async function handlePair({ request, deps }: Context): Promise<Response> {
+  const b = await readJsonBody(request);
+  if (!b) return json(request, { error: "bad request body" }, 400);
+  const r = deps.pairing.request(truncate(b.name, 80) || "unnamed extension");
+  if (!r.ok) return json(request, { error: "another pairing request is already pending" }, 409);
+  return json(request, { requestId: r.requestId, code: r.code });
 }
 
-function handlePairClaim({ req, url, deps }: Ctx): Response {
-  const id = str(url.searchParams.get("id"), 100);
-  if (!id) return json(req, { error: "need an id" }, 400);
+function handlePairClaim({ request, url, deps }: Context): Response {
+  const id = truncate(url.searchParams.get("id"), 100);
+  if (!id) return json(request, { error: "need an id" }, 400);
   const r = deps.pairing.claim(id);
-  return r ? json(req, r) : json(req, { error: "unknown, expired, or already claimed" }, 404);
+  return r ? json(request, r) : json(request, { error: "unknown, expired, or already claimed" }, 404);
 }
 
 // ── token-gated routes ───────────────────────────────────────────────────────
 
-function handleWalkthrough({ req, url, deps }: Ctx): Response {
+function handleWalkthrough({ request, url, deps }: Context): Response {
   const pr = prOrNull(url.searchParams.get("pr"));
-  if (!pr) return json(req, { error: "bad or missing pr" }, 400);
+  if (!pr) return json(request, { error: "bad or missing pr" }, 400);
   const spec = deps.specs.get(prKey(pr));
-  return spec ? json(req, spec) : json(req, { status: "absent" });
+  return spec ? json(request, spec) : json(request, { status: "absent" });
 }
 
-async function handleHead({ req, url, deps }: Ctx): Promise<Response> {
+async function handleHead({ request, url, deps }: Context): Promise<Response> {
   const pr = prOrNull(url.searchParams.get("pr"));
-  if (!pr) return json(req, { error: "bad or missing pr" }, 400);
+  if (!pr) return json(request, { error: "bad or missing pr" }, 400);
   try {
-    return json(req, { headSha: await deps.getHeadSha(pr) });
+    return json(request, { headSha: await deps.getHeadSha(pr) });
   } catch (error) {
     console.error("[pr-walkthrough] /head failed:", error); // detail to stderr only
-    return json(req, { error: "could not fetch head sha" }, 502);
+    return json(request, { error: "could not fetch head sha" }, 502);
   }
 }
 
-async function handleGenerate({ req, deps }: Ctx): Promise<Response> {
-  const b = await readJsonBody(req);
-  if (!b) return json(req, { error: "bad request body" }, 400);
+async function handleGenerate({ request, deps }: Context): Promise<Response> {
+  const b = await readJsonBody(request);
+  if (!b) return json(request, { error: "bad request body" }, 400);
   const pr = prOrNull(b.pr);
-  if (!pr) return json(req, { error: "bad or missing pr" }, 400);
+  if (!pr) return json(request, { error: "bad or missing pr" }, 400);
   const mode = b.mode === "incremental" ? "incremental" : "new";
-  const since = str(b.sinceSha, 100);
+  const since = truncate(b.sinceSha, 100);
   const content =
     mode === "incremental"
       ? `The user asked for an INCREMENTAL update of the walkthrough for ${pr}. Fetch ONLY what changed since commit ${since} (the previously-reviewed head) and author steps for ONLY those new/changed lines. Call publish_walkthrough with a spec whose steps array contains ONLY those new steps — do NOT re-include the earlier steps. Keep it minimal (fewer steps = less data to send and a faster update).`
       : `The user asked to build a fresh walkthrough for ${pr}. Call start_walkthrough, author the spec, and call publish_walkthrough.`;
   await deps.pushEvent(content, { event_type: "generate_walkthrough", pr, mode, since });
-  return json(req, { queued: true });
+  return json(request, { queued: true });
 }
 
 // Citing code as path:line lets the extension turn references into clickable
@@ -161,53 +161,53 @@ function buildAskPrompt(p: AskPrompt): string {
   ].join("");
 }
 
-async function handleAsk({ req, deps }: Ctx): Promise<Response> {
-  const b = await readJsonBody(req);
-  if (!b) return json(req, { error: "bad request body" }, 400);
+async function handleAsk({ request, deps }: Context): Promise<Response> {
+  const b = await readJsonBody(request);
+  if (!b) return json(request, { error: "bad request body" }, 400);
   // Cap every field server-side (cost + abuse control; don't trust the client).
   const pr = prOrNull(b.pr) ?? "a PR";
-  const file = str(b.file, 400);
+  const file = truncate(b.file, 400);
   const ln = b.lines as { start?: number; end?: number } | undefined;
   const lines =
     ln && Number.isFinite(ln.start) && Number.isFinite(ln.end)
       ? { start: Number(ln.start), end: Number(ln.end) }
       : null;
-  const selection = str(b.selection, 8000);
-  const review = str(b.review, 20_000);
-  const step = str(b.step, 8000);
-  const question = str(b.question, 4000);
-  if (!question) return json(req, { error: "need a question" }, 400);
+  const selection = truncate(b.selection, 8000);
+  const review = truncate(b.review, 20_000);
+  const step = truncate(b.step, 8000);
+  const question = truncate(b.question, 4000);
+  if (!question) return json(request, { error: "need a question" }, 400);
   // A chat with no selection is a general, PR-level question — it leans on the
   // distilled walkthrough (review) for grounding instead of selected code.
   const prLevel = !selection;
-  if (prLevel && !review) return json(req, { error: "need a selection or a generated review" }, 400);
+  if (prLevel && !review) return json(request, { error: "need a selection or a generated review" }, 400);
   const lineSuffix = lines ? ` lines ${lines.start}-${lines.end}` : "";
   const where = file ? `${file}${lineSuffix}` : "this PR";
   const history = Array.isArray(b.messages)
     ? (b.messages as Array<{ role?: string; content?: unknown }>)
         .slice(-20)
-        .map((m) => `${m.role === "user" ? "User" : "You"}: ${str(m.content, 8000)}`)
+        .map((m) => `${m.role === "user" ? "User" : "You"}: ${truncate(m.content, 8000)}`)
         .join("\n")
     : "";
   const content = buildAskPrompt({ pr, where, review, step, selection, history, question, prLevel });
   const id = deps.open("code_question", content, { pr: PR_URL_RE.test(pr) ? pr : "", file });
-  return json(req, { id });
+  return json(request, { id });
 }
 
-function handlePoll({ req, url, deps }: Ctx): Response {
-  const id = str(url.searchParams.get("id"), 100);
-  if (!id) return json(req, { error: "need an id" }, 400);
+function handlePoll({ request, url, deps }: Context): Response {
+  const id = truncate(url.searchParams.get("id"), 100);
+  if (!id) return json(request, { error: "need an id" }, 400);
   const snap = deps.snapshot(id);
-  return snap ? json(req, snap) : json(req, { error: "unknown id" }, 404);
+  return snap ? json(request, snap) : json(request, { error: "unknown id" }, 404);
 }
 
-async function handleSuggest({ req, deps }: Ctx): Promise<Response> {
-  const b = await readJsonBody(req);
-  if (!b) return json(req, { error: "bad request body" }, 400);
-  const file = str(b.file, 400);
-  const selection = str(b.selection, 8000);
+async function handleSuggest({ request, deps }: Context): Promise<Response> {
+  const b = await readJsonBody(request);
+  if (!b) return json(request, { error: "bad request body" }, 400);
+  const file = truncate(b.file, 400);
+  const selection = truncate(b.selection, 8000);
   const pr = prOrNull(b.pr) ?? "";
-  if (!selection) return json(req, { error: "need selection" }, 400);
+  if (!selection) return json(request, { error: "need selection" }, 400);
   const inFile = file ? ` (selection in ${file})` : "";
   const content = [
     `You are helping an engineer REVIEW this pull request${inFile}.\n\n`,
@@ -222,12 +222,12 @@ async function handleSuggest({ req, deps }: Ctx): Promise<Response> {
     `Reply by calling answer_question with this event's id and a JSON array of strings.`,
   ].join("");
   const raw = await deps.ask("suggest_questions", content, { pr, file });
-  return json(req, { suggestions: parseSuggestions(raw) });
+  return json(request, { suggestions: parseSuggestions(raw) });
 }
 
 // Token-gated routes, dispatched by "METHOD pathname". /auth is handled inline
 // (it's a one-liner) and the token-less /pair routes run before the gate.
-const ROUTES: Record<string, (ctx: Ctx) => Response | Promise<Response>> = {
+const ROUTES: Record<string, (context: Context) => Response | Promise<Response>> = {
   "GET /walkthrough": handleWalkthrough,
   "GET /head": handleHead,
   "POST /generate": handleGenerate,
@@ -236,37 +236,38 @@ const ROUTES: Record<string, (ctx: Ctx) => Response | Promise<Response>> = {
   "POST /suggest": handleSuggest,
 };
 
-export function createFetchHandler(deps: BridgeDeps): (req: Request) => Promise<Response> {
-  return async (req) => {
-    const url = new URL(req.url);
-    const ctx: Ctx = { req, url, deps };
-    if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders(req) });
+export function createFetchHandler(deps: BridgeDeps): (request: Request) => Promise<Response> {
+  return async (request) => {
+    const url = new URL(request.url);
+    const context: Context = { request, url, deps };
+    if (request.method === "OPTIONS")
+      return new Response(null, { status: 204, headers: corsHeaders(request) });
 
     // Gate every real request: same-machine, from our extension, never a web page.
-    if (!authorizedLocalCaller(req)) return json(req, { error: "forbidden" }, 403);
+    if (!authorizedLocalCaller(request)) return json(request, { error: "forbidden" }, 403);
 
-    if (url.pathname === "/health") return json(req, { ok: true, specs: deps.specs.size });
+    if (url.pathname === "/health") return json(request, { ok: true, specs: deps.specs.size });
 
     // Pairing — the only token-less routes besides /health, and they only START
     // pairing, they never answer.
-    if (url.pathname === "/pair" && req.method === "POST") return handlePair(ctx);
-    if (url.pathname === "/pair/claim" && req.method === "GET") return handlePairClaim(ctx);
+    if (url.pathname === "/pair" && request.method === "POST") return handlePair(context);
+    if (url.pathname === "/pair/claim" && request.method === "GET") return handlePairClaim(context);
 
     // Every route past here requires the paired token — no grace period. An
     // unpaired extension (or any other local process) gets 401 and must pair
     // through the session first. The token is in-memory server-side, so a session
     // restart invalidates it.
-    if (!deps.pairing.verify(req.headers.get("x-prw-token") ?? "")) {
-      return json(req, { error: "not paired" }, 401);
+    if (!deps.pairing.verify(request.headers.get("x-prw-token") ?? "")) {
+      return json(request, { error: "not paired" }, 401);
     }
 
     // Cheap, PR-independent token check: lets the extension verify on page load
     // that its stored token still works without guessing a PR to hit a real route.
-    if (url.pathname === "/auth" && req.method === "GET") return json(req, { paired: true });
+    if (url.pathname === "/auth" && request.method === "GET") return json(request, { paired: true });
 
-    const route = ROUTES[`${req.method} ${url.pathname}`];
-    if (route) return route(ctx);
+    const route = ROUTES[`${request.method} ${url.pathname}`];
+    if (route) return route(context);
 
-    return json(req, { error: "not found" }, 404);
+    return json(request, { error: "not found" }, 404);
   };
 }

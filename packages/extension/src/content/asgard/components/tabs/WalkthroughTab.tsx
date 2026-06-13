@@ -53,7 +53,7 @@ function Steps(): JSX.Element {
   const [showDetail, setShowDetail] = useState(false);
   const [dialog, setDialog] = useState(false);
   const step = tourStore.step();
-  const idx = tourStore.stepIdx();
+  const index = tourStore.stepIndex();
   const count = tourStore.stepCount();
 
   // Start (resume) the tour when this tab opens. We deliberately do NOT close on
@@ -63,21 +63,21 @@ function Steps(): JSX.Element {
   useEffect(() => {
     tourStore.start();
   }, []);
-  useEffect(() => setShowDetail(false), [idx]);
+  useEffect(() => setShowDetail(false), [index]);
 
   // Arrow keys navigate; bound to the document AND the shadow root (the hotkey
   // shield keeps shadow-origin keys off the document), skipping editable fields.
   useEffect(() => {
-    const keys = (e: KeyboardEvent): void => {
-      const t = e.target;
+    const keys = (event: KeyboardEvent): void => {
+      const t = event.target;
       if (t instanceof HTMLElement && (/^(?:TEXTAREA|INPUT|SELECT)$/.test(t.tagName) || t.isContentEditable))
         return;
-      if (e.key === "ArrowRight" && tourStore.stepIdx() < tourStore.stepCount() - 1) {
-        e.preventDefault();
-        tourStore.goto(tourStore.stepIdx() + 1);
-      } else if (e.key === "ArrowLeft" && tourStore.stepIdx() > 0) {
-        e.preventDefault();
-        tourStore.goto(tourStore.stepIdx() - 1);
+      if (event.key === "ArrowRight" && tourStore.stepIndex() < tourStore.stepCount() - 1) {
+        event.preventDefault();
+        tourStore.goto(tourStore.stepIndex() + 1);
+      } else if (event.key === "ArrowLeft" && tourStore.stepIndex() > 0) {
+        event.preventDefault();
+        tourStore.goto(tourStore.stepIndex() - 1);
       }
     };
     const root = document.querySelector("#prw-root")?.shadowRoot ?? document;
@@ -91,14 +91,14 @@ function Steps(): JSX.Element {
 
   if (!step) return <Empty />;
   const newCommits = launcherStore.newCommits();
-  const atFirst = idx === 0;
-  const atLast = idx >= count - 1;
+  const atFirst = index === 0;
+  const atLast = index >= count - 1;
   return (
     <div className="flex h-full flex-col">
       {/* header: where you are + low-frequency utilities (re-scroll, regenerate) */}
       <div className="flex items-center gap-1 border-b border-border px-3 py-2">
         <span className="text-xs text-muted-foreground">
-          Step <span className="font-medium text-primary">{idx + 1}</span> / {count}
+          Step <span className="font-medium text-primary">{index + 1}</span> / {count}
         </span>
         <div className="ml-auto flex items-center gap-1">
           <Button
@@ -121,7 +121,7 @@ function Steps(): JSX.Element {
             className="h-7 w-7"
             aria-label="Scroll to this step's code"
             data-prw-tip="Scroll to this step's code"
-            onClick={() => tourStore.goto(idx)}
+            onClick={() => tourStore.goto(index)}
           >
             <Crosshair />
           </Button>
@@ -181,15 +181,15 @@ function Steps(): JSX.Element {
           </Button>
         </span>
         <div className="mx-auto flex items-center gap-1.5">
-          {Array.from({ length: count }, (_unused, i) => (
+          {Array.from({ length: count }, (_unused, dotIndex) => (
             <button
-              key={i}
-              aria-label={`Go to step ${i + 1}`}
-              data-prw-tip={`Step ${i + 1}`}
-              onClick={() => tourStore.goto(i)}
+              key={dotIndex}
+              aria-label={`Go to step ${dotIndex + 1}`}
+              data-prw-tip={`Step ${dotIndex + 1}`}
+              onClick={() => tourStore.goto(dotIndex)}
               className={
                 "h-1.5 cursor-pointer rounded-full transition-all " +
-                (i === idx ? "w-4 bg-primary" : "w-1.5 bg-border hover:bg-muted-foreground")
+                (dotIndex === index ? "w-4 bg-primary" : "w-1.5 bg-border hover:bg-muted-foreground")
               }
             />
           ))}

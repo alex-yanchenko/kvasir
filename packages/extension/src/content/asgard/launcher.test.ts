@@ -79,7 +79,7 @@ describe("requestGenerate → poll → spec lands", () => {
     expect(tourStore.close).toHaveBeenCalledTimes(1);
     expect(launcherStore.generating()).toBe(true);
     expect(vi.mocked(storeSet)).toHaveBeenCalledWith(`prw:gen:${PR}`, {
-      prevSig: "",
+      previousSig: "",
       at: Date.now(),
     });
     expect(vi.mocked(api)).toHaveBeenCalledWith("/generate", "POST", {
@@ -175,7 +175,7 @@ describe("refresh", () => {
   it("resumes a fresh in-flight generation (timer from the original start)", async () => {
     const at = Date.now() - 60_000;
     vi.mocked(storeGet).mockImplementation(async (k: string) =>
-      k.startsWith("prw:gen:") ? { prevSig: "", at } : undefined,
+      k.startsWith("prw:gen:") ? { previousSig: "", at } : undefined,
     );
     vi.mocked(api).mockResolvedValue({ ok: false });
     await launcherStore.refresh();
@@ -186,7 +186,7 @@ describe("refresh", () => {
   it("drops a stale generation marker instead of resuming", async () => {
     vi.mocked(storeGet).mockImplementation(async (k: string) =>
       k.startsWith("prw:gen:")
-        ? { prevSig: "", at: Date.now() - (GEN_MAX_TRIES * GEN_POLL_INTERVAL_MS + 1) }
+        ? { previousSig: "", at: Date.now() - (GEN_MAX_TRIES * GEN_POLL_INTERVAL_MS + 1) }
         : undefined,
     );
     await launcherStore.refresh();
@@ -291,7 +291,7 @@ describe("branch edges", () => {
     expect(vi.mocked(storeRemove)).toHaveBeenCalledWith(`prw:gen:${PR}`);
   });
 
-  it("a fresh marker without prevSig resumes against the empty signature", async () => {
+  it("a fresh marker without previousSig resumes against the empty signature", async () => {
     vi.mocked(storeGet).mockImplementation(async (k: string) =>
       k.startsWith("prw:gen:") ? { at: Date.now() } : undefined,
     );
@@ -312,13 +312,13 @@ describe("branch edges", () => {
 });
 
 describe("resume vs an existing spec", () => {
-  it("resumes when the stored prevSig matches the current spec (regeneration in flight)", async () => {
+  it("resumes when the stored previousSig matches the current spec (regeneration in flight)", async () => {
     const current = mkSpec();
     vi.mocked(api).mockImplementation(async (path: string) =>
       path.startsWith("/walkthrough") ? { ok: true, data: current } : { ok: false },
     );
     vi.mocked(storeGet).mockImplementation(async (k: string) =>
-      k.startsWith("prw:gen:") ? { prevSig: specSig(current), at: Date.now() - 1000 } : undefined,
+      k.startsWith("prw:gen:") ? { previousSig: specSig(current), at: Date.now() - 1000 } : undefined,
     );
     await launcherStore.refresh();
     expect(launcherStore.generating()).toBe(true);
@@ -330,7 +330,7 @@ describe("resume vs an existing spec", () => {
       path.startsWith("/walkthrough") ? { ok: true, data: current } : { ok: false },
     );
     vi.mocked(storeGet).mockImplementation(async (k: string) =>
-      k.startsWith("prw:gen:") ? { prevSig: "an-older-signature", at: Date.now() - 1000 } : undefined,
+      k.startsWith("prw:gen:") ? { previousSig: "an-older-signature", at: Date.now() - 1000 } : undefined,
     );
     await launcherStore.refresh();
     expect(launcherStore.generating()).toBe(false);

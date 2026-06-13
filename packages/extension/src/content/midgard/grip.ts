@@ -30,7 +30,7 @@ interface Selection {
 
 export function connectGrip(bifrost: Bifrost): void {
   let grip: HTMLButtonElement | null = null;
-  let askBtn: HTMLDivElement | null = null;
+  let askButton: HTMLDivElement | null = null;
   let hoverInfo: { row: Element; line: number; container: Element } | null = null;
   let picking = false;
   let sel: Selection | null = null;
@@ -42,7 +42,7 @@ export function connectGrip(bifrost: Bifrost): void {
   // pick:clear (from the app or a new drag) also resets the selection affordances.
   bifrost.handle("pick:clear", () => {
     sel = null;
-    if (askBtn) askBtn.style.display = "none";
+    if (askButton) askButton.style.display = "none";
     bifrost.report("selection:cleared", undefined);
   });
 
@@ -76,14 +76,14 @@ export function connectGrip(bifrost: Bifrost): void {
     document.body.append(grip);
     grip.addEventListener("mousedown", onGripDown);
   }
-  function ensureAskBtn(): HTMLDivElement {
-    if (!askBtn) {
-      askBtn = document.createElement("div"); // a bar holding 1-2 chat icons
-      askBtn.className = "prw-askbar";
-      askBtn.style.display = "none";
-      document.body.append(askBtn);
+  function ensureAskButton(): HTMLDivElement {
+    if (!askButton) {
+      askButton = document.createElement("div"); // a bar holding 1-2 chat icons
+      askButton.className = "prw-askbar";
+      askButton.style.display = "none";
+      document.body.append(askButton);
     }
-    return askBtn;
+    return askButton;
   }
 
   function showGripAt(row: Element, container: Element, line: number): void {
@@ -97,8 +97,8 @@ export function connectGrip(bifrost: Bifrost): void {
     hoverInfo = { row, line, container };
   }
 
-  function showAskBtn(rows: Element[]): void {
-    const bar = ensureAskBtn();
+  function showAskButton(rows: Element[]): void {
+    const bar = ensureAskButton();
     bar.innerHTML = "";
     const mk = (title: string, withStep: boolean, cls?: string) => {
       const b = document.createElement("button");
@@ -127,9 +127,9 @@ export function connectGrip(bifrost: Bifrost): void {
     bar.style.left = `${Math.max(6, r.left - bw - 8)}px`;
   }
 
-  function onGripDown(e: MouseEvent): void {
-    e.preventDefault();
-    e.stopPropagation();
+  function onGripDown(event: MouseEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
     if (!hoverInfo) return;
     bifrost.send("pick:clear", undefined); // a new selection replaces the previous one
     document.body.classList.add("prw-noselect");
@@ -140,18 +140,18 @@ export function connectGrip(bifrost: Bifrost): void {
     picking = true;
     if (grip) grip.style.display = "none";
     highlightRows([startRow]);
-    const move = (ev: MouseEvent) => {
-      ev.preventDefault();
+    const move = (event: MouseEvent) => {
+      event.preventDefault();
       // Resolve the row at the cursor's Y and select the DOM range between it and
       // the start row — order-based, so deleted/added/mixed spans all work.
-      const row = rowAtY(bands, ev.clientY, startRow);
+      const row = rowAtY(bands, event.clientY, startRow);
       if (row && container.contains(row)) highlightRows(rowsBetween(container, startRow, row));
     };
-    const up = (ev: MouseEvent) => {
+    const up = (event: MouseEvent) => {
       document.removeEventListener("mousemove", move);
       document.removeEventListener("mouseup", up);
       document.body.classList.remove("prw-noselect");
-      let endRow = rowAtY(bands, ev.clientY, startRow);
+      let endRow = rowAtY(bands, event.clientY, startRow);
       if (!endRow || !container.contains(endRow)) endRow = startRow;
       const rows = rowsBetween(container, startRow, endRow);
       picking = false;
@@ -159,18 +159,18 @@ export function connectGrip(bifrost: Bifrost): void {
       highlightRows(rows);
       const p = payloadFor(sel);
       if (p) bifrost.report("selection:completed", p);
-      showAskBtn(rows); // chat icon to ask
+      showAskButton(rows); // chat icon to ask
     };
     document.addEventListener("mousemove", move);
     document.addEventListener("mouseup", up);
   }
 
-  document.addEventListener("mouseover", (e) => {
+  document.addEventListener("mouseover", (event) => {
     if (picking) return; // mid-drag
-    const target = e.target instanceof Element ? e.target : null;
+    const target = event.target instanceof Element ? event.target : null;
     if (!target) return;
     if (grip && (target === grip || grip.contains(target))) return;
-    if (askBtn && (target === askBtn || askBtn.contains(target))) return;
+    if (askButton && (target === askButton || askButton.contains(target))) return;
     const row = target.closest("tr.diff-line-row");
     if (row) {
       const container = diffContainerOf(row);

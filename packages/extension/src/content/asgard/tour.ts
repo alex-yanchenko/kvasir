@@ -13,9 +13,9 @@ import { state, touch } from "./store";
 // safe ESM cycle: both references happen inside functions, never at module eval.
 
 let open = false;
-let stepIdx = 0;
+let stepIndex = 0;
 
-const clamp = (i: number, len: number): number => Math.min(Math.max(i, 0), len - 1);
+const clamp = (index: number, length: number): number => Math.min(Math.max(index, 0), length - 1);
 
 const strip = (h: string | undefined): string =>
   (h || "")
@@ -25,9 +25,9 @@ const strip = (h: string | undefined): string =>
 
 export const tourStore = {
   open: (): boolean => open,
-  stepIdx: (): number => stepIdx,
+  stepIndex: (): number => stepIndex,
   stepCount: (): number => state.spec?.steps.length ?? 0,
-  step: (): WalkthroughStep | null => (open && state.spec ? (state.spec.steps[stepIdx] ?? null) : null),
+  step: (): WalkthroughStep | null => (open && state.spec ? (state.spec.steps[stepIndex] ?? null) : null),
 
   start(): void {
     if (!state.spec) return;
@@ -41,12 +41,12 @@ export const tourStore = {
     this.goto(state.tourState.step || 0); // resume where you left off
   },
 
-  goto(idx: number): void {
+  goto(index: number): void {
     if (!state.spec) return;
-    stepIdx = clamp(idx, state.spec.steps.length);
-    state.tourState = { ...state.tourState, step: stepIdx }; // remember where we are
+    stepIndex = clamp(index, state.spec.steps.length);
+    state.tourState = { ...state.tourState, step: stepIndex }; // remember where we are
     storeSet(tourKey(prUrl()), state.tourState);
-    const s = state.spec.steps[stepIdx];
+    const s = state.spec.steps[stepIndex];
     if (!s) return; // empty spec / out-of-range — nothing to highlight
     state.activeStep = s; // current step → available as chat context
     bifrost.send("grip:context", { hasActiveStep: true });
@@ -60,10 +60,10 @@ export const tourStore = {
 
   /** Advance to the next step; a no-op on the last (the Next control is disabled). */
   next(): void {
-    if (state.spec && stepIdx < state.spec.steps.length - 1) this.goto(stepIdx + 1);
+    if (state.spec && stepIndex < state.spec.steps.length - 1) this.goto(stepIndex + 1);
   },
   back(): void {
-    if (stepIdx > 0) this.goto(stepIdx - 1);
+    if (stepIndex > 0) this.goto(stepIndex - 1);
   },
 
   close(): void {

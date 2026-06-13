@@ -13,14 +13,14 @@ export function useResizePersist(
   const onSizeRef = useRef(onSize);
   onSizeRef.current = onSize;
   useEffect(() => {
-    const el = targetRef.current;
-    if (!el) return;
+    const element = targetRef.current;
+    if (!element) return;
     let t: ReturnType<typeof setTimeout> | null = null;
     const ro = new ResizeObserver(() => {
       if (t) clearTimeout(t);
-      t = setTimeout(() => onSizeRef.current({ w: el.offsetWidth, h: el.offsetHeight }), delay);
+      t = setTimeout(() => onSizeRef.current({ w: element.offsetWidth, h: element.offsetHeight }), delay);
     });
-    ro.observe(el);
+    ro.observe(element);
     return () => {
       if (t) clearTimeout(t);
       ro.disconnect();

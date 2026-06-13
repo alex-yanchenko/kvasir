@@ -5,7 +5,7 @@
 // keeps them inside Asgard; React's own handlers live on the mount below the
 // host, so they have already run.
 const KEY_EVENTS = ["keydown", "keypress", "keyup"] as const;
-const stopEvent = (e: Event): void => e.stopPropagation();
+const stopEvent = (event: Event): void => event.stopPropagation();
 
 export function shieldHotkeys(host: HTMLElement): () => void {
   for (const type of KEY_EVENTS) host.addEventListener(type, stopEvent);

@@ -67,7 +67,7 @@ describe("start", () => {
     state.tourState = { step: 1, pos: null, size: null };
     tourStore.start();
     expect(tourStore.open()).toBe(true);
-    expect(tourStore.stepIdx()).toBe(1);
+    expect(tourStore.stepIndex()).toBe(1);
     expect(sent).toEqual([
       { kind: "grip:context", payload: { hasActiveStep: true } },
       {
@@ -81,7 +81,7 @@ describe("start", () => {
   it("clamps a stale persisted step into range", () => {
     state.tourState = { step: 99, pos: null, size: null };
     tourStore.start();
-    expect(tourStore.stepIdx()).toBe(1);
+    expect(tourStore.stepIndex()).toBe(1);
   });
 
   it("off the diff tab: flags auto-start and hops to /files instead of opening", () => {
@@ -110,9 +110,9 @@ describe("navigation", () => {
   it("next advances and is a no-op on the last step (it stays open)", () => {
     tourStore.start();
     tourStore.next();
-    expect(tourStore.stepIdx()).toBe(1);
+    expect(tourStore.stepIndex()).toBe(1);
     tourStore.next(); // already on the last step
-    expect(tourStore.stepIdx()).toBe(1);
+    expect(tourStore.stepIndex()).toBe(1);
     expect(tourStore.open()).toBe(true);
   });
 
@@ -129,7 +129,7 @@ describe("navigation", () => {
   it("back stops at the first step", () => {
     tourStore.start();
     tourStore.back();
-    expect(tourStore.stepIdx()).toBe(0);
+    expect(tourStore.stepIndex()).toBe(0);
   });
 
   it("close clears the page and the step context", () => {

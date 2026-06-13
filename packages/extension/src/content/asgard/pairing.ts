@@ -105,17 +105,17 @@ export const pairingStore = {
   /** Ask the bridge to pair, show the code, poll the claim until the token lands. */
   async pair(): Promise<void> {
     const r = await api("/pair", "POST", { name: "PR Walkthrough Chrome extension" });
-    const req = r.ok ? requestIdOf(r.data) : null;
-    if (!req) {
+    const request = r.ok ? requestIdOf(r.data) : null;
+    if (!request) {
       const detail =
         typeof r.data === "object" && r.data !== null && "error" in r.data ? String(r.data.error) : r.error;
       set({ phase: "error", message: detail || "pairing request failed" });
       return;
     }
-    set({ phase: "waiting", code: req.code });
-    for (let i = 0; i < CLAIM_POLL_TRIES; i++) {
+    set({ phase: "waiting", code: request.code });
+    for (let index = 0; index < CLAIM_POLL_TRIES; index++) {
       await sleep(CLAIM_POLL_MS);
-      const c = await api(`/pair/claim?id=${encodeURIComponent(req.requestId)}`);
+      const c = await api(`/pair/claim?id=${encodeURIComponent(request.requestId)}`);
       if (!c.ok) {
         set({ phase: "error", message: "pairing expired or was denied — try again" });
         return;

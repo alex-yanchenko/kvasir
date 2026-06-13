@@ -5,7 +5,7 @@ import {
   isForeignWebOrigin,
   isAuthorizedCaller,
   readJsonBody,
-  str,
+  truncate,
   prOrNull,
   type CallerSignals,
 } from "./guard";
@@ -83,11 +83,11 @@ describe("readJsonBody", () => {
   });
 });
 
-describe("str", () => {
+describe("truncate", () => {
   it("coerces + caps; non-strings become empty", () => {
-    expect(str("hello", 3)).toBe("hel");
-    expect(str(42, 10)).toBe("");
-    expect(str(undefined, 10)).toBe("");
+    expect(truncate("hello", 3)).toBe("hel");
+    expect(truncate(42, 10)).toBe("");
+    expect(truncate(undefined, 10)).toBe("");
   });
 });
 
