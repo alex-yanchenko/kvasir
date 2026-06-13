@@ -145,6 +145,10 @@ function Markdown({ text }: { text: string }): JSX.Element {
  * fast-model path; the channel returns the whole answer at once. */
 function Typewriter({ text, onDone }: { text: string; onDone: () => void }): JSX.Element {
   const [shown, setShown] = useState(0);
+  // Latest onDone in a ref so the typewriter restarts only on a new `text`, not on
+  // every render (the parent passes an inline onDone whose identity changes).
+  const onDoneRef = useRef(onDone);
+  onDoneRef.current = onDone;
   useEffect(() => {
     const step = Math.max(2, Math.round(text.length / 120));
     const tick = setInterval(() => {
@@ -152,13 +156,12 @@ function Typewriter({ text, onDone }: { text: string; onDone: () => void }): JSX
         const next = Math.min(text.length, i + step);
         if (next >= text.length) {
           clearInterval(tick);
-          onDone();
+          onDoneRef.current();
         }
         return next;
       });
     }, 12);
     return () => clearInterval(tick);
-    // restart only for a new answer text
   }, [text]);
   return <span>{text.slice(0, shown)}</span>;
 }
@@ -458,7 +461,9 @@ function Thread({ sess }: { sess: ChatSession }): JSX.Element {
     if (blocked) return;
     const tail = sess.messages[sess.messages.length - 1];
     if (tail && tail.role === "user") send(tail.content, { pushUser: false });
-    // once, when this chat opens
+    // Once, when this chat opens (Thread is keyed by sess.key, so a different chat
+    // remounts). Re-running on send/messages/blocked would re-fire the request.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Suggestions prefetch (selection chats only; the PR chat has none). Runs once
@@ -466,7 +471,7 @@ function Thread({ sess }: { sess: ChatSession }): JSX.Element {
   // gets its suggestions afterwards (ensureSuggestions is a no-op once cached).
   useEffect(() => {
     if (!sess.general && !blocked) void chatStore.ensureSuggestions(sess.key);
-  }, [blocked]);
+  }, [blocked, sess.general, sess.key]);
 
   const ask = (q: string) => send(q);
   const lineLabel = sess.lines

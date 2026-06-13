@@ -28,6 +28,5 @@ export function useScrollLock(targetRef: RefObject<HTMLElement | null>): void {
     // non-passive so preventDefault actually blocks the scroll
     root.addEventListener("wheel", onWheel, { passive: false });
     return () => root.removeEventListener("wheel", onWheel);
-    // mount-only: the ref's element is stable for the component's lifetime
-  }, []);
+  }, [targetRef]);
 }

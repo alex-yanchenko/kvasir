@@ -1,5 +1,6 @@
 import js from "@eslint/js";
 import tseslint from "typescript-eslint";
+import reactHooks from "eslint-plugin-react-hooks";
 import globals from "globals";
 
 export default [
@@ -18,7 +19,12 @@ export default [
   ...tseslint.configs.recommended.map((c) => ({ ...c, files: ["packages/extension/**/*.{ts,tsx}"] })),
   {
     files: ["packages/extension/**/*.{ts,tsx}"],
+    plugins: { "react-hooks": reactHooks },
     languageOptions: { globals: { ...globals.browser, ...globals.webextensions, chrome: "readonly" } },
+    rules: {
+      "react-hooks/rules-of-hooks": "error",
+      "react-hooks/exhaustive-deps": "error",
+    },
   },
 
   // Extension: browser content scripts still in plain JS until their Phase 4 split.
