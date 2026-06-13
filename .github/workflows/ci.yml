@@ -18,6 +18,10 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm format:check
       - run: pnpm lint
+      - run: pnpm knip
+      - run: pnpm type-coverage
+      - run: pnpm spell
       - run: pnpm typecheck
       - run: pnpm test:coverage
       - run: pnpm build
+      - run: pnpm exec size-limit
