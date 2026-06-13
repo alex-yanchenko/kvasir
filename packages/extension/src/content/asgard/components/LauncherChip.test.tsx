@@ -11,8 +11,6 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
-  vi.restoreAllMocks();
-  vi.clearAllMocks();
 });
 
 describe("LauncherChip", () => {

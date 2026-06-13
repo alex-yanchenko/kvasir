@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { rowsOf, stepCode } from "./diff";
 import {
   clearHL,
@@ -35,10 +35,6 @@ beforeEach(() => {
   // side effect, so a stub keeps the logic under test.
   Element.prototype.scrollIntoView = vi.fn();
   container = buildContainer();
-});
-afterEach(() => {
-  vi.restoreAllMocks();
-  vi.clearAllMocks();
 });
 
 const picked = () => rowsOf(container).filter((r) => r.classList.contains("prw-pick"));

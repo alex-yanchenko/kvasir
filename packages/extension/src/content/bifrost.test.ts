@@ -1,10 +1,5 @@
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { createBifrost } from "./bifrost";
-
-afterEach(() => {
-  vi.restoreAllMocks();
-  vi.clearAllMocks();
-});
 
 describe("bifrost commands (send/handle)", () => {
   it("delivers a command payload to its handler", () => {

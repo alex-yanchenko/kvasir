@@ -15,8 +15,6 @@ beforeEach(() => {
 });
 afterEach(() => {
   offApply();
-  vi.restoreAllMocks();
-  vi.clearAllMocks();
 });
 
 describe("settingsStore", () => {

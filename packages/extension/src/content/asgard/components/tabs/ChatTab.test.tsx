@@ -55,8 +55,6 @@ afterEach(() => {
   document.getElementById("prw-root")?.remove();
   offs.forEach((off) => off());
   vi.unstubAllGlobals();
-  vi.restoreAllMocks();
-  vi.clearAllMocks();
 });
 
 const openSession = (sess: ChatSession) => {

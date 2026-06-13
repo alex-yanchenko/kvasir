@@ -6,8 +6,6 @@ import { useDrag } from "./useDrag";
 
 afterEach(() => {
   cleanup();
-  vi.restoreAllMocks();
-  vi.clearAllMocks();
 });
 
 function Plain({ onEnd }: { onEnd: (p: { left: number; top: number }) => void }) {

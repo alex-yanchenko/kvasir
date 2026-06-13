@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { createBifrost } from "../bifrost";
 import { rowsOf } from "./diff";
 import { connectGrip } from "./grip";
@@ -49,10 +49,6 @@ beforeEach(() => {
   container = buildContainer();
   bifrost.send("grip:context", { hasActiveStep: false });
   bifrost.send("pick:clear", undefined);
-});
-afterEach(() => {
-  vi.restoreAllMocks();
-  vi.clearAllMocks();
 });
 
 describe("grip hover", () => {

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { act, cleanup, render, screen } from "@testing-library/react";
-import { describe, it, expect, afterEach, beforeEach, vi } from "vitest";
+import { describe, it, expect, afterEach, beforeEach } from "vitest";
 import { App } from "./App";
 import { PANEL_TABS, settingsStore, state } from "./store";
 
@@ -9,7 +9,6 @@ beforeEach(() => {
 });
 afterEach(() => {
   cleanup();
-  vi.restoreAllMocks();
 });
 
 describe("App", () => {

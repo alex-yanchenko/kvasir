@@ -47,8 +47,6 @@ beforeEach(() => {
 afterEach(() => {
   launcherStore.resetForPr(); // stop any live poll before timers are restored
   vi.useRealTimers();
-  vi.restoreAllMocks();
-  vi.clearAllMocks();
 });
 
 describe("fmtElapsed / specSig", () => {

@@ -6,8 +6,6 @@ import { TIP_DELAY_MS, Tooltips } from "./Tooltip";
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
-  vi.restoreAllMocks();
-  vi.clearAllMocks();
 });
 
 const setup = (rect?: Partial<DOMRect>) => {

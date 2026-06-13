@@ -32,8 +32,6 @@ afterEach(() => {
   stop?.();
   vi.useRealTimers();
   vi.unstubAllGlobals();
-  vi.restoreAllMocks();
-  vi.clearAllMocks();
 });
 
 describe("loadPersisted", () => {

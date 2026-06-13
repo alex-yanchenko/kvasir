@@ -29,8 +29,6 @@ beforeEach(() => {
 });
 afterEach(() => {
   vi.useRealTimers();
-  vi.restoreAllMocks();
-  vi.clearAllMocks();
   Reflect.deleteProperty(document, "elementFromPoint"); // a test may stub it; jsdom has none
 });
 

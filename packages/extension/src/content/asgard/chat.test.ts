@@ -52,8 +52,6 @@ beforeEach(() => {
 });
 afterEach(() => {
   offs.forEach((off) => off());
-  vi.restoreAllMocks();
-  vi.clearAllMocks();
 });
 
 describe("reviewContext", () => {

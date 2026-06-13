@@ -20,8 +20,6 @@ afterEach(() => {
   document.dispatchEvent(new Event("mousedown")); // hide + clear the shared timer
   btn.remove();
   vi.useRealTimers();
-  vi.restoreAllMocks();
-  vi.clearAllMocks();
 });
 
 const hover = (el: Element) => el.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));

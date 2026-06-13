@@ -34,8 +34,6 @@ afterEach(() => {
   cleanup();
   vi.useRealTimers();
   vi.unstubAllGlobals();
-  vi.restoreAllMocks();
-  vi.clearAllMocks();
 });
 
 describe("useResizePersist", () => {

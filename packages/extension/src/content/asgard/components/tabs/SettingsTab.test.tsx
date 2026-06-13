@@ -27,8 +27,6 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   off();
-  vi.restoreAllMocks();
-  vi.clearAllMocks();
 });
 
 describe("SettingsTab", () => {
