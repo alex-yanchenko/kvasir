@@ -31,7 +31,7 @@ export function RegenDialog({ onClose }: { onClose: () => void }): JSX.Element {
         </p>
         {newCommits && (
           <button
-            className="mb-2 block w-full rounded-lg border border-border bg-secondary p-3 text-left hover:border-primary"
+            className="mb-2 block w-full cursor-pointer rounded-lg border border-border bg-secondary p-3 text-left transition-colors hover:border-primary hover:bg-accent"
             onClick={() => run("incremental", launcherStore.spec()?.pr?.headSha)}
           >
             <b className="block text-sm font-semibold">Incremental update</b>
@@ -41,7 +41,7 @@ export function RegenDialog({ onClose }: { onClose: () => void }): JSX.Element {
           </button>
         )}
         <button
-          className="mb-2 block w-full rounded-lg border border-border bg-secondary p-3 text-left hover:border-primary"
+          className="mb-2 block w-full cursor-pointer rounded-lg border border-border bg-secondary p-3 text-left transition-colors hover:border-primary hover:bg-accent"
           onClick={() => run("new")}
         >
           <b className="block text-sm font-semibold">Regenerate as new</b>
