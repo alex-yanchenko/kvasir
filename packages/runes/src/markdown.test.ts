@@ -36,6 +36,16 @@ describe("renderMarkdown", () => {
     expect(renderMarkdown("```\nhi\n```")).toBe(`<pre class="prw-code"><code>hi</code></pre>`);
   });
 
+  it("renders an http(s) link as an anchor opening in a new tab", () => {
+    expect(renderMarkdown("see [the docs](https://x.com/a)")).toBe(
+      '<p>see <a href="https://x.com/a" target="_blank" rel="noopener noreferrer">the docs</a></p>',
+    );
+  });
+
+  it("collapses a non-http link to its label so a bare path:line can be linkified later", () => {
+    expect(renderMarkdown("[apply.ts:64](src/apply.ts#L64)")).toBe("<p>apply.ts:64</p>");
+  });
+
   it("does not apply inline/bold rendering inside a code block", () => {
     expect(renderMarkdown("```\n**x** and `y`\n```")).toBe(
       `<pre class="prw-code"><code>**x** and \`y\`</code></pre>`,

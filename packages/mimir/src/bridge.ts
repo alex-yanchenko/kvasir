@@ -148,7 +148,7 @@ export function createFetchHandler(deps: BridgeDeps): (req: Request) => Promise<
         : "";
       // Citing code as path:line lets the extension turn references into clickable
       // jump-to-code links in the answer, so every cited location is reachable.
-      const cite = `When you reference specific code, cite it as \`path:line\` or \`path:start-end\` (repo-relative path) so the reviewer can click to jump to it.`;
+      const cite = `When you reference specific code, write it as a bare inline-code \`path:line\` or \`path:start-end\` (repo-relative path) — the extension makes that clickable to jump to the code. Do NOT wrap it in a markdown link and do NOT use a GitHub URL or #L anchor; a plain backtick \`path:line\` is what becomes the jump link.`;
       // The streamed-reply protocol. The mandate leads: a bridged request is NOT a
       // normal chat turn — prose written to the terminal never reaches the browser,
       // only answer_question/answer_chunk do. This is the #1 failure mode (the model

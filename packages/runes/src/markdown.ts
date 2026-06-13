@@ -18,6 +18,15 @@ export function renderMarkdown(src: string): string {
   });
   s = s.replace(/`([^`\n]+)`/g, '<code class="prw-inline">$1</code>');
   s = s.replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>");
+  // Links: real http(s) links become anchors; any other link target (e.g. a
+  // repo-relative path or GitHub #L url the model wrapped a code ref in) collapses
+  // to just its label, so the chat's citation linkifier can turn a bare path:line
+  // into a jump-to-code link instead of leaving "(src/…#L64)" visible.
+  s = s.replace(
+    /\[([^\]\n]+)\]\((https?:\/\/[^)\s]+)\)/g,
+    '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>',
+  );
+  s = s.replace(/\[([^\]\n]+)\]\([^)\n]+\)/g, "$1");
   s = s
     .split(/\n{2,}/)
     .map((p) => (p.trim() ? `<p>${p.replace(/\n/g, "<br>")}</p>` : ""))

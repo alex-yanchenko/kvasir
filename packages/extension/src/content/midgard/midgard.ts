@@ -115,31 +115,36 @@ function rowsInView(rows: Element[], overlay: number): boolean {
   return top >= overlay && bottom <= vh;
 }
 
+/** Bring a row range into view, but ONLY if it isn't already — centered when it
+ * fits the usable viewport, top-aligned (offset past the sticky bar) when taller.
+ * Shared by the walkthrough step jump and the chat citation jump so both no-op
+ * when the target is on screen instead of doing a jarring re-scroll. */
+function scrollRowsIntoView(rows: Element[], cont: Element): void {
+  const overlay = stickyOverlayHeight(cont, 0);
+  if (rowsInView(rows, overlay)) return;
+  const { top, bottom, vh } = rangeBounds(rows);
+  const fits = bottom - top <= vh - overlay;
+  const target = rows[fits ? Math.floor(rows.length / 2) : 0];
+  if (!fits && overlay && target instanceof HTMLElement) target.style.scrollMarginTop = `${overlay}px`;
+  target.scrollIntoView({ behavior: "smooth", block: fits ? "center" : "start" });
+}
+
 // Bring a step onto screen, then highlight. Most files are already rendered, so
 // this lands on the first try; only a still-lazy-loading file makes us poll, and
-// only until it appears. The whole range is brought into view — centered when it
-// fits, top-aligned (offset past the sticky bar) when it's taller. When it's
-// already on screen we just (re)paint — no scroll — so a repeat press is a no-op.
+// only until it appears. Already-on-screen rows just (re)paint — no scroll — so a
+// repeat press is a no-op.
 export function showStep(step: HighlightableStep): void {
   let tries = 0;
   const run = () => {
+    const cont = document.getElementById(step.anchor);
     const rows = highlightStep(step);
-    if (rows.length) {
-      const cont = document.getElementById(step.anchor);
-      const overlay = cont ? stickyOverlayHeight(cont, 0) : 0;
-      if (!rowsInView(rows, overlay)) {
-        const { top, bottom, vh } = rangeBounds(rows);
-        const fits = bottom - top <= vh - overlay;
-        const target = rows[fits ? Math.floor(rows.length / 2) : 0];
-        // top-aligning would tuck the first row under the sticky bar; offset past it
-        if (!fits && overlay && target instanceof HTMLElement) target.style.scrollMarginTop = `${overlay}px`;
-        target.scrollIntoView({ behavior: "smooth", block: fits ? "center" : "start" });
-      }
+    if (cont && rows.length) {
+      scrollRowsIntoView(rows, cont);
       return;
     }
     // rows absent — likely a lazy-mounted file; bring its container in to force
     // the render, then retry until the rows appear (~0.8s).
-    document.getElementById(step.anchor)?.scrollIntoView({ block: "start" });
+    cont?.scrollIntoView({ block: "start" });
     if (++tries < 20) setTimeout(run, 40);
   };
   run();
@@ -208,14 +213,13 @@ export function jumpToRef(file: string, start: number | null, end: number | null
     seat();
     return true;
   }
-  cont.scrollIntoView({ block: "start" }); // GitHub lazy-renders; bring the file in first
   const single = rowForLine(cont, start);
   const rows = end ? rowsInRange(cont, start, end) : single ? [single] : [];
   if (rows.length) {
     highlightRows(rows);
-    rows[0].scrollIntoView({ behavior: "smooth", block: "center" });
+    scrollRowsIntoView(rows, cont); // no-op when the cited line is already on screen
   } else {
-    cont.scrollIntoView({ behavior: "smooth", block: "center" });
+    cont.scrollIntoView({ block: "start" }); // line not found (lazy/superseded) — bring the file in
   }
   return true;
 }
