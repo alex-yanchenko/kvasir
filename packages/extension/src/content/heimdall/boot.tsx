@@ -4,6 +4,7 @@
 // the tested logic).
 import { createRoot } from "react-dom/client";
 import { App } from "../asgard/App";
+import asgardCss from "../asgard/asgard.compiled.css";
 import { connectChat } from "../asgard/chat";
 import { launcherStore } from "../asgard/launcher";
 import { pairingStore } from "../asgard/pairing";
@@ -14,7 +15,6 @@ import { initTooltips } from "../midgard/tooltip";
 import { shieldHotkeys } from "./shield";
 import { applyTheme, loadPersisted, watchUrl } from "./watch";
 // Compiled Tailwind + legacy panel CSS (build.mjs produces this from tailwind.css).
-import asgardCss from "../asgard/asgard.compiled.css";
 
 export function boot(): void {
   if (document.getElementById("prw-root")) return; // re-injection guard

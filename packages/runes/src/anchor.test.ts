@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
 import { createHash } from "node:crypto";
+import { describe, it, expect } from "vitest";
 import { anchorFor } from "./anchor";
 
 describe("anchorFor", () => {

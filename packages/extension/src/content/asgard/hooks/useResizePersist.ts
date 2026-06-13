@@ -1,7 +1,7 @@
 // Observe a panel's size and persist it, debounced — the React port of the
 // vanilla ResizeObserver + 300ms timer pattern.
-import type { RefObject } from "react";
 import { useEffect, useRef } from "react";
+import type { RefObject } from "react";
 
 export function useResizePersist(
   targetRef: RefObject<HTMLElement | null>,

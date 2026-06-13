@@ -1,13 +1,12 @@
 // Heimdall's watch — the logic half of the watchman. Restores a PR's persisted
 // state (chats, tour), pushes the theme across the Bifrost, and polls the URL:
 // GitHub is a SPA, so PR navigation never re-runs the content script.
+import { launcherStore } from "../asgard/launcher";
+import { state, touch } from "../asgard/store";
+import type { TourState } from "../asgard/store";
 import { bifrost } from "../bifrost";
 import { chatsKey, panelKey, prUrl, tourKey } from "../keys";
 import { storeGet } from "../muninn";
-import type { TourState } from "../asgard/store";
-import { state } from "../asgard/store";
-import { launcherStore } from "../asgard/launcher";
-import { touch } from "../asgard/store";
 
 /** Per-PR state restore (survives refresh and browser restart). */
 export async function loadPersisted(): Promise<void> {

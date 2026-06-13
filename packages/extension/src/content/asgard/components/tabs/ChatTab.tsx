@@ -2,8 +2,6 @@
 // per-answer actions, quick prompts + AI suggestions, the autosizing input, and
 // the live-stream bubble. The panel hosts it (no window chrome of its own); the
 // machine (chat.ts) owns the sessions and the /ask flow.
-import type { JSX, MouseEvent as ReactMouseEvent } from "react";
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { renderMarkdown } from "@prw/runes/markdown";
 import {
   ArrowRight,
@@ -17,6 +15,8 @@ import {
   Trash2,
   X,
 } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import type { JSX, MouseEvent as ReactMouseEvent } from "react";
 import { bifrost } from "../../../bifrost";
 import { changedFilePaths } from "../../../midgard/diff";
 import { chatStore, QUICK, QUICK_PR } from "../../chat";

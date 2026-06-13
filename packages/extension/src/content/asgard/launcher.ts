@@ -8,8 +8,7 @@ import { api, type BridgeResponse } from "../api";
 import { genKey, onFilesTab, prUrl, specKey, tourKey } from "../keys";
 import { storeGet, storeRemove, storeSet } from "../muninn";
 import { pairingStore } from "./pairing";
-import { state } from "./store";
-import { touch } from "./store";
+import { state, touch } from "./store";
 import { tourStore } from "./tour";
 
 /** Any 401 from the bridge means the token is stale/absent — flip to unpaired so

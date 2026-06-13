@@ -1,13 +1,12 @@
 // Settings tab — theme + highlight toggles and the bridge pairing (Connection).
 // Replaces the floating gear popover; the machines (settingsStore/pairingStore)
 // are unchanged.
-import type { JSX } from "react";
-import { useEffect } from "react";
 import { Check, Loader2 } from "lucide-react";
+import { useEffect, useSyncExternalStore } from "react";
+import type { JSX } from "react";
 import { pairingStore } from "../../pairing";
 import { getSnapshot, settingsStore, subscribe } from "../../store";
 import { Button } from "../../ui/button";
-import { useSyncExternalStore } from "react";
 
 function Segmented({
   label,

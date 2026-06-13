@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { PANEL_TABS, panelStore, state } from "../store";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { launcherStore } from "../launcher";
+import { PANEL_TABS, panelStore, state } from "../store";
 import { LauncherChip } from "./LauncherChip";
 
 beforeEach(() => {

@@ -1,13 +1,13 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 vi.mock("../../../api", () => ({ api: vi.fn() }));
 vi.mock("../../../muninn", () => ({ storeGet: vi.fn(), storeSet: vi.fn(), storeRemove: vi.fn() }));
 
 import { api } from "../../../api";
-import { storeGet } from "../../../muninn";
 import { bifrost } from "../../../bifrost";
+import { storeGet } from "../../../muninn";
 import { pairingStore } from "../../pairing";
 import { state } from "../../store";
 import { SettingsTab } from "./SettingsTab";

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, afterEach } from "vitest";
 import { act, cleanup, fireEvent, render } from "@testing-library/react";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { TIP_DELAY_MS, Tooltips } from "./Tooltip";
 
 afterEach(() => {

@@ -1,14 +1,14 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { WalkthroughSpec } from "@prw/runes/spec";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 vi.mock("../api", () => ({ api: vi.fn() }));
 vi.mock("../muninn", () => ({ storeGet: vi.fn(), storeSet: vi.fn(), storeRemove: vi.fn() }));
 
 import { api } from "../api";
 import { storeGet, storeRemove, storeSet } from "../muninn";
-import { state } from "./store";
 import { GEN_MAX_TRIES, GEN_POLL_INTERVAL_MS, fmtElapsed, launcherStore, specSig } from "./launcher";
+import { state } from "./store";
 import { tourStore } from "./tour";
 
 const PR = "https://github.com/acme/widget-api/pull/7";

@@ -3,8 +3,8 @@
 // ~350ms after hovering any [data-prw-tip] element inside the shadow root.
 // Rendered once by App; finds its root via getRootNode so the same component
 // works under a shadow root (production) and under document (tests).
-import type { JSX } from "react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import type { JSX } from "react";
 
 export const TIP_DELAY_MS = 350;
 

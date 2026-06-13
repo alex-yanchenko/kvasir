@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, afterEach } from "vitest";
 import { cleanup, fireEvent, render } from "@testing-library/react";
 import { useRef } from "react";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { useDrag } from "./useDrag";
 
 afterEach(() => {

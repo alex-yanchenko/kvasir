@@ -30,11 +30,11 @@ import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { ListToolsRequestSchema, CallToolRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 
+import { isWalkthroughSpec, prKey, type WalkthroughSpec } from "@prw/runes";
 import { createFetchHandler } from "./bridge";
 import { createAskBroker } from "./broker";
-import { createPairing } from "./pairing";
 import { getManifest, getHeadSha, uncoveredFiles, COVERAGE_MIN_ADDS, type PrManifest } from "./diff";
-import { isWalkthroughSpec, prKey, type WalkthroughSpec } from "@prw/runes";
+import { createPairing } from "./pairing";
 
 const PORT = Number(process.env.PR_WALKTHROUGH_PORT) || 8799;
 const ASK_TIMEOUT_MS = Number(process.env.ASK_TIMEOUT_MS) || 120_000;

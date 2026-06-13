@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { describe, it, expect, afterEach } from "vitest";
 import { renderHook } from "@testing-library/react";
+import { describe, it, expect, afterEach } from "vitest";
 import { useScrollLock } from "./useScrollLock";
 
 // jsdom reports 0 for scroll metrics; pin them so canScroll has something to read.

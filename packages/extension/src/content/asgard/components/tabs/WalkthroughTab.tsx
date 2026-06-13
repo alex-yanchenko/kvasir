@@ -2,9 +2,9 @@
 // states: no spec (run a review), generating (status), or the step walkthrough.
 // tourStore drives the page highlights; the tab mount/unmount starts/stops the
 // tour so switching tabs or closing the panel clears the highlight.
-import type { JSX } from "react";
-import { useEffect, useState, useSyncExternalStore } from "react";
 import { ChevronLeft, ChevronRight, Crosshair, Loader2, MessageSquare, Play, RefreshCw } from "lucide-react";
+import { useEffect, useState, useSyncExternalStore } from "react";
+import type { JSX } from "react";
 import { sanitizeSpecHtml } from "../../../sanitize";
 import { fmtElapsed, launcherStore } from "../../launcher";
 import { pairingStore } from "../../pairing";

@@ -1,16 +1,16 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { WalkthroughSpec } from "@prw/runes/spec";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 vi.mock("../api", () => ({ api: vi.fn() }));
 vi.mock("../muninn", () => ({ storeGet: vi.fn(), storeSet: vi.fn(), storeRemove: vi.fn() }));
 
 import { api } from "../api";
-import { storeSet } from "../muninn";
 import { bifrost } from "../bifrost";
-import { state } from "./store";
+import { storeSet } from "../muninn";
 import { chatStore, connectChat, friendlyError, POLL_MS, reviewContext } from "./chat";
 import { pairingStore } from "./pairing";
+import { state } from "./store";
 import { tourStore } from "./tour";
 import type { ChatSession } from "./types";
 

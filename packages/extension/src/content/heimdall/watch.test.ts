@@ -4,10 +4,10 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 vi.mock("../muninn", () => ({ storeGet: vi.fn(), storeSet: vi.fn(), storeRemove: vi.fn() }));
 vi.mock("../api", () => ({ api: vi.fn() }));
 
-import { storeGet } from "../muninn";
-import { bifrost } from "../bifrost";
-import { state } from "../asgard/store";
 import { launcherStore } from "../asgard/launcher";
+import { state } from "../asgard/store";
+import { bifrost } from "../bifrost";
+import { storeGet } from "../muninn";
 import { applyTheme, loadPersisted, watchUrl } from "./watch";
 
 const PR = "https://github.com/acme/widget-api/pull/7";

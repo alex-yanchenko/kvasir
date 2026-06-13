@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
+import { rowsOf } from "./diff";
 import {
   stepCode,
   clearHL,
@@ -10,7 +11,6 @@ import {
   jumpToRef,
   rehighlightSession,
 } from "./midgard";
-import { rowsOf } from "./diff";
 
 // Same minimal GitHub-diff stand-in as diff.test.ts: an anchored container whose
 // path lives in the aria-labelledby heading, three code rows, one hunk row.

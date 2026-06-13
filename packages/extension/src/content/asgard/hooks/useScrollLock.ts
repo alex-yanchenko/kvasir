@@ -4,8 +4,8 @@
 // so GitHub behind the panel never scrolls. overscroll-behavior alone can't do
 // this — it only stops chaining out of an actual scroll container, not wheels
 // over the header/padding/empty areas.
-import type { RefObject } from "react";
 import { useEffect } from "react";
+import type { RefObject } from "react";
 
 /** An element that can still scroll vertically in the wheel's direction. */
 function canScroll(node: HTMLElement, deltaY: number): boolean {

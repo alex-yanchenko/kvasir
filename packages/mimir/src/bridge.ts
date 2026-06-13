@@ -4,8 +4,8 @@
 // Node; channel.ts supplies the live deps and hands the handler to Bun.serve.
 import { prKey, PR_URL_RE, type WalkthroughSpec } from "@prw/runes";
 import type { QuestionSnapshot } from "./broker";
-import type { Pairing } from "./pairing";
 import { authorizedLocalCaller, corsHeaders, readJsonBody, str, prOrNull } from "./guard";
+import type { Pairing } from "./pairing";
 
 export interface BridgeDeps {
   /** Published specs, keyed by `owner/repo#number`. */

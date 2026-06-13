@@ -1,7 +1,7 @@
 // shadcn Button — copied in, owned here. cva variants + Radix Slot for asChild.
-import type { JSX } from "react";
 import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
+import type { JSX } from "react";
 import { cn } from "../lib/cn";
 
 export const buttonVariants = cva(

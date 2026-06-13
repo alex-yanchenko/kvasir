@@ -7,11 +7,10 @@ import { bifrost } from "../bifrost";
 import { onFilesTab, prUrl, tourKey } from "../keys";
 import { stepCode } from "../midgard/midgard";
 import { storeSet } from "../muninn";
-import { state } from "./store";
-import { touch } from "./store";
+import { chatStore } from "./chat";
+import { state, touch } from "./store";
 // chat.ts imports tourStore.stepContext and we call chatStore here — a runtime-
 // safe ESM cycle: both references happen inside functions, never at module eval.
-import { chatStore } from "./chat";
 
 let open = false;
 let stepIdx = 0;

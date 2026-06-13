@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { act, cleanup, render } from "@testing-library/react";
 import { useRef } from "react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { useResizePersist } from "./useResizePersist";
 
 let roCallback: (() => void) | null = null;

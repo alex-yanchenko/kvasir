@@ -2,16 +2,16 @@
 // section as a tab. Geometry lives in panelStore; the tab bodies reuse the
 // existing machines. Tab bodies are filled in island by island (Phases 2–5);
 // until then they show a placeholder.
-import type { JSX } from "react";
-import { useEffect, useRef, useSyncExternalStore } from "react";
 import { X } from "lucide-react";
-import { launcherStore } from "../launcher";
-import { pairingStore } from "../pairing";
-import { tourStore } from "../tour";
-import { getSnapshot, PANEL_TABS, panelStore, subscribe, type PanelTab } from "../store";
+import { useEffect, useRef, useSyncExternalStore } from "react";
+import type { JSX } from "react";
 import { useDrag } from "../hooks/useDrag";
 import { useResizePersist } from "../hooks/useResizePersist";
 import { useScrollLock } from "../hooks/useScrollLock";
+import { launcherStore } from "../launcher";
+import { pairingStore } from "../pairing";
+import { getSnapshot, PANEL_TABS, panelStore, subscribe, type PanelTab } from "../store";
+import { tourStore } from "../tour";
 import { Button } from "../ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { ChatTab } from "./tabs/ChatTab";

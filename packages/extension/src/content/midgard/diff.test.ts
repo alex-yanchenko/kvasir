@@ -1,6 +1,5 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from "vitest";
-import type { RowBand } from "./diff";
 import {
   cleanLine,
   codeForRows,
@@ -17,6 +16,7 @@ import {
   rowsOf,
   changedFilePaths,
 } from "./diff";
+import type { RowBand } from "./diff";
 
 // A minimal stand-in for GitHub's "Files changed" markup: a diff-<hash> container
 // whose path lives in an aria-labelledby heading, plus three code rows (an added,

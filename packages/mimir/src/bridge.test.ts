@@ -1,8 +1,8 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import type { WalkthroughSpec } from "@prw/runes";
 import { prKey } from "@prw/runes";
-import type { BridgeDeps } from "./bridge";
+import type { WalkthroughSpec } from "@prw/runes";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createFetchHandler, parseSuggestions } from "./bridge";
+import type { BridgeDeps } from "./bridge";
 import { GUARD_HEADER } from "./guard";
 
 const PR = "https://github.com/acme/widget-api/pull/7";

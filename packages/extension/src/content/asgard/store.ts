@@ -7,10 +7,10 @@
 // must be followed by touch() or React won't re-render.
 
 import type { WalkthroughSpec, WalkthroughStep } from "@prw/runes/spec";
-import { storeSet } from "../muninn";
-import { chatsKey, panelKey, prUrl } from "../keys";
-import type { ChatSession } from "./types";
 import { bifrost } from "../bifrost";
+import { chatsKey, panelKey, prUrl } from "../keys";
+import { storeSet } from "../muninn";
+import type { ChatSession } from "./types";
 
 export interface TourState {
   step: number;

@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
-import { describe, it, expect, afterEach, beforeEach, vi } from "vitest";
 import { act, cleanup, render, screen } from "@testing-library/react";
-import { PANEL_TABS, settingsStore, state } from "./store";
+import { describe, it, expect, afterEach, beforeEach, vi } from "vitest";
 import { App } from "./App";
+import { PANEL_TABS, settingsStore, state } from "./store";
 
 beforeEach(() => {
   state.panel = { open: false, tab: PANEL_TABS.WALKTHROUGH, pos: null, size: null };

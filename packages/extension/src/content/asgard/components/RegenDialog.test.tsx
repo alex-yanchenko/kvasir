@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach, afterEach, type MockInstance } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach, type MockInstance } from "vitest";
 import { launcherStore } from "../launcher";
 import { RegenDialog } from "./RegenDialog";
 

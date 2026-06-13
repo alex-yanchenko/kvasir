@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
 import { createBifrost } from "../bifrost";
-import { connectGrip } from "./grip";
 import { rowsOf } from "./diff";
+import { connectGrip } from "./grip";
 
 // connectGrip binds document-level listeners once; build it once for the file and
 // give every test a fresh diff container (the grip/askbar elements persist in the

@@ -4,9 +4,9 @@
 // prefetches the AI suggestions. The panel owns window geometry; this owns the
 // content. Opening any session routes the panel to its Chat tab.
 
-import type { Bifrost, SelectionPayload } from "../bifrost";
-import { bifrost } from "../bifrost";
 import { api } from "../api";
+import { bifrost } from "../bifrost";
+import type { Bifrost, SelectionPayload } from "../bifrost";
 import { chatsKey, prUrl } from "../keys";
 import { storeSet } from "../muninn";
 import { pairingStore } from "./pairing";

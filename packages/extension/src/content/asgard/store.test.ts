@@ -1,10 +1,8 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { getSnapshot, settingsStore, subscribe, touch } from "./store";
+import { bifrost } from "../bifrost";
+import { getSnapshot, settingsStore, subscribe, touch, chatsStore, state } from "./store";
 import * as storeModule from "./store";
-import { chatsStore } from "./store";
-import { state } from "./store";
-import { bifrost } from "./../bifrost";
 
 let applied: ReturnType<typeof vi.fn>;
 let offApply: () => void;

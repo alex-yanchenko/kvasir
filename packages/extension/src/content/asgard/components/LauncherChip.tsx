@@ -1,8 +1,8 @@
 // The single launcher chip (bottom-right) — the one entry point to the panel.
 // Replaces the scattered launcher block; shows the generating timer inline.
-import type { JSX } from "react";
-import { useEffect, useState, useSyncExternalStore } from "react";
 import { BookOpen, Loader2 } from "lucide-react";
+import { useEffect, useState, useSyncExternalStore } from "react";
+import type { JSX } from "react";
 import { fmtElapsed, launcherStore } from "../launcher";
 import { getSnapshot, panelStore, subscribe } from "../store";
 import { Button } from "../ui/button";
