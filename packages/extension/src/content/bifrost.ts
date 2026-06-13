@@ -68,44 +68,43 @@ export interface Bifrost {
   on<K extends keyof BifrostReports>(kind: K, fn: Handler<BifrostReports[K]>): () => void;
 }
 
-export function createBifrost(): Bifrost {
-  const commands = new Map<string, Set<Handler<unknown>>>();
-  const reports = new Map<string, Set<Handler<unknown>>>();
-
-  const subscribe = (map: Map<string, Set<Handler<unknown>>>, kind: string, fn: Handler<unknown>) => {
-    let set = map.get(kind);
-    if (!set) {
-      set = new Set();
-      map.set(kind, set);
-    }
-    set.add(fn);
-    return () => {
-      set.delete(fn);
-    };
-  };
-
-  const publish = (map: Map<string, Set<Handler<unknown>>>, kind: string, payload: unknown) => {
-    const set = map.get(kind);
-    if (!set) return;
-    // Snapshot before dispatch: a handler may unsubscribe another (or itself)
-    // mid-publish, and iterating the live Set would skip a not-yet-called handler.
-    const snapshot = [...set];
-    for (const fn of snapshot) {
-      try {
-        fn(payload);
-      } catch (error) {
-        console.error(`[prw bifrost] ${kind} handler failed:`, error);
-      }
-    }
-  };
-
+// A typed pub/sub over one event map. The registry is a mapped-type record, so each
+// event's Set is typed to that event's payload — no cast bridges public ↔ storage.
+function makeBus<EventMap>() {
+  const handlers: { [K in keyof EventMap]?: Set<Handler<EventMap[K]>> } = {};
   return {
-    send: (kind, payload) => publish(commands, kind, payload),
-    // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- sound variance erasure: the per-event handler types are stored in one heterogeneous registry (Set<Handler<unknown>>); publish always supplies this event's matching payload. A Map can't hold per-key value types.
-    handle: (kind, fn) => subscribe(commands, kind, fn as Handler<unknown>),
-    report: (kind, payload) => publish(reports, kind, payload),
-    // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- see handle above.
-    on: (kind, fn) => subscribe(reports, kind, fn as Handler<unknown>),
+    emit<K extends keyof EventMap>(kind: K, payload: EventMap[K]): void {
+      const set = handlers[kind];
+      if (!set) return;
+      // Snapshot before dispatch: a handler may unsubscribe another (or itself)
+      // mid-publish, and iterating the live Set would skip a not-yet-called handler.
+      const snapshot = [...set];
+      for (const fn of snapshot) {
+        try {
+          fn(payload);
+        } catch (error) {
+          console.error(`[prw bifrost] ${String(kind)} handler failed:`, error);
+        }
+      }
+    },
+    listen<K extends keyof EventMap>(kind: K, fn: Handler<EventMap[K]>): () => void {
+      const set = (handlers[kind] ??= new Set());
+      set.add(fn);
+      return () => {
+        set.delete(fn);
+      };
+    },
+  };
+}
+
+export function createBifrost(): Bifrost {
+  const commands = makeBus<BifrostCommands>();
+  const reports = makeBus<BifrostReports>();
+  return {
+    send: (kind, payload) => commands.emit(kind, payload),
+    handle: (kind, fn) => commands.listen(kind, fn),
+    report: (kind, payload) => reports.emit(kind, payload),
+    on: (kind, fn) => reports.listen(kind, fn),
   };
 }
 

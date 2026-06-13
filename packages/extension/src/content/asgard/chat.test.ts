@@ -398,6 +398,13 @@ describe("ensureSuggestions", () => {
     await chatStore.ensureSuggestions("gone"); // vanished session is a no-op
   });
 
+  it("a non-401 suggest failure caches an empty list", async () => {
+    state.chatHistory = [mkSession("c")];
+    vi.mocked(api).mockResolvedValue({ ok: false, status: 500, data: { error: "boom" } });
+    await chatStore.ensureSuggestions("c");
+    expect(state.chatHistory[0].suggestions).toEqual([]);
+  });
+
   it("a 401 while fetching suggestions flips to unpaired and caches nothing", async () => {
     pairingStore.reset();
     state.chatHistory = [mkSession("a")];

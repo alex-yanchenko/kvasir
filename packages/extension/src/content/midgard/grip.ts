@@ -20,8 +20,12 @@ import {
 import { highlightRows } from "./midgard";
 
 const BUBBLE = '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>';
-const svgIcon = (inner: string): string =>
-  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${inner}</svg>`;
+// Parse a static icon to an <svg> element (DOMParser is inert — no innerHTML sink).
+const svgIcon = (inner: string): Element =>
+  new DOMParser().parseFromString(
+    `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${inner}</svg>`,
+    "image/svg+xml",
+  ).documentElement;
 
 interface Selection {
   container: Element;
@@ -70,8 +74,7 @@ export function connectGrip(bifrost: Bifrost): void {
     grip.className = "prw-grip";
     grip.dataset.prwTip = "Click to select a line · drag to select a range";
     grip.setAttribute("aria-label", "Select line");
-    // eslint-disable-next-line no-unsanitized/property -- static icon markup: svgIcon() wraps a literal path string, no dynamic input.
-    grip.innerHTML = svgIcon('<path d="M4 9h16M4 15h16"/>');
+    grip.replaceChildren(svgIcon('<path d="M4 9h16M4 15h16"/>'));
     grip.style.display = "none";
     document.body.append(grip);
     grip.addEventListener("mousedown", onGripDown);
@@ -105,8 +108,7 @@ export function connectGrip(bifrost: Bifrost): void {
       b.className = "prw-askbtn" + (cls ? " " + cls : "");
       b.dataset.prwTip = title; // fast custom tooltip
       b.setAttribute("aria-label", title);
-      // eslint-disable-next-line no-unsanitized/property -- static icon markup: BUBBLE is a compile-time-constant path string.
-      b.innerHTML = svgIcon(BUBBLE);
+      b.replaceChildren(svgIcon(BUBBLE));
       b.addEventListener("click", () => {
         const p = sel && payloadFor(sel);
         if (!p) return;

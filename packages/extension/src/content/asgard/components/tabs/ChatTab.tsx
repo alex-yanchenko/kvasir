@@ -31,8 +31,12 @@ const ICON = {
   copy: '<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/>',
   check: '<path d="M4 12l5 5L20 6"/>',
 };
-const svg = (inner: string): string =>
-  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${inner}</svg>`;
+// Parse a static icon to an <svg> element (DOMParser is inert — no innerHTML sink).
+const svgIcon = (inner: string): Element =>
+  new DOMParser().parseFromString(
+    `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${inner}</svg>`,
+    "image/svg+xml",
+  ).documentElement;
 
 // Turn `path.ext:line` / `path.ext:start-end` mentions in an assistant answer into
 // clickable jump-to-code links, and bare `dir/file.ext` mentions into jump-to-file
@@ -138,12 +142,10 @@ function Markdown({ text }: Readonly<{ text: string }>): JSX.Element {
       b.className = "prw-iconbtn prw-code-copy";
       b.dataset.prwTip = "Copy code";
       b.setAttribute("aria-label", "Copy code");
-      // eslint-disable-next-line no-unsanitized/property -- static icon markup: svg() wraps a compile-time-constant ICON path string, no dynamic input.
-      b.innerHTML = svg(ICON.copy);
+      b.replaceChildren(svgIcon(ICON.copy));
       b.addEventListener("click", () => {
         void navigator.clipboard?.writeText(String(code.textContent)); // textContent is never null on an element
-        // eslint-disable-next-line no-unsanitized/property -- static icon markup (see above).
-        b.innerHTML = svg(ICON.check);
+        b.replaceChildren(svgIcon(ICON.check));
       });
       pre.append(b);
     }
