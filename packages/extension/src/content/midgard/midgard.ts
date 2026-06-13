@@ -6,12 +6,10 @@
 
 import {
   cleanLine,
-  codeForRows,
   containerForFile,
   filePathFromContainer,
   rowForLine,
   rowForText,
-  rowRect,
   rowsInRange,
   rowsOf,
 } from "./diff";
@@ -275,13 +273,4 @@ export function jumpToRef(file: string, start: number | null, end: number | null
   };
   land();
   return true;
-}
-
-// Query: the rendered code + anchor rect for a step's rows, if the file is on
-// the page. Pure read — Asgard composes its own fallbacks when this is null.
-export function stepCode(step: HighlightableStep): { text: string; rect: ReturnType<typeof rowRect> } | null {
-  const container = document.getElementById(step.anchor);
-  const rows = container && step.lines ? rowsInRange(container, step.lines.start, step.lines.end) : [];
-  if (rows.length === 0) return null;
-  return { text: codeForRows(rows), rect: rowRect(rows[0] ?? null) };
 }

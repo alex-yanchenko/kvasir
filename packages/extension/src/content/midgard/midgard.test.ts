@@ -1,8 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
-import { rowsOf } from "./diff";
+import { rowsOf, stepCode } from "./diff";
 import {
-  stepCode,
   clearHL,
   clearPick,
   containerForFileLoose,

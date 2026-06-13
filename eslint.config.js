@@ -1,3 +1,4 @@
+import path from "node:path";
 import js from "@eslint/js";
 import tseslint from "typescript-eslint";
 import reactHooks from "eslint-plugin-react-hooks";
@@ -10,6 +11,37 @@ import unicorn from "eslint-plugin-unicorn";
 import sonarjs from "eslint-plugin-sonarjs";
 import vitest from "@vitest/eslint-plugin";
 import globals from "globals";
+
+// The Nine-Realms layering, enforced as lint so it can't erode silently:
+//  - Midgard (page controller, owns DOM writes) must never import Asgard (panel UI).
+//  - Asgard must never reach into Midgard except its pure readers (midgard/diff) —
+//    everything else crosses via the Bifrost.
+//  - Runes is the shared leaf: it must not import the extension or server packages.
+const pkg = (...segments) => path.join(import.meta.dirname, "packages", ...segments);
+const boundaryZones = [
+  {
+    target: pkg("extension/src/content/midgard"),
+    from: pkg("extension/src/content/asgard"),
+    message: "Midgard (page controller) must not import Asgard (UI) — communicate via the Bifrost.",
+  },
+  {
+    target: pkg("extension/src/content/asgard"),
+    from: pkg("extension/src/content/midgard"),
+    except: ["diff.ts"],
+    message:
+      "Asgard must not reach into Midgard's controller — use the Bifrost; only midgard/diff (pure readers) is allowed.",
+  },
+  {
+    target: pkg("runes/src"),
+    from: pkg("extension"),
+    message: "Runes is the shared leaf — it must not depend on the extension.",
+  },
+  {
+    target: pkg("runes/src"),
+    from: pkg("mimir"),
+    message: "Runes is the shared leaf — it must not depend on the server.",
+  },
+];
 
 // Import hygiene shared by every TypeScript surface. no-cycle catches accidental
 // circular deps; order/no-duplicates keep imports tidy (both autofixable).
@@ -26,6 +58,7 @@ const importRules = {
   "import-x/no-duplicates": "error",
   "import-x/no-self-import": "error",
   "import-x/no-useless-path-segments": "error",
+  "import-x/no-restricted-paths": ["error", { zones: boundaryZones }],
 };
 const importSettings = { "import-x/resolver": { typescript: true, node: true } };
 

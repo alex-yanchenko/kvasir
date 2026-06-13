@@ -5,7 +5,7 @@
 import type { WalkthroughStep } from "@prw/runes/spec";
 import { bifrost } from "../bifrost";
 import { onFilesTab, prUrl, tourKey } from "../keys";
-import { stepCode } from "../midgard/midgard";
+import { stepCode } from "../midgard/diff";
 import { storeSet } from "../muninn";
 import { chatStore } from "./chat";
 import { state, touch } from "./store";

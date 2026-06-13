@@ -3,10 +3,14 @@ import type { WalkthroughSpec } from "@prw/runes/spec";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 vi.mock("../muninn", () => ({ storeGet: vi.fn(), storeSet: vi.fn(), storeRemove: vi.fn() }));
-vi.mock("../midgard/midgard", () => ({ stepCode: vi.fn() }));
+// Keep the real diff readers (chatStore uses changedFilePaths); stub only stepCode.
+vi.mock("../midgard/diff", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../midgard/diff")>()),
+  stepCode: vi.fn(),
+}));
 
 import { bifrost } from "../bifrost";
-import { stepCode } from "../midgard/midgard";
+import { stepCode } from "../midgard/diff";
 import { storeSet } from "../muninn";
 import { chatStore } from "./chat";
 import { state } from "./store";

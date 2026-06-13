@@ -142,6 +142,18 @@ export const rowRect = (row: Element | null): DOMRect | RowRect =>
 // Snapshot every selectable row's vertical band. Resolve the target row by
 // GEOMETRY, not hit-testing: GitHub lets clicks on a row's whitespace fall
 // through to a wrapper div, so elementFromPoint is unreliable on diff rows.
+/** A walkthrough step's code text + its anchor rect — a pure read (no writes), used
+ * to give the chat its step context. Lives with the readers, not the controller. */
+export function stepCode(step: { anchor: string; lines?: { start: number; end: number } | null }): {
+  text: string;
+  rect: ReturnType<typeof rowRect>;
+} | null {
+  const container = document.getElementById(step.anchor);
+  const rows = container && step.lines ? rowsInRange(container, step.lines.start, step.lines.end) : [];
+  if (rows.length === 0) return null;
+  return { text: codeForRows(rows), rect: rowRect(rows[0] ?? null) };
+}
+
 export const rowBandsOf = (container: Element): RowBand[] =>
   rowsOf(container).map((row) => {
     const b = row.getBoundingClientRect();
