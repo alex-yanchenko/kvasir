@@ -5,3 +5,7 @@ pnpm-lock.yaml
 
 # vitest config load artifacts
 *.timestamp-*.mjs
+
+# Playwright artifacts
+test-results/
+playwright-report/

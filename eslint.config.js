@@ -96,6 +96,15 @@ export default [
     ignores: ["**/node_modules/**", "**/dist/**", "**/coverage/**", "**/*.min.js", "packages/mimir/bun.lock"],
   },
 
+  // Playwright e2e harness — TS, but outside the package projects (Playwright runs
+  // its own transpile), so syntactic rules only.
+  ...tseslint.configs.recommended.map((c) => ({ ...c, files: ["e2e/**/*.ts", "playwright.config.ts"] })),
+  {
+    files: ["e2e/**/*.ts", "playwright.config.ts"],
+    languageOptions: { globals: { ...globals.node }, parserOptions: { project: false } },
+    rules: { "@typescript-eslint/no-empty-function": "off" },
+  },
+
   // Regex correctness/safety on every source surface (PR-URL/loopback/skip-coverage
   // patterns). Syntactic — no type info needed, so it covers tests and plain JS too.
   { ...regexp.configs["flat/recommended"], files: ["packages/**/*.{ts,tsx,js}"] },

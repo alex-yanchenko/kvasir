@@ -25,3 +25,5 @@ jobs:
       - run: pnpm test:coverage
       - run: pnpm build
       - run: pnpm exec size-limit
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm exec playwright test
