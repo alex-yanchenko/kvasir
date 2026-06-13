@@ -16,7 +16,7 @@ import {
   X,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import type { JSX, MouseEvent as ReactMouseEvent } from "react";
+import type { JSX, KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent } from "react";
 import { bifrost } from "../../../bifrost";
 import { changedFilePaths } from "../../../midgard/diff";
 import { chatStore, QUICK, QUICK_PR } from "../../chat";
@@ -388,17 +388,37 @@ export function ChatTab(): JSX.Element {
     document.addEventListener("mousemove", move);
     document.addEventListener("mouseup", up);
   };
+  // Keyboard equivalent of the drag (WAI-ARIA window-splitter pattern): arrows
+  // nudge the rail, persisting like the drag's mouseup does.
+  const onResizeKey = (e: ReactKeyboardEvent): void => {
+    const delta = e.key === "ArrowLeft" ? -16 : e.key === "ArrowRight" ? 16 : 0;
+    if (!delta) return;
+    e.preventDefault();
+    setRailW((w) => {
+      const next = clampRail(w + delta);
+      localStorage.setItem(RAIL_KEY, String(next));
+      return next;
+    });
+  };
 
   return (
     <div ref={rowRef} className="flex h-full min-h-0">
       <ChatRail active={sess?.key ?? null} width={railW} />
+      {/* Keyboard-operable splitter (WAI-ARIA window-splitter): focusable, arrows resize. The lint maps role="separator" as non-interactive and so rejects the tabIndex + handlers, but that pattern is exactly how an accessible splitter is built. */}
+      {/* eslint-disable jsx-a11y/no-noninteractive-element-interactions, jsx-a11y/no-noninteractive-tabindex -- see above */}
       <div
         role="separator"
         aria-orientation="vertical"
         aria-label="Resize chat list"
-        className="w-[5px] shrink-0 cursor-col-resize border-x border-border bg-transparent transition-colors hover:border-primary/40 hover:bg-primary/60"
+        aria-valuenow={railW}
+        aria-valuemin={RAIL_MIN}
+        aria-valuemax={RAIL_MAX}
+        tabIndex={0}
+        className="w-[5px] shrink-0 cursor-col-resize border-x border-border bg-transparent transition-colors hover:border-primary/40 hover:bg-primary/60 focus-visible:border-primary focus-visible:bg-primary/60 focus-visible:outline-none"
         onMouseDown={onResize}
+        onKeyDown={onResizeKey}
       />
+      {/* eslint-enable jsx-a11y/no-noninteractive-element-interactions, jsx-a11y/no-noninteractive-tabindex */}
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         {sess ? (
           <Thread key={sess.key} sess={sess} />

@@ -1,6 +1,7 @@
 // Regenerate-confirmation modal: incremental update (when new commits exist) or
 // a full rebuild. A shadcn-styled overlay rendered inside the shadow root (so no
 // Radix portal is needed); closes on backdrop click or cancel.
+import { useEffect } from "react";
 import type { JSX } from "react";
 import { launcherStore } from "../launcher";
 import { Button } from "../ui/button";
@@ -11,7 +12,16 @@ export function RegenDialog({ onClose }: { onClose: () => void }): JSX.Element {
     onClose();
     void launcherStore.requestGenerate(mode, sinceSha);
   };
+  // Escape closes the modal — the keyboard equivalent of the backdrop click.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
   return (
+    // eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events -- backdrop click-to-dismiss is a mouse convenience; keyboard users close via the Cancel button or Escape (handler above).
     <div
       className="prw-dialog-back fixed inset-0 z-[2147483010] flex items-center justify-center bg-black/45"
       onClick={(e) => {

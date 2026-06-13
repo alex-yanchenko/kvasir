@@ -168,6 +168,18 @@ describe("ChatTab shell", () => {
     expect(localStorage.getItem("prw:chatRailW")).toBe("280"); // RAIL_MAX
   });
 
+  it("resizes the rail with arrow keys and persists; ignores other keys", () => {
+    render(<ChatTab />);
+    const sep = screen.getByRole("separator", { name: "Resize chat list" });
+    act(() => fireEvent.keyDown(sep, { key: "ArrowRight" }));
+    expect(sep.getAttribute("aria-valuenow")).toBe("168"); // 152 default + 16
+    expect(localStorage.getItem("prw:chatRailW")).toBe("168");
+    act(() => fireEvent.keyDown(sep, { key: "ArrowLeft" }));
+    expect(localStorage.getItem("prw:chatRailW")).toBe("152");
+    act(() => fireEvent.keyDown(sep, { key: "a" }));
+    expect(localStorage.getItem("prw:chatRailW")).toBe("152");
+  });
+
   it("disables the composer/chips and fires no backend call while unpaired", () => {
     pairingStore.markUnpaired();
     const ask = vi.spyOn(chatStore, "send");

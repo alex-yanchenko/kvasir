@@ -89,6 +89,7 @@ function PanelWindow(): JSX.Element {
         ...(size ? { width: size.w, height: size.h } : null),
       }}
     >
+      {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions -- title-bar drag handle: drag-to-move is a non-essential reposition with no ARIA role; the panel auto-positions and every function inside is a native, keyboard-operable control. */}
       <div className="flex cursor-move items-center gap-2 px-3 py-2" onMouseDown={onHeadDown}>
         <span className="truncate text-[13px] font-semibold tracking-tight" title={title}>
           {title}

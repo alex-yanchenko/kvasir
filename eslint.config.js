@@ -4,6 +4,7 @@ import reactHooks from "eslint-plugin-react-hooks";
 import importX from "eslint-plugin-import-x";
 import * as regexp from "eslint-plugin-regexp";
 import nounsanitized from "eslint-plugin-no-unsanitized";
+import jsxA11y from "eslint-plugin-jsx-a11y";
 import globals from "globals";
 
 // Import hygiene shared by every TypeScript surface. no-cycle catches accidental
@@ -86,6 +87,14 @@ export default [
       ...importRules,
       ...typeAwareRules,
     },
+  },
+
+  // Accessibility for the React panel (roles, aria, labels, keyboard handlers).
+  // Tests are fixtures, not shipped UI — excluded.
+  {
+    ...jsxA11y.flatConfigs.recommended,
+    files: ["packages/extension/**/*.tsx"],
+    ignores: ["packages/**/*.test.tsx"],
   },
 
   // Test files: syntactic rules only. Type-aware rules need the source tsconfig's

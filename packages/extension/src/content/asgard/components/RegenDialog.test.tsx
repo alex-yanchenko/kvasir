@@ -58,4 +58,14 @@ describe("RegenDialog", () => {
     fireEvent.click(container.querySelector(".prw-dialog")!);
     expect(onClose).not.toHaveBeenCalled();
   });
+
+  it("Escape closes; other keys do not", () => {
+    vi.spyOn(launcherStore, "newCommits").mockReturnValue(false);
+    const onClose = vi.fn();
+    render(<RegenDialog onClose={onClose} />);
+    fireEvent.keyDown(document, { key: "a" });
+    expect(onClose).not.toHaveBeenCalled();
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
 });
