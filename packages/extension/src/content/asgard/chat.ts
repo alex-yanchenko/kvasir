@@ -210,7 +210,7 @@ export const chatStore = {
       update(sess.key, (s) => ({ ...s, step: tourStore.stepContext() }));
     }
     const latest = state.chatHistory.find((c) => c.key === p.selectionId);
-    if (latest) this.open(latest);
+    if (latest) chatStore.open(latest);
   },
 
   /** Start a fresh whole-PR chat (the Chat rail's "New chat"). Unlike openPrChat
@@ -228,7 +228,7 @@ export const chatStore = {
     };
     state.chatHistory = [sess, ...state.chatHistory];
     persist();
-    this.open(sess);
+    chatStore.open(sess);
   },
 
   /** Delete any session by key (the rail's per-row trash). Clears the page
@@ -257,7 +257,7 @@ export const chatStore = {
       state.chatHistory = [sess, ...state.chatHistory];
       persist();
     }
-    this.open(sess);
+    chatStore.open(sess);
   },
 
   /** Leave the current chat (clear the page highlight); the session stays in

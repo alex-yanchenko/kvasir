@@ -41,7 +41,7 @@ export function filePathFromContainer(cont: Element | null): string | null {
   }
   const al = cont.querySelector("table[aria-label]")?.getAttribute("aria-label");
   if (al) return al.replace(/^Diff for:\s*/i, "").trim();
-  return cont.querySelector("[data-tagsearch-path]")?.getAttribute("data-tagsearch-path") || null;
+  return cont.querySelector<HTMLElement>("[data-tagsearch-path]")?.dataset.tagsearchPath || null;
 }
 
 /** Every changed file currently on the page, by its diff container. Pure read —
@@ -76,9 +76,9 @@ export function lineRangeOf(container: Element | null, range: Range): LineRange 
   if (!container) return null;
   let lo = Infinity,
     hi = -Infinity;
-  for (const cell of container.querySelectorAll("td.diff-text-cell[data-line-number]")) {
+  for (const cell of container.querySelectorAll<HTMLElement>("td.diff-text-cell[data-line-number]")) {
     if (range.intersectsNode(cell)) {
-      const n = Number(cell.getAttribute("data-line-number"));
+      const n = Number(cell.dataset.lineNumber);
       if (n) {
         lo = Math.min(lo, n);
         hi = Math.max(hi, n);
@@ -101,8 +101,8 @@ export function rowForText(cont: Element, text: string): Element | null {
 }
 
 export const lineOfRow = (row: Element): number | null => {
-  const c = row.querySelector("td.diff-text-cell[data-line-number]");
-  return c ? Number(c.getAttribute("data-line-number")) : null;
+  const c = row.querySelector<HTMLElement>("td.diff-text-cell[data-line-number]");
+  return c ? Number(c.dataset.lineNumber) : null;
 };
 // IMPORTANT: select by DOM row order, never by numeric line range. In a unified
 // diff, ADDED lines carry NEW line numbers and DELETED lines carry OLD ones, so

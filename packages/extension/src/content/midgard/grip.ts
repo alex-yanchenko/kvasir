@@ -68,7 +68,7 @@ export function connectGrip(bifrost: Bifrost): void {
     if (grip) return;
     grip = document.createElement("button");
     grip.className = "prw-grip";
-    grip.setAttribute("data-prw-tip", "Click to select a line · drag to select a range");
+    grip.dataset.prwTip = "Click to select a line · drag to select a range";
     grip.setAttribute("aria-label", "Select line");
     // eslint-disable-next-line no-unsanitized/property -- static icon markup: svgIcon() wraps a literal path string, no dynamic input.
     grip.innerHTML = svgIcon('<path d="M4 9h16M4 15h16"/>');
@@ -103,7 +103,7 @@ export function connectGrip(bifrost: Bifrost): void {
     const mk = (title: string, withStep: boolean, cls?: string) => {
       const b = document.createElement("button");
       b.className = "prw-askbtn" + (cls ? " " + cls : "");
-      b.setAttribute("data-prw-tip", title); // fast custom tooltip
+      b.dataset.prwTip = title; // fast custom tooltip
       b.setAttribute("aria-label", title);
       // eslint-disable-next-line no-unsanitized/property -- static icon markup: BUBBLE is a compile-time-constant path string.
       b.innerHTML = svgIcon(BUBBLE);

@@ -27,12 +27,12 @@ export function Tooltips(): JSX.Element {
       setTip(null);
     };
     const over = (event: Event) => {
-      const t = event.target instanceof Element ? event.target.closest("[data-prw-tip]") : null;
+      const t = event.target instanceof Element ? event.target.closest<HTMLElement>("[data-prw-tip]") : null;
       if (!t) return;
       if (timer.current !== null) clearTimeout(timer.current);
       timer.current = setTimeout(
         // closest matched [data-prw-tip], so the attribute is always present
-        () => setTip({ text: String(t.getAttribute("data-prw-tip")), anchor: t.getBoundingClientRect() }),
+        () => setTip({ text: String(t.dataset.prwTip), anchor: t.getBoundingClientRect() }),
         TIP_DELAY_MS,
       );
     };

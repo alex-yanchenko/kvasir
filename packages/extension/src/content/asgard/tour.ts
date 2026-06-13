@@ -38,7 +38,7 @@ export const tourStore = {
       return;
     }
     open = true;
-    this.goto(state.tourState.step || 0); // resume where you left off
+    tourStore.goto(state.tourState.step || 0); // resume where you left off
   },
 
   goto(index: number): void {
@@ -60,10 +60,10 @@ export const tourStore = {
 
   /** Advance to the next step; a no-op on the last (the Next control is disabled). */
   next(): void {
-    if (state.spec && stepIndex < state.spec.steps.length - 1) this.goto(stepIndex + 1);
+    if (state.spec && stepIndex < state.spec.steps.length - 1) tourStore.goto(stepIndex + 1);
   },
   back(): void {
-    if (stepIndex > 0) this.goto(stepIndex - 1);
+    if (stepIndex > 0) tourStore.goto(stepIndex - 1);
   },
 
   close(): void {

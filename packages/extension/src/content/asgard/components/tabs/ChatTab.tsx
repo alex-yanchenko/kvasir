@@ -136,7 +136,7 @@ function Markdown({ text }: Readonly<{ text: string }>): JSX.Element {
       const code = pre.querySelector("code")!; // renderMarkdown always nests <code> in .prw-code
       const b = document.createElement("button");
       b.className = "prw-iconbtn prw-code-copy";
-      b.setAttribute("data-prw-tip", "Copy code");
+      b.dataset.prwTip = "Copy code";
       b.setAttribute("aria-label", "Copy code");
       // eslint-disable-next-line no-unsanitized/property -- static icon markup: svg() wraps a compile-time-constant ICON path string, no dynamic input.
       b.innerHTML = svg(ICON.copy);

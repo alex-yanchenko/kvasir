@@ -72,14 +72,9 @@ export default [
       // null is part of the JSON wire contract (absent ≠ explicit null) and is what
       // DOM APIs / React refs return — undefined-only would change serialization.
       "unicorn/no-null": "off",
-      // The hand-rolled object-literal stores call sibling methods via `this`.
-      "unicorn/no-this-outside-of-class": "off",
       // Our getElementById calls all take dynamic GitHub-supplied ids; querySelector
       // would force CSS.escape for no gain — getElementById is the right tool.
       "unicorn/prefer-query-selector": "off",
-      // The pure diff readers type DOM as `Element` (querySelector), which has no
-      // `.dataset` — getAttribute is the type-safe accessor; the autofix is unsound here.
-      "unicorn/dom-node-dataset": "off",
       // Bifrost commands carry an explicit `undefined`-typed payload (a required 2nd
       // arg), and our promises resolve `unknown` — the autofix strips needed args.
       "unicorn/no-useless-undefined": "off",

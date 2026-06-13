@@ -12,8 +12,8 @@ function hideTip(): void {
   if (tipElement) tipElement.style.display = "none";
 }
 
-function showTip(target: Element): void {
-  const text = target.getAttribute("data-prw-tip");
+function showTip(target: HTMLElement): void {
+  const text = target.dataset.prwTip;
   if (!text) return;
   if (!tipElement) {
     tipElement = document.createElement("div");
@@ -35,7 +35,7 @@ function showTip(target: Element): void {
 // bind exactly once, even if the content script is injected twice.
 export function initTooltips(): void {
   document.addEventListener("mouseover", (event) => {
-    const t = event.target instanceof Element ? event.target.closest("[data-prw-tip]") : null;
+    const t = event.target instanceof Element ? event.target.closest<HTMLElement>("[data-prw-tip]") : null;
     if (!t) return;
     if (tipTimer !== null) clearTimeout(tipTimer);
     tipTimer = setTimeout(() => showTip(t), 350);
