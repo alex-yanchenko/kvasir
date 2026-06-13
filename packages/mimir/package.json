@@ -10,7 +10,8 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
-    "@prw/runes": "workspace:*"
+    "@prw/runes": "workspace:*",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/bun": "^1.3.14",

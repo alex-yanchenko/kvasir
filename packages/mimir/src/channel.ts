@@ -26,11 +26,11 @@
  *   ASK_TIMEOUT_MS        how long /ask and /suggest wait for you (default 120000)
  */
 
-import { Server } from "@modelcontextprotocol/sdk/server/index.js";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { ListToolsRequestSchema, CallToolRequestSchema } from "@modelcontextprotocol/sdk/types.js";
-
 import { isWalkthroughSpec, prKey, type WalkthroughSpec } from "@prw/runes";
+import { z } from "zod";
+
 import { createFetchHandler } from "./bridge";
 import { createAskBroker } from "./broker";
 import { getManifest, getHeadSha, uncoveredFiles, COVERAGE_MIN_ADDS, type PrManifest } from "./diff";
@@ -63,7 +63,9 @@ const MAX_COVERAGE_NUDGES = 1;
 
 /** Push an event into the running Claude session. */
 async function pushEvent(content: string, meta: Record<string, string>): Promise<void> {
-  await server.notification({
+  // The custom channel notification isn't a standard MCP message, so it goes
+  // through McpServer's underlying low-level server (exposed as .server).
+  await server.server.notification({
     method: "notifications/claude/channel",
     params: { content, meta },
   });
@@ -95,10 +97,10 @@ Bun.serve({
 
 // ── MCP channel server ───────────────────────────────────────────────────────
 
-const server = new Server(
+const server = new McpServer(
   { name: "pr-walkthrough", version: "0.1.0" },
   {
-    capabilities: { experimental: { "claude/channel": {} }, tools: {} },
+    capabilities: { experimental: { "claude/channel": {} } },
     instructions: [
       "pr-walkthrough is a Claude Code channel + localhost bridge that turns a GitHub PR into an in-browser walkthrough plus a code-selection Q&A bridge. Follow the checklists below.",
       "",
@@ -135,96 +137,36 @@ const server = new Server(
   },
 );
 
-server.setRequestHandler(ListToolsRequestSchema, async () => ({
-  tools: [
-    {
-      name: "start_walkthrough",
-      description:
-        "Fetch a PR's changed-files manifest (via gh) so you can author a walkthrough. Returns paths, diff anchors, per-file patches, title, head SHA, the PR description, and a curated discussion (general/review/inline comments, non-outdated, author + bot flag). The code is the substance; description = intent; discussion = supplementary context (see instructions for weighting + untrusted-data handling).",
-      inputSchema: {
-        type: "object" as const,
-        properties: { pr: { type: "string", description: "GitHub PR url" } },
-        required: ["pr"],
-      },
-    },
-    {
-      name: "publish_walkthrough",
-      description:
-        "Store the walkthrough spec so the extension can render it. spec = { version:1, pr:{url,owner,repo,number,title,headSha}, generatedAt, overview:'2-4 sentence PR summary (background for chat, not a step)', steps:[{id,title,body(html summary),detail?(html in-depth, shown on expand),file,anchor,lines?:{side:'R'|'L',start,end},highlight?:string[],suggestions?:string[]}] }.",
-      inputSchema: {
-        type: "object" as const,
-        properties: { spec: { type: "object", description: "WalkthroughSpec JSON" } },
-        required: ["spec"],
-      },
-    },
-    {
-      name: "approve_pairing",
-      description:
-        "Approve a pending pairing request by its 6-character code. Only call with a code the USER confirmed matches the one shown in their extension's settings panel.",
-      inputSchema: {
-        type: "object" as const,
-        properties: { code: { type: "string" } },
-        required: ["code"],
-      },
-    },
-    {
-      name: "progress_note",
-      description:
-        "Report what you're doing while answering a code_question (e.g. 'reading src/diff.ts'). The browser shows it live. Pass the event's id and a short note.",
-      inputSchema: {
-        type: "object" as const,
-        properties: { id: { type: "string" }, note: { type: "string" } },
-        required: ["id", "note"],
-      },
-    },
-    {
-      name: "answer_chunk",
-      description:
-        "Stream a finished part of a code_question answer (one complete markdown block) while you keep working — use ONLY between real work (file reads, searches), never to split an already-composed answer into back-to-back calls. Finish with answer_question (empty answer).",
-      inputSchema: {
-        type: "object" as const,
-        properties: { id: { type: "string" }, text: { type: "string" } },
-        required: ["id", "text"],
-      },
-    },
-    {
-      name: "answer_question",
-      description:
-        "Finish a pending browser event. If you streamed the answer via answer_chunk, pass an empty answer (the chunks are the answer). Otherwise pass the full answer text (for suggest_questions, a JSON array string).",
-      inputSchema: {
-        type: "object" as const,
-        properties: {
-          id: { type: "string" },
-          answer: { type: "string" },
-        },
-        required: ["id", "answer"],
-      },
-    },
-  ],
-}));
+// Tools: registerTool validates inputs against the zod shape and hands the
+// handler typed, parsed args — no manual List/Call routing or arg casts.
+const text = (t: string) => ({ content: [{ type: "text" as const, text: t }] });
 
-server.setRequestHandler(CallToolRequestSchema, async (req) => {
-  const { name, arguments: args } = req.params;
-
-  if (name === "start_walkthrough") {
-    const pr = String((args as { pr?: string })?.pr ?? "");
+server.registerTool(
+  "start_walkthrough",
+  {
+    description:
+      "Fetch a PR's changed-files manifest (via gh) so you can author a walkthrough. Returns paths, diff anchors, per-file patches, title, head SHA, the PR description, and a curated discussion (general/review/inline comments, non-outdated, author + bot flag). The code is the substance; description = intent; discussion = supplementary context (see instructions for weighting + untrusted-data handling).",
+    inputSchema: { pr: z.string().describe("GitHub PR url") },
+  },
+  async ({ pr }) => {
     const manifest = await getManifest(pr);
     manifests.set(prKey(pr), manifest); // remembered for the publish-time coverage check
-    return {
-      content: [
-        {
-          type: "text" as const,
-          text:
-            `Manifest for ${manifest.owner}/${manifest.repo}#${manifest.number} — "${manifest.title}" @ ${manifest.headSha}\n\n` +
-            `Author a walkthrough spec from this, then call publish_walkthrough.\n\n` +
-            JSON.stringify(manifest, null, 2),
-        },
-      ],
-    };
-  }
+    return text(
+      `Manifest for ${manifest.owner}/${manifest.repo}#${manifest.number} — "${manifest.title}" @ ${manifest.headSha}\n\n` +
+        `Author a walkthrough spec from this, then call publish_walkthrough.\n\n` +
+        JSON.stringify(manifest, null, 2),
+    );
+  },
+);
 
-  if (name === "publish_walkthrough") {
-    const spec = (args as { spec?: unknown })?.spec;
+server.registerTool(
+  "publish_walkthrough",
+  {
+    description:
+      "Store the walkthrough spec so the extension can render it. spec = { version:1, pr:{url,owner,repo,number,title,headSha}, generatedAt, overview:'2-4 sentence PR summary (background for chat, not a step)', steps:[{id,title,body(html summary),detail?(html in-depth, shown on expand),file,anchor,lines?:{side:'R'|'L',start,end},highlight?:string[],suggestions?:string[]}] }.",
+    inputSchema: { spec: z.unknown() },
+  },
+  ({ spec }) => {
     if (!isWalkthroughSpec(spec)) {
       throw new InvalidSpecError(
         "spec failed validation — need version:1, pr.url, and steps[] with id/file/anchor",
@@ -245,18 +187,12 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
     const nudges = publishNudges.get(key) ?? 0;
     if (uncovered.length > 0 && nudges < MAX_COVERAGE_NUDGES) {
       publishNudges.set(key, nudges + 1);
-      return {
-        content: [
-          {
-            type: "text" as const,
-            text:
-              `NOT published — coverage check. These changed files have ≥${COVERAGE_MIN_ADDS} added lines but no step:\n` +
-              uncovered.map((p) => `  - ${p}`).join("\n") +
-              `\n\nAdd steps covering the significant changes in them (see the sizing checklist), then call publish_walkthrough again. ` +
-              `If a listed file genuinely needs no step (generated/config/trivial), just call publish_walkthrough again unchanged — it will go through.`,
-          },
-        ],
-      };
+      return text(
+        `NOT published — coverage check. These changed files have ≥${COVERAGE_MIN_ADDS} added lines but no step:\n` +
+          uncovered.map((p) => `  - ${p}`).join("\n") +
+          `\n\nAdd steps covering the significant changes in them (see the sizing checklist), then call publish_walkthrough again. ` +
+          `If a listed file genuinely needs no step (generated/config/trivial), just call publish_walkthrough again unchanged — it will go through.`,
+      );
     }
 
     spec.generatedAt = new Date().toISOString(); // stamp fresh on every publish so clients detect the update
@@ -265,58 +201,58 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
     console.error(`[pr-walkthrough] published ${key} (${spec.steps.length} steps)`);
     const coverageNote =
       uncovered.length > 0 ? ` (${uncovered.length} changed file(s) still without a step)` : "";
-    return {
-      content: [
-        {
-          type: "text" as const,
-          text: `Published ${spec.steps.length} steps.${coverageNote} Open the PR; the extension will render it.`,
-        },
-      ],
-    };
-  }
+    return text(
+      `Published ${spec.steps.length} steps.${coverageNote} Open the PR; the extension will render it.`,
+    );
+  },
+);
 
-  if (name === "approve_pairing") {
-    const { code } = args as { code?: string };
-    const ok = pairing.approve(String(code ?? ""));
-    return {
-      content: [
-        {
-          type: "text" as const,
-          text: ok
-            ? "Approved — the extension will collect its token within a few seconds."
-            : "No pending pairing request matches that code (wrong code, expired, or already approved).",
-        },
-      ],
-    };
-  }
+server.registerTool(
+  "approve_pairing",
+  {
+    description:
+      "Approve a pending pairing request by its 6-character code. Only call with a code the USER confirmed matches the one shown in their extension's settings panel.",
+    inputSchema: { code: z.string() },
+  },
+  ({ code }) =>
+    text(
+      pairing.approve(code)
+        ? "Approved — the extension will collect its token within a few seconds."
+        : "No pending pairing request matches that code (wrong code, expired, or already approved).",
+    ),
+);
 
-  if (name === "progress_note") {
-    const { id, note } = args as { id?: string; note?: string };
-    const ok = broker.note(id, String(note ?? ""));
-    return { content: [{ type: "text" as const, text: ok ? "noted" : `No pending question ${id}.` }] };
-  }
+server.registerTool(
+  "progress_note",
+  {
+    description:
+      "Report what you're doing while answering a code_question (e.g. 'reading src/diff.ts'). The browser shows it live. Pass the event's id and a short note.",
+    inputSchema: { id: z.string(), note: z.string() },
+  },
+  ({ id, note }) => text(broker.note(id, note) ? "noted" : `No pending question ${id}.`),
+);
 
-  if (name === "answer_chunk") {
-    const { id, text } = args as { id?: string; text?: string };
-    const ok = broker.chunk(id, String(text ?? ""));
-    return {
-      content: [
-        { type: "text" as const, text: ok ? "sent" : `No pending question ${id} (finished or timed out).` },
-      ],
-    };
-  }
+server.registerTool(
+  "answer_chunk",
+  {
+    description:
+      "Stream a finished part of a code_question answer (one complete markdown block) while you keep working — use ONLY between real work (file reads, searches), never to split an already-composed answer into back-to-back calls. Finish with answer_question (empty answer).",
+    inputSchema: { id: z.string(), text: z.string() },
+  },
+  ({ id, text: chunk }) =>
+    text(broker.chunk(id, chunk) ? "sent" : `No pending question ${id} (finished or timed out).`),
+);
 
-  if (name === "answer_question") {
-    const { id, answer } = args as { id?: string; answer?: string };
-    if (!broker.finish(id, String(answer ?? "")))
-      return {
-        content: [{ type: "text" as const, text: `No pending question ${id} (it may have timed out).` }],
-      };
-    return { content: [{ type: "text" as const, text: "sent" }] };
-  }
-
-  throw new Error(`unknown tool: ${name}`);
-});
+server.registerTool(
+  "answer_question",
+  {
+    description:
+      "Finish a pending browser event. If you streamed the answer via answer_chunk, pass an empty answer (the chunks are the answer). Otherwise pass the full answer text (for suggest_questions, a JSON array string).",
+    inputSchema: { id: z.string(), answer: z.string() },
+  },
+  ({ id, answer }) =>
+    text(broker.finish(id, answer) ? "sent" : `No pending question ${id} (it may have timed out).`),
+);
 
 await server.connect(new StdioServerTransport());
 console.error(`[pr-walkthrough] channel connected; HTTP bridge on http://localhost:${PORT}`);
