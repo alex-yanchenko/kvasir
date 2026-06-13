@@ -88,6 +88,11 @@ export default [
       "unicorn/prefer-includes": "error",
       "unicorn/prefer-string-starts-ends-with": "error",
       "unicorn/prefer-array-some": "error",
+      "unicorn/explicit-length-check": "error",
+      "unicorn/numeric-separators-style": "error",
+      "unicorn/prefer-spread": "error",
+      "unicorn/no-for-loop": "error",
+      "unicorn/escape-case": "error",
     },
   },
 

@@ -49,7 +49,7 @@ export function highlightStep(step: HighlightableStep): Element[] {
       if (r && !rows.includes(r)) rows.push(r);
     }
   }
-  if (!rows.length && Array.isArray(step.highlight)) {
+  if (rows.length === 0 && Array.isArray(step.highlight)) {
     step.highlight.forEach((t) => {
       const r = rowForText(cont, t);
       if (r && !rows.includes(r)) rows.push(r);
@@ -78,9 +78,9 @@ export function rehighlightSession(s: RehighlightableSession): Element[] {
   const rows = rowsOf(container);
   for (let i = 0; i + want.length <= rows.length; i++) {
     let ok = true;
-    for (let k = 0; k < want.length; k++) {
+    for (const [k, element] of want.entries()) {
       const row = rows[i + k];
-      if (!row || cleanLine(row) !== want[k]) {
+      if (!row || cleanLine(row) !== element) {
         ok = false;
         break;
       }
@@ -152,7 +152,7 @@ function scrollRowsIntoView(rows: Element[], cont: Element): void {
  * inside the file's container if present, returning whether we did — the caller
  * keeps polling until the rows render. */
 function loadDiffIfPresent(cont: Element): boolean {
-  const btn = Array.from(cont.querySelectorAll('button, a, [role="button"]')).find((el) =>
+  const btn = [...cont.querySelectorAll('button, a, [role="button"]')].find((el) =>
     /load diff/i.test(el.textContent ?? ""),
   );
   if (!(btn instanceof HTMLElement)) return false;
@@ -169,7 +169,7 @@ export function showStep(step: HighlightableStep): void {
   const run = () => {
     const cont = document.getElementById(step.anchor);
     const rows = highlightStep(step);
-    if (cont && rows.length) {
+    if (cont && rows.length > 0) {
       scrollRowsIntoView(rows, cont);
       return;
     }
@@ -256,7 +256,7 @@ export function jumpToRef(file: string, start: number | null, end: number | null
     const single = rowForLine(cont, start);
     const singleRows = single ? [single] : [];
     const rows = end ? rowsInRange(cont, start, end) : singleRows;
-    if (rows.length) {
+    if (rows.length > 0) {
       highlightRows(rows);
       scrollRowsIntoView(rows, cont); // no-op when the cited line is already on screen
       return;
@@ -274,6 +274,6 @@ export function jumpToRef(file: string, start: number | null, end: number | null
 export function stepCode(step: HighlightableStep): { text: string; rect: ReturnType<typeof rowRect> } | null {
   const container = document.getElementById(step.anchor);
   const rows = container && step.lines ? rowsInRange(container, step.lines.start, step.lines.end) : [];
-  if (!rows.length) return null;
+  if (rows.length === 0) return null;
   return { text: codeForRows(rows), rect: rowRect(rows[0] ?? null) };
 }

@@ -14,7 +14,7 @@ export async function loadPersisted(): Promise<void> {
   const pr = prUrl();
   if (!pr) return;
   const chats = await storeGet(chatsKey(pr));
-  if (Array.isArray(chats) && chats.length && state.chatHistory.length === 0) {
+  if (Array.isArray(chats) && chats.length > 0 && state.chatHistory.length === 0) {
     state.chatHistory = chats as ChatSession[]; // persisted data we wrote; shape is our own
     touch();
   }

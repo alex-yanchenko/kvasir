@@ -52,7 +52,7 @@ export interface PrManifest {
 // "importance" — which comments matter is the author's call when writing the spec.
 const CAP_DESCRIPTION = 8000;
 const CAP_ITEM = 800;
-const CAP_TOTAL = 16000;
+const CAP_TOTAL = 16_000;
 
 const trim = (s: unknown, n: number): string => {
   const str = typeof s === "string" ? s.trim() : "";

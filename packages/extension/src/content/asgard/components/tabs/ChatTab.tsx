@@ -211,7 +211,7 @@ function Message({
   const locate = () => {
     // bodyRef is on this message's root div — set before any click can land
     const refs = bodyRef.current!.querySelectorAll<HTMLAnchorElement>(".prw-ref");
-    if (refs.length) {
+    if (refs.length > 0) {
       // several citations: each click advances to the next (the inline links
       // jump to a specific one directly)
       const a = refs[refIdx.current % refs.length];

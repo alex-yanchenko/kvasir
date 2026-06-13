@@ -78,7 +78,7 @@ export function reviewContext(): string {
       return `• ${st.title}${where}\n  ${body}`;
     })
     .join("\n");
-  return (head + steps).slice(0, 12000);
+  return (head + steps).slice(0, 12_000);
 }
 
 /** A 401 from any bridge call means our token is stale/absent: drop it so the

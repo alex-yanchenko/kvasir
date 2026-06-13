@@ -173,7 +173,7 @@ async function handleAsk({ req, deps }: Ctx): Promise<Response> {
       ? { start: Number(ln.start), end: Number(ln.end) }
       : null;
   const selection = str(b.selection, 8000);
-  const review = str(b.review, 20000);
+  const review = str(b.review, 20_000);
   const step = str(b.step, 8000);
   const question = str(b.question, 4000);
   if (!question) return json(req, { error: "need a question" }, 400);
