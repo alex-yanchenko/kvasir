@@ -484,9 +484,7 @@ function Thread({ sess }: { sess: ChatSession }): JSX.Element {
     if (blocked) return;
     const tail = sess.messages[sess.messages.length - 1];
     if (tail && tail.role === "user") send(tail.content, { pushUser: false });
-    // Once, when this chat opens (Thread is keyed by sess.key, so a different chat
-    // remounts). Re-running on send/messages/blocked would re-fire the request.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once when this chat opens (Thread is keyed by sess.key, so a different chat remounts); re-running on send/messages/blocked would re-fire the request.
   }, []);
 
   // Suggestions prefetch (selection chats only; the PR chat has none). Runs once

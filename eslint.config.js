@@ -5,6 +5,7 @@ import importX from "eslint-plugin-import-x";
 import * as regexp from "eslint-plugin-regexp";
 import nounsanitized from "eslint-plugin-no-unsanitized";
 import jsxA11y from "eslint-plugin-jsx-a11y";
+import eslintComments from "@eslint-community/eslint-plugin-eslint-comments";
 import globals from "globals";
 
 // Import hygiene shared by every TypeScript surface. no-cycle catches accidental
@@ -56,6 +57,22 @@ export default [
   // Regex correctness/safety on every source surface (PR-URL/loopback/skip-coverage
   // patterns). Syntactic — no type info needed, so it covers tests and plain JS too.
   { ...regexp.configs["flat/recommended"], files: ["packages/**/*.{ts,tsx,js}"] },
+
+  // Govern eslint-disable usage everywhere: every disable must name its rule(s) and
+  // carry a "-- why" description; stale/unused/unbounded disables are errors.
+  {
+    files: ["packages/**/*.{ts,tsx,js}"],
+    plugins: { "@eslint-community/eslint-comments": eslintComments },
+    rules: {
+      "@eslint-community/eslint-comments/disable-enable-pair": ["error", { allowWholeFile: false }],
+      "@eslint-community/eslint-comments/no-aggregating-enable": "error",
+      "@eslint-community/eslint-comments/no-duplicate-disable": "error",
+      "@eslint-community/eslint-comments/no-unlimited-disable": "error",
+      "@eslint-community/eslint-comments/no-unused-disable": "error",
+      "@eslint-community/eslint-comments/no-unused-enable": "error",
+      "@eslint-community/eslint-comments/require-description": ["error", { ignore: ["eslint-enable"] }],
+    },
+  },
 
   // Mimir (server) + Runes (shared contract): TypeScript (Node/Bun).
   ...tseslint.configs.recommended.map((c) => ({ ...c, files: ["packages/{mimir,runes}/**/*.ts"] })),

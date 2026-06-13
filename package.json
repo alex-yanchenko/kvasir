@@ -17,6 +17,7 @@
     "test:coverage": "vitest run --coverage"
   },
   "devDependencies": {
+    "@eslint-community/eslint-plugin-eslint-comments": "^4.7.2",
     "@eslint/js": "^9.39.4",
     "@vitest/coverage-v8": "^2.1.9",
     "eslint": "^9.39.4",
