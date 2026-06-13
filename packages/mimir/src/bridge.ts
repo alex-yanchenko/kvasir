@@ -153,7 +153,10 @@ export function createFetchHandler(deps: BridgeDeps): (req: Request) => Promise<
       // normal chat turn — prose written to the terminal never reaches the browser,
       // only answer_question/answer_chunk do. This is the #1 failure mode (the model
       // answers in chat and the extension polls forever), so state it up front.
-      const stream = `HOW TO DELIVER THIS ANSWER — read first. This is a bridged request from the browser, NOT a normal chat turn: any ordinary text you write is NOT shown to the user. ONLY what you pass to answer_question (or answer_chunk) with this event's id reaches the chat. You MUST finish by calling answer_question with this event's id — even for a one-line reply — and must never end your turn without it. Call progress_note(id, note) before anything slow (reading a file, running a command). Use answer_chunk(id, text) ONLY when the answer emerges in stages — one finished markdown block per call. Never split an already-composed answer into back-to-back answer_chunk calls: when you write the whole answer in one go, pass it whole to answer_question. Finish with answer_question — empty answer if you chunked, the full text otherwise.`;
+      const stream = `HOW TO DELIVER THIS ANSWER — read first. This is a bridged request from the browser, NOT a normal chat turn: any ordinary text you write is NOT shown to the user; ONLY what you pass to answer_question / answer_chunk with this event's id reaches the chat. Follow this checklist:
+1. Call progress_note(id, note) before anything slow (reading a file, running a command).
+2. Use answer_chunk(id, text) ONLY when the answer emerges in stages — one finished markdown block per call. Never split an already-composed answer into back-to-back answer_chunk calls; when you write the whole answer in one go, pass it whole to answer_question.
+3. ALWAYS finish by calling answer_question with this event's id — empty answer if you already chunked, the full text otherwise. Never end your turn without it, even for a one-line reply.`;
       const format = `Format the answer as readable markdown: short paragraphs separated by blank lines, bullet lists for enumerations, fenced code blocks for code — never one dense block of prose.`;
       const content = prLevel
         ? [
