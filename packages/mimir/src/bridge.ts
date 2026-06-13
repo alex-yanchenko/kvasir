@@ -33,8 +33,8 @@ function json(req: Request, body: unknown, status = 200): Response {
  * bulleted/numbered list — parse the JSON, fall back to line-splitting. */
 export function parseSuggestions(raw: string): string[] {
   try {
-    const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed)) return parsed.map(String).slice(0, 4);
+    const parsed: unknown = JSON.parse(raw);
+    if (Array.isArray(parsed)) return parsed.map((q): string => String(q)).slice(0, 4);
   } catch {
     // not JSON — fall through to the line parser
   }

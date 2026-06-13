@@ -22,6 +22,29 @@ const importRules = {
 };
 const importSettings = { "import-x/resolver": { typescript: true, node: true } };
 
+// Curated TYPE-AWARE rules — the correctness-focused subset of typescript-eslint's
+// type-checked presets (which also bundle opinionated style rules like
+// no-unnecessary-condition / prefer-nullish that fight defensive code). These catch
+// real bugs: unawaited promises, `any` leaking through, stringifying objects,
+// deprecated APIs. They need the project service (parserOptions below).
+const typeAwareRules = {
+  "@typescript-eslint/no-floating-promises": "error",
+  "@typescript-eslint/no-misused-promises": "error",
+  "@typescript-eslint/await-thenable": "error",
+  "@typescript-eslint/no-unsafe-argument": "error",
+  "@typescript-eslint/no-unsafe-assignment": "error",
+  "@typescript-eslint/no-unsafe-call": "error",
+  "@typescript-eslint/no-unsafe-member-access": "error",
+  "@typescript-eslint/no-unsafe-return": "error",
+  "@typescript-eslint/no-base-to-string": "error",
+  "@typescript-eslint/restrict-plus-operands": "error",
+  "@typescript-eslint/no-unnecessary-type-assertion": "error",
+  "@typescript-eslint/unbound-method": "error",
+  "@typescript-eslint/require-await": "error",
+  "@typescript-eslint/no-deprecated": "error",
+};
+const parserOptions = { projectService: true, tsconfigRootDir: import.meta.dirname };
+
 export default [
   {
     ignores: ["**/node_modules/**", "**/dist/**", "**/coverage/**", "**/*.min.js", "packages/mimir/bun.lock"],
@@ -32,27 +55,39 @@ export default [
   {
     files: ["packages/{mimir,runes}/**/*.ts"],
     plugins: { "import-x": importX },
-    languageOptions: { globals: { ...globals.node, Bun: "readonly" } },
+    languageOptions: { globals: { ...globals.node, Bun: "readonly" }, parserOptions },
     settings: importSettings,
-    rules: importRules,
+    rules: { ...importRules, ...typeAwareRules },
   },
 
-  // Extension TypeScript modules (huginn, and content/* as they migrate).
+  // Extension TypeScript modules.
   ...tseslint.configs.recommended.map((c) => ({ ...c, files: ["packages/extension/**/*.{ts,tsx}"] })),
   {
     files: ["packages/extension/**/*.{ts,tsx}"],
     plugins: { "react-hooks": reactHooks, "import-x": importX },
-    languageOptions: { globals: { ...globals.browser, ...globals.webextensions, chrome: "readonly" } },
+    languageOptions: {
+      globals: { ...globals.browser, ...globals.webextensions, chrome: "readonly" },
+      parserOptions,
+    },
     settings: importSettings,
     rules: {
       "react-hooks/rules-of-hooks": "error",
       "react-hooks/exhaustive-deps": "error",
       ...importRules,
+      ...typeAwareRules,
     },
   },
 
+  // Test files: syntactic rules only. Type-aware rules need the source tsconfig's
+  // program (tests are excluded from it); tests are still type-CHECKED by tsc via
+  // each package's tsconfig.test.json.
+  {
+    files: ["packages/**/*.test.{ts,tsx}"],
+    ...tseslint.configs.disableTypeChecked,
+    languageOptions: { parserOptions: { projectService: false, project: false } },
+  },
+
   // Extension: browser content scripts still in plain JS until their Phase 4 split.
-  // Linted leniently here — they get the strict treatment when rewritten in TS.
   {
     files: ["packages/extension/**/*.js"],
     ...js.configs.recommended,

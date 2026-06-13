@@ -80,7 +80,7 @@ export async function readJsonBody(req: Request): Promise<Record<string, unknown
   try {
     const text = await req.text();
     if (text.length > MAX_BODY) return null;
-    const v = JSON.parse(text);
+    const v: unknown = JSON.parse(text);
     return v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : null;
   } catch {
     return null;

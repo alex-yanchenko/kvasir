@@ -4,6 +4,7 @@
 import { launcherStore } from "../asgard/launcher";
 import { state, touch } from "../asgard/store";
 import type { TourState } from "../asgard/store";
+import type { ChatSession } from "../asgard/types";
 import { bifrost } from "../bifrost";
 import { chatsKey, panelKey, prUrl, tourKey } from "../keys";
 import { storeGet } from "../muninn";
@@ -14,7 +15,7 @@ export async function loadPersisted(): Promise<void> {
   if (!pr) return;
   const chats = await storeGet(chatsKey(pr));
   if (Array.isArray(chats) && chats.length && state.chatHistory.length === 0) {
-    state.chatHistory = chats;
+    state.chatHistory = chats as ChatSession[]; // persisted data we wrote; shape is our own
     touch();
   }
   const t = await storeGet(tourKey(pr));

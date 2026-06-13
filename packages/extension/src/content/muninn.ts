@@ -12,14 +12,14 @@ export const storeGet = (k: string): Promise<unknown> =>
   });
 export const storeSet = (k: string, v: unknown): void => {
   try {
-    chrome.storage?.local?.set({ [k]: v });
+    void chrome.storage?.local?.set({ [k]: v });
   } catch {
     /* ignore */
   }
 };
 export const storeRemove = (k: string): void => {
   try {
-    chrome.storage?.local?.remove(k);
+    void chrome.storage?.local?.remove(k);
   } catch {
     /* ignore */
   }

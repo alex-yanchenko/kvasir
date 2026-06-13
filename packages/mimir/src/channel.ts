@@ -86,9 +86,11 @@ Bun.serve({
   hostname: "127.0.0.1", // loopback only — never exposed to the local network
   fetch: createFetchHandler({
     specs,
-    open: broker.open,
-    ask: broker.ask,
-    snapshot: broker.snapshot,
+    // arrow-wrapped (not bare method refs) — the broker methods are closures with no
+    // `this`, but passing them bare trips unbound-method; the wrappers keep them call-safe.
+    open: (eventType, content, meta) => broker.open(eventType, content, meta),
+    ask: (eventType, content, meta) => broker.ask(eventType, content, meta),
+    snapshot: (id) => broker.snapshot(id),
     pushEvent,
     getHeadSha,
     pairing,

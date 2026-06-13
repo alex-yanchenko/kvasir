@@ -7,7 +7,7 @@ const SPEC_ALLOWED = new Set(["B", "I", "EM", "STRONG", "CODE", "BR", "P", "UL",
 
 export function sanitizeSpecHtml(html: unknown): string {
   const t = document.createElement("template");
-  t.innerHTML = String(html ?? "");
+  t.innerHTML = typeof html === "string" ? html : ""; // only real strings; never "[object Object]"
   for (let pass = 0; pass < 2; pass++) {
     t.content.querySelectorAll("*").forEach((el) => {
       if (!SPEC_ALLOWED.has(el.tagName)) el.replaceWith(...el.childNodes);

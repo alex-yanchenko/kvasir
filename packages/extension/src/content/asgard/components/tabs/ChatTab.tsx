@@ -131,7 +131,7 @@ function Markdown({ text }: { text: string }): JSX.Element {
       b.setAttribute("aria-label", "Copy code");
       b.innerHTML = svg(ICON.copy);
       b.onclick = () => {
-        navigator.clipboard?.writeText(String(code.textContent)); // an element's textContent is never null
+        void navigator.clipboard?.writeText(String(code.textContent)); // textContent is never null on an element
         b.innerHTML = svg(ICON.check);
       };
       pre.appendChild(b);
@@ -235,7 +235,7 @@ function Message({
           data-prw-tip="Copy message"
           aria-label="Copy message"
           onClick={() => {
-            navigator.clipboard?.writeText(msg.content);
+            void navigator.clipboard?.writeText(msg.content);
             setCopied(true);
             setTimeout(() => setCopied(false), 1200);
           }}
