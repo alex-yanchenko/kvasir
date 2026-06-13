@@ -81,6 +81,27 @@ export const pairingStore = {
     }
   },
 
+  /** Re-verify the stored token against the bridge on demand — fired when the user
+   * starts a chat. Restarting the Claude session silently staleifies the token, and
+   * a local action like "New chat" never 401s on its own, so without this the pair
+   * prompt wouldn't appear until the first failed send. Transitions to unpaired when
+   * the bridge rejects the token; never interrupts an in-flight pairing. */
+  async recheck(): Promise<void> {
+    if (state.phase === "waiting" || state.phase === "error") return; // don't interrupt an active pair
+    const token = await storeGet(TOKEN_KEY);
+    if (typeof token !== "string" || !token) {
+      set({ phase: "unpaired" });
+      return;
+    }
+    const r = await api("/auth");
+    if (r.ok) {
+      set({ phase: "paired" });
+    } else {
+      storeRemove(TOKEN_KEY);
+      set({ phase: "unpaired" });
+    }
+  },
+
   /** Ask the bridge to pair, show the code, poll the claim until the token lands. */
   async pair(): Promise<void> {
     const r = await api("/pair", "POST", { name: "PR Walkthrough Chrome extension" });

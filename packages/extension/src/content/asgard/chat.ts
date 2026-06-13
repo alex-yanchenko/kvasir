@@ -144,6 +144,7 @@ export const chatStore = {
 
   /** A code selection asks for a chat (grip ask buttons, tour step-ask). */
   openSelection(p: SelectionPayload, withStep: boolean): void {
+    void pairingStore.recheck(); // verify pairing when a chat starts (selection asks don't 401 until send)
     let sess = state.chatHistory.find((c) => c.key === p.selectionId);
     if (!sess) {
       sess = {
@@ -167,6 +168,7 @@ export const chatStore = {
   /** Start a fresh whole-PR chat (the Chat rail's "New chat"). Unlike openPrChat
    * this always makes a new session, so several can run side by side. */
   newChat(): void {
+    void pairingStore.recheck(); // a local New chat never 401s — verify so a stale token surfaces re-pair
     const sess: ChatSession = {
       key: `chat:${Date.now()}`,
       general: true,
