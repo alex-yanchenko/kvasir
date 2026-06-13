@@ -102,6 +102,22 @@ describe("connectMidgard command handling", () => {
     expect(lined(c)).toEqual([rowsOf(c)[2]]);
   });
 
+  it("clicks Load Diff for a large diff, then highlights once it renders", () => {
+    vi.useFakeTimers();
+    const b = createBifrost();
+    connectMidgard(b);
+    // a large diff: only a "Load Diff" control, no rows yet — clicking it renders
+    document.body.innerHTML = `<div id="diff-abc123"><button type="button">Load Diff</button></div>`;
+    document.querySelector("#diff-abc123 button")!.addEventListener("click", () => {
+      buildContainer(); // GitHub renders the real diff (same id) on click
+    });
+    b.send("highlight:step", { anchor: "diff-abc123", lines: { start: 10, end: 10 }, highlight: null });
+    vi.advanceTimersByTime(40); // retry clicks Load Diff → diff renders
+    vi.advanceTimersByTime(40); // next retry finds the rows
+    const c = document.getElementById("diff-abc123")!;
+    expect(lined(c)).toEqual([rowsOf(c)[0]]); // line 10 = first row
+  });
+
   it("highlight:step gives up quietly when the file never renders", () => {
     vi.useFakeTimers();
     const b = createBifrost();

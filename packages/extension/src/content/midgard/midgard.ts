@@ -143,10 +143,23 @@ function scrollRowsIntoView(rows: Element[], cont: Element): void {
   setTimeout(settle, 150);
 }
 
+/** GitHub doesn't render large diffs until you click "Load Diff" ("Large diffs
+ * are not rendered by default"), so a step's rows never exist. Click that control
+ * inside the file's container if present, returning whether we did — the caller
+ * keeps polling until the rows render. */
+function loadDiffIfPresent(cont: Element): boolean {
+  const btn = Array.from(cont.querySelectorAll('button, a, [role="button"]')).find((el) =>
+    /load diff/i.test(el.textContent ?? ""),
+  );
+  if (!(btn instanceof HTMLElement)) return false;
+  btn.click();
+  return true;
+}
+
 // Bring a step onto screen, then highlight. Most files are already rendered, so
-// this lands on the first try; only a still-lazy-loading file makes us poll, and
-// only until it appears. Already-on-screen rows just (re)paint — no scroll — so a
-// repeat press is a no-op.
+// this lands on the first try; a lazy/collapsed or "Load Diff" file makes us poll
+// (clicking Load Diff to force the render) until the rows appear (~1.6s). Already-
+// on-screen rows just (re)paint — no scroll — so a repeat press is a no-op.
 export function showStep(step: HighlightableStep): void {
   let tries = 0;
   const run = () => {
@@ -156,10 +169,13 @@ export function showStep(step: HighlightableStep): void {
       scrollRowsIntoView(rows, cont);
       return;
     }
-    // rows absent — likely a lazy-mounted file; bring its container in to force
-    // the render, then retry until the rows appear (~0.8s).
-    cont?.scrollIntoView({ block: "start" });
-    if (++tries < 20) setTimeout(run, 40);
+    // rows absent — force the file to render: click its "Load Diff" if shown, and
+    // bring the container into view (a still-virtualized file mounts on approach).
+    if (cont) {
+      loadDiffIfPresent(cont);
+      cont.scrollIntoView({ block: "start" });
+    }
+    if (++tries < 40) setTimeout(run, 40);
   };
   run();
 }
@@ -227,14 +243,23 @@ export function jumpToRef(file: string, start: number | null, end: number | null
     seat();
     return true;
   }
-  const single = rowForLine(cont, start);
-  const rows = end ? rowsInRange(cont, start, end) : single ? [single] : [];
-  if (rows.length) {
-    highlightRows(rows);
-    scrollRowsIntoView(rows, cont); // no-op when the cited line is already on screen
-  } else {
-    cont.scrollIntoView({ block: "start" }); // line not found (lazy/superseded) — bring the file in
-  }
+  // Poll until the cited line's rows exist: a large diff needs its "Load Diff"
+  // clicked and a virtualized file mounts on approach. Returns true regardless
+  // (the file IS in the diff); the highlight lands once the rows render.
+  let tries = 0;
+  const land = (): void => {
+    const single = rowForLine(cont, start);
+    const rows = end ? rowsInRange(cont, start, end) : single ? [single] : [];
+    if (rows.length) {
+      highlightRows(rows);
+      scrollRowsIntoView(rows, cont); // no-op when the cited line is already on screen
+      return;
+    }
+    loadDiffIfPresent(cont);
+    cont.scrollIntoView({ block: "start" });
+    if (++tries < 40) setTimeout(land, 40);
+  };
+  land();
   return true;
 }
 
