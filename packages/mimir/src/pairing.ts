@@ -19,16 +19,16 @@ import { randomBytes, timingSafeEqual } from "node:crypto";
 /** No 0/O/1/I/L — the user reads this code off a screen and types it. */
 const CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
 
-export const PAIR_REQUEST_TTL_MS = 120_000;
+const PAIR_REQUEST_TTL_MS = 120_000;
 
 export interface PairingDeps {
   pushEvent(content: string, meta: Record<string, string>): Promise<void>;
   requestTtlMs?: number;
 }
 
-export type PairRequestResult = { ok: true; requestId: string; code: string } | { ok: false; reason: "busy" };
+type PairRequestResult = { ok: true; requestId: string; code: string } | { ok: false; reason: "busy" };
 
-export type PairClaimResult = { status: "pending" } | { token: string } | null;
+type PairClaimResult = { status: "pending" } | { token: string } | null;
 
 export interface Pairing {
   /** The extension asks to pair. One pending request at a time. The user

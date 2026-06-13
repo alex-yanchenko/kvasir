@@ -20,14 +20,14 @@ export interface SelectionPayload {
 }
 
 /** What a step highlight needs painted (subset of a Runes WalkthroughStep). */
-export interface StepHighlightPayload {
+interface StepHighlightPayload {
   anchor: string;
   lines: LineRange | null;
   highlight: string[] | null;
 }
 
 /** Commands: Asgard → Midgard. Each causes a write to GitHub's page. */
-export interface BifrostCommands {
+interface BifrostCommands {
   "highlight:step": StepHighlightPayload;
   "highlight:clear": undefined;
   "pick:rehighlight": { file: string; text: string; scroll?: boolean };
@@ -41,22 +41,13 @@ export interface BifrostCommands {
 }
 
 /** Reports: Midgard → Asgard. Facts about what happened on the page. */
-export interface BifrostReports {
+interface BifrostReports {
   "pr:changed": { pr: string | null; onFilesTab: boolean };
   "selection:completed": SelectionPayload;
   "selection:cleared": undefined;
   /** The user clicked an ask button on the selection bar. */
   "selection:ask": SelectionPayload & { withStep: boolean };
   "ref:missing": { file: string };
-}
-
-/** Synchronous, side-effect-free reads Midgard exposes. Pure data out — calling
- * these directly (not via messages) is deliberate: they read, never write. */
-export interface MidgardQuery {
-  captureSelection(): SelectionPayload | null;
-  stepSelection(step: StepHighlightPayload & { file: string }): SelectionPayload | null;
-  /** Changed-file paths currently on the page (diff.ts changedFilePaths). */
-  changedFilePaths(): string[];
 }
 
 type Handler<P> = (payload: P) => void;

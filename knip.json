@@ -1,0 +1,10 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "ignore": ["**/*.css"],
+  "ignoreDependencies": ["tailwindcss"],
+  "workspaces": {
+    "packages/extension": { "entry": ["src/content/index.tsx", "src/huginn.ts"], "project": "src/**" },
+    "packages/mimir": { "project": "src/**" },
+    "packages/runes": { "project": "src/**" }
+  }
+}

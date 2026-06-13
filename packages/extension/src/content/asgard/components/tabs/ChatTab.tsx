@@ -44,7 +44,7 @@ const svgIcon = (inner: string): Element =>
 // links; a cited file:line that isn't in the diff just no-ops on click.
 export const REF_RE = /\b[\w@./-]*\w\.\w{1,8}:\d+(?:-\d+)?\b/;
 /** A bare path mention: at least one slash, ends in an extension, no :line. */
-export const FILE_RE = /\b[\w@-][\w@.-]*(?:\/[\w@.-]+)+\.\w{1,8}\b/;
+const FILE_RE = /\b[\w@-][\w@.-]*(?:\/[\w@.-]+)+\.\w{1,8}\b/;
 
 const mkRefLink = (label: string, ref: { file: string; start: number | null; end: number | null }) => {
   const a = document.createElement("a");

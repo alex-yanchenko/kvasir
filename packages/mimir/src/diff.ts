@@ -11,7 +11,7 @@
 
 import { anchorFor, parsePrUrl } from "@prw/runes";
 
-export interface ChangedFile {
+interface ChangedFile {
   path: string;
   anchor: string;
   status: string;
@@ -24,7 +24,7 @@ export interface ChangedFile {
 /** A PR comment surfaced as context for the walkthrough. Three kinds: a general
  * discussion comment, a review's summary body, or an inline code comment (which
  * carries file + line). `bot` lets the author weigh automated reviewers. */
-export interface DiscussionItem {
+interface DiscussionItem {
   kind: "comment" | "review" | "inline";
   author: string;
   bot: boolean;
