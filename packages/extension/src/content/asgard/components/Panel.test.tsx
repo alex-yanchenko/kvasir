@@ -5,6 +5,7 @@ import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 vi.mock("../../muninn", () => ({ storeGet: vi.fn(), storeSet: vi.fn(), storeRemove: vi.fn() }));
 
 import { PANEL_TABS, panelStore, state } from "../store";
+import { tourStore } from "../tour";
 import { Panel } from "./Panel";
 
 let observed: Element[];
@@ -69,6 +70,20 @@ describe("Panel", () => {
     act(() => panelStore.open());
     expect(screen.getByRole("dialog", { name: "PR Walkthrough" })).toBeTruthy();
     expect(screen.getByText("Fix the thing")).toBeTruthy();
+  });
+
+  it("closing the panel ends the tour (clears the page highlight)", () => {
+    state.spec = {
+      version: 1,
+      pr: { url: "u", owner: "a", repo: "b", number: 7 },
+      generatedAt: "t",
+      steps: [{ id: "s", title: "S", body: "b", file: "f.ts", anchor: "d1" }],
+    };
+    render(<Panel />);
+    act(() => panelStore.open()); // walkthrough tab mounts Steps → tour starts
+    expect(tourStore.open()).toBe(true);
+    act(() => panelStore.close());
+    expect(tourStore.open()).toBe(false);
   });
 
   it("the close button hides the panel", () => {

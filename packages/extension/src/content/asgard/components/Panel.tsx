@@ -3,9 +3,10 @@
 // existing machines. Tab bodies are filled in island by island (Phases 2–5);
 // until then they show a placeholder.
 import type { JSX } from "react";
-import { useRef, useSyncExternalStore } from "react";
+import { useEffect, useRef, useSyncExternalStore } from "react";
 import { X } from "lucide-react";
 import { launcherStore } from "../launcher";
+import { tourStore } from "../tour";
 import { getSnapshot, PANEL_TABS, panelStore, subscribe, type PanelTab } from "../store";
 import { useDrag } from "../hooks/useDrag";
 import { useResizePersist } from "../hooks/useResizePersist";
@@ -39,6 +40,9 @@ function PanelWindow(): JSX.Element {
   });
   useResizePersist(panelRef, (size) => panelStore.setSize(size));
   useScrollLock(panelRef);
+  // Closing the panel ends the tour and clears the page highlight (the Walkthrough
+  // tab no longer does this on tab-switch, so the highlight survives Settings/Chat).
+  useEffect(() => () => tourStore.close(), []);
 
   const pos = panelStore.pos();
   const size = panelStore.size();

@@ -88,7 +88,7 @@ describe("WalkthroughTab", () => {
     vi.useRealTimers();
   });
 
-  it("renders the current step, navigates, and starts/stops the tour", () => {
+  it("renders the current step, navigates, and keeps the tour open across unmount", () => {
     state.spec = mkSpec();
     const { unmount } = render(<WalkthroughTab />);
     expect(tourStore.open()).toBe(true); // started on mount
@@ -101,7 +101,7 @@ describe("WalkthroughTab", () => {
     expect(screen.getByText("First step")).toBeTruthy();
 
     unmount();
-    expect(tourStore.open()).toBe(false); // cleared on unmount
+    expect(tourStore.open()).toBe(true); // tab switch keeps the highlight; the panel close clears it
   });
 
   it("disables Next on the last step and stays there", () => {

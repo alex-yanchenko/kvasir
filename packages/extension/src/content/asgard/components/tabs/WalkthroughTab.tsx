@@ -83,11 +83,12 @@ function Steps(): JSX.Element {
   const idx = tourStore.stepIdx();
   const count = tourStore.stepCount();
 
-  // Start the tour while this tab is shown; clear the highlight when it unmounts
-  // (tab switch or panel close). Re-runs are cheap: start() resumes the step.
+  // Start (resume) the tour when this tab opens. We deliberately do NOT close on
+  // unmount: leaving for Settings/Chat keeps the page highlight up — so the
+  // highlight-style toggle is testable against a real selection. The panel close
+  // clears it (Panel's unmount), and start() is idempotent on re-entry.
   useEffect(() => {
     tourStore.start();
-    return () => tourStore.close();
   }, []);
   useEffect(() => setShowDetail(false), [idx]);
 
