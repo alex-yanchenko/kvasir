@@ -7,6 +7,7 @@ const SPEC_ALLOWED = new Set(["B", "I", "EM", "STRONG", "CODE", "BR", "P", "UL",
 
 export function sanitizeSpecHtml(html: unknown): string {
   const t = document.createElement("template");
+  // eslint-disable-next-line no-unsanitized/property -- this IS the sanitizer: untrusted HTML is parsed into an inert, detached <template> (never the live DOM) and allowlist-stripped below before it's returned.
   t.innerHTML = typeof html === "string" ? html : ""; // only real strings; never "[object Object]"
   for (let pass = 0; pass < 2; pass++) {
     t.content.querySelectorAll("*").forEach((el) => {

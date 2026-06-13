@@ -129,9 +129,11 @@ function Markdown({ text }: { text: string }): JSX.Element {
       b.className = "prw-iconbtn prw-code-copy";
       b.setAttribute("data-prw-tip", "Copy code");
       b.setAttribute("aria-label", "Copy code");
+      // eslint-disable-next-line no-unsanitized/property -- static icon markup: svg() wraps a compile-time-constant ICON path string, no dynamic input.
       b.innerHTML = svg(ICON.copy);
       b.onclick = () => {
         void navigator.clipboard?.writeText(String(code.textContent)); // textContent is never null on an element
+        // eslint-disable-next-line no-unsanitized/property -- static icon markup (see above).
         b.innerHTML = svg(ICON.check);
       };
       pre.appendChild(b);

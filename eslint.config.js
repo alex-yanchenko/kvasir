@@ -3,6 +3,7 @@ import tseslint from "typescript-eslint";
 import reactHooks from "eslint-plugin-react-hooks";
 import importX from "eslint-plugin-import-x";
 import * as regexp from "eslint-plugin-regexp";
+import nounsanitized from "eslint-plugin-no-unsanitized";
 import globals from "globals";
 
 // Import hygiene shared by every TypeScript surface. no-cycle catches accidental
@@ -69,7 +70,7 @@ export default [
   ...tseslint.configs.recommended.map((c) => ({ ...c, files: ["packages/extension/**/*.{ts,tsx}"] })),
   {
     files: ["packages/extension/**/*.{ts,tsx}"],
-    plugins: { "react-hooks": reactHooks, "import-x": importX },
+    plugins: { "react-hooks": reactHooks, "import-x": importX, "no-unsanitized": nounsanitized },
     languageOptions: {
       globals: { ...globals.browser, ...globals.webextensions, chrome: "readonly" },
       parserOptions,
@@ -78,6 +79,10 @@ export default [
     rules: {
       "react-hooks/rules-of-hooks": "error",
       "react-hooks/exhaustive-deps": "error",
+      // Flag raw HTML sinks (innerHTML, insertAdjacentHTML, dangerouslySetInnerHTML):
+      // every one must be provably-safe (sanitized markup or a static literal).
+      "no-unsanitized/method": "error",
+      "no-unsanitized/property": "error",
       ...importRules,
       ...typeAwareRules,
     },
