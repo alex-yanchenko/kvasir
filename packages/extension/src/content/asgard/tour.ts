@@ -78,7 +78,8 @@ export const tourStore = {
   stepContext(): string {
     if (!state.activeStep) return "";
     const s = state.activeStep;
-    const where = s.file ? ` (${s.file}${s.lines ? `:${s.lines.start}-${s.lines.end}` : ""})` : "";
+    const lineSuffix = s.lines ? `:${s.lines.start}-${s.lines.end}` : "";
+    const where = s.file ? ` (${s.file}${lineSuffix})` : "";
     return `Step: ${s.title}${where}\n${strip(s.body)}${s.detail ? "\n" + strip(s.detail) : ""}`;
   },
 

@@ -13,12 +13,12 @@ function Segmented({
   value,
   options,
   onChange,
-}: {
+}: Readonly<{
   label: string;
   value: string;
   options: Array<{ value: string; label: string }>;
   onChange: (v: string) => void;
-}): JSX.Element {
+}>): JSX.Element {
   return (
     <div className="flex items-center justify-between gap-3">
       <span className="text-sm text-muted-foreground">{label}</span>

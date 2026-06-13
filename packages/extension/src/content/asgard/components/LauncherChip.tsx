@@ -7,7 +7,7 @@ import { fmtElapsed, launcherStore } from "../launcher";
 import { getSnapshot, panelStore, subscribe } from "../store";
 import { Button } from "../ui/button";
 
-function Elapsed({ startAt }: { startAt: number }): JSX.Element {
+function Elapsed({ startAt }: Readonly<{ startAt: number }>): JSX.Element {
   const [, setTick] = useState(0);
   useEffect(() => {
     const clock = setInterval(() => setTick((t) => t + 1), 1000);

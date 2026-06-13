@@ -106,12 +106,10 @@ export default [
       // Real maintainability signal (bridge router at 92), but reducing it is a
       // scoped refactor, not a lint-ladder edit — tracked as follow-up, not silenced.
       "sonarjs/cognitive-complexity": "off",
-      // Stylistic — the codebase uses nested ternaries/templates deliberately.
+      // The codebase uses idiomatic chained ternaries in JSX render paths and
+      // key→value maps; extracting them adds indirection without clarity.
       "sonarjs/no-nested-conditional": "off",
-      "sonarjs/no-nested-template-literals": "off",
-      // Opinionated — props are never mutated; not worth annotating every component.
-      "sonarjs/prefer-read-only-props": "off",
-      // TODO comments are allowed (and governed by our own comment hooks).
+      // TODO/REVIEW markers are an allowed convention here (see CLAUDE.md self-flag).
       "sonarjs/todo-tag": "off",
     },
   },

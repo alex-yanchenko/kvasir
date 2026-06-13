@@ -115,7 +115,7 @@ export const closeFences = (text: string): string =>
 
 /** Rendered assistant markdown: escape-first renderMarkdown HTML, then a ref
  * effect adds per-code-block copy buttons and the citation links. */
-function Markdown({ text }: { text: string }): JSX.Element {
+function Markdown({ text }: Readonly<{ text: string }>): JSX.Element {
   const ref = useRef<HTMLSpanElement>(null);
   // The {__html} object must be referentially stable: React resets innerHTML
   // whenever the object identity changes, which would wipe the copy buttons and
@@ -145,7 +145,7 @@ function Markdown({ text }: { text: string }): JSX.Element {
 
 /** Cosmetic streaming: reveal progressively. True token streaming needs the
  * fast-model path; the channel returns the whole answer at once. */
-function Typewriter({ text, onDone }: { text: string; onDone: () => void }): JSX.Element {
+function Typewriter({ text, onDone }: Readonly<{ text: string; onDone: () => void }>): JSX.Element {
   const [shown, setShown] = useState(0);
   // Latest onDone in a ref so the typewriter restarts only on a new `text`, not on
   // every render (the parent passes an inline onDone whose identity changes).
@@ -181,14 +181,14 @@ function Message({
   onRegenerate,
   streaming,
   onStreamed,
-}: {
+}: Readonly<{
   sess: ChatSession;
   msg: ChatMessage;
   index: number;
   onRegenerate: (mi: number) => void;
   streaming: boolean;
   onStreamed: () => void;
-}): JSX.Element {
+}>): JSX.Element {
   const bodyRef = useRef<HTMLDivElement>(null);
   const refIdx = useRef(0);
   const [copied, setCopied] = useState(false);
@@ -255,11 +255,11 @@ function OptionRow({
   label,
   onAsk,
   disabled,
-}: {
+}: Readonly<{
   label: string;
   onAsk: () => void;
   disabled?: boolean;
-}): JSX.Element {
+}>): JSX.Element {
   const textRef = useRef<HTMLSpanElement>(null);
   const [clipped, setClipped] = useState(false);
   const [open, setOpen] = useState(false);
@@ -301,7 +301,7 @@ function OptionRow({
 
 /** The chat rail: New chat, the list of open chats (active highlighted, each with
  * a trash), and Clear all. Lets several chats run at once — pick any to view it. */
-function ChatRail({ active, width }: { active: string | null; width: number }): JSX.Element {
+function ChatRail({ active, width }: Readonly<{ active: string | null; width: number }>): JSX.Element {
   const sessions = chatsStore.sessions();
   return (
     <div className="flex shrink-0 flex-col" style={{ width }}>
@@ -433,7 +433,7 @@ export function ChatTab(): JSX.Element {
   );
 }
 
-function Thread({ sess }: { sess: ChatSession }): JSX.Element {
+function Thread({ sess }: Readonly<{ sess: ChatSession }>): JSX.Element {
   const threadRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const bannerRef = useRef<HTMLDetailsElement>(null);

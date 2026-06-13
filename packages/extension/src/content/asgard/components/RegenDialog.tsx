@@ -6,7 +6,7 @@ import type { JSX } from "react";
 import { launcherStore } from "../launcher";
 import { Button } from "../ui/button";
 
-export function RegenDialog({ onClose }: { onClose: () => void }): JSX.Element {
+export function RegenDialog({ onClose }: Readonly<{ onClose: () => void }>): JSX.Element {
   const newCommits = launcherStore.newCommits();
   const run = (mode: "new" | "incremental", sinceSha?: string) => {
     onClose();

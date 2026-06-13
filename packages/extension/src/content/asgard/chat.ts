@@ -69,7 +69,8 @@ export function reviewContext(): string {
     : "";
   const steps = state.spec.steps
     .map((st) => {
-      const where = st.file ? ` (${st.file}${st.lines ? `:${st.lines.start}-${st.lines.end}` : ""})` : "";
+      const lineSuffix = st.lines ? `:${st.lines.start}-${st.lines.end}` : "";
+      const where = st.file ? ` (${st.file}${lineSuffix})` : "";
       const body = st.body
         .replaceAll(/<[^>]+>/g, "")
         .replaceAll(/\s+/g, " ")
