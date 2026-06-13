@@ -89,6 +89,7 @@ export function lineRangeOf(container: Element | null, range: Range): LineRange 
 }
 
 export function rowForLine(cont: Element, n: number): Element | null {
+  // eslint-disable-next-line unicorn/require-css-escape -- n is a number; it can't carry CSS-special chars, and this direct selector is on a hot path (per-line lookups).
   const cell = cont.querySelector(`td.diff-text-cell[data-line-number="${n}"]`);
   return cell ? cell.closest("tr.diff-line-row") : null;
 }

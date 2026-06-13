@@ -93,6 +93,11 @@ export default [
       "unicorn/prefer-spread": "error",
       "unicorn/no-for-loop": "error",
       "unicorn/escape-case": "error",
+      "unicorn/prefer-global-this": "error",
+      "unicorn/no-useless-spread": "error",
+      "unicorn/require-css-escape": "error",
+      // Components are PascalCase, everything else camelCase — allow both.
+      "unicorn/filename-case": ["error", { cases: { camelCase: true, pascalCase: true } }],
     },
   },
 

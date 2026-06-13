@@ -133,7 +133,7 @@ export function connectGrip(bifrost: Bifrost): void {
     if (!hoverInfo) return;
     bifrost.send("pick:clear", undefined); // a new selection replaces the previous one
     document.body.classList.add("prw-noselect");
-    window.getSelection?.()?.removeAllRanges?.();
+    globalThis.getSelection?.()?.removeAllRanges?.();
     const container = hoverInfo.container;
     const startRow = hoverInfo.row;
     const bands = rowBandsOf(container);

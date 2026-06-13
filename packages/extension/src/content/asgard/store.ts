@@ -71,9 +71,10 @@ export function getSnapshot(): number {
 /** Bump after any backing-state mutation so subscribed components re-render. */
 export function touch(): void {
   version++;
-  // Snapshot: a subscriber may unsubscribe (component unmount) while being notified;
-  // iterating the live set would skip the next one. NOT a useless spread.
-  for (const fn of [...listeners]) fn();
+  // Snapshot before notifying: a subscriber may unsubscribe (component unmount)
+  // mid-notify, and iterating the live set would skip the next one.
+  const snapshot = [...listeners];
+  for (const fn of snapshot) fn();
 }
 
 const applyToPage = (): void => bifrost.send("theme:apply", { theme: state.theme, hlStyle: state.hlStyle });

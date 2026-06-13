@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parsePrUrl, prKey, PR_URL_RE } from "./pr-url";
+import { parsePrUrl, prKey, PR_URL_RE } from "./prUrl";
 
 describe("parsePrUrl", () => {
   it("parses a valid PR url", () => {

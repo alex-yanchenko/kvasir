@@ -9,7 +9,7 @@ export function useThemeClass(target: HTMLElement | null): void {
   useEffect(() => {
     if (!target) return;
     // matchMedia is only consulted for "auto" — fixed light/dark never touch it.
-    const mql = theme === "auto" ? window.matchMedia("(prefers-color-scheme: dark)") : null;
+    const mql = theme === "auto" ? globalThis.matchMedia("(prefers-color-scheme: dark)") : null;
     const apply = (): void => {
       target.classList.toggle("dark", theme === "dark" || (theme === "auto" && !!mql?.matches));
     };
