@@ -149,10 +149,11 @@ export function createFetchHandler(deps: BridgeDeps): (req: Request) => Promise<
       // Citing code as path:line lets the extension turn references into clickable
       // jump-to-code links in the answer, so every cited location is reachable.
       const cite = `When you reference specific code, cite it as \`path:line\` or \`path:start-end\` (repo-relative path) so the reviewer can click to jump to it.`;
-      // The streamed-reply protocol: notes while working, the answer in pieces,
-      // answer_question closes the stream (and carries the whole text when the
-      // model skipped chunking — the one-shot fallback).
-      const stream = `Stream your reply using this event's id: call progress_note with a short note before anything slow (reading a file, running a command). Use answer_chunk ONLY when the answer emerges in stages — you can state a finished part (one complete markdown block) and then keep digging between chunks. Never split an already-composed answer into back-to-back answer_chunk calls: when you write the whole answer in one go, pass it whole to answer_question. Finish with answer_question — empty answer if you chunked, the full text otherwise.`;
+      // The streamed-reply protocol. The mandate leads: a bridged request is NOT a
+      // normal chat turn — prose written to the terminal never reaches the browser,
+      // only answer_question/answer_chunk do. This is the #1 failure mode (the model
+      // answers in chat and the extension polls forever), so state it up front.
+      const stream = `HOW TO DELIVER THIS ANSWER — read first. This is a bridged request from the browser, NOT a normal chat turn: any ordinary text you write is NOT shown to the user. ONLY what you pass to answer_question (or answer_chunk) with this event's id reaches the chat. You MUST finish by calling answer_question with this event's id — even for a one-line reply — and must never end your turn without it. Call progress_note(id, note) before anything slow (reading a file, running a command). Use answer_chunk(id, text) ONLY when the answer emerges in stages — one finished markdown block per call. Never split an already-composed answer into back-to-back answer_chunk calls: when you write the whole answer in one go, pass it whole to answer_question. Finish with answer_question — empty answer if you chunked, the full text otherwise.`;
       const format = `Format the answer as readable markdown: short paragraphs separated by blank lines, bullet lists for enumerations, fenced code blocks for code — never one dense block of prose.`;
       const content = prLevel
         ? [
