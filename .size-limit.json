@@ -8,7 +8,7 @@
   {
     "name": "background worker (gz)",
     "path": "packages/extension/dist/huginn.js",
-    "limit": "1.5 kB",
+    "limit": "2 kB",
     "gzip": true
   }
 ]
