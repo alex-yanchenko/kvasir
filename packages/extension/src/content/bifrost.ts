@@ -87,6 +87,8 @@ export function createBifrost(): Bifrost {
   const publish = (map: Map<string, Set<Handler<unknown>>>, kind: string, payload: unknown) => {
     const set = map.get(kind);
     if (!set) return;
+    // Snapshot: a handler may unsubscribe another (or itself) mid-publish; iterating
+    // the live Set would skip a not-yet-called handler. NOT a useless spread.
     for (const fn of [...set]) {
       try {
         fn(payload);

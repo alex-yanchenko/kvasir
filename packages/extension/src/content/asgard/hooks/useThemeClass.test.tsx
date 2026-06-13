@@ -23,7 +23,7 @@ afterEach(() => {
 
 const host = () => {
   const el = document.createElement("div");
-  document.body.appendChild(el);
+  document.body.append(el);
   return el;
 };
 

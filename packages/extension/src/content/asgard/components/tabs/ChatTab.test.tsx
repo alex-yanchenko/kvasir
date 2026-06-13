@@ -85,11 +85,11 @@ describe("REF_RE + linkifyRefs + closeFences", () => {
     const cont = document.createElement("div");
     cont.id = "diff-f1";
     cont.innerHTML = '<span data-tagsearch-path="src/app.ts"></span>';
-    document.body.appendChild(cont);
+    document.body.append(cont);
     const el = document.createElement("div");
     el.innerHTML =
       "see src/app.ts:4 and src/app.ts:4-6 then src/app.ts but <pre>x.ts:9</pre> and vendor/lib.ts";
-    el.appendChild(document.createTextNode("")); // empty node is skipped
+    el.append(document.createTextNode("")); // empty node is skipped
     linkifyRefs(el);
     const refs = [...el.querySelectorAll<HTMLAnchorElement>(".prw-ref")];
     expect(refs.map((a) => a.textContent)).toEqual(["src/app.ts:4", "src/app.ts:4-6", "src/app.ts"]);
@@ -248,7 +248,7 @@ describe("asking", () => {
     const cont = document.createElement("div");
     cont.id = "diff-f1";
     cont.innerHTML = '<span data-tagsearch-path="src/app.ts"></span>';
-    document.body.appendChild(cont);
+    document.body.append(cont);
     mockStream(snap({ done: true, text: "look at `src/app.ts:4` for **why**" }));
     render(<ChatTab />);
     openSession(mkSession("a"));

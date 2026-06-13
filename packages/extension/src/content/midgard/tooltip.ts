@@ -18,7 +18,7 @@ function showTip(target: Element): void {
   if (!tipEl) {
     tipEl = document.createElement("div");
     tipEl.className = "prw-tip";
-    document.body.appendChild(tipEl);
+    document.body.append(tipEl);
   }
   tipEl.textContent = text;
   tipEl.style.display = "block";

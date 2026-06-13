@@ -64,13 +64,15 @@ export const QUICK_PR = [
 // questions so even a freshly-restarted (clean-context) session understands the PR.
 export function reviewContext(): string {
   if (!state.spec) return "";
-  const head = state.spec.overview ? `Overview: ${state.spec.overview.replace(/\s+/g, " ").trim()}\n\n` : "";
+  const head = state.spec.overview
+    ? `Overview: ${state.spec.overview.replaceAll(/\s+/g, " ").trim()}\n\n`
+    : "";
   const steps = state.spec.steps
     .map((st) => {
       const where = st.file ? ` (${st.file}${st.lines ? `:${st.lines.start}-${st.lines.end}` : ""})` : "";
       const body = st.body
-        .replace(/<[^>]+>/g, "")
-        .replace(/\s+/g, " ")
+        .replaceAll(/<[^>]+>/g, "")
+        .replaceAll(/\s+/g, " ")
         .trim();
       return `• ${st.title}${where}\n  ${body}`;
     })
@@ -280,7 +282,7 @@ export const chatStore = {
           handleAuth(poll);
           return { ok: false, error: friendlyError(poll) };
         }
-        const note = snap.notes[snap.notes.length - 1] ?? null;
+        const note = snap.notes.at(-1) ?? null;
         if (note !== prevNote || snap.text !== prevText) {
           prevNote = note;
           prevText = snap.text;

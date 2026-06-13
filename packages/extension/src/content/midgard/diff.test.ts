@@ -164,10 +164,10 @@ describe("changedFilePaths", () => {
     const extra = document.createElement("div");
     extra.id = "diff-extra";
     extra.innerHTML = '<span data-tagsearch-path="src/other.ts"></span>';
-    document.body.appendChild(extra);
+    document.body.append(extra);
     const unreadable = document.createElement("div");
     unreadable.id = "diff-unreadable";
-    document.body.appendChild(unreadable);
+    document.body.append(unreadable);
     expect(changedFilePaths()).toEqual(["src/app.ts", "src/other.ts"]);
     extra.remove();
     unreadable.remove();
@@ -187,7 +187,7 @@ describe("reader edge branches", () => {
     expect(filePathFromContainer(container)).toBeNull(); // nothing left to read
     const legacy = document.createElement("div");
     legacy.setAttribute("data-tagsearch-path", "src/app.ts");
-    container.appendChild(legacy);
+    container.append(legacy);
     expect(filePathFromContainer(container)).toBe("src/app.ts"); // the old-UI attribute
   });
 

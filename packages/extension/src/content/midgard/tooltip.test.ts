@@ -14,7 +14,7 @@ beforeEach(() => {
   }
   btn = document.createElement("button");
   btn.setAttribute("data-prw-tip", "Hi there");
-  document.body.appendChild(btn);
+  document.body.append(btn);
 });
 afterEach(() => {
   document.dispatchEvent(new Event("mousedown")); // hide + clear the shared timer
@@ -59,7 +59,7 @@ describe("initTooltips", () => {
 
   it("a tipless ancestor chain and re-hovers behave: no tip, restarted timer", () => {
     const plain = document.createElement("div");
-    document.body.appendChild(plain);
+    document.body.append(plain);
     hover(plain);
     unhover(plain);
     vi.advanceTimersByTime(350);

@@ -23,7 +23,7 @@ export interface BridgeDeps {
 }
 
 function json(req: Request, body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
+  return Response.json(body, {
     status,
     headers: { "content-type": "application/json", ...corsHeaders(req) },
   });
@@ -34,7 +34,7 @@ function json(req: Request, body: unknown, status = 200): Response {
 export function parseSuggestions(raw: string): string[] {
   try {
     const parsed: unknown = JSON.parse(raw);
-    if (Array.isArray(parsed)) return parsed.map((q): string => String(q)).slice(0, 4);
+    if (Array.isArray(parsed)) return parsed.map(String).slice(0, 4);
   } catch {
     // not JSON — fall through to the line parser
   }

@@ -155,7 +155,7 @@ describe("jumpToRef", () => {
     const scrollBy = vi.fn();
     vi.stubGlobal("scrollBy", scrollBy);
     const bar = document.createElement("div");
-    document.body.appendChild(bar);
+    document.body.append(bar);
     vi.spyOn(bar, "getBoundingClientRect").mockReturnValue({
       left: 0,
       top: 0,
@@ -206,7 +206,7 @@ describe("jumpToRef", () => {
     Object.defineProperty(scroller, "scrollHeight", { value: 1000 });
     Object.defineProperty(scroller, "clientHeight", { value: 100 });
     container.parentElement!.insertBefore(scroller, container);
-    scroller.appendChild(container);
+    scroller.append(container);
     vi.spyOn(scroller, "getBoundingClientRect").mockReturnValue({
       left: 0,
       top: 120, // the scroller sits below the PR header
@@ -234,7 +234,7 @@ describe("jumpToRef", () => {
     expect(scrollBy).toHaveBeenCalledWith(0, 120); // window flush hides the PR header
     vi.advanceTimersByTime(2000); // mocked rects never settle — every retry re-corrects
     expect(scroller.scrollTop).toBe(210 * 8);
-    document.body.appendChild(container); // restore the shared fixture
+    document.body.append(container); // restore the shared fixture
     scroller.remove();
     vi.unstubAllGlobals();
     vi.useRealTimers();

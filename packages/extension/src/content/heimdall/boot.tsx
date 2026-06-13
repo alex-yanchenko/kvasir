@@ -36,14 +36,14 @@ export function boot(): void {
 
   const host = document.createElement("div");
   host.id = "prw-root";
-  document.body.appendChild(host);
+  document.body.append(host);
   shieldHotkeys(host); // typing in Asgard must not trigger GitHub's hotkeys
   const shadow = host.attachShadow({ mode: "open" });
   const style = document.createElement("style");
   style.textContent = asgardCss;
-  shadow.appendChild(style);
+  shadow.append(style);
   const mount = document.createElement("div");
-  shadow.appendChild(mount);
+  shadow.append(mount);
   // The theme class lives on the host so :host / :host(.dark) tokens resolve.
   createRoot(mount).render(<App themeTarget={host} />);
 }

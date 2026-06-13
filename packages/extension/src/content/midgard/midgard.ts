@@ -98,7 +98,7 @@ export function rehighlightSession(s: RehighlightableSession): Element[] {
  * of the last, and the viewport height — so we judge the entire span, not one row. */
 function rangeBounds(rows: Element[]): { top: number; bottom: number; vh: number } {
   const first = rows[0];
-  const last = rows[rows.length - 1];
+  const last = rows.at(-1);
   /* v8 ignore next 2 */ // callers always pass a non-empty range; the 0 fallbacks are index-narrows only
   const top = first ? first.getBoundingClientRect().top : 0;
   const bottom = last ? last.getBoundingClientRect().bottom : 0;

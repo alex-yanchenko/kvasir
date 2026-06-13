@@ -24,7 +24,7 @@ function buildContainer(): Element {
         </tbody>
       </table>
     </div>`;
-  document.body.appendChild(host.firstElementChild!);
+  document.body.append(host.firstElementChild!);
   return document.getElementById("diff-abc123")!;
 }
 
@@ -145,7 +145,7 @@ describe("grip ignores non-code rows", () => {
     const hunk = document.createElement("tr");
     hunk.className = "diff-line-row";
     hunk.innerHTML = "<td>@@ hunk @@</td>";
-    table.appendChild(hunk);
+    table.append(hunk);
     hoverRow(rowsOf(container)[0]); // place the grip on a real row first
     const before = grip()!.style.top;
     hunk.querySelector("td")!.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));

@@ -15,7 +15,7 @@ const setup = (rect?: Partial<DOMRect>) => {
   render(<Tooltips />);
   const btn = document.createElement("button");
   btn.setAttribute("data-prw-tip", "Hello tip");
-  document.body.appendChild(btn);
+  document.body.append(btn);
   if (rect) {
     vi.spyOn(btn, "getBoundingClientRect").mockReturnValue({
       left: 0,
@@ -96,7 +96,7 @@ describe("Tooltips", () => {
   it("ignores hovers and outs on untipped elements and non-element targets", () => {
     setup();
     const plain = document.createElement("div");
-    document.body.appendChild(plain);
+    document.body.append(plain);
     fireEvent.mouseOver(plain);
     fireEvent.mouseOut(plain);
     document.dispatchEvent(new Event("mouseover")); // target: document, not an Element

@@ -71,6 +71,8 @@ export function getSnapshot(): number {
 /** Bump after any backing-state mutation so subscribed components re-render. */
 export function touch(): void {
   version++;
+  // Snapshot: a subscriber may unsubscribe (component unmount) while being notified;
+  // iterating the live set would skip the next one. NOT a useless spread.
   for (const fn of [...listeners]) fn();
 }
 
@@ -155,6 +157,6 @@ export function chatSnippet(sess: ChatSession): string {
     ? "This PR"
     : (sess.file ?? "").split("/").pop() + (sess.lines ? `:${sess.lines.start}` : "");
   const firstQ = sess.messages.find((m) => m.role === "user");
-  const tail = firstQ ? firstQ.content : sess.general ? "" : sess.text.replace(/\s+/g, " ").slice(0, 40);
+  const tail = firstQ ? firstQ.content : sess.general ? "" : sess.text.replaceAll(/\s+/g, " ").slice(0, 40);
   return tail ? `${base} — ${tail}` : base;
 }

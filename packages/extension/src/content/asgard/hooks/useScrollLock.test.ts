@@ -26,7 +26,7 @@ afterEach(() => root?.remove());
 describe("useScrollLock", () => {
   const mount = (): HTMLDivElement => {
     root = document.createElement("div");
-    document.body.appendChild(root);
+    document.body.append(root);
     renderHook(() => useScrollLock({ current: root }));
     return root;
   };
@@ -66,7 +66,7 @@ describe("useScrollLock", () => {
 
   it("detaches the listener on unmount", () => {
     root = document.createElement("div");
-    document.body.appendChild(root);
+    document.body.append(root);
     const { unmount } = renderHook(() => useScrollLock({ current: root }));
     unmount();
     expect(wheel(root, 40).defaultPrevented).toBe(false); // no handler left to prevent

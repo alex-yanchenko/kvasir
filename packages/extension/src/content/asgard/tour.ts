@@ -19,8 +19,8 @@ const clamp = (i: number, len: number): number => Math.min(Math.max(i, 0), len -
 
 const strip = (h: string | undefined): string =>
   (h || "")
-    .replace(/<[^>]+>/g, "")
-    .replace(/\s+/g, " ")
+    .replaceAll(/<[^>]+>/g, "")
+    .replaceAll(/\s+/g, " ")
     .trim();
 
 export const tourStore = {
@@ -90,7 +90,9 @@ export const tourStore = {
     if (!s) return;
     const page = stepCode({ anchor: s.anchor, lines: s.lines ?? null });
     const text =
-      page?.text || (s.highlight || []).join("\n") || (s.body || "").replace(/<[^>]+>/g, "").slice(0, 1000);
+      page?.text ||
+      (s.highlight || []).join("\n") ||
+      (s.body || "").replaceAll(/<[^>]+>/g, "").slice(0, 1000);
     const rect = page?.rect ?? { left: 60, top: 90, bottom: 114, height: 24 };
     chatStore.openSelection(
       {

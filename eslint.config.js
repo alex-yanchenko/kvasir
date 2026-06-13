@@ -6,6 +6,7 @@ import * as regexp from "eslint-plugin-regexp";
 import nounsanitized from "eslint-plugin-no-unsanitized";
 import jsxA11y from "eslint-plugin-jsx-a11y";
 import eslintComments from "@eslint-community/eslint-plugin-eslint-comments";
+import unicorn from "eslint-plugin-unicorn";
 import globals from "globals";
 
 // Import hygiene shared by every TypeScript surface. no-cycle catches accidental
@@ -57,6 +58,36 @@ export default [
   // Regex correctness/safety on every source surface (PR-URL/loopback/skip-coverage
   // patterns). Syntactic — no type info needed, so it covers tests and plain JS too.
   { ...regexp.configs["flat/recommended"], files: ["packages/**/*.{ts,tsx,js}"] },
+
+  // Curated unicorn — its correctness/footgun rules + safe modernizations only.
+  // The bulk of unicorn is stylistic and fights this codebase's deliberate idioms
+  // (no-null: null is intentional across DOM/React/the channel contract;
+  // prevent-abbreviations: short conventional names; prefer-global-this: `window`
+  // is correct in a content script; filename-case: PascalCase components), so the
+  // recommended preset is NOT adopted wholesale — only these bug-catchers are.
+  {
+    files: ["packages/**/*.{ts,tsx,js}"],
+    ignores: ["packages/**/*.test.{ts,tsx}"],
+    plugins: { unicorn },
+    rules: {
+      "unicorn/no-array-callback-reference": "error",
+      "unicorn/no-invalid-remove-event-listener": "error",
+      "unicorn/no-invalid-fetch-options": "error",
+      "unicorn/no-useless-fallback-in-spread": "error",
+      "unicorn/new-for-builtins": "error",
+      "unicorn/throw-new-error": "error",
+      "unicorn/error-message": "error",
+      "unicorn/prefer-native-coercion-functions": "error",
+      "unicorn/prefer-string-replace-all": "error",
+      "unicorn/prefer-at": "error",
+      "unicorn/prefer-dom-node-append": "error",
+      "unicorn/prefer-response-static-json": "error",
+      "unicorn/prefer-single-call": "error",
+      "unicorn/prefer-includes": "error",
+      "unicorn/prefer-string-starts-ends-with": "error",
+      "unicorn/prefer-array-some": "error",
+    },
+  },
 
   // Govern eslint-disable usage everywhere: every disable must name its rule(s) and
   // carry a "-- why" description; stale/unused/unbounded disables are errors.

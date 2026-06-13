@@ -139,7 +139,7 @@ describe("WalkthroughTab", () => {
     state.spec = mkSpec();
     render(<WalkthroughTab />);
     const input = document.createElement("textarea");
-    document.body.appendChild(input);
+    document.body.append(input);
     act(() => {
       input.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
     });
@@ -182,7 +182,7 @@ describe("WalkthroughTab", () => {
     // a key from a contentEditable target is ignored
     const editable = document.createElement("div");
     Object.defineProperty(editable, "isContentEditable", { value: true });
-    document.body.appendChild(editable);
+    document.body.append(editable);
     act(() => {
       editable.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true }));
     });
@@ -194,10 +194,10 @@ describe("WalkthroughTab", () => {
     state.spec = mkSpec();
     const host = document.createElement("div");
     host.id = "prw-root";
-    document.body.appendChild(host);
+    document.body.append(host);
     const shadow = host.attachShadow({ mode: "open" });
     const mount = document.createElement("div");
-    shadow.appendChild(mount);
+    shadow.append(mount);
     render(<WalkthroughTab />, { container: mount });
     expect(mount.textContent).toContain("First step");
     act(() => {

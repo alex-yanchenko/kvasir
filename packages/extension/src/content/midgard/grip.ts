@@ -54,7 +54,7 @@ export function connectGrip(bifrost: Bifrost): void {
     const first = s.rows[0];
     if (!file || !text || !first) return null;
     const a = lineOfRow(first);
-    const b = lineOfRow(s.rows[s.rows.length - 1] ?? first);
+    const b = lineOfRow(s.rows.at(-1) ?? first);
     return {
       selectionId: file + "::" + text.slice(0, 200),
       file,
@@ -73,7 +73,7 @@ export function connectGrip(bifrost: Bifrost): void {
     // eslint-disable-next-line no-unsanitized/property -- static icon markup: svgIcon() wraps a literal path string, no dynamic input.
     grip.innerHTML = svgIcon('<path d="M4 9h16M4 15h16"/>');
     grip.style.display = "none";
-    document.body.appendChild(grip);
+    document.body.append(grip);
     grip.addEventListener("mousedown", onGripDown);
   }
   function ensureAskBtn(): HTMLDivElement {
@@ -81,7 +81,7 @@ export function connectGrip(bifrost: Bifrost): void {
       askBtn = document.createElement("div"); // a bar holding 1-2 chat icons
       askBtn.className = "prw-askbar";
       askBtn.style.display = "none";
-      document.body.appendChild(askBtn);
+      document.body.append(askBtn);
     }
     return askBtn;
   }
@@ -113,7 +113,7 @@ export function connectGrip(bifrost: Bifrost): void {
         bar.style.display = "none";
         bifrost.report("selection:ask", { ...p, withStep });
       };
-      bar.appendChild(b);
+      bar.append(b);
     };
     // Order left→right: context chat on the left, plain chat always rightmost.
     if (hasActiveStep) mk("Ask about these lines — with the current step's context", true, "prw-askbtn-ctx");

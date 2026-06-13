@@ -98,12 +98,12 @@ export function linkifyRefs(root: HTMLElement): void {
         link = file ? mkRefLink(full, { file, start: null, end: null }) : null;
       }
       if (!link) continue; // a path that isn't in the PR stays plain text
-      if (m.index > last) frag.appendChild(document.createTextNode(text.slice(last, m.index)));
-      frag.appendChild(link);
+      if (m.index > last) frag.append(document.createTextNode(text.slice(last, m.index)));
+      frag.append(link);
       last = m.index + full.length;
     }
     if (last === 0) return; // nothing linkable in this node after validation
-    if (last < text.length) frag.appendChild(document.createTextNode(text.slice(last)));
+    if (last < text.length) frag.append(document.createTextNode(text.slice(last)));
     node.parentNode?.replaceChild(frag, node);
   });
 }
@@ -136,7 +136,7 @@ function Markdown({ text }: { text: string }): JSX.Element {
         // eslint-disable-next-line no-unsanitized/property -- static icon markup (see above).
         b.innerHTML = svg(ICON.check);
       };
-      pre.appendChild(b);
+      pre.append(b);
     });
     linkifyRefs(el);
   }, [html]);
@@ -482,7 +482,7 @@ function Thread({ sess }: { sess: ChatSession }): JSX.Element {
   // just 401, and opening a selection chat shouldn't fire a backend call.
   useEffect(() => {
     if (blocked) return;
-    const tail = sess.messages[sess.messages.length - 1];
+    const tail = sess.messages.at(-1);
     if (tail && tail.role === "user") send(tail.content, { pushUser: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- run once when this chat opens (Thread is keyed by sess.key, so a different chat remounts); re-running on send/messages/blocked would re-fire the request.
   }, []);

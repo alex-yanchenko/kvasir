@@ -3,7 +3,7 @@
 // paragraph/line breaks. Deliberately tiny — no external lib.
 
 export const escapeHtml = (s: string): string =>
-  (s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  (s || "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 
 export function renderMarkdown(src: string): string {
   let s = escapeHtml(src);
@@ -13,29 +13,29 @@ export function renderMarkdown(src: string): string {
   // can't rewrite their contents, then spliced back at the end. The opening fence
   // must end in a newline (CommonMark) — a mandatory boundary that also stops the
   // info-string quantifiers from backtracking against the body (ReDoS-safe).
-  s = s.replace(/```([^\n]*)\n([\s\S]*?)```/g, (_m: string, info: string, code: string) => {
+  s = s.replaceAll(/```([^\n]*)\n([\s\S]*?)```/g, (_m: string, info: string, code: string) => {
     const i = blocks.length;
     const lang = /[\w.+#-]+/.exec(info)?.[0] ?? "";
     const label = lang ? `<span class="prw-code-lang">${lang}</span>` : "";
     blocks.push(`<pre class="prw-code">${label}<code>${code.replace(/\n+$/, "")}</code></pre>`);
     return `\uE000B${i}\uE000`;
   });
-  s = s.replace(/`([^`\n]+)`/g, '<code class="prw-inline">$1</code>');
-  s = s.replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>");
+  s = s.replaceAll(/`([^`\n]+)`/g, '<code class="prw-inline">$1</code>');
+  s = s.replaceAll(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>");
   // Links: real http(s) links become anchors; any other link target (e.g. a
   // repo-relative path or GitHub #L url the model wrapped a code ref in) collapses
   // to just its label, so the chat's citation linkifier can turn a bare path:line
   // into a jump-to-code link instead of leaving "(src/…#L64)" visible.
-  s = s.replace(
+  s = s.replaceAll(
     /\[([^\]\n]+)\]\((https?:\/\/[^)\s]+)\)/g,
     '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>',
   );
-  s = s.replace(/\[([^\]\n]+)\]\([^)\n]+\)/g, "$1");
+  s = s.replaceAll(/\[([^\]\n]+)\]\([^)\n]+\)/g, "$1");
   s = s
     .split(/\n{2,}/)
-    .map((p) => (p.trim() ? `<p>${p.replace(/\n/g, "<br>")}</p>` : ""))
+    .map((p) => (p.trim() ? `<p>${p.replaceAll("\n", "<br>")}</p>` : ""))
     .join("");
   return s
-    .replace(/<p>\uE000B(\d+)\uE000<\/p>/g, (_m: string, i: string) => blocks[+i] ?? "")
-    .replace(/\uE000B(\d+)\uE000/g, (_m: string, i: string) => blocks[+i] ?? "");
+    .replaceAll(/<p>\uE000B(\d+)\uE000<\/p>/g, (_m: string, i: string) => blocks[+i] ?? "")
+    .replaceAll(/\uE000B(\d+)\uE000/g, (_m: string, i: string) => blocks[+i] ?? "");
 }

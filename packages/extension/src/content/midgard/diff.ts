@@ -34,7 +34,7 @@ export function filePathFromContainer(cont: Element | null): string | null {
   const heading = lblId ? document.getElementById(lblId) : null;
   if (heading) {
     const t = (heading.textContent ?? "")
-      .replace(/\u200e/g, "")
+      .replaceAll("\u200e", "")
       .replace(/^Collapse file/i, "")
       .trim();
     if (t) return t;
@@ -110,10 +110,10 @@ export const lineOfRow = (row: Element): number | null => {
 const textCellOf = (row: Element): Element | null => row.querySelector("td.diff-text-cell");
 // Only real code rows (skip hunk/expander/spacer rows that have no text cell).
 export const rowsOf = (container: Element): Element[] =>
-  [...container.querySelectorAll("tr.diff-line-row")].filter(textCellOf);
+  [...container.querySelectorAll("tr.diff-line-row")].filter((row) => textCellOf(row));
 export const cleanLine = (row: Element): string => {
   const c = textCellOf(row);
-  return c ? (c.textContent ?? "").replace(/\n/g, "").replace(/^[+\-] ?/, "") : "";
+  return c ? (c.textContent ?? "").replaceAll("\n", "").replace(/^[+\-] ?/, "") : "";
 };
 export function rowsBetween(container: Element, rowA: Element, rowB: Element): Element[] {
   const all = rowsOf(container);
@@ -134,7 +134,7 @@ export function rowsInRange(container: Element | null, start: number, end: numbe
     return n != null && n >= lo && n <= hi;
   });
 }
-export const codeForRows = (rows: Element[]): string => rows.map(cleanLine).join("\n");
+export const codeForRows = (rows: Element[]): string => rows.map((row) => cleanLine(row)).join("\n");
 export const rowRect = (row: Element | null): DOMRect | RowRect =>
   row ? row.getBoundingClientRect() : { left: 60, top: 90, bottom: 114, height: 24 };
 
@@ -154,7 +154,7 @@ export function rowAtY(bands: RowBand[], y: number, fallbackRow: Element): Eleme
   const first = bands[0];
   if (!first) return fallbackRow;
   if (y <= first.top) return first.row;
-  const last = bands[bands.length - 1];
+  const last = bands.at(-1);
   if (last && y >= last.bottom) return last.row;
   for (const band of bands) if (y >= band.top && y <= band.bottom) return band.row;
   let best = first;

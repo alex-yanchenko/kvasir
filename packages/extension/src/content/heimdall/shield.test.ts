@@ -16,10 +16,10 @@ const press = (target: EventTarget, type = "keydown"): KeyboardEvent => {
 describe("shieldHotkeys", () => {
   it("keeps keyboard events from inside the shadow root away from the document", () => {
     host = document.createElement("div");
-    document.body.appendChild(host);
+    document.body.append(host);
     const shadow = host.attachShadow({ mode: "open" });
     const input = document.createElement("textarea");
-    shadow.appendChild(input);
+    shadow.append(input);
 
     const seen: string[] = [];
     const spy = (e: Event): void => {
@@ -41,7 +41,7 @@ describe("shieldHotkeys", () => {
 
   it("leaves keys pressed outside the host alone", () => {
     host = document.createElement("div");
-    document.body.appendChild(host);
+    document.body.append(host);
     const seen: Event[] = [];
     const spy = (e: Event): void => {
       seen.push(e);
