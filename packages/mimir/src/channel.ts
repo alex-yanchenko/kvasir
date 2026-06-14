@@ -26,9 +26,10 @@
  *   ASK_TIMEOUT_MS        how long /ask and /suggest wait for you (default 120000)
  */
 
+import { randomBytes } from "node:crypto";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { prKey, type WalkthroughSpec } from "@prw/runes";
+import { prKey, type Review, type WalkthroughSpec } from "@prw/runes";
 import { z } from "zod";
 
 import { createFetchHandler } from "./bridge";
@@ -54,6 +55,9 @@ class InvalidSpecError extends Error {
 /** Published specs, keyed by `owner/repo#number`. In-memory for now; a restart
  * drops them and you'd re-run start_walkthrough. (TODO: optional disk cache.) */
 const specs = new Map<string, WalkthroughSpec>();
+
+/** Pushed cross-repo reviews, keyed by review id. In-memory like specs. */
+const reviews = new Map<string, Review>();
 
 /** Last manifest per PR (from start_walkthrough) — lets publish_walkthrough check
  * that the spec actually covers the changed files. */
@@ -87,6 +91,8 @@ Bun.serve({
   hostname: "127.0.0.1", // loopback only — never exposed to the local network
   fetch: createFetchHandler({
     specs,
+    reviews,
+    mintReviewId: () => randomBytes(6).toString("hex"),
     // arrow-wrapped (not bare method refs) — the broker methods are closures with no
     // `this`, but passing them bare trips unbound-method; the wrappers keep them call-safe.
     open: (eventType, content, meta) => broker.open(eventType, content, meta),

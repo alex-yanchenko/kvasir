@@ -1,0 +1,65 @@
+/**
+ * A "review" is a walkthrough NOT tied to a PR diff — it explains code that lives
+ * in repo source files, possibly across SEVERAL repos (a full-stack explanation
+ * an AI session researched). Each step locates real code by repo + ref + file +
+ * line range; the extension navigates GitHub blob pages and lets GitHub's native
+ * `#Lx-Ly` highlight do the rest. Distinct from spec.ts (PR-diff walkthrough);
+ * shared by the mimir bridge (push/serve) and the extension (render).
+ *
+ * Schema-first: types are inferred from the zod schemas (z.infer) and isReview
+ * validates against them, so the wire contract can't drift from its runtime check.
+ */
+import { z } from "zod";
+
+export const RepoRefSchema = z.object({
+  owner: z.string(),
+  name: z.string(),
+});
+
+export const ReviewLinesSchema = z.object({
+  start: z.number(),
+  end: z.number(),
+});
+
+export const ReviewStepSchema = z.object({
+  /** Stable id, e.g. "auth-guard". */
+  id: z.string(),
+  title: z.string(),
+  /** Markdown explanation shown for the step. */
+  body: z.string(),
+  /** Optional deeper detail, revealed on expand. */
+  detail: z.string().optional(),
+  /** The repo this step's code lives in (steps may span repos). */
+  repo: RepoRefSchema,
+  /** Branch or commit sha to pin the blob link; absent → repo default branch. */
+  ref: z.string().optional(),
+  /** Repo-relative file path, e.g. "src/auth/guard.ts". */
+  file: z.string(),
+  /** New-side line range to highlight (GitHub `#L<start>-L<end>`). */
+  lines: ReviewLinesSchema.optional(),
+  /** Fallback highlight substrings if line ids aren't available. */
+  highlight: z.array(z.string()).optional(),
+  /** Quick follow-up questions for this step. */
+  suggestions: z.array(z.string()).optional(),
+});
+
+export const ReviewSchema = z.object({
+  version: z.literal(1),
+  /** Mailbox key. Assigned by the server on push when absent. */
+  id: z.string().optional(),
+  title: z.string(),
+  /** Where it came from (originating chat / note) — display only. */
+  source: z.string().optional(),
+  /** Stamped by the server on push. */
+  generatedAt: z.string().optional(),
+  steps: z.array(ReviewStepSchema).min(1),
+});
+
+export type RepoRef = z.infer<typeof RepoRefSchema>;
+export type ReviewLines = z.infer<typeof ReviewLinesSchema>;
+export type ReviewStep = z.infer<typeof ReviewStepSchema>;
+export type Review = z.infer<typeof ReviewSchema>;
+
+export function isReview(x: unknown): x is Review {
+  return ReviewSchema.safeParse(x).success;
+}

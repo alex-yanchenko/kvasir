@@ -2,14 +2,19 @@
 // (request: Request) => Response over injected dependencies, so the whole surface
 // (auth gate, validation, prompt building, response codes) is unit-testable on
 // Node; channel.ts supplies the live deps and hands the handler to Bun.serve.
-import { prKey, PR_URL_RE, type WalkthroughSpec } from "@prw/runes";
+import { prKey, PR_URL_RE, type Review, type WalkthroughSpec } from "@prw/runes";
 import type { QuestionSnapshot } from "./broker";
 import { authorizedLocalCaller, corsHeaders, isRecord, readJsonBody, truncate, prOrNull } from "./guard";
 import type { Pairing } from "./pairing";
+import { parseReviewInput, reviewLandingUrl } from "./review";
 
 export interface BridgeDeps {
   /** Published specs, keyed by `owner/repo#number`. */
   specs: Map<string, WalkthroughSpec>;
+  /** Pushed reviews (cross-repo explanations), keyed by review id. */
+  reviews: Map<string, Review>;
+  /** Mint a fresh review id when a push omits one. */
+  mintReviewId(): string;
   /** Register a streamed question for the session; returns its poll id. */
   open(eventType: string, content: string, meta: Record<string, string>): string;
   /** One-shot mode: park a question and await the full answer ("" on timeout). */
@@ -65,6 +70,28 @@ function handlePairClaim({ request, url, deps }: Context): Response {
   if (!id) return json(request, { error: "need an id" }, 400);
   const r = deps.pairing.claim(id);
   return r ? json(request, r) : json(request, { error: "unknown, expired, or already claimed" }, 404);
+}
+
+// Push a cross-repo review into the mailbox. Token-less by design: any local
+// session (not just the bridge owner) pushes here with the guard header, so a
+// review authored in any of your Claude sessions reaches the extension. Returns
+// the id + the GitHub landing URL (carrying ?prw=<id>) to open it.
+async function handlePush({ request, deps }: Context): Promise<Response> {
+  const body = await readJsonBody(request);
+  if (!body) return json(request, { error: "bad request body" }, 400);
+  const result = parseReviewInput(body);
+  if (!result.ok) return json(request, { error: result.error }, 400);
+  const id = result.review.id ?? deps.mintReviewId();
+  const review: Review = { ...result.review, id };
+  deps.reviews.set(id, review);
+  return json(request, { id, url: reviewLandingUrl(review) });
+}
+
+function handleReview({ request, url, deps }: Context): Response {
+  const id = truncate(url.searchParams.get("id"), 100);
+  if (!id) return json(request, { error: "need an id" }, 400);
+  const review = deps.reviews.get(id);
+  return review ? json(request, review) : json(request, { error: "unknown review id" }, 404);
 }
 
 // ── token-gated routes ───────────────────────────────────────────────────────
@@ -255,6 +282,11 @@ export function createFetchHandler(deps: BridgeDeps): (request: Request) => Prom
     // pairing, they never answer.
     if (url.pathname === "/pair" && request.method === "POST") return handlePair(context);
     if (url.pathname === "/pair/claim" && request.method === "GET") return handlePairClaim(context);
+
+    // Review mailbox — token-less (see handlePush): push from any local session,
+    // pull by id (the extension reads ?prw=<id> off the GitHub landing URL).
+    if (url.pathname === "/push" && request.method === "POST") return handlePush(context);
+    if (url.pathname === "/review" && request.method === "GET") return handleReview(context);
 
     // Every route past here requires the paired token — no grace period. An
     // unpaired extension (or any other local process) gets 401 and must pair

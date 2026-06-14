@@ -1,5 +1,5 @@
 import { prKey } from "@prw/runes";
-import type { WalkthroughSpec } from "@prw/runes";
+import type { Review, WalkthroughSpec } from "@prw/runes";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createFetchHandler, parseSuggestions } from "./bridge";
 import type { BridgeDeps } from "./bridge";
@@ -14,8 +14,26 @@ const mkSpec = (): WalkthroughSpec => ({
   steps: [{ id: "s1", title: "T", body: "b", file: "f.ts", anchor: "diff-a" }],
 });
 
+const mkReview = (): Review => ({
+  version: 1,
+  title: "Auth flow",
+  steps: [
+    {
+      id: "s1",
+      title: "Guard",
+      body: "b",
+      repo: { owner: "acme", name: "web" },
+      ref: "main",
+      file: "src/auth/guard.ts",
+      lines: { start: 1, end: 2 },
+    },
+  ],
+});
+
 let deps: {
   specs: Map<string, WalkthroughSpec>;
+  reviews: Map<string, Review>;
+  mintReviewId: ReturnType<typeof vi.fn>;
   open: ReturnType<typeof vi.fn>;
   ask: ReturnType<typeof vi.fn>;
   snapshot: ReturnType<typeof vi.fn>;
@@ -35,6 +53,8 @@ let handler: (req: Request) => Promise<Response>;
 beforeEach(() => {
   deps = {
     specs: new Map(),
+    reviews: new Map(),
+    mintReviewId: vi.fn().mockReturnValue("rev-1"),
     open: vi.fn().mockReturnValue("q1-test"),
     ask: vi.fn().mockResolvedValue("an answer"),
     snapshot: vi.fn().mockReturnValue(null),
@@ -361,6 +381,52 @@ describe("/suggest", () => {
       }),
     );
     expect(noBody.status).toBe(400);
+  });
+});
+
+describe("/push + /review (token-less mailbox)", () => {
+  it("stores a pushed review under a minted id and returns the landing url", async () => {
+    const r = await call("/push", { method: "POST", body: mkReview() });
+    expect(await r.json()).toEqual({
+      id: "rev-1",
+      url: "https://github.com/acme/web/blob/main/src/auth/guard.ts?prw=rev-1#L1-L2",
+    });
+    expect(deps.mintReviewId).toHaveBeenCalledTimes(1);
+    expect(deps.reviews.get("rev-1")).toEqual({ ...mkReview(), id: "rev-1" });
+  });
+
+  it("honors an explicit id on the push (no minting)", async () => {
+    const r = await call("/push", { method: "POST", body: { ...mkReview(), id: "mine" } });
+    expect(await r.json()).toMatchObject({ id: "mine" });
+    expect(deps.mintReviewId).not.toHaveBeenCalled();
+  });
+
+  it("400s an invalid review (naming the field) and a malformed body", async () => {
+    const bad = await call("/push", { method: "POST", body: { version: 1, title: "x", steps: [{ id: "s1" }] } });
+    expect(bad.status).toBe(400);
+    expect(await bad.json()).toMatchObject({ error: expect.stringContaining("steps.0.body") });
+    const noBody = await handler(
+      new Request("http://localhost:8799/push", {
+        method: "POST",
+        body: "zzz",
+        headers: { host: "localhost:8799", [GUARD_HEADER]: "1", "content-type": "application/json" },
+      }),
+    );
+    expect(noBody.status).toBe(400);
+  });
+
+  it("GET /review returns a stored review, 400 without an id, 404 for an unknown one", async () => {
+    deps.reviews.set("rev-1", { ...mkReview(), id: "rev-1" });
+    expect(await (await call("/review?id=rev-1")).json()).toEqual({ ...mkReview(), id: "rev-1" });
+    expect((await call("/review")).status).toBe(400);
+    expect((await call("/review?id=zzz")).status).toBe(404);
+  });
+
+  it("stays open while unpaired (token-less by design)", async () => {
+    deps.pairing.verify.mockReturnValue(false);
+    expect((await call("/push", { method: "POST", body: mkReview() })).status).toBe(200);
+    deps.reviews.set("rev-1", { ...mkReview(), id: "rev-1" });
+    expect((await call("/review?id=rev-1")).status).toBe(200);
   });
 });
 
