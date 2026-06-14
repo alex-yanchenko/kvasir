@@ -62,6 +62,7 @@ beforeEach(() => {
   state.reviewStep = 0;
   state.reviewOpen = false;
   state.reviewNavigating = false;
+  state.reviewSync = true; // synced is the default
   state.panel = { open: false, tab: "walkthrough", pos: null, size: null };
   vi.mocked(storeGet).mockResolvedValue(null);
   assign = vi.fn();
@@ -139,15 +140,40 @@ describe("reviewStore.load", () => {
 });
 
 describe("reviewStore navigation", () => {
-  it("a different file in the SAME repo soft-navigates in place — no reload, panel stays", async () => {
+  it("same repo, synced (default): soft-navigates, keeps the current step + loading, advances when the page lands", async () => {
     await loadOk(sameRepoReview());
     globalThis.location.pathname = "/acme/web/blob/main/src/a.ts"; // on step a's file
     const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
     reviewStore.goto(1); // src/b.ts — same repo
-    expect(reviewStore.stepIndex()).toBe(1); // switched in place
-    expect(reviewStore.navigating()).toBe(false); // no loading, no reload
-    expect(clickSpy).toHaveBeenCalledTimes(1); // soft nav via a same-origin link click
-    expect(assign).not.toHaveBeenCalled();
+    expect(clickSpy).toHaveBeenCalledTimes(1); // soft nav fired
+    expect(assign).not.toHaveBeenCalled(); // not a hard load
+    expect(reviewStore.navigating()).toBe(true); // loading; step not advanced yet
+    expect(reviewStore.stepIndex()).toBe(0);
+    globalThis.location.pathname = "/acme/web/blob/main/src/b.ts"; // GitHub landed
+    vi.advanceTimersByTime(80);
+    expect(reviewStore.stepIndex()).toBe(1);
+    expect(reviewStore.navigating()).toBe(false);
+  });
+
+  it("same repo, synced: advances after a timeout if the page never lands", async () => {
+    await loadOk(sameRepoReview());
+    globalThis.location.pathname = "/acme/web/blob/main/src/a.ts";
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+    reviewStore.goto(1); // URL never changes to the target
+    vi.advanceTimersByTime(80 * 41); // poll times out (> 40 ticks)
+    expect(reviewStore.stepIndex()).toBe(1);
+    expect(reviewStore.navigating()).toBe(false);
+  });
+
+  it("same repo, instant mode: advances the panel immediately", async () => {
+    await loadOk(sameRepoReview());
+    state.reviewSync = false;
+    globalThis.location.pathname = "/acme/web/blob/main/src/a.ts";
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+    reviewStore.goto(1);
+    expect(clickSpy).toHaveBeenCalledTimes(1);
+    expect(reviewStore.stepIndex()).toBe(1);
+    expect(reviewStore.navigating()).toBe(false);
   });
 
   it("a different REPO keeps the current step on this page, flags loading, then hard-navigates", async () => {

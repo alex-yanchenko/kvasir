@@ -50,6 +50,9 @@ export const state: {
    * navigation that follows — drives a loading state so the nav doesn't feel like
    * an unexplained flash. Reset on every fresh page load. */
   reviewNavigating: boolean;
+  /** Review nav: true = advance the panel only once the page lands (loading in
+   * between); false = advance immediately. Default true. */
+  reviewSync: boolean;
   theme: string; // "auto" | "light" | "dark"
   hlStyle: string; // "tint" | "github"
   tourState: TourState;
@@ -62,6 +65,7 @@ export const state: {
   reviewStep: 0,
   reviewOpen: false,
   reviewNavigating: false,
+  reviewSync: localStorage.getItem("prwReviewSync") !== "false", // default on
   theme: localStorage.getItem("prwTheme") || "auto",
   hlStyle: localStorage.getItem("prwHl") || "tint",
   tourState: { step: 0, pos: null, size: null },
@@ -99,6 +103,12 @@ const applyToPage = (): void => bifrost.send("theme:apply", { theme: state.theme
 export const settingsStore = {
   theme: (): string => state.theme,
   hlStyle: (): string => state.hlStyle,
+  reviewSync: (): boolean => state.reviewSync,
+  setReviewSync(on: boolean): void {
+    state.reviewSync = on;
+    localStorage.setItem("prwReviewSync", String(on));
+    touch();
+  },
   setTheme(theme: string): void {
     state.theme = theme;
     localStorage.setItem("prwTheme", theme);

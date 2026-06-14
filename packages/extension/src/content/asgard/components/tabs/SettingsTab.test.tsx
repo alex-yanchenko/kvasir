@@ -46,6 +46,14 @@ describe("SettingsTab", () => {
     expect(applied.at(-1)).toEqual({ theme: "auto", hlStyle: "github" });
   });
 
+  it("step-nav toggle flips reviewSync", () => {
+    render(<SettingsTab />);
+    fireEvent.click(screen.getByRole("button", { name: "Instant" }));
+    expect(state.reviewSync).toBe(false);
+    fireEvent.click(screen.getByRole("button", { name: "On load" }));
+    expect(state.reviewSync).toBe(true);
+  });
+
   it("shows the unpaired state and starts pairing on Pair", async () => {
     vi.mocked(storeGet).mockResolvedValue(undefined);
     vi.mocked(api).mockResolvedValue({ ok: true, data: { requestId: "r", code: "ABC234" } });

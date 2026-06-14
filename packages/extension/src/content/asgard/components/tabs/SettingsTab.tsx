@@ -104,6 +104,15 @@ export function SettingsTab(): JSX.Element {
         ]}
         onChange={(v) => settingsStore.setHlStyle(v)}
       />
+      <Segmented
+        label="Step nav"
+        value={settingsStore.reviewSync() ? "synced" : "instant"}
+        options={[
+          { value: "synced", label: "On load" },
+          { value: "instant", label: "Instant" },
+        ]}
+        onChange={(v) => settingsStore.setReviewSync(v === "synced")}
+      />
       <div className="border-t border-border pt-3">
         <Connection />
       </div>

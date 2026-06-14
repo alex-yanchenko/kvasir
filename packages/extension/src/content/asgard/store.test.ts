@@ -40,6 +40,15 @@ describe("settingsStore", () => {
     expect(applied).toHaveBeenCalledWith({ theme: "auto", hlStyle: "github" });
     expect(applied).toHaveBeenCalledTimes(1);
   });
+
+  it("reviewSync defaults on, and setReviewSync persists + bumps the version", () => {
+    expect(settingsStore.reviewSync()).toBe(true);
+    const before = getSnapshot();
+    settingsStore.setReviewSync(false);
+    expect(state.reviewSync).toBe(false);
+    expect(localStorage.getItem("prwReviewSync")).toBe("false");
+    expect(getSnapshot()).toBe(before + 1);
+  });
 });
 
 describe("subscriptions", () => {

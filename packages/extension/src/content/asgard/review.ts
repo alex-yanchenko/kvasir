@@ -11,7 +11,7 @@ import { reviewIdFromUrl, reviewKey, reviewSessionKey } from "../keys";
 import { storeGet, storeSet } from "../muninn";
 import { chatStore } from "./chat";
 import { parsePanelGeometry, parseReviewCache } from "./persisted";
-import { panelStore, PANEL_TABS, state, touch } from "./store";
+import { panelStore, PANEL_TABS, settingsStore, state, touch } from "./store";
 
 const clamp = (index: number, length: number): number => Math.min(Math.max(index, 0), length - 1);
 
@@ -53,6 +53,18 @@ const softNavigate = (href: string): void => {
   document.body.append(link);
   link.click();
   link.remove();
+};
+
+/** Poll until GitHub's soft nav lands on the target path (or ~3s timeout), then run
+ * onArrive — used to advance the panel only once the new file's page is in. */
+const awaitSoftNav = (targetPath: string, onArrive: () => void): void => {
+  let tries = 0;
+  const poll = setInterval(() => {
+    if (decodeURIComponent(globalThis.location.pathname) === targetPath || ++tries > 40) {
+      clearInterval(poll);
+      onArrive();
+    }
+  }, 80);
 };
 
 export const reviewStore = {
@@ -136,10 +148,21 @@ export const reviewStore = {
     }
     if (repoPath(url.pathname) === repoPath(here.pathname)) {
       // Same repo, different file → GitHub's router soft-navigates (no reload, our
-      // panel survives), so switch in place and let GitHub morph + re-highlight.
-      state.reviewStep = target;
-      touch();
+      // panel survives). Synced (default): keep the current step + loading, advance
+      // once the page lands. Instant: advance the panel immediately.
       softNavigate(url.href);
+      if (settingsStore.reviewSync()) {
+        state.reviewNavigating = true;
+        touch();
+        awaitSoftNav(decodeURIComponent(url.pathname), () => {
+          state.reviewStep = target;
+          state.reviewNavigating = false;
+          touch();
+        });
+      } else {
+        state.reviewStep = target;
+        touch();
+      }
       return;
     }
     // Different repo → a full load is unavoidable. Keep the current step + show
