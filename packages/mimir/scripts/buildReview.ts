@@ -1,0 +1,78 @@
+#!/usr/bin/env bun
+/**
+ * Deterministically assemble a review from a draft and push it to the mailbox.
+ * The model writes a draft (title + steps with repoDir/file/locator/body/detail);
+ * this resolves the verifiable parts via git — owner/name, head sha, file
+ * existence, real line numbers — so a wrong path or snippet fails LOUD here
+ * instead of 404-ing a blob link later. IO only; the pure logic is in
+ * src/review-build.ts.
+ *
+ *   prw-build-review <draft.json>   →  prints the ?prw= link on success
+ */
+import { homedir } from "node:os";
+import path from "node:path";
+import { type Review } from "@prw/runes/review";
+import { z } from "zod";
+import { DraftSchema, type RepoContext, resolveStep, ReviewBuildError } from "../src/reviewBuild";
+
+const PORT = Number(process.env.PR_WALKTHROUGH_PORT) || 8799;
+
+const expandHome = (input: string): string =>
+  input.startsWith("~/") ? path.resolve(homedir(), input.slice(2)) : path.resolve(input);
+
+function git(args: string[], cwd: string): string {
+  const proc = Bun.spawnSync(["git", "-C", cwd, ...args]);
+  if (proc.exitCode === 0) return proc.stdout.toString();
+  throw new ReviewBuildError(`git ${args.join(" ")} failed in ${cwd}: ${proc.stderr.toString().trim()}`);
+}
+
+function repoContext(repoDirectory: string, file: string, stepNo: number): RepoContext {
+  const directory = expandHome(repoDirectory);
+  const remote = git(["remote", "get-url", "origin"], directory).trim();
+  const sha = git(["rev-parse", "HEAD"], directory).trim();
+  const probe = Bun.spawnSync(["git", "-C", directory, "show", `${sha}:${file}`]);
+  if (probe.exitCode === 0) return { remote, sha, content: probe.stdout.toString() };
+  throw new ReviewBuildError(`step ${stepNo}: file not found at ${sha.slice(0, 8)}: ${file} (in ${directory})`);
+}
+
+const PushResponse = z.object({ id: z.string(), url: z.string() });
+
+async function main(): Promise<void> {
+  const draftPath = process.argv[2];
+  if (!draftPath) throw new ReviewBuildError("usage: prw-build-review <draft.json>");
+  const raw: unknown = JSON.parse(await Bun.file(draftPath).text());
+  const draft = DraftSchema.parse(raw); // throws a ZodError naming the bad field
+
+  const review: Review = {
+    version: 1,
+    title: draft.title,
+    ...(draft.source === undefined ? {} : { source: draft.source }),
+    steps: draft.steps.map((step, index) => resolveStep(step, repoContext(step.repoDir, step.file, index + 1), index)),
+  };
+
+  let response: Response;
+  try {
+    response = await fetch(`http://localhost:${PORT}/push`, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-pr-walkthrough": "1" },
+      body: JSON.stringify(review),
+    });
+  } catch (error) {
+    throw new ReviewBuildError(
+      `cannot reach the mailbox on :${PORT} — is claude-pr-walkthrough running? (${String(error)})`,
+    );
+  }
+  const text = await response.text();
+  if (response.ok) {
+    console.log(PushResponse.parse(JSON.parse(text)).url);
+    return;
+  }
+  throw new ReviewBuildError(`/push returned ${response.status}: ${text}`);
+}
+
+try {
+  await main();
+} catch (error) {
+  console.error(error instanceof Error ? error.message : String(error));
+  process.exit(1);
+}

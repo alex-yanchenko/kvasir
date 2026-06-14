@@ -5,62 +5,56 @@ description: Push the current AI research/explanation into the PR-Walkthrough br
 
 # Push a review to the extension
 
-Turn the explanation you just produced into a **Review** and POST it to the local
-PR-Walkthrough mailbox. The mailbox is one shared local server (`localhost:8799`)
-owned by whichever session runs `claude-pr-walkthrough`; ANY session can push to
-it — you do not need to own the bridge or be paired.
+Turn the explanation you just produced into a **review** and push it. You supply
+the judgment (which files, which code, the prose); a deterministic builder
+(`prw-build-review`) resolves the verifiable parts — repo, commit sha, file
+existence, exact line numbers — and pushes. **You never write line numbers,
+URLs, or the final JSON**, so a wrong path or guessed line can't 404 a link.
 
-## 1. Build the Review JSON
+The mailbox is one shared local server (`localhost:8799`) owned by whichever
+session runs `claude-pr-walkthrough`; ANY session can push to it.
 
-One step per distinct thing you explained. Each step pins **real code** so the
-extension can jump to it. The blob link 404s if the path/ref is wrong, so
-**ground every locating field in the actual repo — never infer a path:**
+## 1. Write a draft
 
-- `repo.owner` / `repo.name` — from the repo's GitHub remote. Per repo:
-  `git -C <repo-dir> remote get-url origin` → parse `owner/name`.
-- `ref` — a branch or commit that ACTUALLY CONTAINS the file. Default to the
-  checked-out commit sha (`git -C <repo-dir> rev-parse HEAD`) so the link is
-  stable, or the branch name if you confirmed the file is on it.
-- `file` — repo-relative path. **Verify it exists at that ref before adding the
-  step:** `git -C <repo-dir> ls-files --error-unmatch <path>` (or
-  `gh api repos/<owner>/<name>/contents/<path>?ref=<ref>`). If it doesn't
-  resolve, fix the path — do not ship a step whose file you haven't confirmed.
-- `lines` — the `{start,end}` line range to highlight (the new/right side),
-  read from the real file (not guessed).
-- `body` — a CONCISE summary (1-3 sentences): what this code does / why it
-  matters. Shown by default. Full prose, user-facing.
+One step per distinct thing you explained. For each step, you only provide:
+
+- `repoDir` — local path to the repo on disk (e.g. `~/code/your-org/your-frontend`).
+- `file` — repo-relative path of the code (the builder verifies it exists).
+- `locator` — **how to find the lines, by VERBATIM snippet you actually read** (not
+  line numbers): `{ "from": "<a unique line in the region>", "to": "<the last
+  line of the region>" }`. `to` is optional (single line). The builder greps
+  these in the file → real line numbers. Quote real text — if it's not in the
+  file, the build fails loudly (which means you had the wrong file/snippet).
+  - Escape hatch: `{ "lines": { "start": N, "end": M } }` if you genuinely have
+    exact numbers, but the snippet form is preferred — it can't be wrong.
+- `title` — short step title.
+- `body` — CONCISE summary (1-3 sentences), shown by default.
 - `detail` — the in-depth part shown on "Show details": edge cases, rationale,
-  gotchas, how it connects to other steps. Author this whenever there's depth
-  beyond the one-line summary (most steps deserve it) — body is the headline,
-  detail is the substance.
-- `highlight?` — fallback substrings. `suggestions?` — follow-up questions.
+  gotchas, how it connects to other steps. Author it whenever there's depth.
+- `highlight?` / `suggestions?` — optional.
 
-Shape (the wire contract is `@prw/runes` `ReviewSchema` — server validates it and
-returns the exact failing field if anything's off):
+Write it to a temp file, e.g. `/tmp/prw-draft.json`:
 
 ```json
 {
-  "version": 1,
-  "title": "Auth flow across web + api",
+  "title": "Auth: Auth0 OIDC across web + API",
   "source": "Claude research chat",
   "steps": [
     {
-      "id": "guard",
-      "title": "Route guard rejects unpaired callers",
-      "body": "The guard checks the token before any handler runs…",
-      "repo": { "owner": "your-org", "name": "your-frontend" },
-      "ref": "main",
-      "file": "src/auth/guard.ts",
-      "lines": { "start": 10, "end": 24 }
+      "repoDir": "~/code/your-org/your-frontend",
+      "file": "<the real path you read>",
+      "locator": { "from": "export default handleAuth(", "to": "});" },
+      "title": "Auth0 catch-all route",
+      "body": "The SDK's login/logout/callback/me handler.",
+      "detail": "offline_access enables silent refresh; the SDK persists the session in a secure cookie after Auth0 redirects back to the callback."
     },
     {
-      "id": "server-check",
-      "title": "Matching server-side validation",
-      "body": "The backend re-validates the same token…",
-      "repo": { "owner": "your-org", "name": "your-backend" },
-      "ref": "main",
-      "file": "src/api/auth.controller.ts",
-      "lines": { "start": 40, "end": 55 }
+      "repoDir": "~/code/your-org/your-backend",
+      "file": "<the real path you read>",
+      "locator": { "from": "@UseGuards(", "to": "}" },
+      "title": "Backend token verification",
+      "body": "The API re-validates the access token on protected routes.",
+      "detail": "..."
     }
   ]
 }
@@ -68,28 +62,28 @@ returns the exact failing field if anything's off):
 
 Steps may span repos freely — that's the point for full-stack explanations.
 
-## 2. Push it
-
-Write the JSON to a temp file and POST it (avoids shell-escaping a big payload):
+## 2. Build + push
 
 ```bash
-curl -fsS localhost:8799/push \
-  -H 'x-pr-walkthrough: 1' -H 'content-type: application/json' \
-  -d @/tmp/prw-review.json
+prw-build-review /tmp/prw-draft.json
 ```
 
-The response is `{ "id": "...", "url": "https://github.com/.../blob/...?prw=..." }`.
+It resolves owner/name + head sha (`git`), verifies each file exists at that sha,
+greps your locator snippets for the real line range, validates the shape, pushes
+to the mailbox, and prints the **link**. (If `prw-build-review` isn't on PATH, run
+it directly: `bun run <pr-walkthrough>/packages/mimir/scripts/buildReview.ts /tmp/prw-draft.json`.)
 
 ## 3. Hand the user the link
 
-Print the `url` from the response. The user opens it; the extension reads
-`?prw=<id>` off the URL, pulls the review from the mailbox, and walks the steps —
-jumping across the repos/files and highlighting each line range.
+Print the URL it output. The user opens it; the extension reads `?prw=<id>`, pulls
+the review, and walks the steps — jumping across repos/files, GitHub highlighting
+each line range, with body + "Show details" per step.
 
-## If the push fails
+## If it fails (the builder tells you exactly which)
 
-- **Connection refused** → the mailbox isn't running. Tell the user to start it:
-  `claude-pr-walkthrough` (in a terminal). It's single-owner; one instance serves
-  every session.
-- **400 with field paths** (e.g. `steps.0.lines: expected object`) → fix that
-  field in the JSON and re-push. The server names exactly what's wrong.
+- **`file not found at <sha>: <path>`** → you had the wrong path/repo. Find the
+  real file (`git -C <repoDir> ls-files | grep ...`) and fix `file`.
+- **`locator.from not found`** → the snippet isn't in that file verbatim. Re-read
+  the file and quote a real line.
+- **`cannot reach the mailbox on :8799`** → the daemon isn't running. Tell the
+  user to start `claude-pr-walkthrough`.

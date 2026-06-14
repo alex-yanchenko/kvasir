@@ -51,7 +51,22 @@ if command -v pnpm >/dev/null 2>&1; then
     && ok "built → packages/extension/dist" || warn "build failed — run 'pnpm build' manually"
 fi
 
-# 4. Next steps the script deliberately does NOT automate.
+# 4. Install the prw-build-review CLI on PATH so /push-review can drive the
+# deterministic builder from any session without knowing this repo's path.
+echo "CLI:"
+BIN_DIR="$HOME/.local/bin"
+mkdir -p "$BIN_DIR"
+cat > "$BIN_DIR/prw-build-review" <<WRAP
+#!/usr/bin/env bash
+exec bun run "$REPO_DIR/packages/mimir/scripts/buildReview.ts" "\$@"
+WRAP
+chmod +x "$BIN_DIR/prw-build-review"
+case ":$PATH:" in
+  *":$BIN_DIR:"*) ok "installed prw-build-review → $BIN_DIR" ;;
+  *) warn "installed prw-build-review → $BIN_DIR (add it to PATH: export PATH=\"\$HOME/.local/bin:\$PATH\")" ;;
+esac
+
+# 5. Next steps the script deliberately does NOT automate.
 cat <<EOF
 
 Done. To finish setup:
