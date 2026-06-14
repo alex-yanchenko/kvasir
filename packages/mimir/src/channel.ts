@@ -28,7 +28,7 @@
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { isWalkthroughSpec, prKey, type WalkthroughSpec } from "@prw/runes";
+import { WalkthroughSpecSchema, prKey, type WalkthroughSpec } from "@prw/runes";
 import { z } from "zod";
 
 import { createFetchHandler } from "./bridge";
@@ -169,12 +169,19 @@ server.registerTool(
     inputSchema: { spec: z.unknown() },
   },
   ({ spec }) => {
-    if (!isWalkthroughSpec(spec)) {
-      throw new InvalidSpecError(
-        "spec failed validation — need version:1, pr.url, and steps[] with id/file/anchor",
-      );
+    // Surface the EXACT failing fields (path + message), not a static requirements
+    // list — an author iterating blind on "spec failed validation" can't tell which
+    // field is wrong. Log the raw arg type too, to rule out a transport problem.
+    const parsed = WalkthroughSpecSchema.safeParse(spec);
+    if (!parsed.success) {
+      const issues = parsed.error.issues
+        .map((issue) => `${issue.path.join(".") || "(root)"}: ${issue.message}`)
+        .join("; ");
+      console.error(`[pr-walkthrough] publish_walkthrough rejected (received ${typeof spec}): ${issues}`);
+      throw new InvalidSpecError(`spec failed validation — ${issues}`);
     }
-    const key = prKey(spec.pr.url);
+    const validated: WalkthroughSpec = parsed.data;
+    const key = prKey(validated.pr.url);
 
     // Coverage gate (bounded): if significant changed files have no step, reject
     // ONCE with the list so the author adds steps, then accept regardless — so a
@@ -183,7 +190,7 @@ server.registerTool(
     const uncovered = manifest
       ? uncoveredFiles(
           manifest,
-          spec.steps.map((s) => s.file),
+          validated.steps.map((s) => s.file),
         )
       : [];
     const nudges = publishNudges.get(key) ?? 0;
@@ -197,14 +204,14 @@ server.registerTool(
       );
     }
 
-    spec.generatedAt = new Date().toISOString(); // stamp fresh on every publish so clients detect the update
-    specs.set(key, spec);
+    validated.generatedAt = new Date().toISOString(); // stamp fresh on every publish so clients detect the update
+    specs.set(key, validated);
     publishNudges.delete(key); // published — reset for the next regenerate
-    console.error(`[pr-walkthrough] published ${key} (${spec.steps.length} steps)`);
+    console.error(`[pr-walkthrough] published ${key} (${validated.steps.length} steps)`);
     const coverageNote =
       uncovered.length > 0 ? ` (${uncovered.length} changed file(s) still without a step)` : "";
     return text(
-      `Published ${spec.steps.length} steps.${coverageNote} Open the PR; the extension will render it.`,
+      `Published ${validated.steps.length} steps.${coverageNote} Open the PR; the extension will render it.`,
     );
   },
 );
