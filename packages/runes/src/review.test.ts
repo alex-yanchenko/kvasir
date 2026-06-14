@@ -45,4 +45,10 @@ describe("stepBlobUrl", () => {
   it("falls back to the repo root without a ref, and tolerates a missing id", () => {
     expect(stepBlobUrl(step({ ref: undefined }))).toBe("https://github.com/acme/web?prw=");
   });
+
+  it("percent-encodes special chars per path segment (Next.js catch-all routes)", () => {
+    expect(stepBlobUrl(step({ file: "pages/api/auth/[...auth0].ts" }), "rid")).toBe(
+      "https://github.com/acme/web/blob/main/pages/api/auth/%5B...auth0%5D.ts?prw=rid#L10-L20",
+    );
+  });
 });

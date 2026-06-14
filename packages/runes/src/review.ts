@@ -75,6 +75,13 @@ export function stepBlobUrl(step: ReviewStep, reviewId?: string): string {
   const { owner, name } = step.repo;
   const query = `?prw=${encodeURIComponent(reviewId ?? "")}`;
   if (!step.ref) return `https://github.com/${owner}/${name}${query}`;
-  const blob = `https://github.com/${owner}/${name}/blob/${step.ref}/${step.file}${query}`;
+  // Encode each path segment (keep the slashes) so special chars survive — e.g. a
+  // Next.js catch-all route `[...slug].ts` 404s on GitHub unless the brackets are
+  // percent-encoded.
+  const path = step.file
+    .split("/")
+    .map((segment) => encodeURIComponent(segment))
+    .join("/");
+  const blob = `https://github.com/${owner}/${name}/blob/${step.ref}/${path}${query}`;
   return step.lines ? `${blob}#L${step.lines.start}-L${step.lines.end}` : blob;
 }

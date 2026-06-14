@@ -30,6 +30,14 @@ function repoContext(repoDirectory: string, file: string, stepNo: number): RepoC
   const directory = expandHome(repoDirectory);
   const remote = git(["remote", "get-url", "origin"], directory).trim();
   const sha = git(["rev-parse", "HEAD"], directory).trim();
+  // The exact sha keeps line numbers matching the code that was read; it must be
+  // on a remote, or GitHub has no such commit and the blob link 404s.
+  const onRemote = git(["branch", "-r", "--contains", sha], directory).trim();
+  if (onRemote === "") {
+    throw new ReviewBuildError(
+      `step ${stepNo}: commit ${sha.slice(0, 8)} (in ${directory}) is not pushed to any remote — push it so the blob link resolves`,
+    );
+  }
   const probe = Bun.spawnSync(["git", "-C", directory, "show", `${sha}:${file}`]);
   if (probe.exitCode === 0) return { remote, sha, content: probe.stdout.toString() };
   throw new ReviewBuildError(`step ${stepNo}: file not found at ${sha.slice(0, 8)}: ${file} (in ${directory})`);
