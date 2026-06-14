@@ -2,6 +2,7 @@
 // `unknown` (it's whatever was persisted, possibly from an older build), so every
 // read is narrowed here instead of cast — a mismatched field is dropped, never
 // trusted. Keeps heimdall/watch.ts honest and free of shape casts.
+import { isReview, type Review } from "@prw/runes/review";
 import type { ChatSession } from "./types";
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null;
@@ -27,6 +28,16 @@ export function parseTourState(v: unknown): { step: number; pos: Pos | null; siz
 export function parsePanelGeometry(v: unknown): { pos: Pos | null; size: Size | null } {
   if (!isRecord(v)) return { pos: null, size: null };
   return { pos: isPos(v.pos) ? v.pos : null, size: isSize(v.size) ? v.size : null };
+}
+
+/** The cached review walk (content + step), so a fresh page renders the panel
+ * instantly from storage instead of waiting on the mailbox fetch. */
+export function parseReviewCache(v: unknown): { step: number; review: Review | null } {
+  if (!isRecord(v)) return { step: 0, review: null };
+  return {
+    step: typeof v.step === "number" ? v.step : 0,
+    review: isReview(v.review) ? v.review : null,
+  };
 }
 
 const isChatSession = (v: unknown): v is ChatSession =>

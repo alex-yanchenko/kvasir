@@ -88,10 +88,19 @@ describe("reviewStore.load", () => {
   });
 
   it("restores a saved step and clamps a stale one past the end", async () => {
-    await loadOk(mkReview(), 1);
+    await loadOk(mkReview(), { step: 1 });
     expect(reviewStore.stepIndex()).toBe(1);
-    await loadOk(mkReview(), 9); // only 2 steps → clamp to 1
+    await loadOk(mkReview(), { step: 9 }); // only 2 steps → clamp to 1
     expect(reviewStore.stepIndex()).toBe(1);
+  });
+
+  it("renders instantly from the cached walk even when the mailbox is unreachable", async () => {
+    vi.mocked(storeGet).mockResolvedValue({ step: 1, review: mkReview() });
+    vi.mocked(api).mockResolvedValue({ ok: false }); // daemon down / 404
+    await reviewStore.load("rev-1");
+    expect(reviewStore.isOpen()).toBe(true); // shown from cache despite the failed fetch
+    expect(reviewStore.stepIndex()).toBe(1);
+    expect(reviewStore.title()).toBe("Auth flow");
   });
 
   it("stays closed when the mailbox returns nothing or an invalid review", async () => {
@@ -110,7 +119,7 @@ describe("reviewStore navigation", () => {
     await loadOk();
     reviewStore.goto(1); // step b is a different file → cross-page
     expect(reviewStore.stepIndex()).toBe(1);
-    expect(storeSet).toHaveBeenCalledWith("prw:review:rev-1", 1);
+    expect(storeSet).toHaveBeenCalledWith("prw:review:rev-1", { step: 1, review: mkReview() });
     expect(reviewStore.navigating()).toBe(true);
     expect(assign).not.toHaveBeenCalled(); // deferred so the loading state paints first
     vi.runAllTimers();
@@ -156,7 +165,7 @@ describe("reviewStore navigation", () => {
     state.review = mkReview({ id: undefined });
     state.reviewStep = 0;
     reviewStore.goto(0);
-    expect(storeSet).toHaveBeenCalledWith("prw:review:", 0);
+    expect(storeSet).toHaveBeenCalledWith("prw:review:", { step: 0, review: mkReview({ id: undefined }) });
     expect(assign).not.toHaveBeenCalled();
   });
 

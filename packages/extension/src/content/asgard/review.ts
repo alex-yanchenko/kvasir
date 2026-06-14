@@ -5,14 +5,23 @@
 // GitHub's native #L highlight land it (each step may be in a different repo).
 // State (which review, which step) is re-derived on every page load from ?prw +
 // stored step, because that navigation is a full page load that re-runs boot.
-import { isReview, type ReviewStep, stepBlobUrl } from "@prw/runes/review";
+import { isReview, type Review, type ReviewStep, stepBlobUrl } from "@prw/runes/review";
 import { api } from "../api";
 import { reviewKey } from "../keys";
 import { storeGet, storeSet } from "../muninn";
 import { chatStore } from "./chat";
+import { parseReviewCache } from "./persisted";
 import { panelStore, PANEL_TABS, state, touch } from "./store";
 
 const clamp = (index: number, length: number): number => Math.min(Math.max(index, 0), length - 1);
+
+/** Show a review: store it, clamp the step into range, open the panel on the step tab. */
+const applyReview = (review: Review): void => {
+  state.review = review;
+  state.reviewStep = clamp(state.reviewStep, review.steps.length);
+  state.reviewOpen = true;
+  panelStore.open(PANEL_TABS.WALKTHROUGH);
+};
 const strip = (html: string): string =>
   html
     .replaceAll(/<[^>]+>/g, "")
@@ -49,23 +58,27 @@ export const reviewStore = {
    * mailbox, and open the panel on the step tab. */
   async load(id: string): Promise<void> {
     state.reviewNavigating = false; // fresh page — clear any pending-nav flag
-    const saved = await storeGet(reviewKey(id));
-    state.reviewStep = typeof saved === "number" ? saved : 0;
+    // Render instantly from the cached walk (each goto caches it before navigating),
+    // so the panel shows without waiting on the network…
+    const cache = parseReviewCache(await storeGet(reviewKey(id)));
+    state.reviewStep = cache.step;
+    if (cache.review) applyReview(cache.review);
+    // …then refresh from the mailbox and re-cache. A failed fetch (e.g. daemon
+    // restarted) leaves the cached walk in place.
     const r = await api(`/review?id=${encodeURIComponent(id)}`);
     if (r.ok && isReview(r.data)) {
-      state.review = r.data;
-      state.reviewStep = clamp(state.reviewStep, r.data.steps.length);
-      state.reviewOpen = true;
-      panelStore.open(PANEL_TABS.WALKTHROUGH); // review reuses the step-tab slot
+      applyReview(r.data);
+      storeSet(reviewKey(id), { step: state.reviewStep, review: r.data });
     }
     touch();
   },
 
-  /** Go to a step: persist the index (so the reload lands here) then navigate. */
+  /** Go to a step: cache the walk + index (so the next page renders instantly and
+   * lands here), then reveal. */
   goto(index: number): void {
     if (!state.review) return;
     state.reviewStep = clamp(index, state.review.steps.length);
-    storeSet(reviewKey(state.review.id ?? ""), state.reviewStep);
+    storeSet(reviewKey(state.review.id ?? ""), { step: state.reviewStep, review: state.review });
     const step = state.review.steps[state.reviewStep];
     if (step) reveal(step);
     touch();
