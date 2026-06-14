@@ -25,6 +25,9 @@ beforeEach(() => {
     writable: true,
   });
   state.spec = null;
+  state.review = null;
+  state.reviewStep = 0;
+  state.reviewOpen = false;
   state.panel = { open: false, tab: PANEL_TABS.WALKTHROUGH, pos: null, size: null };
   pairingStore.reset(); // "unknown" → no banner unless a test sets the phase
 });
@@ -70,6 +73,40 @@ describe("Panel", () => {
     act(() => panelStore.open());
     expect(screen.getByRole("dialog", { name: "PR Walkthrough" })).toBeTruthy();
     expect(screen.getByText("Fix the thing")).toBeTruthy();
+  });
+
+  it("in review-mode (?prw) labels the tab Review and renders the review steps + title", () => {
+    Object.defineProperty(window, "location", {
+      value: new URL("https://github.com/acme/web/blob/main/src/a.ts?prw=rev-1"),
+      writable: true,
+    });
+    state.review = {
+      version: 1,
+      id: "rev-1",
+      title: "Auth flow",
+      steps: [{ id: "a", title: "Guard", body: "guard body", repo: { owner: "acme", name: "web" }, ref: "main", file: "src/a.ts" }],
+    };
+    render(<Panel />);
+    act(() => panelStore.open());
+    expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual(["Review", "Chat", "Settings"]);
+    expect(screen.getByText("Auth flow")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Guard" })).toBeTruthy();
+  });
+
+  it("falls back to a default title when the review has no title", () => {
+    Object.defineProperty(window, "location", {
+      value: new URL("https://github.com/acme/web/blob/main/src/a.ts?prw=rev-1"),
+      writable: true,
+    });
+    state.review = {
+      version: 1,
+      id: "rev-1",
+      title: "",
+      steps: [{ id: "a", title: "Guard", body: "x", repo: { owner: "acme", name: "web" }, ref: "main", file: "src/a.ts" }],
+    };
+    render(<Panel />);
+    act(() => panelStore.open());
+    expect(screen.getByText("PR Walkthrough")).toBeTruthy(); // header title fell back
   });
 
   it("closing the panel ends the tour (clears the page highlight)", () => {

@@ -1,0 +1,95 @@
+// @vitest-environment jsdom
+import type { Review } from "@prw/runes/review";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+
+vi.mock("../../../muninn", () => ({ storeGet: vi.fn(), storeSet: vi.fn(), storeRemove: vi.fn() }));
+
+import { pairingStore } from "../../pairing";
+import { reviewStore } from "../../review";
+import { PANEL_TABS, panelStore, state } from "../../store";
+import { ReviewTab } from "./ReviewTab";
+
+const mkReview = (): Review => ({
+  version: 1,
+  id: "rev-1",
+  title: "Auth flow",
+  steps: [
+    { id: "a", title: "Guard", body: "guard body", repo: { owner: "acme", name: "web" }, ref: "main", file: "src/a.ts", lines: { start: 10, end: 20 } },
+    { id: "b", title: "Server", body: "server body", repo: { owner: "acme", name: "api" }, ref: "main", file: "src/b.ts" },
+  ],
+});
+
+beforeEach(() => {
+  state.review = mkReview();
+  state.reviewStep = 0;
+  state.reviewOpen = true;
+  state.panel = { open: true, tab: PANEL_TABS.WALKTHROUGH, pos: null, size: null };
+  pairingStore.reset(); // "unknown" → ask enabled unless a test marks unpaired
+});
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
+
+describe("ReviewTab", () => {
+  it("renders an empty state when no review is loaded", () => {
+    state.review = null;
+    render(<ReviewTab />);
+    expect(screen.getByText("No review loaded.")).toBeTruthy();
+  });
+
+  it("renders the current step, its position, repo/file, and body", () => {
+    render(<ReviewTab />);
+    expect(screen.getByRole("heading", { name: "Guard" })).toBeTruthy();
+    expect(screen.getByText("acme/web · src/a.ts")).toBeTruthy();
+    expect(screen.getByText("Step 1 / 2")).toBeTruthy();
+    expect(screen.getByTestId("review-step-body").textContent).toContain("guard body");
+  });
+
+  it("disables Back at the first step and Next at the last", () => {
+    render(<ReviewTab />);
+    expect((screen.getByRole("button", { name: "Previous step" }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole("button", { name: "Next step" }) as HTMLButtonElement).disabled).toBe(false);
+    cleanup();
+    state.reviewStep = 1;
+    render(<ReviewTab />);
+    expect((screen.getByRole("button", { name: "Next step" }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole("button", { name: "Previous step" }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it("wires Next/Back/dots to the store and routes 'ask' to the chat tab", () => {
+    // a 3-step review at the middle step → Back AND Next both enabled
+    state.review = {
+      version: 1,
+      id: "rev-1",
+      title: "T",
+      steps: [
+        { id: "a", title: "A", body: "x", repo: { owner: "o", name: "n" }, file: "a.ts" },
+        { id: "b", title: "B", body: "x", repo: { owner: "o", name: "n" }, file: "b.ts" },
+        { id: "c", title: "C", body: "x", repo: { owner: "o", name: "n" }, file: "c.ts" },
+      ],
+    };
+    state.reviewStep = 1;
+    const next = vi.spyOn(reviewStore, "next").mockImplementation(() => {});
+    const back = vi.spyOn(reviewStore, "back").mockImplementation(() => {});
+    const goto = vi.spyOn(reviewStore, "goto").mockImplementation(() => {});
+    const ask = vi.spyOn(reviewStore, "askAboutStep").mockImplementation(() => {});
+    render(<ReviewTab />);
+    fireEvent.click(screen.getByRole("button", { name: "Next step" }));
+    expect(next).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole("button", { name: "Previous step" }));
+    expect(back).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole("button", { name: "Go to step 2" }));
+    expect(goto).toHaveBeenCalledWith(1);
+    fireEvent.click(screen.getByRole("button", { name: "Ask about this step" }));
+    expect(ask).toHaveBeenCalledTimes(1);
+    expect(panelStore.tab()).toBe(PANEL_TABS.CHAT);
+  });
+
+  it("disables 'ask' while unpaired", () => {
+    pairingStore.markUnpaired();
+    render(<ReviewTab />);
+    expect((screen.getByRole("button", { name: "Ask about this step" }) as HTMLButtonElement).disabled).toBe(true);
+  });
+});

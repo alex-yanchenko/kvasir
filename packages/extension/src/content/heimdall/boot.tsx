@@ -8,7 +8,9 @@ import asgardCss from "../asgard/asgard.compiled.css";
 import { connectChat } from "../asgard/chat";
 import { launcherStore } from "../asgard/launcher";
 import { pairingStore } from "../asgard/pairing";
+import { reviewStore } from "../asgard/review";
 import { bifrost } from "../bifrost";
+import { prUrl, reviewIdFromUrl } from "../keys";
 import { connectMidgard } from "../midgard/connect";
 import { connectGrip } from "../midgard/grip";
 import { initTooltips } from "../midgard/tooltip";
@@ -18,6 +20,10 @@ import { applyTheme, loadPersisted, watchUrl } from "./watch";
 
 export function boot(): void {
   if (document.querySelector("#prw-root")) return; // re-injection guard
+  // The content script matches PR pages AND any page that might carry a pushed
+  // review (?prw). Bail on everything else so we don't mount on plain GitHub pages.
+  const reviewId = reviewIdFromUrl();
+  if (!prUrl() && !reviewId) return;
 
   // Midgard listens on the Bifrost before anything sends a command; Asgard's
   // chat machine listens for the grip's completed asks.
@@ -31,7 +37,10 @@ export function boot(): void {
   applyTheme();
   void loadPersisted();
   void pairingStore.refresh(); // resolve paired/unpaired up front so the panel can prompt
-  void launcherStore.refresh();
+  // Review-mode (a pushed cross-repo review) pulls from the mailbox; a PR page runs
+  // the walkthrough generator/poll as before.
+  if (reviewId) void reviewStore.load(reviewId);
+  else void launcherStore.refresh();
   watchUrl();
 
   const host = document.createElement("div");

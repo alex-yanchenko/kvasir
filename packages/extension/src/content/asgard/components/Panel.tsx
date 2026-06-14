@@ -5,16 +5,19 @@
 import { X } from "lucide-react";
 import { useEffect, useRef, useSyncExternalStore } from "react";
 import type { JSX } from "react";
+import { activeGuide } from "../guide";
 import { useDrag } from "../hooks/useDrag";
 import { useResizePersist } from "../hooks/useResizePersist";
 import { useScrollLock } from "../hooks/useScrollLock";
 import { launcherStore } from "../launcher";
 import { pairingStore } from "../pairing";
+import { reviewStore } from "../review";
 import { getSnapshot, isPanelTab, PANEL_TABS, panelStore, subscribe, type PanelTab } from "../store";
 import { tourStore } from "../tour";
 import { Button } from "../ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { ChatTab } from "./tabs/ChatTab";
+import { ReviewTab } from "./tabs/ReviewTab";
 import { SettingsTab } from "./tabs/SettingsTab";
 import { WalkthroughTab } from "./tabs/WalkthroughTab";
 
@@ -75,7 +78,12 @@ function PanelWindow(): JSX.Element {
 
   const pos = panelStore.pos();
   const size = panelStore.size();
-  const title = launcherStore.spec()?.pr?.title ?? "PR Walkthrough";
+  // Review-mode (a pushed cross-repo review opened via ?prw) swaps the walkthrough
+  // tab for the review tab; everything else (chat, settings) is unchanged.
+  const isReview = activeGuide().kind === "review";
+  const title = isReview
+    ? (reviewStore.title() || "PR Walkthrough")
+    : (launcherStore.spec()?.pr?.title ?? "PR Walkthrough");
 
   return (
     <div
@@ -118,13 +126,13 @@ function PanelWindow(): JSX.Element {
           <TabsList className="justify-between">
             {TAB_LABELS.map((t) => (
               <TabsTrigger key={t.value} value={t.value} className="flex-1">
-                {t.label}
+                {t.value === PANEL_TABS.WALKTHROUGH && isReview ? "Review" : t.label}
               </TabsTrigger>
             ))}
           </TabsList>
         </div>
         <TabsContent value={PANEL_TABS.WALKTHROUGH} className="min-h-0">
-          <WalkthroughTab />
+          {isReview ? <ReviewTab /> : <WalkthroughTab />}
         </TabsContent>
         <TabsContent value={PANEL_TABS.CHAT} className="min-h-0">
           <ChatTab />
