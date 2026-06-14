@@ -1,93 +1,124 @@
-// A stand-in for the Mimir channel server (packages/mimir) on the same port the
-// extension's service worker (huginn.ts) hard-codes. The worker holds the
-// localhost host_permission and fetches http://localhost:8799 directly, so this
-// must be a REAL server — Playwright's page.route only intercepts page-origin
-// requests, never the worker's cross-origin fetch. Each test drives it through
-// `state`: flip `spec`/`answer`/`suggestions` to script the flow under test.
+// A stand-in for the Mimir channel server on the port the extension's service
+// worker (huginn.ts) hard-codes. It must be a REAL server — Playwright's
+// page.route only intercepts page-origin requests, never the worker's
+// cross-origin fetch.
+//
+// Crucially this does NOT hand-mirror Mimir's wire contract: it runs the REAL
+// bridge handler (createFetchHandler) over the REAL pairing + ask-broker, all of
+// which are pure Node (no Bun). The only things faked are the session-side steps
+// a human + Claude session would perform — approving the pairing code, and
+// answering a question — so the response ENVELOPES can't drift from production.
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
+import { prKey, type WalkthroughSpec } from "../packages/runes/src/index";
+import { createFetchHandler, type BridgeDeps } from "../packages/mimir/src/bridge";
+import { createAskBroker } from "../packages/mimir/src/broker";
+import { createPairing, type Pairing } from "../packages/mimir/src/pairing";
 
 const PORT = 8799;
 
 export interface BridgeState {
-  // The token the claim endpoint hands back; the worker stores it and echoes it
-  // as x-prw-token on later calls. /auth is "paired" exactly when that header is
-  // present — mirroring the real bridge holding the token in memory.
-  token: string;
-  spec: unknown | null;
   answer: string;
-  notes: string[];
   suggestions: string[];
   headSha: string;
 }
 
 export interface BridgeStub {
   state: BridgeState;
+  // The real bridge token, minted through the actual pairing handshake at startup.
+  // Seed it into the worker's storage (see fixtures.pair) to start a test "paired".
+  token: string;
+  // Publish a spec the way a generation would: keyed by its PR, served by /walkthrough.
+  setSpec: (spec: WalkthroughSpec) => void;
   close: () => Promise<void>;
 }
 
-const json = (res: ServerResponse, status: number, body: unknown): void => {
-  res.writeHead(status, {
-    "content-type": "application/json",
-    // The worker fetches with host_permissions (no CORS), but a preflight costs
-    // nothing to satisfy and keeps the stub robust to a stricter fetch path.
-    "access-control-allow-origin": "*",
-    "access-control-allow-headers": "*",
-    "access-control-allow-methods": "GET,POST,OPTIONS",
-  });
-  res.end(JSON.stringify(body));
+const toRequest = async (req: IncomingMessage): Promise<Request> => {
+  const host = req.headers.host ?? `localhost:${PORT}`;
+  const headers = new Headers();
+  for (const [key, value] of Object.entries(req.headers)) {
+    if (typeof value === "string") headers.set(key, value);
+  }
+  const method = req.method ?? "GET";
+  let body: string | undefined;
+  if (method !== "GET" && method !== "HEAD") {
+    const chunks: Buffer[] = [];
+    for await (const chunk of req) chunks.push(chunk as Buffer);
+    body = Buffer.concat(chunks).toString("utf8") || undefined;
+  }
+  return new Request(`http://${host}${req.url ?? "/"}`, { method, headers, body });
 };
 
-const route = async (req: IncomingMessage, res: ServerResponse, state: BridgeState): Promise<void> => {
-  if (req.method === "OPTIONS") {
-    json(res, 204, {});
-    return;
-  }
-  const { pathname } = new URL(req.url ?? "/", `http://localhost:${PORT}`);
-  const paired = typeof req.headers["x-prw-token"] === "string";
-
-  switch (`${req.method} ${pathname}`) {
-    case "GET /auth":
-      return paired ? json(res, 200, {}) : json(res, 401, { error: "not paired" });
-    case "POST /pair":
-      return json(res, 200, { requestId: "req-1", code: "PAIR42" });
-    case "GET /pair/claim":
-      return json(res, 200, { token: state.token });
-    case "POST /generate":
-      return json(res, 200, {});
-    case "GET /walkthrough":
-      return state.spec ? json(res, 200, state.spec) : json(res, 404, { error: "no spec" });
-    case "GET /head":
-      return json(res, 200, { headSha: state.headSha });
-    case "POST /ask":
-      return json(res, 200, { id: "ask-1" });
-    case "GET /poll":
-      return json(res, 200, { done: true, text: state.answer, timedOut: false, notes: state.notes });
-    case "POST /suggest":
-      return json(res, 200, { suggestions: state.suggestions });
-    default:
-      return json(res, 404, { error: `unhandled ${req.method} ${pathname}` });
-  }
+const sendResponse = async (res: ServerResponse, response: Response): Promise<void> => {
+  const headers: Record<string, string> = {};
+  response.headers.forEach((value, key) => {
+    headers[key] = value;
+  });
+  res.writeHead(response.status, headers);
+  res.end(await response.text());
 };
 
 export async function startBridge(overrides: Partial<BridgeState> = {}): Promise<BridgeStub> {
-  const state: BridgeState = {
-    token: "e2e-token",
-    spec: null,
-    answer: "",
-    notes: [],
-    suggestions: [],
-    headSha: "sha-baseline",
-    ...overrides,
+  const state: BridgeState = { answer: "", suggestions: [], headSha: "sha-baseline", ...overrides };
+  const specs = new Map<string, WalkthroughSpec>();
+
+  // Real pairing, but the "user" instantly approves the code each /pair returns —
+  // standing in for the confirm-in-your-session step.
+  const realPairing = createPairing({ pushEvent: async () => {} });
+  const pairing: Pairing = {
+    ...realPairing,
+    request: (name) => {
+      const r = realPairing.request(name);
+      if (r.ok) realPairing.approve(r.code);
+      return r;
+    },
   };
+
+  // Real ask broker, but the "session" answers immediately with state.answer —
+  // standing in for Claude calling answer_question. /poll then streams it back.
+  const broker = createAskBroker({ timeoutMs: 30_000, pushEvent: async () => {} });
+
+  const deps: BridgeDeps = {
+    specs,
+    pairing,
+    open: (eventType, content, meta) => {
+      const id = broker.open(eventType, content, meta);
+      queueMicrotask(() => broker.finish(id, state.answer));
+      return id;
+    },
+    ask: async () => JSON.stringify(state.suggestions),
+    snapshot: (id) => broker.snapshot(id),
+    pushEvent: async () => {},
+    getHeadSha: async () => state.headSha,
+  };
+
+  // Mint a real token via the actual handshake (request auto-approves, then claim),
+  // so a seeded-token test is genuinely paired against this pairing instance.
+  const booted = pairing.request("e2e harness");
+  const claimed = booted.ok ? pairing.claim(booted.requestId) : null;
+  const token = claimed && "token" in claimed ? claimed.token : "";
+
+  const handler = createFetchHandler(deps);
   const server: Server = createServer((req, res) => {
-    void route(req, res, state).catch(() => json(res, 500, { error: "stub crash" }));
+    void (async () => {
+      try {
+        await sendResponse(res, await handler(await toRequest(req)));
+      } catch {
+        res.writeHead(500).end();
+      }
+    })();
   });
   await new Promise<void>((resolve, reject) => {
     server.once("error", reject);
     server.listen(PORT, resolve);
   });
+
   return {
     state,
+    token,
+    setSpec: (spec) => {
+      specs.clear();
+      specs.set(prKey(spec.pr.url), spec);
+    },
     close: () =>
       new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve()))),
   };

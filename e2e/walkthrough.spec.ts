@@ -19,8 +19,8 @@ test.describe("extension on a PR page", () => {
   });
 
   test("renders the walkthrough and highlights the step's diff rows", async ({ context, bridge }) => {
-    bridge.state.spec = makeSpec();
-    await pair(context);
+    bridge.setSpec(makeSpec());
+    await pair(context, bridge.token);
 
     const page = await context.newPage();
     await page.route("https://github.com/**", (route) =>

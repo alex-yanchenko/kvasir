@@ -5,6 +5,8 @@
 // (midgard.ts) finds rows by that contract, so a spec step's anchor + line range
 // must line up with what's rendered here.
 
+import type { WalkthroughSpec } from "../packages/runes/src/spec";
+
 export const PR_URL = "https://github.com/acme/widget/pull/1/files";
 
 interface DiffLine {
@@ -61,7 +63,7 @@ ${withDiff ? FILES.map(fileBlock).join("\n") : ""}
 // A walkthrough spec whose step anchors + line ranges match prPageHtml's diff, so
 // opening the Walkthrough tab highlights real rows. Loosely typed — the wire
 // contract (and its zod validation) lives in @prw/runes/spec.
-export const makeSpec = () => ({
+export const makeSpec = (): WalkthroughSpec => ({
   version: 1,
   pr: {
     url: "https://github.com/acme/widget/pull/1",

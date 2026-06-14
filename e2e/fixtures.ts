@@ -38,10 +38,11 @@ async function serviceWorker(context: BrowserContext): Promise<Worker> {
   return context.serviceWorkers()[0] ?? (await context.waitForEvent("serviceworker"));
 }
 
-// Pretend the pairing handshake already happened: drop the bridge token into the
-// worker's chrome.storage so /auth answers "paired" on boot. Must run before the
-// page navigates (pairingStore reads the token once, at boot).
-export async function pair(context: BrowserContext, token = "e2e-token"): Promise<void> {
+// Pretend the pairing handshake already happened: drop the bridge's real token
+// (bridge.token) into the worker's chrome.storage so the bridge's pairing.verify
+// accepts it and /auth answers "paired" on boot. Must run before the page
+// navigates (pairingStore reads the token once, at boot).
+export async function pair(context: BrowserContext, token: string): Promise<void> {
   const worker = await serviceWorker(context);
   await worker.evaluate((value) => chrome.storage.local.set({ "prw:token": value }), token);
 }

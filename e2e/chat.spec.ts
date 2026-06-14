@@ -5,9 +5,9 @@ import { PR_URL, prPageHtml, makeSpec } from "./pr-page";
 // clickable citation that jumps to (and highlights) the cited diff row.
 test.describe("chat flow", () => {
   test("answers a question and its citation highlights the cited code", async ({ context, bridge }) => {
-    bridge.state.spec = makeSpec();
+    bridge.setSpec(makeSpec());
     bridge.state.answer = "The change lands in src/foo.ts:2, where compute() is first called.";
-    await pair(context);
+    await pair(context, bridge.token);
 
     const page = await context.newPage();
     await page.route("https://github.com/**", (route) =>

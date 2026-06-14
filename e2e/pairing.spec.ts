@@ -21,10 +21,10 @@ test.describe("pairing flow", () => {
     await expect(pairButton).toBeVisible();
     await pairButton.click();
 
-    // /pair → { code: "PAIR42" }; the banner shows it for the user to confirm.
-    await expect(page.getByText("PAIR42")).toBeVisible();
+    // /pair → a one-time code; the banner shows "Confirm code <code>" while it polls.
+    await expect(page.getByText(/Confirm code/)).toBeVisible();
 
-    // /pair/claim returns the token on the next poll (~1s) → paired → banner gone.
+    // The (auto-approved) claim returns the token on the next poll (~1s) → paired → banner gone.
     await expect(page.getByText(/Confirm code|Not paired/)).toBeHidden({ timeout: 5000 });
   });
 });
