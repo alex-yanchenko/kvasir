@@ -37,7 +37,12 @@ export function Tooltips(): JSX.Element {
       );
     };
     const out = (event: Event) => {
-      if (event.target instanceof Element && event.target.closest("[data-prw-tip]")) cancel();
+      if (!(event instanceof MouseEvent) || !(event.target instanceof Element)) return;
+      const owner = event.target.closest("[data-prw-tip]");
+      // mouseout fires on parent->child crossings (the icon svg); don't cancel while
+      // still inside the same tip owner.
+      if (!owner || (event.relatedTarget instanceof Node && owner.contains(event.relatedTarget))) return;
+      cancel();
     };
     root.addEventListener("mouseover", over);
     root.addEventListener("mouseout", out);

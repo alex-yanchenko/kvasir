@@ -41,7 +41,11 @@ export function parseReviewCache(v: unknown): { step: number; review: Review | n
 }
 
 const isChatSession = (v: unknown): v is ChatSession =>
-  isRecord(v) && typeof v.key === "string" && Array.isArray(v.messages);
+  isRecord(v) &&
+  typeof v.key === "string" &&
+  typeof v.text === "string" &&
+  (v.file === null || typeof v.file === "string") &&
+  Array.isArray(v.messages);
 
 export const isChatSessionArray = (v: unknown): v is ChatSession[] =>
   Array.isArray(v) && v.every(isChatSession);

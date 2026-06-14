@@ -147,4 +147,25 @@ describe("grip ignores non-code rows", () => {
     hunk.querySelector("td")!.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
     expect(grip()!.style.top).toBe(before); // unchanged — no grip for a numberless row
   });
+  it("self-hover on the grip/askbar and mid-drag hovers do not collapse the affordances", () => {
+    hoverRow(rowsOf(container)[0]);
+    expect(grip()!.style.display).toBe("flex");
+    grip()!.dispatchEvent(new MouseEvent("mouseover", { bubbles: true })); // hovering the grip itself
+    expect(grip()!.style.display).toBe("flex");
+
+    dragFrom(rowsOf(container)[0]);
+    expect(askbar()!.style.display).toBe("flex");
+    askbar()!.dispatchEvent(new MouseEvent("mouseover", { bubbles: true })); // hovering the ask bar
+    expect(askbar()!.style.display).toBe("flex");
+
+    // a mouseover fired mid-drag (picking guard) is ignored — the grip doesn't reposition
+    hoverRow(rowsOf(container)[1]);
+    grip()!.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+    const top = grip()!.style.top;
+    rowsOf(container)[0]
+      .querySelector("td")!
+      .dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+    expect(grip()!.style.top).toBe(top);
+    document.dispatchEvent(new MouseEvent("mouseup", { clientY: 0 }));
+  });
 });

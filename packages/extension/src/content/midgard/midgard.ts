@@ -170,9 +170,12 @@ function loadDiffIfPresent(cont: Element): boolean {
 // this lands on the first try; a lazy/collapsed or "Load Diff" file makes us poll
 // (clicking Load Diff to force the render) until the rows appear (~1.6s). Already-
 // on-screen rows just (re)paint — no scroll — so a repeat press is a no-op.
+let showGeneration = 0;
 export function showStep(step: HighlightableStep): void {
+  const generation = ++showGeneration; // a newer showStep/clear cancels this loop's retries
   let tries = 0;
   const run = () => {
+    if (generation !== showGeneration) return;
     const cont = document.getElementById(step.anchor);
     const rows = highlightStep(step);
     if (cont && rows.length > 0) {
@@ -235,6 +238,7 @@ export function jumpToRef(file: string, start: number | null, end: number | null
     cont.scrollIntoView({ block: "start" });
     let tries = 0;
     const seat = (): void => {
+      if (!cont.isConnected) return; // SPA nav detached the container — stop seating
       const sp = scrollParentOf(cont);
       const target = sp ? Math.max(sp.getBoundingClientRect().top, 0) : 0;
       const off = cont.getBoundingClientRect().top - target - stickyOverlayHeight(cont, target);

@@ -41,7 +41,12 @@ export function initTooltips(): void {
     tipTimer = setTimeout(() => showTip(t), 350);
   });
   document.addEventListener("mouseout", (event) => {
-    if (event.target instanceof Element && event.target.closest("[data-prw-tip]")) hideTip();
+    if (!(event instanceof MouseEvent) || !(event.target instanceof Element)) return;
+    const owner = event.target.closest("[data-prw-tip]");
+    // mouseout bubbles and fires when the cursor crosses into a child (e.g. the icon
+    // <svg>); don't hide while still inside the same tip owner, or the tip flickers.
+    if (!owner || (event.relatedTarget instanceof Node && owner.contains(event.relatedTarget))) return;
+    hideTip();
   });
   document.addEventListener("mousedown", hideTip, true);
 }

@@ -31,9 +31,10 @@ export function RegenDialog({ onClose }: Readonly<{ onClose: () => void }>): JSX
       <div
         role="dialog"
         aria-modal="true"
+        aria-labelledby="prw-regen-title"
         className="prw-dialog w-[380px] max-w-[92vw] rounded-xl border border-border bg-background p-4 text-foreground shadow-2xl"
       >
-        <div className="mb-1 text-base font-semibold">
+        <div id="prw-regen-title" className="mb-1 text-base font-semibold">
           {newCommits ? "New commits since this review" : "Regenerate this review"}
         </div>
         <p className="mb-3 text-sm text-muted-foreground">

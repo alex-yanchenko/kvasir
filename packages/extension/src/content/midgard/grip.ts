@@ -35,7 +35,7 @@ interface Selection {
 export function connectGrip(bifrost: Bifrost): void {
   let grip: HTMLButtonElement | null = null;
   let askButton: HTMLDivElement | null = null;
-  let hoverInfo: { row: Element; line: number; container: Element } | null = null;
+  let hoverInfo: { row: Element; container: Element } | null = null;
   let picking = false;
   let sel: Selection | null = null;
   let hasActiveStep = false;
@@ -89,7 +89,7 @@ export function connectGrip(bifrost: Bifrost): void {
     return askButton;
   }
 
-  function showGripAt(row: Element, container: Element, line: number): void {
+  function showGripAt(row: Element, container: Element): void {
     ensureGrip();
     if (!grip) return;
     const r = row.getBoundingClientRect();
@@ -97,7 +97,7 @@ export function connectGrip(bifrost: Bifrost): void {
     grip.style.left = `${r.left + 10}px`;
     grip.style.top = `${r.top + (r.height - 20) / 2}px`;
     grip.style.display = "flex";
-    hoverInfo = { row, line, container };
+    hoverInfo = { row, container };
   }
 
   function showAskButton(rows: Element[]): void {
@@ -177,7 +177,7 @@ export function connectGrip(bifrost: Bifrost): void {
     if (row) {
       const container = diffContainerOf(row);
       const line = lineOfRow(row);
-      if (container && line != null) showGripAt(row, container, line);
+      if (container && line != null) showGripAt(row, container);
     } else if (grip && !target.closest('[id^="diff-"]')) {
       grip.style.display = "none";
     }

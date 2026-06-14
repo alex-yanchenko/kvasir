@@ -92,4 +92,21 @@ describe("initTooltips", () => {
     vi.advanceTimersByTime(350);
     expect(tip()!.style.display).toBe("none");
   });
+  it("ignores non-element and non-MouseEvent hovers/outs", () => {
+    document.dispatchEvent(new MouseEvent("mouseover")); // target: document, not an Element
+    document.dispatchEvent(new MouseEvent("mouseout")); // MouseEvent, non-Element target
+    document.dispatchEvent(new Event("mouseout")); // not a MouseEvent at all
+    vi.advanceTimersByTime(350);
+    expect(tip()?.style.display ?? "none").toBe("none");
+  });
+
+  it("does not hide when the cursor crosses from the tipped element into its own child", () => {
+    const icon = document.createElement("span");
+    btn.append(icon);
+    hover(btn);
+    vi.advanceTimersByTime(350);
+    expect(tip()!.style.display).toBe("block");
+    btn.dispatchEvent(new MouseEvent("mouseout", { bubbles: true, relatedTarget: icon }));
+    expect(tip()!.style.display).toBe("block"); // child-enter is not a real leave
+  });
 });

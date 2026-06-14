@@ -158,7 +158,7 @@ export const launcherStore = {
     const pr = prUrl();
     if (genPoll) clearInterval(genPoll);
     genPoll = null;
-    storeRemove(genKey(pr));
+    if (pr) storeRemove(genKey(pr)); // genKey(null) would remove a phantom "prw:gen:null"
     generating = false;
     touch();
   },

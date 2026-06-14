@@ -68,11 +68,13 @@ export const pairingStore = {
   async refresh(): Promise<void> {
     if (state.phase !== "unknown") return;
     const token = await storeGet(TOKEN_KEY);
+    if (state.phase !== "unknown") return; // pair() may have started during the await
     if (typeof token !== "string" || !token) {
       set({ phase: "unpaired" });
       return;
     }
     const r = await api("/auth");
+    if (state.phase !== "unknown") return; // pair() may have started during the await
     if (r.ok) {
       set({ phase: "paired" });
     } else {
@@ -105,6 +107,7 @@ export const pairingStore = {
   /** Ask the bridge to pair, show the code, poll the claim until the token lands. */
   async pair(): Promise<void> {
     const r = await api("/pair", "POST", { name: "PR Walkthrough Chrome extension" });
+    if (state.phase === "paired") return; // a concurrent refresh() resolved while the POST was in flight
     const request = r.ok ? requestIdOf(r.data) : null;
     if (!request) {
       const detail =

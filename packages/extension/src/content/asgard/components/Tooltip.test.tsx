@@ -114,4 +114,15 @@ describe("Tooltips", () => {
     });
     expect(document.querySelector(".prw-tip")).toBeNull();
   });
+  it("does not cancel a pending tip when the cursor moves into the tipped element's own child", () => {
+    const btn = setup();
+    const icon = document.createElement("span");
+    btn.append(icon);
+    fireEvent.mouseOver(btn);
+    fireEvent.mouseOut(btn, { relatedTarget: icon }); // button -> its own icon, not a real leave
+    act(() => {
+      vi.advanceTimersByTime(TIP_DELAY_MS);
+    });
+    expect(document.querySelector(".prw-tip")).toBeTruthy();
+  });
 });

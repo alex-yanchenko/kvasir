@@ -5,6 +5,7 @@ vi.mock("../api", () => ({ api: vi.fn() }));
 vi.mock("../muninn", () => ({ storeGet: vi.fn(), storeSet: vi.fn(), storeRemove: vi.fn() }));
 
 import { api } from "../api";
+import type { BridgeResponse } from "../api";
 import { storeGet, storeRemove, storeSet } from "../muninn";
 import { CLAIM_POLL_MS, CLAIM_POLL_TRIES, pairingStore } from "./pairing";
 
@@ -161,5 +162,37 @@ describe("pairingStore", () => {
     await vi.advanceTimersByTimeAsync(CLAIM_POLL_MS * (CLAIM_POLL_TRIES + 1));
     await pending;
     expect(pairingStore.state()).toEqual({ phase: "error", message: "pairing timed out — try again" });
+  });
+  it("refresh bails after the token read if pair() already left the unknown phase", async () => {
+    let releaseToken!: (v: unknown) => void;
+    vi.mocked(storeGet).mockReturnValueOnce(new Promise((r) => (releaseToken = r)));
+    const pending = pairingStore.refresh();
+    pairingStore.markUnpaired(); // phase -> unpaired while storeGet is in flight
+    releaseToken("tok");
+    await pending;
+    expect(pairingStore.state()).toEqual({ phase: "unpaired" });
+    expect(vi.mocked(api)).not.toHaveBeenCalled(); // bailed before the /auth round-trip
+  });
+
+  it("refresh bails after /auth if the phase already left unknown (no clobber to paired)", async () => {
+    vi.mocked(storeGet).mockResolvedValue("tok");
+    let releaseAuth!: (v: BridgeResponse) => void;
+    vi.mocked(api).mockReturnValueOnce(new Promise<BridgeResponse>((r) => (releaseAuth = r)));
+    const pending = pairingStore.refresh();
+    await vi.advanceTimersByTimeAsync(0); // resolve storeGet, suspend on /auth
+    pairingStore.markUnpaired(); // phase -> unpaired while /auth is in flight
+    releaseAuth({ ok: true });
+    await pending;
+    expect(pairingStore.state()).toEqual({ phase: "unpaired" }); // not overwritten to paired
+  });
+
+  it("pair bails if a concurrent refresh already resolved to paired during the POST", async () => {
+    vi.mocked(storeGet).mockResolvedValue("tok");
+    vi.mocked(api).mockResolvedValue({ ok: true, data: { paired: true } });
+    await pairingStore.recheck(); // phase -> paired
+    expect(pairingStore.state().phase).toBe("paired");
+    vi.mocked(api).mockResolvedValue({ ok: true, data: { requestId: "r", code: "ABC234" } });
+    await pairingStore.pair(); // POST returns; phase already paired -> early return
+    expect(pairingStore.state()).toEqual({ phase: "paired" }); // not flipped to waiting
   });
 });
