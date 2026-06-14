@@ -22,12 +22,23 @@ const strip = (html: string): string =>
 /** Navigate the tab to a step's code; a full load re-runs boot, which restores
  * us at this step (the index was persisted before we left). */
 const reveal = (step: ReviewStep): void => {
-  if (state.review?.id) globalThis.location.assign(stepBlobUrl(step, state.review.id));
+  const id = state.review?.id;
+  if (!id) return;
+  const target = new URL(stepBlobUrl(step, id));
+  const samePage =
+    decodeURIComponent(target.pathname) === decodeURIComponent(globalThis.location.pathname);
+  if (samePage) {
+    globalThis.location.hash = target.hash; // same file → move GitHub's #L highlight, no reload
+    return;
+  }
+  state.reviewNavigating = true; // different file → loading state, then a full navigation
+  setTimeout(() => globalThis.location.assign(target.href), 0);
 };
 
 export const reviewStore = {
   kind: "review" as const,
   isOpen: (): boolean => state.reviewOpen,
+  navigating: (): boolean => state.reviewNavigating,
   steps: (): ReviewStep[] => state.review?.steps ?? [],
   stepIndex: (): number => state.reviewStep,
   stepCount: (): number => state.review?.steps.length ?? 0,
@@ -37,6 +48,7 @@ export const reviewStore = {
   /** Boot/refresh in review-mode: restore the saved step, pull the review from the
    * mailbox, and open the panel on the step tab. */
   async load(id: string): Promise<void> {
+    state.reviewNavigating = false; // fresh page — clear any pending-nav flag
     const saved = await storeGet(reviewKey(id));
     state.reviewStep = typeof saved === "number" ? saved : 0;
     const r = await api(`/review?id=${encodeURIComponent(id)}`);

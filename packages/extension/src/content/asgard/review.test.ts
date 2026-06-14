@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import type { Review } from "@prw/runes/review";
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 vi.mock("../api", () => ({ api: vi.fn() }));
 vi.mock("../muninn", () => ({ storeGet: vi.fn(), storeSet: vi.fn(), storeRemove: vi.fn() }));
@@ -33,14 +33,24 @@ const mkReview = (over: Partial<Review> = {}): Review => ({
 let assign: ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
+  vi.useFakeTimers(); // reveal defers the cross-file navigation via setTimeout
   state.review = null;
   state.reviewStep = 0;
   state.reviewOpen = false;
+  state.reviewNavigating = false;
   state.panel = { open: false, tab: "walkthrough", pos: null, size: null };
   vi.mocked(storeGet).mockResolvedValue(null);
   assign = vi.fn();
-  Object.defineProperty(window, "location", { value: { assign, href: "https://github.com" }, writable: true });
+  // A page whose path matches no step's blob → reveal treats every step as cross-file.
+  Object.defineProperty(window, "location", {
+    value: { pathname: "/elsewhere", hash: "", href: "https://github.com/elsewhere", assign },
+    writable: true,
+    configurable: true,
+  });
   vi.spyOn(chatStore, "openSelection").mockImplementation(() => {});
+});
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 const loadOk = async (review = mkReview(), saved: unknown = null): Promise<void> => {
@@ -96,12 +106,24 @@ describe("reviewStore.load", () => {
 });
 
 describe("reviewStore navigation", () => {
-  it("goto persists the index and navigates to the step's blob", async () => {
+  it("goto a cross-file step flags loading, then navigates on the next tick", async () => {
     await loadOk();
-    reviewStore.goto(1);
+    reviewStore.goto(1); // step b is a different file → cross-page
     expect(reviewStore.stepIndex()).toBe(1);
     expect(storeSet).toHaveBeenCalledWith("prw:review:rev-1", 1);
+    expect(reviewStore.navigating()).toBe(true);
+    expect(assign).not.toHaveBeenCalled(); // deferred so the loading state paints first
+    vi.runAllTimers();
     expect(assign).toHaveBeenCalledWith("https://github.com/acme/api/blob/main/src/b.ts?prw=rev-1");
+  });
+
+  it("goto a step in the current file just moves the #L highlight (no reload)", async () => {
+    await loadOk();
+    globalThis.location.pathname = "/acme/web/blob/main/src/a.ts"; // we're already on step a's file
+    reviewStore.goto(0);
+    expect(globalThis.location.hash).toBe("#L10-L20");
+    expect(reviewStore.navigating()).toBe(false);
+    expect(assign).not.toHaveBeenCalled();
   });
 
   it("next/back move within bounds and no-op at the edges", async () => {
@@ -120,6 +142,14 @@ describe("reviewStore navigation", () => {
     reviewStore.goto(1);
     expect(assign).not.toHaveBeenCalled();
     expect(reviewStore.stepIndex()).toBe(0);
+  });
+
+  it("clears the navigating flag on a fresh page load", async () => {
+    await loadOk();
+    reviewStore.goto(1);
+    expect(reviewStore.navigating()).toBe(true);
+    await loadOk(); // boot on the new page
+    expect(reviewStore.navigating()).toBe(false);
   });
 
   it("does not navigate when the review has no id (still persists)", () => {

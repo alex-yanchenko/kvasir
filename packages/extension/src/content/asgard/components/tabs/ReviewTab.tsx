@@ -4,7 +4,7 @@
 // (reviewStore.goto/next/back), letting GitHub's native #L highlight land each
 // step. Chat is reached the same way as the walkthrough — through activeGuide().
 import { renderMarkdown } from "@prw/runes/markdown";
-import { ChevronLeft, ChevronRight, MessageSquare } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, MessageSquare } from "lucide-react";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import type { JSX } from "react";
 import { pairingStore } from "../../pairing";
@@ -31,6 +31,7 @@ export function ReviewTab(): JSX.Element {
 
   const atFirst = index === 0;
   const atLast = index >= count - 1;
+  const navigating = reviewStore.navigating(); // a cross-file step is loading a new page
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center gap-2 border-b border-border px-3 py-2">
@@ -89,7 +90,7 @@ export function ReviewTab(): JSX.Element {
           variant="ghost"
           size="sm"
           aria-label="Previous step"
-          disabled={atFirst}
+          disabled={atFirst || navigating}
           onClick={() => reviewStore.back()}
         >
           <ChevronLeft /> Back
@@ -100,6 +101,7 @@ export function ReviewTab(): JSX.Element {
               key={dotIndex}
               aria-label={`Go to step ${dotIndex + 1}`}
               data-prw-tip={`Step ${dotIndex + 1}`}
+              disabled={navigating}
               onClick={() => reviewStore.goto(dotIndex)}
               className={
                 "h-1.5 cursor-pointer rounded-full transition-all " +
@@ -112,10 +114,10 @@ export function ReviewTab(): JSX.Element {
           variant="default"
           size="sm"
           aria-label="Next step"
-          disabled={atLast}
+          disabled={atLast || navigating}
           onClick={() => reviewStore.next()}
         >
-          Next <ChevronRight />
+          {navigating ? <Loader2 className="animate-spin" /> : <>Next <ChevronRight /></>}
         </Button>
       </div>
     </div>

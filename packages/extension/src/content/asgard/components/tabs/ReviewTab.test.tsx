@@ -24,6 +24,7 @@ beforeEach(() => {
   state.review = mkReview();
   state.reviewStep = 0;
   state.reviewOpen = true;
+  state.reviewNavigating = false;
   state.panel = { open: true, tab: PANEL_TABS.WALKTHROUGH, pos: null, size: null };
   pairingStore.reset(); // "unknown" → ask enabled unless a test marks unpaired
 });
@@ -100,6 +101,14 @@ describe("ReviewTab", () => {
     fireEvent.click(screen.getByRole("button", { name: "Ask about this step" }));
     expect(ask).toHaveBeenCalledTimes(1);
     expect(panelStore.tab()).toBe(PANEL_TABS.CHAT);
+  });
+
+  it("shows a loading state on the nav while a cross-file step is navigating", () => {
+    state.reviewNavigating = true;
+    render(<ReviewTab />);
+    expect((screen.getByRole("button", { name: "Next step" }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole("button", { name: "Previous step" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.queryByText("Next")).toBeNull(); // label replaced by the spinner
   });
 
   it("disables 'ask' while unpaired", () => {

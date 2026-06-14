@@ -46,6 +46,10 @@ export const state: {
   review: Review | null;
   reviewStep: number;
   reviewOpen: boolean;
+  /** True between clicking a step that lives in a different file and the page
+   * navigation that follows — drives a loading state so the nav doesn't feel like
+   * an unexplained flash. Reset on every fresh page load. */
+  reviewNavigating: boolean;
   theme: string; // "auto" | "light" | "dark"
   hlStyle: string; // "tint" | "github"
   tourState: TourState;
@@ -57,6 +61,7 @@ export const state: {
   review: null,
   reviewStep: 0,
   reviewOpen: false,
+  reviewNavigating: false,
   theme: localStorage.getItem("prwTheme") || "auto",
   hlStyle: localStorage.getItem("prwHl") || "tint",
   tourState: { step: 0, pos: null, size: null },
