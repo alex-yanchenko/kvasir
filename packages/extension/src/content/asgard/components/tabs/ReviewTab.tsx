@@ -5,7 +5,7 @@
 // step. Chat is reached the same way as the walkthrough — through activeGuide().
 import { renderMarkdown } from "@prw/runes/markdown";
 import { ChevronLeft, ChevronRight, MessageSquare } from "lucide-react";
-import { useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import type { JSX } from "react";
 import { pairingStore } from "../../pairing";
 import { reviewStore } from "../../review";
@@ -14,9 +14,12 @@ import { Button } from "../../ui/button";
 
 export function ReviewTab(): JSX.Element {
   useSyncExternalStore(subscribe, getSnapshot);
+  const [showDetail, setShowDetail] = useState(false);
   const step = reviewStore.step();
   const index = reviewStore.stepIndex();
   const count = reviewStore.stepCount();
+  // Collapse details when the step changes (mirrors the walkthrough tab).
+  useEffect(() => setShowDetail(false), [index]);
 
   if (!step) {
     return (
@@ -60,6 +63,25 @@ export function ReviewTab(): JSX.Element {
           data-testid="review-step-body"
           dangerouslySetInnerHTML={{ __html: renderMarkdown(step.body) }}
         />
+        {step.detail && (
+          <>
+            <Button
+              variant="link"
+              size="sm"
+              className="mt-2 h-auto p-0"
+              onClick={() => setShowDetail((d) => !d)}
+            >
+              {showDetail ? "Hide details" : "Show details"}
+            </Button>
+            {showDetail && (
+              <div
+                className="prw-prose mt-2 border-t border-border pt-2 text-sm"
+                data-testid="review-step-detail"
+                dangerouslySetInnerHTML={{ __html: renderMarkdown(step.detail) }}
+              />
+            )}
+          </>
+        )}
       </div>
 
       <div className="flex items-center gap-2 border-t border-border px-3 py-2">

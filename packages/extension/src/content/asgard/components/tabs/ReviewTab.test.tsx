@@ -45,6 +45,21 @@ describe("ReviewTab", () => {
     expect(screen.getByText("acme/web · src/a.ts")).toBeTruthy();
     expect(screen.getByText("Step 1 / 2")).toBeTruthy();
     expect(screen.getByTestId("review-step-body").textContent).toContain("guard body");
+    expect(screen.queryByRole("button", { name: "Show details" })).toBeNull(); // step has no detail
+  });
+
+  it("shows a details toggle only when the step has detail, and expands it", () => {
+    state.review = {
+      version: 1,
+      id: "rev-1",
+      title: "T",
+      steps: [{ id: "a", title: "A", body: "summary", detail: "the deep detail", repo: { owner: "o", name: "n" }, file: "a.ts" }],
+    };
+    state.reviewStep = 0;
+    render(<ReviewTab />);
+    expect(screen.queryByTestId("review-step-detail")).toBeNull(); // collapsed by default
+    fireEvent.click(screen.getByRole("button", { name: "Show details" }));
+    expect(screen.getByTestId("review-step-detail").textContent).toContain("the deep detail");
   });
 
   it("disables Back at the first step and Next at the last", () => {

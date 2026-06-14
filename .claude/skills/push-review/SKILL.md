@@ -13,17 +13,27 @@ it — you do not need to own the bridge or be paired.
 ## 1. Build the Review JSON
 
 One step per distinct thing you explained. Each step pins **real code** so the
-extension can jump to it. Resolve the locating fields from the repos on disk:
+extension can jump to it. The blob link 404s if the path/ref is wrong, so
+**ground every locating field in the actual repo — never infer a path:**
 
 - `repo.owner` / `repo.name` — from the repo's GitHub remote. Per repo:
   `git -C <repo-dir> remote get-url origin` → parse `owner/name`.
-- `ref` — the branch or commit to link against. Default to the current branch:
-  `git -C <repo-dir> rev-parse --abbrev-ref HEAD` (or a sha for a pinned link).
-- `file` — repo-relative path of the code the step is about.
-- `lines` — the `{start,end}` line range to highlight (the new/right side).
-- `body` — markdown explanation (full prose; this is a user-facing artifact).
-- `detail?` — deeper notes shown on expand. `highlight?` — fallback substrings.
-  `suggestions?` — follow-up questions.
+- `ref` — a branch or commit that ACTUALLY CONTAINS the file. Default to the
+  checked-out commit sha (`git -C <repo-dir> rev-parse HEAD`) so the link is
+  stable, or the branch name if you confirmed the file is on it.
+- `file` — repo-relative path. **Verify it exists at that ref before adding the
+  step:** `git -C <repo-dir> ls-files --error-unmatch <path>` (or
+  `gh api repos/<owner>/<name>/contents/<path>?ref=<ref>`). If it doesn't
+  resolve, fix the path — do not ship a step whose file you haven't confirmed.
+- `lines` — the `{start,end}` line range to highlight (the new/right side),
+  read from the real file (not guessed).
+- `body` — a CONCISE summary (1-3 sentences): what this code does / why it
+  matters. Shown by default. Full prose, user-facing.
+- `detail` — the in-depth part shown on "Show details": edge cases, rationale,
+  gotchas, how it connects to other steps. Author this whenever there's depth
+  beyond the one-line summary (most steps deserve it) — body is the headline,
+  detail is the substance.
+- `highlight?` — fallback substrings. `suggestions?` — follow-up questions.
 
 Shape (the wire contract is `@prw/runes` `ReviewSchema` — server validates it and
 returns the exact failing field if anything's off):
