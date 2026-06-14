@@ -22,7 +22,7 @@ One step per distinct thing you explained. For each step, you only provide:
 - `file` — repo-relative path of the code (the builder verifies it exists).
 - `locator` — **how to find the lines, by VERBATIM snippet you actually read** (not
   line numbers): `{ "from": "<a unique line in the region>", "to": "<the last
-  line of the region>" }`. `to` is optional (single line). The builder greps
+line of the region>" }`. `to` is optional (single line). The builder greps
   these in the file → real line numbers. Quote real text — if it's not in the
   file, the build fails loudly (which means you had the wrong file/snippet).
   - Escape hatch: `{ "lines": { "start": N, "end": M } }` if you genuinely have

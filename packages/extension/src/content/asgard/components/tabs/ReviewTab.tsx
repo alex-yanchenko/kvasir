@@ -117,7 +117,13 @@ export function ReviewTab(): JSX.Element {
           disabled={atLast || navigating}
           onClick={() => reviewStore.next()}
         >
-          {navigating ? <Loader2 className="animate-spin" /> : <>Next <ChevronRight /></>}
+          {navigating ? (
+            <Loader2 className="animate-spin" />
+          ) : (
+            <>
+              Next <ChevronRight />
+            </>
+          )}
         </Button>
       </div>
     </div>

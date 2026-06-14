@@ -68,7 +68,12 @@ describe("buildDiscussion", () => {
       { user: { login: "carol", type: "User" }, body: "third", created_at: "2026-03-03" },
     ];
     const reviews: GhReview[] = [
-      { user: { login: "bot-ci", type: "Bot" }, body: "first", state: "COMMENTED", submitted_at: "2026-03-01" },
+      {
+        user: { login: "bot-ci", type: "Bot" },
+        body: "first",
+        state: "COMMENTED",
+        submitted_at: "2026-03-01",
+      },
     ];
     const inline: GhInline[] = [
       {

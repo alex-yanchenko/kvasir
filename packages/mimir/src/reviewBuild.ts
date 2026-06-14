@@ -64,7 +64,9 @@ export function lineRange(content: string, locator: Locator): { start: number; e
   const to = locator.to; // capture so the narrowing survives into the closure
   const relativeEnd = lines.slice(startIndex).findIndex((line) => line.includes(to));
   if (relativeEnd === -1) {
-    throw new ReviewBuildError(`locator.to not found at or after locator.from: ${JSON.stringify(locator.to)}`);
+    throw new ReviewBuildError(
+      `locator.to not found at or after locator.from: ${JSON.stringify(locator.to)}`,
+    );
   }
   return { start: startIndex + 1, end: startIndex + 1 + relativeEnd };
 }

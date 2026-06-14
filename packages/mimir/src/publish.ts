@@ -35,7 +35,12 @@ export function preparePublish(rawSpec: unknown, state: PublishState): PublishOu
   // with the list so the author adds steps, then accept regardless — so a genuinely
   // step-less file (or a stubborn model) can't loop generation forever.
   const manifest = state.manifests.get(key);
-  const uncovered = manifest ? uncoveredFiles(manifest, spec.steps.map((step) => step.file)) : [];
+  const uncovered = manifest
+    ? uncoveredFiles(
+        manifest,
+        spec.steps.map((step) => step.file),
+      )
+    : [];
   const nudges = state.nudges.get(key) ?? 0;
   if (uncovered.length > 0 && nudges < state.maxNudges) {
     return {

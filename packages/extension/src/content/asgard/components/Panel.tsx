@@ -82,7 +82,7 @@ function PanelWindow(): JSX.Element {
   // tab for the review tab; everything else (chat, settings) is unchanged.
   const isReview = activeGuide().kind === "review";
   const title = isReview
-    ? (reviewStore.title() || "PR Walkthrough")
+    ? reviewStore.title() || "PR Walkthrough"
     : (launcherStore.spec()?.pr?.title ?? "PR Walkthrough");
 
   return (

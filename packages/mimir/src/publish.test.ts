@@ -8,7 +8,13 @@ const spec = (steps: { file: string }[] = [{ file: "src/a.ts" }]) => ({
   version: 1,
   pr: { url: "https://github.com/acme/widget/pull/1", owner: "acme", repo: "widget", number: 1 },
   generatedAt: "2026-01-01T00:00:00.000Z", // overwritten on publish
-  steps: steps.map((s, i) => ({ id: `s${i}`, title: "t", body: "<p>b</p>", file: s.file, anchor: `diff-${i}` })),
+  steps: steps.map((s, i) => ({
+    id: `s${i}`,
+    title: "t",
+    body: "<p>b</p>",
+    file: s.file,
+    anchor: `diff-${i}`,
+  })),
 });
 
 const manifestWith = (files: { path: string; additions: number }[]): PrManifest => ({
@@ -19,7 +25,13 @@ const manifestWith = (files: { path: string; additions: number }[]): PrManifest 
   description: "",
   headSha: "sha",
   discussion: [],
-  files: files.map((f) => ({ path: f.path, anchor: "x", status: "modified", additions: f.additions, deletions: 0 })),
+  files: files.map((f) => ({
+    path: f.path,
+    anchor: "x",
+    status: "modified",
+    additions: f.additions,
+    deletions: 0,
+  })),
 });
 
 const state = (over: Partial<PublishState> = {}): PublishState => ({

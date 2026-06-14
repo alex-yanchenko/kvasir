@@ -33,7 +33,11 @@ describe("parseSpecInput", () => {
   });
 
   it("reports the exact failing fields for an invalid spec", () => {
-    const result = parseSpecInput({ version: 1, pr: { url: "u" }, steps: [{ id: "s1", file: "f", anchor: "a" }] });
+    const result = parseSpecInput({
+      version: 1,
+      pr: { url: "u" },
+      steps: [{ id: "s1", file: "f", anchor: "a" }],
+    });
     expect(result).toEqual({
       ok: false,
       error:
