@@ -6,8 +6,8 @@
   "coverageAnalysis": "perTest",
   "reporters": ["html", "clear-text", "progress"],
   "htmlReporter": { "fileName": "reports/mutation/index.html" },
-  "timeoutMS": 60000,
-  "concurrency": 4,
+  "timeoutMS": 120000,
+  "timeoutFactor": 2,
   "_comment": "Scope: server logic (mimir) + the Asgard state machines (pure reducers/flows). Excludes the same glue the coverage gate excludes (vitest.config.ts) — channel.ts (Bun.serve + MCP wiring) and diff.ts (gh subprocess shellouts) have no unit harness, so mutating them only yields no-coverage noise. The React components are exercised by the 100%-gated jsdom suite + the Playwright E2E; mutation testing earns the most on the branchy decision logic. break is set below the measured baseline so the gate fails only on regressions; ratchet it up as survivors are killed.",
   "mutate": [
     "packages/mimir/src/**/*.ts",
