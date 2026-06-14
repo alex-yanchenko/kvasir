@@ -16,11 +16,6 @@ jobs:
           node-version: 20
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      # Gate the SHIPPED surface (extension bundle + mimir server). Dev-only
-      # advisories (vitest UI / vite / esbuild dev-server) need a reachable dev
-      # server, never run in prod, and aren't bundled — they'd fail a plain
-      # `pnpm audit` for no real risk. `--prod` is the honest gate.
-      - run: pnpm audit --prod
       - run: pnpm format:check
       - run: pnpm lint
       - run: pnpm knip

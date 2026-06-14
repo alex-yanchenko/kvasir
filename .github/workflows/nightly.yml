@@ -1,0 +1,39 @@
+name: Nightly
+
+# Advisory checks that must NEVER gate a PR, push, or merge: they run on a
+# schedule and on demand, surfacing signal without blocking everyday work.
+#  - audit: a dependency-advisory feed moves on its own; a brand-new, unpatched
+#    advisory in a runtime dep would otherwise turn unrelated PRs red. Kept here.
+#  - mutation (Stryker): too slow for the per-PR job.
+on:
+  schedule:
+    - cron: "0 4 * * *"
+  workflow_dispatch:
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # --prod = runtime/bundled deps only (zod, react, MCP sdk). Skips the dev
+      # toolchain (vitest/vite/esbuild): those never ship and their advisories
+      # are dev-server-reachability issues, not a risk for this extension/server.
+      - run: pnpm audit --prod
+
+  mutation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm mutation
