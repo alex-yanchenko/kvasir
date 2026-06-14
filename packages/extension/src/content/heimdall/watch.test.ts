@@ -39,7 +39,7 @@ describe("loadPersisted", () => {
     const chats = [{ key: "a", file: "f.ts", lines: null, text: "t", suggestions: [], messages: [] }];
     vi.mocked(storeGet).mockImplementation(async (key: string) => {
       if (key === `prw:chats:${PR}`) return chats;
-      if (key === `prw:panel:${PR}`) return { pos: { left: 9, top: 8 }, size: { w: 7, h: 6 } };
+      if (key === "prw:panel") return { pos: { left: 9, top: 8 }, size: { w: 7, h: 6 } };
       return { step: 2, pos: { left: 1, top: 2 }, size: { w: 3, h: 4 } };
     });
     await loadPersisted();
@@ -60,15 +60,22 @@ describe("loadPersisted", () => {
     expect(state.tourState).toEqual({ step: 0, pos: null, size: null });
   });
 
-  it("does nothing off a PR page or with nothing stored", async () => {
-    setUrl("https://github.com/acme/widget-api");
+  it("restores global panel geometry off a PR page, without touching chats/tour", async () => {
+    setUrl("https://github.com/acme/widget-api/blob/main/src/a.ts?prw=rev-1"); // no PR url
+    vi.mocked(storeGet).mockImplementation(async (key: string) =>
+      key === "prw:panel" ? { pos: { left: 5, top: 6 }, size: { w: 7, h: 8 } } : null,
+    );
     await loadPersisted();
-    expect(vi.mocked(storeGet)).not.toHaveBeenCalled();
+    expect(state.panel.pos).toEqual({ left: 5, top: 6 });
+    expect(state.panel.size).toEqual({ w: 7, h: 8 });
+    expect(state.chatHistory).toEqual([]); // per-PR content skipped without a PR
+    expect(state.tourState).toEqual({ step: 0, pos: null, size: null });
+  });
 
+  it("tolerates empty storage with nothing stored", async () => {
     setUrl(`${PR}/files`);
-    await loadPersisted(); // storeGet -> undefined for both keys
     vi.mocked(storeGet).mockResolvedValue(null);
-    await loadPersisted(); // stored nulls are ignored the same way
+    await loadPersisted();
     expect(state.chatHistory).toEqual([]);
     expect(state.tourState).toEqual({ step: 0, pos: null, size: null });
   });

@@ -153,13 +153,13 @@ describe("panelStore", () => {
     expect(storeModule.panelStore.tab()).toBe("settings");
   });
 
-  it("setPos / setSize update geometry and persist per-PR", () => {
+  it("setPos / setSize update geometry and persist globally (one key, not per-PR)", () => {
     storeModule.panelStore.setPos({ left: 12, top: 34 });
     storeModule.panelStore.setSize({ w: 500, h: 600 });
     expect(storeModule.panelStore.pos()).toEqual({ left: 12, top: 34 });
     expect(storeModule.panelStore.size()).toEqual({ w: 500, h: 600 });
     expect(setSpy).toHaveBeenLastCalledWith({
-      "prw:panel:https://github.com/acme/widget-api/pull/7": {
+      "prw:panel": {
         pos: { left: 12, top: 34 },
         size: { w: 500, h: 600 },
       },

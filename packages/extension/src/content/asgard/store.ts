@@ -9,7 +9,7 @@
 import type { Review } from "@prw/runes/review";
 import type { WalkthroughSpec, WalkthroughStep } from "@prw/runes/spec";
 import { bifrost } from "../bifrost";
-import { chatsKey, panelKey, prUrl } from "../keys";
+import { chatsKey, PANEL_GEOM_KEY, prUrl } from "../keys";
 import { storeSet } from "../muninn";
 import type { ChatSession } from "./types";
 
@@ -132,7 +132,7 @@ export const chatsStore = {
 // existing machines (tour/chat/launcher/pairing).
 
 const persistPanel = (): void =>
-  storeSet(panelKey(prUrl()), { pos: state.panel.pos, size: state.panel.size });
+  storeSet(PANEL_GEOM_KEY, { pos: state.panel.pos, size: state.panel.size });
 
 export const panelStore = {
   isOpen: (): boolean => state.panel.open,

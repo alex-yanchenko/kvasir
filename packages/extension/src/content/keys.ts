@@ -14,7 +14,9 @@ export const chatsKey = (pr: string | null): string => `prw:chats:${pr}`;
 export const specKey = (pr: string | null): string => `prw:spec:${pr}`;
 export const tourKey = (pr: string | null): string => `prw:tour:${pr}`;
 export const genKey = (pr: string | null): string => `prw:gen:${pr}`;
-export const panelKey = (pr: string | null): string => `prw:panel:${pr}`;
+/** Panel geometry is GLOBAL (one key for every PR/review/page), so the panel keeps
+ * its position + size as you move between pages instead of snapping to default. */
+export const PANEL_GEOM_KEY = "prw:panel";
 
 /** The bridge token's storage key — global, not per-PR (one bridge per machine). */
 export const TOKEN_KEY = "prw:token";

@@ -5,22 +5,25 @@ import { launcherStore } from "../asgard/launcher";
 import { isChatSessionArray, parsePanelGeometry, parseTourState } from "../asgard/persisted";
 import { state, touch } from "../asgard/store";
 import { bifrost } from "../bifrost";
-import { chatsKey, panelKey, prUrl, tourKey } from "../keys";
+import { chatsKey, PANEL_GEOM_KEY, prUrl, tourKey } from "../keys";
 import { storeGet } from "../muninn";
 
 /** Per-PR state restore (survives refresh and browser restart). */
 export async function loadPersisted(): Promise<void> {
   const pr = prUrl();
-  if (!pr) return;
-  const chats = await storeGet(chatsKey(pr));
-  if (isChatSessionArray(chats) && chats.length > 0 && state.chatHistory.length === 0) {
-    state.chatHistory = chats;
-    touch();
+  if (pr) {
+    const chats = await storeGet(chatsKey(pr));
+    if (isChatSessionArray(chats) && chats.length > 0 && state.chatHistory.length === 0) {
+      state.chatHistory = chats;
+    }
+    state.tourState = parseTourState(await storeGet(tourKey(pr)));
   }
-  state.tourState = parseTourState(await storeGet(tourKey(pr)));
-  const { pos, size } = parsePanelGeometry(await storeGet(panelKey(pr)));
+  // Panel geometry is global — restored on every page, including review/blob pages
+  // with no PR url (which otherwise snap the panel to default on each nav).
+  const { pos, size } = parsePanelGeometry(await storeGet(PANEL_GEOM_KEY));
   state.panel.pos = pos;
   state.panel.size = size;
+  touch();
 }
 
 export function applyTheme(): void {
