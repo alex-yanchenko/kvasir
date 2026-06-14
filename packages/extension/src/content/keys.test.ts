@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect } from "vitest";
-import { chatsKey, genKey, onFilesTab, prUrl, specKey, tourKey } from "./keys";
+import { chatsKey, genKey, onFilesTab, prUrl, reviewIdFromUrl, reviewKey, specKey, tourKey } from "./keys";
 
 describe("storage keys", () => {
   it("embed the PR url per concern", () => {
@@ -30,5 +30,25 @@ describe("location readers", () => {
     });
     expect(prUrl()).toBeNull();
     expect(onFilesTab()).toBe(false);
+  });
+
+  it("reviewIdFromUrl reads (and decodes) the ?prw id, else null", () => {
+    const at = (href: string): void => {
+      Object.defineProperty(window, "location", { value: new URL(href), writable: true });
+    };
+    at("https://github.com/acme/web/blob/main/src/a.ts?prw=rev-1#L10-L20");
+    expect(reviewIdFromUrl()).toBe("rev-1");
+    at("https://github.com/acme/web/blob/main/src/a.ts?foo=1&prw=a%20b");
+    expect(reviewIdFromUrl()).toBe("a b");
+    at("https://github.com/acme/web/blob/main/src/a.ts");
+    expect(reviewIdFromUrl()).toBeNull();
+    at("https://github.com/acme/web/blob/main/src/a.ts?prw=");
+    expect(reviewIdFromUrl()).toBeNull();
+  });
+});
+
+describe("reviewKey", () => {
+  it("namespaces a review id", () => {
+    expect(reviewKey("rev-1")).toBe("prw:review:rev-1");
   });
 });

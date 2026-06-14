@@ -18,3 +18,13 @@ export const panelKey = (pr: string | null): string => `prw:panel:${pr}`;
 
 /** The bridge token's storage key — global, not per-PR (one bridge per machine). */
 export const TOKEN_KEY = "prw:token";
+
+/** A pushed review's id, carried on the GitHub landing URL as `?prw=<id>` — how
+ * the extension knows a page is a review (vs a plain PR) and which one to pull. */
+export const reviewIdFromUrl = (): string | null => {
+  const m = /[?&]prw=([^&#]+)/.exec(location.href);
+  return m?.[1] ? decodeURIComponent(m[1]) : null;
+};
+
+/** Per-review cache key (survives the page loads a review walks through). */
+export const reviewKey = (id: string): string => `prw:review:${id}`;
