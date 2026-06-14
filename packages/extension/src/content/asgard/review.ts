@@ -39,6 +39,22 @@ const strip = (html: string): string =>
     .replaceAll(/\s+/g, " ")
     .trim();
 
+/** "/owner/repo" prefix of a blob pathname — same value ⇒ same repo (GitHub will
+ * soft-navigate within it; across repos it's a full load). */
+const repoPath = (pathname: string): string =>
+  "/" + decodeURIComponent(pathname).split("/").filter(Boolean).slice(0, 2).join("/");
+
+/** Drive GitHub's OWN client router via a same-origin link click → a soft nav: no
+ * reload, so our (body-level) panel survives. GitHub intercepts these within a
+ * repo; cross-repo it would fall back to a hard load, which we handle separately. */
+const softNavigate = (href: string): void => {
+  const link = document.createElement("a");
+  link.href = href;
+  document.body.append(link);
+  link.click();
+  link.remove();
+};
+
 export const reviewStore = {
   kind: "review" as const,
   isOpen: (): boolean => state.reviewOpen,
@@ -110,17 +126,28 @@ export const reviewStore = {
     storeSet(reviewKey(id), { step: target, review }); // cache the destination
 
     const url = new URL(stepBlobUrl(step, id));
-    const samePage = decodeURIComponent(url.pathname) === decodeURIComponent(globalThis.location.pathname);
-    if (!id || samePage) {
+    const here = globalThis.location;
+    if (!id || decodeURIComponent(url.pathname) === decodeURIComponent(here.pathname)) {
+      // No link, or same file → switch in place; move GitHub's #L highlight.
       state.reviewStep = target;
-      if (id) globalThis.location.hash = url.hash;
+      if (id) here.hash = url.hash;
       touch();
       return;
     }
+    if (repoPath(url.pathname) === repoPath(here.pathname)) {
+      // Same repo, different file → GitHub's router soft-navigates (no reload, our
+      // panel survives), so switch in place and let GitHub morph + re-highlight.
+      state.reviewStep = target;
+      touch();
+      softNavigate(url.href);
+      return;
+    }
+    // Different repo → a full load is unavoidable. Keep the current step + show
+    // loading here; the new page hydrates to the target from the session snapshot.
     state.reviewNavigating = true;
-    writeSession(id, target, review); // sync snapshot so the next page paints instantly
+    writeSession(id, target, review);
     touch();
-    setTimeout(() => globalThis.location.assign(url.href), 0);
+    setTimeout(() => here.assign(url.href), 0);
   },
   next(): void {
     if (state.review && state.reviewStep < state.review.steps.length - 1)

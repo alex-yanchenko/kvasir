@@ -42,6 +42,17 @@ const sameFileReview = (): Review => ({
   ],
 });
 
+// Two steps in the SAME repo but DIFFERENT files → GitHub soft-navigates between them.
+const sameRepoReview = (): Review => ({
+  version: 1,
+  id: "rev-1",
+  title: "Auth flow",
+  steps: [
+    { id: "a", title: "A", body: "b", repo: { owner: "acme", name: "web" }, ref: "main", file: "src/a.ts", lines: { start: 1, end: 2 } },
+    { id: "b", title: "B", body: "b", repo: { owner: "acme", name: "web" }, ref: "main", file: "src/b.ts", lines: { start: 5, end: 6 } },
+  ],
+});
+
 let assign: ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
@@ -128,9 +139,20 @@ describe("reviewStore.load", () => {
 });
 
 describe("reviewStore navigation", () => {
-  it("a cross-file step keeps the current step on this page, flags loading, caches the target, then navigates", async () => {
-    await loadOk(); // on /elsewhere, step 0
-    reviewStore.goto(1); // step b is a different file → cross-page
+  it("a different file in the SAME repo soft-navigates in place — no reload, panel stays", async () => {
+    await loadOk(sameRepoReview());
+    globalThis.location.pathname = "/acme/web/blob/main/src/a.ts"; // on step a's file
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+    reviewStore.goto(1); // src/b.ts — same repo
+    expect(reviewStore.stepIndex()).toBe(1); // switched in place
+    expect(reviewStore.navigating()).toBe(false); // no loading, no reload
+    expect(clickSpy).toHaveBeenCalledTimes(1); // soft nav via a same-origin link click
+    expect(assign).not.toHaveBeenCalled();
+  });
+
+  it("a different REPO keeps the current step on this page, flags loading, then hard-navigates", async () => {
+    await loadOk(); // mkReview: step a = acme/web, step b = acme/api (different repos), on /elsewhere
+    reviewStore.goto(1);
     expect(reviewStore.stepIndex()).toBe(0); // the current step stays on THIS page
     expect(reviewStore.navigating()).toBe(true);
     expect(storeSet).toHaveBeenCalledWith("prw:review:rev-1", { step: 1, review: mkReview() }); // target cached
