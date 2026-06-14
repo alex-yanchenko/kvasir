@@ -30,6 +30,18 @@ const mkReview = (over: Partial<Review> = {}): Review => ({
   ...over,
 });
 
+// Three steps all in the same file → step nav stays on the page (hash only).
+const sameFileReview = (): Review => ({
+  version: 1,
+  id: "rev-1",
+  title: "Auth flow",
+  steps: [
+    { id: "a", title: "A", body: "b", repo: { owner: "acme", name: "web" }, ref: "main", file: "src/a.ts", lines: { start: 1, end: 2 } },
+    { id: "b", title: "B", body: "b", repo: { owner: "acme", name: "web" }, ref: "main", file: "src/a.ts", lines: { start: 5, end: 6 } },
+    { id: "c", title: "C", body: "b", repo: { owner: "acme", name: "web" }, ref: "main", file: "src/a.ts", lines: { start: 9, end: 10 } },
+  ],
+});
+
 let assign: ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
@@ -115,36 +127,40 @@ describe("reviewStore.load", () => {
 });
 
 describe("reviewStore navigation", () => {
-  it("goto a cross-file step flags loading, then navigates on the next tick", async () => {
-    await loadOk();
+  it("a cross-file step keeps the current step on this page, flags loading, caches the target, then navigates", async () => {
+    await loadOk(); // on /elsewhere, step 0
     reviewStore.goto(1); // step b is a different file → cross-page
-    expect(reviewStore.stepIndex()).toBe(1);
-    expect(storeSet).toHaveBeenCalledWith("prw:review:rev-1", { step: 1, review: mkReview() });
+    expect(reviewStore.stepIndex()).toBe(0); // the current step stays on THIS page
     expect(reviewStore.navigating()).toBe(true);
+    expect(storeSet).toHaveBeenCalledWith("prw:review:rev-1", { step: 1, review: mkReview() }); // target cached
     expect(assign).not.toHaveBeenCalled(); // deferred so the loading state paints first
     vi.runAllTimers();
     expect(assign).toHaveBeenCalledWith("https://github.com/acme/api/blob/main/src/b.ts?prw=rev-1");
   });
 
-  it("goto a step in the current file just moves the #L highlight (no reload)", async () => {
-    await loadOk();
-    globalThis.location.pathname = "/acme/web/blob/main/src/a.ts"; // we're already on step a's file
-    reviewStore.goto(0);
-    expect(globalThis.location.hash).toBe("#L10-L20");
+  it("a step in the current file switches in place + moves the #L highlight (no reload)", async () => {
+    await loadOk(sameFileReview());
+    globalThis.location.pathname = "/acme/web/blob/main/src/a.ts";
+    reviewStore.goto(1); // step b, same file
+    expect(reviewStore.stepIndex()).toBe(1);
+    expect(globalThis.location.hash).toBe("#L5-L6");
     expect(reviewStore.navigating()).toBe(false);
     expect(assign).not.toHaveBeenCalled();
   });
 
-  it("next/back move within bounds and no-op at the edges", async () => {
-    await loadOk();
+  it("next/back move within bounds and no-op at the edges (same-file, in place)", async () => {
+    await loadOk(sameFileReview());
+    globalThis.location.pathname = "/acme/web/blob/main/src/a.ts";
     reviewStore.back(); // at first → no-op
     expect(reviewStore.stepIndex()).toBe(0);
     reviewStore.next();
     expect(reviewStore.stepIndex()).toBe(1);
+    reviewStore.next();
+    expect(reviewStore.stepIndex()).toBe(2);
     reviewStore.next(); // at last → no-op
-    expect(reviewStore.stepIndex()).toBe(1);
+    expect(reviewStore.stepIndex()).toBe(2);
     reviewStore.back();
-    expect(reviewStore.stepIndex()).toBe(0);
+    expect(reviewStore.stepIndex()).toBe(1);
   });
 
   it("goto is a no-op without a review", () => {
@@ -189,7 +205,7 @@ describe("reviewStore context (Guide)", () => {
     expect(reviewStore.stepContext()).toBe("");
     await loadOk();
     expect(reviewStore.stepContext()).toBe("Step: Guard (src/a.ts:10-20)\nguard body");
-    reviewStore.next();
+    state.reviewStep = 1;
     expect(reviewStore.stepContext()).toBe("Step: Server (src/b.ts)\nserver body");
   });
 

@@ -28,22 +28,6 @@ const strip = (html: string): string =>
     .replaceAll(/\s+/g, " ")
     .trim();
 
-/** Navigate the tab to a step's code; a full load re-runs boot, which restores
- * us at this step (the index was persisted before we left). */
-const reveal = (step: ReviewStep): void => {
-  const id = state.review?.id;
-  if (!id) return;
-  const target = new URL(stepBlobUrl(step, id));
-  const samePage =
-    decodeURIComponent(target.pathname) === decodeURIComponent(globalThis.location.pathname);
-  if (samePage) {
-    globalThis.location.hash = target.hash; // same file → move GitHub's #L highlight, no reload
-    return;
-  }
-  state.reviewNavigating = true; // different file → loading state, then a full navigation
-  setTimeout(() => globalThis.location.assign(target.href), 0);
-};
-
 export const reviewStore = {
   kind: "review" as const,
   isOpen: (): boolean => state.reviewOpen,
@@ -73,15 +57,30 @@ export const reviewStore = {
     touch();
   },
 
-  /** Go to a step: cache the walk + index (so the next page renders instantly and
-   * lands here), then reveal. */
+  /** Go to a step. Same file as the current page (or no link) → switch in place +
+   * move GitHub's #L highlight. Different file → DON'T switch the panel here (that
+   * would flash the next step on the current page); keep the current step + show
+   * loading, cache the destination, and navigate — the target renders only after
+   * the new page opens (its boot reads the cache). */
   goto(index: number): void {
-    if (!state.review) return;
-    state.reviewStep = clamp(index, state.review.steps.length);
-    storeSet(reviewKey(state.review.id ?? ""), { step: state.reviewStep, review: state.review });
-    const step = state.review.steps[state.reviewStep];
-    if (step) reveal(step);
+    const review = state.review;
+    if (!review) return;
+    const target = clamp(index, review.steps.length);
+    const step = review.steps[target]!; // clamp keeps target in range; min(1) guarantees a step
+    const id = review.id ?? "";
+    storeSet(reviewKey(id), { step: target, review }); // cache the destination
+
+    const url = new URL(stepBlobUrl(step, id));
+    const samePage = decodeURIComponent(url.pathname) === decodeURIComponent(globalThis.location.pathname);
+    if (!id || samePage) {
+      state.reviewStep = target;
+      if (id) globalThis.location.hash = url.hash;
+      touch();
+      return;
+    }
+    state.reviewNavigating = true;
     touch();
+    setTimeout(() => globalThis.location.assign(url.href), 0);
   },
   next(): void {
     if (state.review && state.reviewStep < state.review.steps.length - 1)
