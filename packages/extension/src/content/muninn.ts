@@ -5,7 +5,12 @@
 export const storeGet = (k: string): Promise<unknown> =>
   new Promise((resolve) => {
     try {
-      chrome.storage?.local?.get(k, (o) => resolve(o?.[k]));
+      const local = chrome.storage?.local;
+      if (!local) {
+        resolve(undefined); // orphaned context: settle rather than hang forever
+        return;
+      }
+      local.get(k, (o) => resolve(o?.[k]));
     } catch {
       resolve(undefined);
     }

@@ -27,7 +27,6 @@ beforeEach(() => {
   state.spec = null;
   state.review = null;
   state.reviewStep = 0;
-  state.reviewOpen = false;
   state.panel = { open: false, tab: PANEL_TABS.WALKTHROUGH, pos: null, size: null };
   pairingStore.reset(); // "unknown" → no banner unless a test sets the phase
 });
@@ -84,7 +83,16 @@ describe("Panel", () => {
       version: 1,
       id: "rev-1",
       title: "Auth flow",
-      steps: [{ id: "a", title: "Guard", body: "guard body", repo: { owner: "acme", name: "web" }, ref: "main", file: "src/a.ts" }],
+      steps: [
+        {
+          id: "a",
+          title: "Guard",
+          body: "guard body",
+          repo: { owner: "acme", name: "web" },
+          ref: "main",
+          file: "src/a.ts",
+        },
+      ],
     };
     render(<Panel />);
     act(() => panelStore.open());
@@ -102,7 +110,16 @@ describe("Panel", () => {
       version: 1,
       id: "rev-1",
       title: "",
-      steps: [{ id: "a", title: "Guard", body: "x", repo: { owner: "acme", name: "web" }, ref: "main", file: "src/a.ts" }],
+      steps: [
+        {
+          id: "a",
+          title: "Guard",
+          body: "x",
+          repo: { owner: "acme", name: "web" },
+          ref: "main",
+          file: "src/a.ts",
+        },
+      ],
     };
     render(<Panel />);
     act(() => panelStore.open());
@@ -132,7 +149,7 @@ describe("Panel", () => {
     // the banner's distinct phrasing (SettingsTab's Connection block also says "Not paired")
     expect(screen.getByText(/connect to your Claude session to continue/)).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Pair" }));
-    expect(pair).toHaveBeenCalled();
+    expect(pair).toHaveBeenCalledTimes(1);
     // hidden on Settings (its own Connection block handles pairing there)
     act(() => panelStore.setTab(PANEL_TABS.SETTINGS));
     expect(screen.queryByText(/connect to your Claude session to continue/)).toBeNull();

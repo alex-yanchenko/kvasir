@@ -1,8 +1,7 @@
 import { prKey } from "@prw/runes";
 import type { Review, WalkthroughSpec } from "@prw/runes";
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { createFetchHandler, parseSuggestions } from "./bridge";
-import type { BridgeDeps } from "./bridge";
+import { createFetchHandler, parseSuggestions, REVIEW_TTL_MS } from "./bridge";
 import { GUARD_HEADER } from "./guard";
 
 const PR = "https://github.com/acme/widget-api/pull/7";
@@ -40,7 +39,6 @@ let deps: {
   pushEvent: ReturnType<typeof vi.fn>;
   getHeadSha: ReturnType<typeof vi.fn>;
   pairing: {
-    arm: ReturnType<typeof vi.fn>;
     request: ReturnType<typeof vi.fn>;
     approve: ReturnType<typeof vi.fn>;
     claim: ReturnType<typeof vi.fn>;
@@ -61,7 +59,6 @@ beforeEach(() => {
     pushEvent: vi.fn().mockResolvedValue(undefined),
     getHeadSha: vi.fn().mockResolvedValue("abc123"),
     pairing: {
-      arm: vi.fn(),
       request: vi.fn().mockReturnValue({ ok: true, requestId: "rid-1", code: "ABC234" }),
       approve: vi.fn(),
       claim: vi.fn().mockReturnValue({ status: "pending" }),
@@ -69,7 +66,7 @@ beforeEach(() => {
       enforced: vi.fn().mockReturnValue(true),
     },
   };
-  handler = createFetchHandler(deps as unknown as BridgeDeps);
+  handler = createFetchHandler(deps);
 });
 
 // An authorized request: loopback host + the guard header (+ JSON content type on
@@ -395,16 +392,34 @@ describe("/push + /review (token-less mailbox)", () => {
     expect(deps.reviews.get("rev-1")).toEqual({ ...mkReview(), id: "rev-1" });
   });
 
+  it("evicts a pushed review after the TTL", async () => {
+    vi.useFakeTimers();
+    try {
+      await call("/push", { method: "POST", body: mkReview() });
+      expect(deps.reviews.get("rev-1")).toEqual({ ...mkReview(), id: "rev-1" });
+      vi.advanceTimersByTime(REVIEW_TTL_MS);
+      expect(deps.reviews.get("rev-1")).toBeUndefined();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("honors an explicit id on the push (no minting)", async () => {
     const r = await call("/push", { method: "POST", body: { ...mkReview(), id: "mine" } });
-    expect(await r.json()).toMatchObject({ id: "mine" });
+    expect(await r.json()).toEqual({
+      id: "mine",
+      url: "https://github.com/acme/web/blob/main/src/auth/guard.ts?prw=mine#L1-L2",
+    });
     expect(deps.mintReviewId).not.toHaveBeenCalled();
   });
 
   it("400s an invalid review (naming the field) and a malformed body", async () => {
-    const bad = await call("/push", { method: "POST", body: { version: 1, title: "x", steps: [{ id: "s1" }] } });
+    const bad = await call("/push", {
+      method: "POST",
+      body: { version: 1, title: "x", steps: [{ id: "s1" }] },
+    });
     expect(bad.status).toBe(400);
-    expect(await bad.json()).toMatchObject({ error: expect.stringContaining("steps.0.body") });
+    expect(await bad.json()).toEqual({ error: expect.stringContaining("steps.0.body") });
     const noBody = await handler(
       new Request("http://localhost:8799/push", {
         method: "POST",

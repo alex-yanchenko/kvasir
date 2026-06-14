@@ -1,11 +1,20 @@
 import { describe, it, expect } from "vitest";
-import { lineRange, repoSlug, resolveStep, ReviewBuildError, slugify, type DraftStep, type RepoContext } from "./reviewBuild";
+import {
+  lineRange,
+  repoSlug,
+  resolveStep,
+  ReviewBuildError,
+  slugify,
+  type DraftStep,
+  type RepoContext,
+} from "./reviewBuild";
 
 describe("repoSlug", () => {
   it("parses ssh and https remotes, with or without .git", () => {
     expect(repoSlug("git@github.com:acme/web.git")).toEqual({ owner: "acme", name: "web" });
     expect(repoSlug("https://github.com/acme/web")).toEqual({ owner: "acme", name: "web" });
     expect(repoSlug("https://github.com/acme/web.git\n")).toEqual({ owner: "acme", name: "web" });
+    expect(repoSlug("git@github.com:acme/web")).toEqual({ owner: "acme", name: "web" });
   });
 
   it("throws on a non-GitHub remote", () => {
@@ -26,6 +35,10 @@ describe("lineRange", () => {
 
   it("resolves a from→to range (to searched at/after from)", () => {
     expect(lineRange(content, { from: "beta", to: "delta" })).toEqual({ start: 2, end: 4 });
+  });
+
+  it("resolves `from` to the FIRST matching line when it appears more than once", () => {
+    expect(lineRange("x\nrow\ny\nrow\nz", { from: "row" })).toEqual({ start: 2, end: 2 });
   });
 
   it("throws when from or to is not present", () => {

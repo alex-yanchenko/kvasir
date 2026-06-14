@@ -8,7 +8,7 @@ export interface ParsedPr {
  * Strict GitHub PR-URL matcher. owner/repo are restricted to GitHub's allowed
  * charset so nothing arbitrary can flow into a `gh` path or a session prompt.
  */
-export const PR_URL_RE = /^https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/pull\/\d+/;
+export const PR_URL_RE = /^https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/pull\/\d+$/;
 
 /** Parse https://github.com/<owner>/<repo>/pull/<n>. Throws on anything else. */
 export function parsePrUrl(url: string): ParsedPr {

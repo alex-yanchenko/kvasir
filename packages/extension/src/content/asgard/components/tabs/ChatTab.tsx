@@ -461,6 +461,9 @@ function Thread({ sess }: Readonly<{ sess: ChatSession }>): JSX.Element {
   // Asking hits the bridge; while unpaired those controls are disabled (the panel's
   // PairBanner explains why) so a click can't silently 401 into nothing.
   const blocked = pairingStore.needsPairing();
+  // While a send is in flight a second one would clobber the `live` singleton and
+  // interleave turns, so gate the input controls on busy too — not just pairing.
+  const inputDisabled = blocked || !!busy;
 
   // the step-context banner closes on any click outside it (shadow-safe)
   useEffect(() => {
@@ -532,7 +535,7 @@ function Thread({ sess }: Readonly<{ sess: ChatSession }>): JSX.Element {
     if (sess.suggestions)
       return sess.suggestions
         .slice(0, 3)
-        .map((q) => <OptionRow key={q} label={q} onAsk={() => ask(q)} disabled={blocked} />);
+        .map((q) => <OptionRow key={q} label={q} onAsk={() => ask(q)} disabled={inputDisabled} />);
     if (blocked) return null;
     return [0, 1, 2].map((index) => <div key={index} className="prw-srow prw-skel" />);
   })();
@@ -563,7 +566,7 @@ function Thread({ sess }: Readonly<{ sess: ChatSession }>): JSX.Element {
       <div className="prw-options">
         <div className="prw-quick">
           {(sess.general ? QUICK_PR : QUICK).map((a) => (
-            <button key={a.label} className="prw-chip" disabled={blocked} onClick={() => ask(a.q)}>
+            <button key={a.label} className="prw-chip" disabled={inputDisabled} onClick={() => ask(a.q)}>
               {a.label}
             </button>
           ))}
@@ -622,7 +625,7 @@ function Thread({ sess }: Readonly<{ sess: ChatSession }>): JSX.Element {
           ref={inputRef}
           className="prw-input prw-chat-input"
           rows={1}
-          disabled={blocked}
+          disabled={inputDisabled}
           placeholder={
             blocked ? "Pair the extension to chat…" : "Ask…  (Enter to send · ⌘/Ctrl+Enter for a new line)"
           }
@@ -646,7 +649,7 @@ function Thread({ sess }: Readonly<{ sess: ChatSession }>): JSX.Element {
             submit();
           }}
         />
-        <Button disabled={blocked} onClick={submit}>
+        <Button disabled={inputDisabled} onClick={submit}>
           Ask
         </Button>
       </div>

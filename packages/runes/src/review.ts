@@ -16,10 +16,12 @@ export const RepoRefSchema = z.object({
   name: z.string(),
 });
 
-export const ReviewLinesSchema = z.object({
-  start: z.number(),
-  end: z.number(),
-});
+export const ReviewLinesSchema = z
+  .object({
+    start: z.number().int().positive(),
+    end: z.number().int().positive(),
+  })
+  .refine(({ start, end }) => start <= end, { message: "start must be <= end" });
 
 export const ReviewStepSchema = z.object({
   /** Stable id, e.g. "auth-guard". */

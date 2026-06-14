@@ -52,4 +52,27 @@ describe("api", () => {
     });
     expect(await api("/ping")).toEqual({ ok: false, error: "no response" });
   });
+
+  it("catches a synchronous throw from sendMessage", async () => {
+    vi.stubGlobal("chrome", {
+      runtime: {
+        id: "ext-id",
+        sendMessage: () => {
+          throw new Error("Extension context invalidated");
+        },
+      },
+    });
+    expect(await api("/ping")).toEqual({ ok: false, error: "Error: Extension context invalidated" });
+  });
+
+  it("falls back to a generic message when lastError has no message", async () => {
+    vi.stubGlobal("chrome", {
+      runtime: {
+        id: "ext-id",
+        lastError: {},
+        sendMessage: (_msg: unknown, cb: (r: unknown) => void) => cb(undefined),
+      },
+    });
+    expect(await api("/ping")).toEqual({ ok: false, error: "extension messaging error" });
+  });
 });

@@ -8,6 +8,10 @@ import { authorizedLocalCaller, corsHeaders, isRecord, readJsonBody, truncate, p
 import type { Pairing } from "./pairing";
 import { parseReviewInput, reviewLandingUrl } from "./review";
 
+/** A pushed review lives in memory only long enough for the user to open its
+ * landing URL; evict after this so a long-lived daemon doesn't grow unbounded. */
+export const REVIEW_TTL_MS = 24 * 60 * 60 * 1000;
+
 export interface BridgeDeps {
   /** Published specs, keyed by `owner/repo#number`. */
   specs: Map<string, WalkthroughSpec>;
@@ -84,6 +88,7 @@ async function handlePush({ request, deps }: Context): Promise<Response> {
   const id = result.review.id ?? deps.mintReviewId();
   const review: Review = { ...result.review, id };
   deps.reviews.set(id, review);
+  setTimeout(() => deps.reviews.delete(id), REVIEW_TTL_MS).unref?.();
   return json(request, { id, url: reviewLandingUrl(review) });
 }
 

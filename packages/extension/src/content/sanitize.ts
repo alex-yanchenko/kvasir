@@ -11,13 +11,16 @@ export function sanitizeSpecHtml(html: unknown): string {
   const t = document.createElement("template");
   // eslint-disable-next-line no-unsanitized/property -- this IS the sanitizer: untrusted markup is parsed into an inert, detached <template> (never the live DOM) and allowlist-stripped below before it's returned. <template> is the correct fragment-parse primitive; DOMParser would hoist <script>/<style> into <head> and drop them.
   t.innerHTML = typeof html === "string" ? html : ""; // only real strings; never "[object Object]"
-  for (let pass = 0; pass < 2; pass++) {
-    for (const element of t.content.querySelectorAll("*")) {
-      if (SPEC_ALLOWED.has(element.tagName)) {
-        for (const a of element.attributes) element.removeAttribute(a.name);
-      } else {
-        element.replaceWith(...element.childNodes);
-      }
+  // querySelectorAll is a static snapshot of every descendant, so unwrapping a
+  // disallowed element never hides its (already-listed) children from iteration —
+  // one pass covers the whole tree.
+  for (const element of t.content.querySelectorAll("*")) {
+    if (SPEC_ALLOWED.has(element.tagName)) {
+      // getAttributeNames() is a static array; iterating the live `attributes`
+      // NamedNodeMap while removing shifts indices and skips alternating entries.
+      for (const name of element.getAttributeNames()) element.removeAttribute(name);
+    } else {
+      element.replaceWith(...element.childNodes);
     }
   }
   return t.innerHTML;

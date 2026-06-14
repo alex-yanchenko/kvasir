@@ -45,7 +45,6 @@ export const state: {
    * and whether the review guide is active. Null/0/false outside review-mode. */
   review: Review | null;
   reviewStep: number;
-  reviewOpen: boolean;
   /** True between clicking a step that lives in a different file and the page
    * navigation that follows — drives a loading state so the nav doesn't feel like
    * an unexplained flash. Reset on every fresh page load. */
@@ -63,7 +62,6 @@ export const state: {
   activeStep: null,
   review: null,
   reviewStep: 0,
-  reviewOpen: false,
   reviewNavigating: false,
   reviewSync: localStorage.getItem("prwReviewSync") !== "false", // default on
   theme: localStorage.getItem("prwTheme") || "auto",
@@ -146,8 +144,7 @@ export const chatsStore = {
 // geometry (persisted per-PR). Content lives in the tab bodies, which reuse the
 // existing machines (tour/chat/launcher/pairing).
 
-const persistPanel = (): void =>
-  storeSet(PANEL_GEOM_KEY, { pos: state.panel.pos, size: state.panel.size });
+const persistPanel = (): void => storeSet(PANEL_GEOM_KEY, { pos: state.panel.pos, size: state.panel.size });
 
 export const panelStore = {
   isOpen: (): boolean => state.panel.open,

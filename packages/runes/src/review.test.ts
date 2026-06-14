@@ -18,6 +18,14 @@ describe("isReview", () => {
     expect(isReview({ ...valid, steps: [{ id: "s1" }] })).toBe(false);
     expect(isReview("nope")).toBe(false);
   });
+
+  it("rejects non-integer, non-positive, or inverted line ranges", () => {
+    const withLines = (lines: unknown) => ({ ...valid, steps: [{ ...valid.steps[0], lines }] });
+    expect(isReview(withLines({ start: 1.5, end: 3 }))).toBe(false);
+    expect(isReview(withLines({ start: 0, end: 3 }))).toBe(false);
+    expect(isReview(withLines({ start: 5, end: 2 }))).toBe(false);
+    expect(isReview(withLines({ start: 2, end: 5 }))).toBe(true);
+  });
 });
 
 describe("stepBlobUrl", () => {

@@ -44,6 +44,8 @@ describe("location readers", () => {
     expect(reviewIdFromUrl()).toBeNull();
     at("https://github.com/acme/web/blob/main/src/a.ts?prw=");
     expect(reviewIdFromUrl()).toBeNull();
+    at("https://github.com/acme/web/blob/main/src/a.ts?prw=%");
+    expect(reviewIdFromUrl()).toBeNull(); // malformed escape — decodeURIComponent throws, swallowed
   });
 });
 

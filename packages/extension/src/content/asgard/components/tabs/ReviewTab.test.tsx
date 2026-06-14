@@ -15,15 +15,29 @@ const mkReview = (): Review => ({
   id: "rev-1",
   title: "Auth flow",
   steps: [
-    { id: "a", title: "Guard", body: "guard body", repo: { owner: "acme", name: "web" }, ref: "main", file: "src/a.ts", lines: { start: 10, end: 20 } },
-    { id: "b", title: "Server", body: "server body", repo: { owner: "acme", name: "api" }, ref: "main", file: "src/b.ts" },
+    {
+      id: "a",
+      title: "Guard",
+      body: "guard body",
+      repo: { owner: "acme", name: "web" },
+      ref: "main",
+      file: "src/a.ts",
+      lines: { start: 10, end: 20 },
+    },
+    {
+      id: "b",
+      title: "Server",
+      body: "server body",
+      repo: { owner: "acme", name: "api" },
+      ref: "main",
+      file: "src/b.ts",
+    },
   ],
 });
 
 beforeEach(() => {
   state.review = mkReview();
   state.reviewStep = 0;
-  state.reviewOpen = true;
   state.reviewNavigating = false;
   state.panel = { open: true, tab: PANEL_TABS.WALKTHROUGH, pos: null, size: null };
   pairingStore.reset(); // "unknown" → ask enabled unless a test marks unpaired
@@ -54,7 +68,16 @@ describe("ReviewTab", () => {
       version: 1,
       id: "rev-1",
       title: "T",
-      steps: [{ id: "a", title: "A", body: "summary", detail: "the deep detail", repo: { owner: "o", name: "n" }, file: "a.ts" }],
+      steps: [
+        {
+          id: "a",
+          title: "A",
+          body: "summary",
+          detail: "the deep detail",
+          repo: { owner: "o", name: "n" },
+          file: "a.ts",
+        },
+      ],
     };
     state.reviewStep = 0;
     render(<ReviewTab />);
@@ -114,6 +137,8 @@ describe("ReviewTab", () => {
   it("disables 'ask' while unpaired", () => {
     pairingStore.markUnpaired();
     render(<ReviewTab />);
-    expect((screen.getByRole("button", { name: "Ask about this step" }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole("button", { name: "Ask about this step" }) as HTMLButtonElement).disabled).toBe(
+      true,
+    );
   });
 });

@@ -6,6 +6,7 @@ vi.mock("../../../api", () => ({ api: vi.fn() }));
 vi.mock("../../../muninn", () => ({ storeGet: vi.fn(), storeSet: vi.fn(), storeRemove: vi.fn() }));
 
 import { api } from "../../../api";
+import type { BridgeResponse } from "../../../api";
 import { bifrost } from "../../../bifrost";
 import { chatStore } from "../../chat";
 import { pairingStore } from "../../pairing";
@@ -241,6 +242,20 @@ describe("ChatTab shell", () => {
 });
 
 describe("asking", () => {
+  it("disables the composer, Ask, and chips while a send is in flight", () => {
+    vi.mocked(api).mockImplementation((path: string): Promise<BridgeResponse> => {
+      if (path === "/suggest") return Promise.resolve({ ok: true, data: { suggestions: [] } });
+      if (path === "/ask") return new Promise<BridgeResponse>(() => {}); // never settles → stays busy
+      return Promise.resolve({ ok: true, data: {} });
+    });
+    render(<ChatTab />);
+    openSession(mkSession("a"));
+    act(() => fireEvent.click(screen.getByText("Explain")));
+    expect((screen.getByRole("button", { name: "Ask" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(document.querySelector<HTMLTextAreaElement>(".prw-chat-input")!.disabled).toBe(true);
+    expect((screen.getByText("Explain") as HTMLButtonElement).disabled).toBe(true);
+  });
+
   it("a quick chip asks, shows typing, streams the answer into markdown with a citation", async () => {
     vi.useFakeTimers();
     const cont = document.createElement("div");

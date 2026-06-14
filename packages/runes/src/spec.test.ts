@@ -18,6 +18,7 @@ describe("isWalkthroughSpec", () => {
     expect(isWalkthroughSpec({ ...valid, pr: undefined })).toBe(false);
     expect(isWalkthroughSpec({ ...valid, steps: [{ id: "x" }] })).toBe(false);
     expect(isWalkthroughSpec({ ...valid, steps: "nope" })).toBe(false);
+    expect(isWalkthroughSpec({ ...valid, steps: [] })).toBe(false);
     expect(isWalkthroughSpec(null)).toBe(false);
     expect(isWalkthroughSpec("nope")).toBe(false);
   });

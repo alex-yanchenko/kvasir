@@ -1,11 +1,11 @@
-import { createHash } from "node:crypto";
 import { describe, it, expect } from "vitest";
 import { anchorFor } from "./anchor";
 
 describe("anchorFor", () => {
-  it("is diff- + sha256(path)", () => {
-    const p = "src/middleware/rate-limit.ts";
-    expect(anchorFor(p)).toBe("diff-" + createHash("sha256").update(p).digest("hex"));
+  it("is diff- + sha256(path), pinned to a hardcoded digest", () => {
+    expect(anchorFor("src/middleware/rate-limit.ts")).toBe(
+      "diff-5e3f2e0576cb440b38958998c9d5ee80b1c1eb2070f2a95534f878afa762457c",
+    );
   });
 
   it("pins the GitHub anchor contract for a known path", () => {

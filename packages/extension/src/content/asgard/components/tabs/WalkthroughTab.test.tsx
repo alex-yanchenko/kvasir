@@ -69,7 +69,7 @@ describe("WalkthroughTab", () => {
     render(<WalkthroughTab />);
     expect(screen.getByText("Generating review…")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Stop watching" }));
-    expect(dismiss).toHaveBeenCalled();
+    expect(dismiss).toHaveBeenCalledTimes(1);
     vi.useRealTimers();
   });
 
@@ -133,7 +133,7 @@ describe("WalkthroughTab", () => {
     expect(screen.getByText("First step")).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "Ask about this step" }));
-    expect(ask).toHaveBeenCalled();
+    expect(ask).toHaveBeenCalledTimes(1);
     expect(panelStore.tab()).toBe("chat");
   });
 

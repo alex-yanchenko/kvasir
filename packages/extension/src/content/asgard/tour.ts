@@ -8,6 +8,7 @@ import { onFilesTab, prUrl, tourKey } from "../keys";
 import { stepCode } from "../midgard/diff";
 import { storeSet } from "../muninn";
 import { chatStore } from "./chat";
+import { stripHtml } from "./lib/strip";
 import { state, touch } from "./store";
 // chat.ts imports tourStore.stepContext and we call chatStore here — a runtime-
 // safe ESM cycle: both references happen inside functions, never at module eval.
@@ -16,12 +17,6 @@ let open = false;
 let stepIndex = 0;
 
 const clamp = (index: number, length: number): number => Math.min(Math.max(index, 0), length - 1);
-
-const strip = (h: string | undefined): string =>
-  (h || "")
-    .replaceAll(/<[^>]+>/g, "")
-    .replaceAll(/\s+/g, " ")
-    .trim();
 
 export const tourStore = {
   kind: "walkthrough" as const,
@@ -102,7 +97,7 @@ export const tourStore = {
     const s = state.activeStep;
     const lineSuffix = s.lines ? `:${s.lines.start}-${s.lines.end}` : "";
     const where = s.file ? ` (${s.file}${lineSuffix})` : "";
-    return `Step: ${s.title}${where}\n${strip(s.body)}${s.detail ? "\n" + strip(s.detail) : ""}`;
+    return `Step: ${s.title}${where}\n${stripHtml(s.body)}${s.detail ? "\n" + stripHtml(s.detail) : ""}`;
   },
 
   /** "Ask about this step": build a selection payload for the step's own code

@@ -192,8 +192,8 @@ export const chatStore = {
     if (latest) chatStore.open(latest);
   },
 
-  /** Start a fresh whole-PR chat (the Chat rail's "New chat"). Unlike openPrChat
-   * this always makes a new session, so several can run side by side. */
+  /** Start a fresh whole-PR chat (the Chat rail's "New chat") — always a new
+   * session, so several can run side by side. */
   newChat(): void {
     void pairingStore.recheck(); // a local New chat never 401s — verify so a stale token surfaces re-pair
     const sess: ChatSession = {
@@ -218,25 +218,6 @@ export const chatStore = {
       bifrost.send("pick:clear", undefined);
     }
     chatsStore.dropSession(key); // filters state.chatHistory, persists, touches
-  },
-
-  /** The single whole-PR chat — created on first use, resumed after. */
-  openPrChat(): void {
-    let sess = state.chatHistory.find((c) => c.general);
-    if (!sess) {
-      sess = {
-        key: "__pr__",
-        general: true,
-        file: null,
-        lines: null,
-        text: "",
-        suggestions: [],
-        messages: [],
-      };
-      state.chatHistory = [sess, ...state.chatHistory];
-      persist();
-    }
-    chatStore.open(sess);
   },
 
   /** Leave the current chat (clear the page highlight); the session stays in

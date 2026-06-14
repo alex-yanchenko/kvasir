@@ -117,7 +117,7 @@ describe("open / close / delete", () => {
   });
 });
 
-describe("openSelection / openPrChat", () => {
+describe("openSelection", () => {
   it("creates a session from a selection payload once, resuming it after", () => {
     chatStore.openSelection(payload, false);
     expect(state.chatHistory).toEqual([
@@ -138,23 +138,6 @@ describe("openSelection / openPrChat", () => {
     vi.spyOn(tourStore, "stepContext").mockReturnValue("Step: X\nbody");
     chatStore.openSelection(payload, true);
     expect(state.chatHistory[0].step).toBe("Step: X\nbody");
-  });
-
-  it("openPrChat creates the single general session and reuses it", () => {
-    chatStore.openPrChat();
-    chatStore.openPrChat();
-    expect(state.chatHistory).toEqual([
-      {
-        key: "__pr__",
-        general: true,
-        file: null,
-        lines: null,
-        text: "",
-        suggestions: [],
-        messages: [],
-      },
-    ]);
-    expect(chatStore.active()?.general).toBe(true);
   });
 });
 

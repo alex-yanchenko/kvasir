@@ -163,6 +163,7 @@ describe("panelStore", () => {
   });
 
   it("setPos / setSize update geometry and persist globally (one key, not per-PR)", () => {
+    const before = getSnapshot();
     storeModule.panelStore.setPos({ left: 12, top: 34 });
     storeModule.panelStore.setSize({ w: 500, h: 600 });
     expect(storeModule.panelStore.pos()).toEqual({ left: 12, top: 34 });
@@ -173,5 +174,6 @@ describe("panelStore", () => {
         size: { w: 500, h: 600 },
       },
     });
+    expect(getSnapshot()).toBe(before); // geometry saves skip touch() — no React re-render
   });
 });

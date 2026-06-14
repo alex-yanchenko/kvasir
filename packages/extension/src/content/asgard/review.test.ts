@@ -25,7 +25,14 @@ const mkReview = (over: Partial<Review> = {}): Review => ({
       file: "src/a.ts",
       lines: { start: 10, end: 20 },
     },
-    { id: "b", title: "Server", body: "server body", repo: { owner: "acme", name: "api" }, ref: "main", file: "src/b.ts" },
+    {
+      id: "b",
+      title: "Server",
+      body: "server body",
+      repo: { owner: "acme", name: "api" },
+      ref: "main",
+      file: "src/b.ts",
+    },
   ],
   ...over,
 });
@@ -36,9 +43,33 @@ const sameFileReview = (): Review => ({
   id: "rev-1",
   title: "Auth flow",
   steps: [
-    { id: "a", title: "A", body: "b", repo: { owner: "acme", name: "web" }, ref: "main", file: "src/a.ts", lines: { start: 1, end: 2 } },
-    { id: "b", title: "B", body: "b", repo: { owner: "acme", name: "web" }, ref: "main", file: "src/a.ts", lines: { start: 5, end: 6 } },
-    { id: "c", title: "C", body: "b", repo: { owner: "acme", name: "web" }, ref: "main", file: "src/a.ts", lines: { start: 9, end: 10 } },
+    {
+      id: "a",
+      title: "A",
+      body: "b",
+      repo: { owner: "acme", name: "web" },
+      ref: "main",
+      file: "src/a.ts",
+      lines: { start: 1, end: 2 },
+    },
+    {
+      id: "b",
+      title: "B",
+      body: "b",
+      repo: { owner: "acme", name: "web" },
+      ref: "main",
+      file: "src/a.ts",
+      lines: { start: 5, end: 6 },
+    },
+    {
+      id: "c",
+      title: "C",
+      body: "b",
+      repo: { owner: "acme", name: "web" },
+      ref: "main",
+      file: "src/a.ts",
+      lines: { start: 9, end: 10 },
+    },
   ],
 });
 
@@ -48,8 +79,24 @@ const sameRepoReview = (): Review => ({
   id: "rev-1",
   title: "Auth flow",
   steps: [
-    { id: "a", title: "A", body: "b", repo: { owner: "acme", name: "web" }, ref: "main", file: "src/a.ts", lines: { start: 1, end: 2 } },
-    { id: "b", title: "B", body: "b", repo: { owner: "acme", name: "web" }, ref: "main", file: "src/b.ts", lines: { start: 5, end: 6 } },
+    {
+      id: "a",
+      title: "A",
+      body: "b",
+      repo: { owner: "acme", name: "web" },
+      ref: "main",
+      file: "src/a.ts",
+      lines: { start: 1, end: 2 },
+    },
+    {
+      id: "b",
+      title: "B",
+      body: "b",
+      repo: { owner: "acme", name: "web" },
+      ref: "main",
+      file: "src/b.ts",
+      lines: { start: 5, end: 6 },
+    },
   ],
 });
 
@@ -60,7 +107,6 @@ beforeEach(() => {
   sessionStorage.clear();
   state.review = null;
   state.reviewStep = 0;
-  state.reviewOpen = false;
   state.reviewNavigating = false;
   state.reviewSync = true; // synced is the default
   state.panel = { open: false, tab: "walkthrough", pos: null, size: null };
@@ -86,7 +132,7 @@ const loadOk = async (review = mkReview(), saved: unknown = null): Promise<void>
 
 describe("reviewStore getters", () => {
   it("are safe before any review is loaded", () => {
-    expect(reviewStore.isOpen()).toBe(false);
+    expect(state.panel.open).toBe(false);
     expect(reviewStore.steps()).toEqual([]);
     expect(reviewStore.stepCount()).toBe(0);
     expect(reviewStore.stepIndex()).toBe(0);
@@ -96,20 +142,22 @@ describe("reviewStore getters", () => {
 
   it("expose the loaded steps", async () => {
     await loadOk();
-    expect(reviewStore.steps()).toHaveLength(2);
+    expect(reviewStore.steps()).toEqual(mkReview().steps);
   });
 });
 
 describe("reviewStore.load", () => {
   it("pulls the review, opens the panel, defaults the step to 0", async () => {
     await loadOk();
-    expect(reviewStore.isOpen()).toBe(true);
+    expect(state.panel.open).toBe(true);
     expect(reviewStore.title()).toBe("Auth flow");
     expect(reviewStore.stepCount()).toBe(2);
     expect(reviewStore.stepIndex()).toBe(0);
-    expect(reviewStore.step()).toMatchObject({ id: "a" });
+    expect(reviewStore.step()).toEqual(mkReview().steps[0]);
     expect(state.panel.open).toBe(true);
     expect(api).toHaveBeenCalledWith("/review?id=rev-1");
+    expect(storeSet).toHaveBeenCalledWith("prw:review:rev-1", { step: 0, review: mkReview() });
+    expect(storeSet).toHaveBeenCalledTimes(1);
   });
 
   it("restores a saved step and clamps a stale one past the end", async () => {
@@ -123,7 +171,7 @@ describe("reviewStore.load", () => {
     vi.mocked(storeGet).mockResolvedValue({ step: 1, review: mkReview() });
     vi.mocked(api).mockResolvedValue({ ok: false }); // daemon down / 404
     await reviewStore.load("rev-1");
-    expect(reviewStore.isOpen()).toBe(true); // shown from cache despite the failed fetch
+    expect(state.panel.open).toBe(true); // shown from cache despite the failed fetch
     expect(reviewStore.stepIndex()).toBe(1);
     expect(reviewStore.title()).toBe("Auth flow");
   });
@@ -131,10 +179,10 @@ describe("reviewStore.load", () => {
   it("stays closed when the mailbox returns nothing or an invalid review", async () => {
     vi.mocked(api).mockResolvedValue({ ok: false });
     await reviewStore.load("rev-1");
-    expect(reviewStore.isOpen()).toBe(false);
+    expect(state.panel.open).toBe(false);
     vi.mocked(api).mockResolvedValue({ ok: true, data: { not: "a review" } });
     await reviewStore.load("rev-1");
-    expect(reviewStore.isOpen()).toBe(false);
+    expect(state.panel.open).toBe(false);
     expect(reviewStore.steps()).toEqual([]);
   });
 });
@@ -234,12 +282,6 @@ describe("reviewStore navigation", () => {
     expect(assign).not.toHaveBeenCalled();
   });
 
-  it("close clears the open flag", async () => {
-    await loadOk();
-    reviewStore.close();
-    expect(reviewStore.isOpen()).toBe(false);
-  });
-
   it("goto writes a sessionStorage snapshot (review + step + geometry) for the next page", async () => {
     await loadOk();
     state.panel.pos = { left: 1, top: 2 };
@@ -270,7 +312,7 @@ describe("reviewStore.hydrate", () => {
       JSON.stringify({ step: 1, review: mkReview(), pos: { left: 5, top: 6 }, size: { w: 7, h: 8 } }),
     );
     reviewStore.hydrate();
-    expect(reviewStore.isOpen()).toBe(true);
+    expect(state.panel.open).toBe(true);
     expect(reviewStore.stepIndex()).toBe(1);
     expect(reviewStore.title()).toBe("Auth flow");
     expect(state.panel.open).toBe(true);
@@ -280,19 +322,19 @@ describe("reviewStore.hydrate", () => {
 
   it("is a no-op off a review page, with no snapshot, on garbled JSON, or with no review", () => {
     reviewStore.hydrate(); // location has no ?prw
-    expect(reviewStore.isOpen()).toBe(false);
+    expect(state.panel.open).toBe(false);
 
     atReviewUrl();
     reviewStore.hydrate(); // no snapshot stored
-    expect(reviewStore.isOpen()).toBe(false);
+    expect(state.panel.open).toBe(false);
 
     sessionStorage.setItem("prw:session:rev-1", "{not json");
     reviewStore.hydrate(); // parse throws → caught
-    expect(reviewStore.isOpen()).toBe(false);
+    expect(state.panel.open).toBe(false);
 
     sessionStorage.setItem("prw:session:rev-1", JSON.stringify({ step: 1 })); // no review
     reviewStore.hydrate();
-    expect(reviewStore.isOpen()).toBe(false);
+    expect(state.panel.open).toBe(false);
   });
 });
 
@@ -321,20 +363,60 @@ describe("reviewStore context (Guide)", () => {
     await loadOk();
     reviewStore.askAboutStep();
     expect(opened).toHaveBeenCalledWith(
-      expect.objectContaining({ file: "src/a.ts", text: "guard body", lines: { start: 10, end: 20 } }),
+      {
+        selectionId: "src/a.ts::guard body",
+        file: "src/a.ts",
+        text: "guard body",
+        lines: { start: 10, end: 20 },
+        rect: { left: 60, top: 90, bottom: 114, height: 24 },
+      },
       true,
     );
+    expect(opened).toHaveBeenCalledTimes(1);
 
     opened.mockClear();
-    state.review = mkReview({ steps: [{ id: "h", title: "H", body: "", repo: { owner: "a", name: "b" }, file: "f.ts", highlight: ["hint one"] }] });
+    state.review = mkReview({
+      steps: [
+        {
+          id: "h",
+          title: "H",
+          body: "",
+          repo: { owner: "a", name: "b" },
+          file: "f.ts",
+          highlight: ["hint one"],
+        },
+      ],
+    });
     state.reviewStep = 0;
     reviewStore.askAboutStep();
-    expect(opened).toHaveBeenCalledWith(expect.objectContaining({ text: "hint one" }), true);
+    expect(opened).toHaveBeenCalledWith(
+      {
+        selectionId: "f.ts::hint one",
+        file: "f.ts",
+        text: "hint one",
+        lines: null,
+        rect: { left: 60, top: 90, bottom: 114, height: 24 },
+      },
+      true,
+    );
+    expect(opened).toHaveBeenCalledTimes(1);
 
     opened.mockClear();
-    state.review = mkReview({ steps: [{ id: "e", title: "E", body: "", repo: { owner: "a", name: "b" }, file: "f.ts" }] }); // no body, no highlight
+    state.review = mkReview({
+      steps: [{ id: "e", title: "E", body: "", repo: { owner: "a", name: "b" }, file: "f.ts" }],
+    }); // no body, no highlight
     state.reviewStep = 0;
     reviewStore.askAboutStep();
-    expect(opened).toHaveBeenCalledWith(expect.objectContaining({ text: "" }), true);
+    expect(opened).toHaveBeenCalledWith(
+      {
+        selectionId: "f.ts::",
+        file: "f.ts",
+        text: "",
+        lines: null,
+        rect: { left: 60, top: 90, bottom: 114, height: 24 },
+      },
+      true,
+    );
+    expect(opened).toHaveBeenCalledTimes(1);
   });
 });

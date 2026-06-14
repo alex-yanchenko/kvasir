@@ -10,6 +10,7 @@ import { api } from "../api";
 import { reviewIdFromUrl, reviewKey, reviewSessionKey } from "../keys";
 import { storeGet, storeSet } from "../muninn";
 import { chatStore } from "./chat";
+import { stripHtml } from "./lib/strip";
 import { parsePanelGeometry, parseReviewCache } from "./persisted";
 import { panelStore, PANEL_TABS, settingsStore, state, touch } from "./store";
 
@@ -30,14 +31,8 @@ const writeSession = (id: string, step: number, review: Review): void => {
 const applyReview = (review: Review): void => {
   state.review = review;
   state.reviewStep = clamp(state.reviewStep, review.steps.length);
-  state.reviewOpen = true;
   panelStore.open(PANEL_TABS.WALKTHROUGH);
 };
-const strip = (html: string): string =>
-  html
-    .replaceAll(/<[^>]+>/g, "")
-    .replaceAll(/\s+/g, " ")
-    .trim();
 
 /** "/owner/repo" prefix of a blob pathname — same value ⇒ same repo (GitHub will
  * soft-navigate within it; across repos it's a full load). */
@@ -69,7 +64,6 @@ const awaitSoftNav = (targetPath: string, onArrive: () => void): void => {
 
 export const reviewStore = {
   kind: "review" as const,
-  isOpen: (): boolean => state.reviewOpen,
   navigating: (): boolean => state.reviewNavigating,
 
   /** Synchronously populate review-mode state from the sessionStorage snapshot the
@@ -93,7 +87,6 @@ export const reviewStore = {
     const { pos, size } = parsePanelGeometry(parsed);
     state.review = review;
     state.reviewStep = clamp(step, review.steps.length);
-    state.reviewOpen = true;
     state.panel.open = true;
     state.panel.tab = PANEL_TABS.WALKTHROUGH;
     state.panel.pos = pos;
@@ -179,10 +172,6 @@ export const reviewStore = {
   back(): void {
     if (state.reviewStep > 0) reviewStore.goto(state.reviewStep - 1);
   },
-  close(): void {
-    state.reviewOpen = false;
-    touch();
-  },
 
   // ── Guide ──────────────────────────────────────────────────────────────────
   backgroundContext(): string {
@@ -191,7 +180,7 @@ export const reviewStore = {
     const steps = state.review.steps
       .map((s) => {
         const lineSuffix = s.lines ? `:${s.lines.start}-${s.lines.end}` : "";
-        return `• ${s.title} (${s.repo.owner}/${s.repo.name}/${s.file}${lineSuffix})\n  ${strip(s.body)}`;
+        return `• ${s.title} (${s.repo.owner}/${s.repo.name}/${s.file}${lineSuffix})\n  ${stripHtml(s.body)}`;
       })
       .join("\n");
     return (head + steps).slice(0, 12_000);
@@ -200,12 +189,12 @@ export const reviewStore = {
     const s = reviewStore.step();
     if (!s) return "";
     const lineSuffix = s.lines ? `:${s.lines.start}-${s.lines.end}` : "";
-    return `Step: ${s.title} (${s.file}${lineSuffix})\n${strip(s.body)}`;
+    return `Step: ${s.title} (${s.file}${lineSuffix})\n${stripHtml(s.body)}`;
   },
   askAboutStep(): void {
     const s = reviewStore.step();
     if (!s) return;
-    const text = strip(s.body).slice(0, 1000) || (s.highlight ?? []).join("\n");
+    const text = stripHtml(s.body).slice(0, 1000) || (s.highlight ?? []).join("\n");
     chatStore.openSelection(
       {
         selectionId: `${s.file}::${text.slice(0, 200)}`,

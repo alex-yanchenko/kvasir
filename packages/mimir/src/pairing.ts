@@ -52,8 +52,20 @@ interface PendingPair {
   approved: boolean;
 }
 
-const newCode = (): string =>
-  Array.from(randomBytes(6), (b) => CODE_ALPHABET[b % CODE_ALPHABET.length]).join("");
+const CODE_LEN = 6;
+// Largest multiple of the alphabet length that fits in a byte (248 for 31 chars):
+// reject bytes at or above it so `% length` stays uniform (no modulo bias toward
+// the first 256 % length characters).
+const CODE_MAX_BYTE = Math.floor(256 / CODE_ALPHABET.length) * CODE_ALPHABET.length;
+const newCode = (): string => {
+  const chars: string[] = [];
+  while (chars.length < CODE_LEN) {
+    for (const b of randomBytes(CODE_LEN - chars.length)) {
+      if (b < CODE_MAX_BYTE) chars.push(CODE_ALPHABET[b % CODE_ALPHABET.length]!);
+    }
+  }
+  return chars.join("");
+};
 
 export function createPairing(deps: PairingDeps): Pairing {
   const requestTtlMs = deps.requestTtlMs ?? PAIR_REQUEST_TTL_MS;

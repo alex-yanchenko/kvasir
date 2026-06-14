@@ -40,7 +40,9 @@ function repoContext(repoDirectory: string, file: string, stepNo: number): RepoC
   }
   const probe = Bun.spawnSync(["git", "-C", directory, "show", `${sha}:${file}`]);
   if (probe.exitCode === 0) return { remote, sha, content: probe.stdout.toString() };
-  throw new ReviewBuildError(`step ${stepNo}: file not found at ${sha.slice(0, 8)}: ${file} (in ${directory})`);
+  throw new ReviewBuildError(
+    `step ${stepNo}: file not found at ${sha.slice(0, 8)}: ${file} (in ${directory})`,
+  );
 }
 
 const PushResponse = z.object({ id: z.string(), url: z.string() });
@@ -55,7 +57,9 @@ async function main(): Promise<void> {
     version: 1,
     title: draft.title,
     ...(draft.source === undefined ? {} : { source: draft.source }),
-    steps: draft.steps.map((step, index) => resolveStep(step, repoContext(step.repoDir, step.file, index + 1), index)),
+    steps: draft.steps.map((step, index) =>
+      resolveStep(step, repoContext(step.repoDir, step.file, index + 1), index),
+    ),
   };
 
   let response: Response;
@@ -72,7 +76,13 @@ async function main(): Promise<void> {
   }
   const text = await response.text();
   if (response.ok) {
-    console.log(PushResponse.parse(JSON.parse(text)).url);
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      throw new ReviewBuildError(`/push returned non-JSON on ${response.status}: ${text.slice(0, 200)}`);
+    }
+    console.log(PushResponse.parse(parsed).url);
     return;
   }
   throw new ReviewBuildError(`/push returned ${response.status}: ${text}`);

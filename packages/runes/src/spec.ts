@@ -22,8 +22,8 @@ export const PrRefSchema = z.object({
 export const StepLinesSchema = z.object({
   /** "R" = the new/right side of the diff (added lines), "L" = old/left side. */
   side: z.enum(["R", "L"]),
-  start: z.number(),
-  end: z.number(),
+  start: z.number().int().positive(),
+  end: z.number().int().positive(),
 });
 
 export const WalkthroughStepSchema = z.object({
@@ -54,7 +54,7 @@ export const WalkthroughSpecSchema = z.object({
   /** 2-4 sentence plain-text summary of the whole PR. Not rendered as a step —
    * stored and fed to chat as background so a fresh session understands the PR. */
   overview: z.string().optional(),
-  steps: z.array(WalkthroughStepSchema),
+  steps: z.array(WalkthroughStepSchema).min(1),
 });
 
 export type PrRef = z.infer<typeof PrRefSchema>;

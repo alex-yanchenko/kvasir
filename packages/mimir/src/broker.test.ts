@@ -84,6 +84,8 @@ describe("open + streaming", () => {
     broker.chunk(id, "partial");
     vi.advanceTimersByTime(1000);
     expect(broker.snapshot(id)).toEqual({ notes: [], text: "partial", done: true, timedOut: true });
+    vi.advanceTimersByTime(DONE_TTL_MS);
+    expect(broker.snapshot(id)).toBeNull();
   });
 
   it("a finished question stays pollable for the TTL, then expires", () => {

@@ -13,6 +13,11 @@ describe("storeGet", () => {
     expect(await storeGet("prw:spec")).toBe(42);
   });
 
+  it("resolves undefined (does not hang) when chrome.storage.local is undefined", async () => {
+    vi.stubGlobal("chrome", { storage: {} });
+    expect(await storeGet("prw:spec")).toBeUndefined();
+  });
+
   it("resolves undefined when storage access throws (API unavailable)", async () => {
     vi.stubGlobal("chrome", {
       storage: {
@@ -61,6 +66,14 @@ describe("write failures are swallowed (storage unavailable)", () => {
     expect(() => storeSet("prw:tour", { step: 1 })).not.toThrow();
   });
 
+  it("storeSet swallows an async rejection from set", async () => {
+    vi.stubGlobal("chrome", {
+      storage: { local: { set: () => Promise.reject(new Error("QuotaExceeded")) } },
+    });
+    expect(() => storeSet("prw:tour", { step: 1 })).not.toThrow();
+    await Promise.resolve();
+  });
+
   it("storeRemove does not throw when the storage API throws", () => {
     vi.stubGlobal("chrome", {
       storage: {
@@ -72,5 +85,11 @@ describe("write failures are swallowed (storage unavailable)", () => {
       },
     });
     expect(() => storeRemove("prw:gen")).not.toThrow();
+  });
+
+  it("storeRemove swallows an async rejection from remove", async () => {
+    vi.stubGlobal("chrome", { storage: { local: { remove: () => Promise.reject(new Error("gone")) } } });
+    expect(() => storeRemove("prw:gen")).not.toThrow();
+    await Promise.resolve();
   });
 });

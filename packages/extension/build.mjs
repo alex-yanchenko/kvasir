@@ -51,8 +51,12 @@ const copyAssets = {
   setup(build) {
     build.onEnd(async (result) => {
       if (result.errors.length > 0) return;
-      await mkdir(dist, { recursive: true });
-      await copyFile(resolve(src, "midgard.css"), resolve(dist, "midgard.css"));
+      try {
+        await mkdir(dist, { recursive: true });
+        await copyFile(resolve(src, "midgard.css"), resolve(dist, "midgard.css"));
+      } catch (e) {
+        return { errors: [{ text: `asset copy failed: ${e.message}` }] };
+      }
     });
   },
 };

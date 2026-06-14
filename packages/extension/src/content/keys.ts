@@ -25,7 +25,12 @@ export const TOKEN_KEY = "prw:token";
  * the extension knows a page is a review (vs a plain PR) and which one to pull. */
 export const reviewIdFromUrl = (): string | null => {
   const m = /[?&]prw=([^&#]+)/.exec(location.href);
-  return m?.[1] ? decodeURIComponent(m[1]) : null;
+  if (!m?.[1]) return null;
+  try {
+    return decodeURIComponent(m[1]);
+  } catch {
+    return null; // malformed percent-escape (e.g. ?prw=%) — not a usable id
+  }
 };
 
 /** Per-review cache key (survives the page loads a review walks through). */

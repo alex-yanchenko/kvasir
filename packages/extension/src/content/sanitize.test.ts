@@ -17,11 +17,15 @@ describe("sanitizeSpecHtml", () => {
     expect(sanitizeSpecHtml(`<p class="x" onclick="evil()">hi</p>`)).toBe("<p>hi</p>");
   });
 
+  it("strips ALL attributes off a 4+-attribute tag (no live-NamedNodeMap skip)", () => {
+    expect(sanitizeSpecHtml(`<p class="a" onclick="b" style="c" data-x="d">hi</p>`)).toBe("<p>hi</p>");
+  });
+
   it("unwraps a script tag, leaving inert text", () => {
     expect(sanitizeSpecHtml("<script>alert(1)</script>")).toBe("alert(1)");
   });
 
-  it("removes nested disallowed wrappers across both passes", () => {
+  it("removes nested disallowed wrappers", () => {
     expect(sanitizeSpecHtml(`<div><a href="x"><b>t</b></a></div>`)).toBe("<div><b>t</b></div>");
   });
 

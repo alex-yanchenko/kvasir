@@ -170,6 +170,7 @@ describe("step context + ask", () => {
       },
       true,
     );
+    expect(open).toHaveBeenCalledTimes(1);
   });
 
   it("falls back to highlight strings, then to stripped body text", () => {
