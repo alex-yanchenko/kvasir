@@ -19,6 +19,8 @@ beforeEach(() => {
 });
 afterEach(() => {
   vi.unstubAllGlobals();
+  state.theme = "auto"; // module singleton — restore so test order can't leak a .dark host
+  document.body.innerHTML = "";
 });
 
 const host = () => {
@@ -58,5 +60,14 @@ describe("useThemeClass", () => {
 
     unmount();
     expect(mql.listeners).toEqual([]); // change listener removed
+  });
+  it("re-applies the class when the theme changes after mount", () => {
+    state.theme = "light";
+    const el = host();
+    const { rerender } = renderHook(() => useThemeClass(el));
+    expect(el.classList.contains("dark")).toBe(false);
+    state.theme = "dark";
+    rerender();
+    expect(el.classList.contains("dark")).toBe(true);
   });
 });

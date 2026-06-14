@@ -136,8 +136,15 @@ function scrollRowsIntoView(rows: Element[], cont: Element): void {
     const target = rows[fits ? Math.floor(rows.length / 2) : 0];
     /* v8 ignore next */ // rows is always non-empty here (callers guard) — index-narrow only
     if (!target) return;
-    if (!fits && overlay && target instanceof HTMLElement) target.style.scrollMarginTop = `${overlay}px`;
-    target.scrollIntoView({ behavior: "smooth", block: fits ? "center" : "start" });
+    if (!fits && overlay && target instanceof HTMLElement) {
+      target.style.scrollMarginTop = `${overlay}px`;
+      target.scrollIntoView({ behavior: "smooth", block: "start" });
+      // scrollIntoView consumes scroll-margin synchronously; clear it so the value
+      // doesn't outlive this jump on GitHub's row (misplacing later native scrolls).
+      target.style.scrollMarginTop = "";
+    } else {
+      target.scrollIntoView({ behavior: "smooth", block: fits ? "center" : "start" });
+    }
   };
   doScroll();
   // GitHub lazy-renders diffs, so content can grow above/below right after the

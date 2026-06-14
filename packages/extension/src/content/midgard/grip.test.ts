@@ -113,6 +113,7 @@ describe("ask bar", () => {
     expect(buttons.length).toBe(2);
     buttons[0].click(); // the context button is leftmost
     expect(ask).toHaveBeenCalledWith(expect.objectContaining({ withStep: true }));
+    expect(ask).toHaveBeenCalledTimes(1);
     off();
   });
 });

@@ -51,7 +51,10 @@ describe("useDrag", () => {
     const panel = getByTestId("panel");
     fireEvent.mouseDown(panel, { clientX: 10, clientY: 10 });
     fireEvent.mouseMove(document, { clientX: 30, clientY: 40 });
+    expect(panel.style.left).toBe("20px"); // 30 - (10 - 0 jsdom rect)
+    expect(panel.style.top).toBe("30px"); // 40 - (10 - 0)
     expect(panel.style.right).toBe("auto");
+    expect(panel.style.bottom).toBe("auto");
     fireEvent.mouseUp(document);
     expect(onEnd).toHaveBeenCalledWith({ left: 0, top: 0 }); // jsdom rects are zero
     expect(onEnd).toHaveBeenCalledTimes(1);

@@ -5,12 +5,13 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { useResizePersist } from "./useResizePersist";
 
 let roCallback: (() => void) | null = null;
+const disconnectSpy = vi.fn();
 class ROStub {
   constructor(cb: () => void) {
     roCallback = cb;
   }
   observe(): void {}
-  disconnect(): void {}
+  disconnect = disconnectSpy;
 }
 
 function Panel({ onSize }: { onSize: (s: { w: number; h: number }) => void }) {
@@ -29,6 +30,7 @@ beforeEach(() => {
   vi.useFakeTimers();
   vi.stubGlobal("ResizeObserver", ROStub);
   roCallback = null;
+  disconnectSpy.mockReset();
 });
 afterEach(() => {
   cleanup();
@@ -54,6 +56,7 @@ describe("useResizePersist", () => {
     const { unmount } = render(<Panel onSize={onSize} />);
     act(() => roCallback?.());
     unmount();
+    expect(disconnectSpy).toHaveBeenCalledTimes(1); // observer is torn down, not just the timer
     await act(async () => {
       await vi.advanceTimersByTimeAsync(300);
     });

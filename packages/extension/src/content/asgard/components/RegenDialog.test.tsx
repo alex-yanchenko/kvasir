@@ -20,7 +20,8 @@ describe("RegenDialog", () => {
     expect(screen.getByText(/Regenerate this review/)).toBeTruthy();
     fireEvent.click(screen.getByText("Regenerate as new"));
     expect(gen).toHaveBeenCalledWith("new", undefined);
-    expect(onClose).toHaveBeenCalled();
+    expect(gen).toHaveBeenCalledTimes(1);
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 
   it("with new commits, offers an incremental update from the reviewed head", () => {
@@ -36,6 +37,8 @@ describe("RegenDialog", () => {
     expect(screen.getByText(/New commits since this review/)).toBeTruthy();
     fireEvent.click(screen.getByText("Incremental update"));
     expect(gen).toHaveBeenCalledWith("incremental", "abc");
+    expect(gen).toHaveBeenCalledTimes(1);
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 
   it("cancel and backdrop click close without generating", () => {

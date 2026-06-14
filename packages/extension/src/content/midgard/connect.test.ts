@@ -84,9 +84,14 @@ describe("connectMidgard command handling", () => {
     const bar = document.createElement("div");
     bar.getBoundingClientRect = () => ({ bottom: 48 }) as DOMRect;
     document.elementFromPoint = () => bar; // jsdom doesn't implement it
+    let marginAtScroll = "";
+    scrolls.mockImplementation(function (this: HTMLElement) {
+      marginAtScroll = this.style.scrollMarginTop; // read before the synchronous reset
+    });
     b.send("highlight:step", { anchor: "diff-abc123", lines: { start: 10, end: 12 }, highlight: null });
     const first = rowsOf(document.getElementById("diff-abc123")!)[0] as HTMLElement;
-    expect(first.style.scrollMarginTop).toBe("48px");
+    expect(marginAtScroll).toBe("48px"); // overlay offset applied for the scroll
+    expect(first.style.scrollMarginTop).toBe(""); // reset after — not left on GitHub's row
     expect(scrolls).toHaveBeenCalledWith({ behavior: "smooth", block: "start" });
   });
 
@@ -139,9 +144,8 @@ describe("connectMidgard command handling", () => {
     const c = buildContainer();
     b.send("pick:rehighlight", { file: "src/app.ts", text: "const b = 2;" });
     expect(picked(c)).toEqual([rowsOf(c)[1]]);
-    const before = scrolls.mock.calls.length;
     b.send("pick:rehighlight", { file: "src/app.ts", text: "const b = 2;", scroll: true });
-    expect(scrolls.mock.calls.length).toBeGreaterThan(before);
+    expect(scrolls).toHaveBeenCalledWith({ behavior: "smooth", block: "center" });
   });
 
   it("pick:clear removes the selection highlight", () => {
@@ -184,5 +188,48 @@ describe("connectMidgard command handling", () => {
     b.send("theme:apply", { theme: "light", hlStyle: "tint" });
     expect(lined(c)).toEqual([]);
     expect(document.body.dataset.prwTheme).toBeUndefined();
+  });
+  it("scrollRowsIntoView settle stops once the container is removed mid-poll", () => {
+    vi.useFakeTimers();
+    const b = createBifrost();
+    connectMidgard(b);
+    const c = buildContainer();
+    vi.spyOn(Element.prototype, "getBoundingClientRect").mockReturnValue({
+      top: -999,
+      bottom: -980,
+    } as DOMRect);
+    b.send("highlight:step", { anchor: "diff-abc123", lines: { start: 10, end: 11 }, highlight: null });
+    const before = scrolls.mock.calls.length;
+    c.remove();
+    expect(() => vi.advanceTimersByTime(150 * 7)).not.toThrow();
+    expect(scrolls.mock.calls.length).toBe(before); // settle bailed on the detached container
+  });
+
+  it("jump:ref land() stops retrying when the container is removed mid-poll", () => {
+    vi.useFakeTimers();
+    const b = createBifrost();
+    connectMidgard(b);
+    const c = buildContainer();
+    b.send("jump:ref", { file: "src/app.ts", start: 999, end: null }); // line absent → polls
+    c.remove();
+    expect(() => vi.advanceTimersByTime(40 * 42)).not.toThrow();
+    expect(picked(c)).toEqual([]);
+  });
+
+  it("jump:ref clicks Load Diff for a collapsed file, then highlights once it renders", () => {
+    vi.useFakeTimers();
+    const b = createBifrost();
+    connectMidgard(b);
+    document.body.innerHTML = `<div id="diff-abc123" aria-labelledby="h1"><h1 id="h1">Collapse filesrc/app.ts</h1><button type="button">Load Diff</button></div>`;
+    const c = document.getElementById("diff-abc123")!;
+    c.querySelector("button")!.addEventListener("click", () => {
+      c.innerHTML = `<h1 id="h1">Collapse filesrc/app.ts</h1><table aria-label="Diff for: src/app.ts"><tbody><tr class="diff-line-row"><td class="diff-text-cell" data-line-number="10">+const a = 1;</td></tr></tbody></table>`;
+    });
+    b.send("jump:ref", { file: "src/app.ts", start: 10, end: null });
+    vi.advanceTimersByTime(40);
+    vi.advanceTimersByTime(40);
+    expect(picked(document.getElementById("diff-abc123")!)).toEqual([
+      rowsOf(document.getElementById("diff-abc123")!)[0],
+    ]);
   });
 });
