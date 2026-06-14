@@ -76,6 +76,12 @@ export default defineConfig({
           functions: 100,
           lines: 100,
         },
+        "packages/mimir/src/specInput.ts": {
+          statements: 100,
+          branches: 100,
+          functions: 100,
+          lines: 100,
+        },
         "packages/extension/src/content/midgard/**": {
           statements: 90,
           branches: 90,

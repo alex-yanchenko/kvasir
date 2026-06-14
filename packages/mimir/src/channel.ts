@@ -28,13 +28,14 @@
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { WalkthroughSpecSchema, prKey, type WalkthroughSpec } from "@prw/runes";
+import { prKey, type WalkthroughSpec } from "@prw/runes";
 import { z } from "zod";
 
 import { createFetchHandler } from "./bridge";
 import { createAskBroker } from "./broker";
 import { getManifest, getHeadSha, uncoveredFiles, COVERAGE_MIN_ADDS, type PrManifest } from "./diff";
 import { createPairing } from "./pairing";
+import { parseSpecInput } from "./specInput";
 
 const PORT = Number(process.env.PR_WALKTHROUGH_PORT) || 8799;
 const ASK_TIMEOUT_MS = Number(process.env.ASK_TIMEOUT_MS) || 120_000;
@@ -166,21 +167,20 @@ server.registerTool(
   {
     description:
       "Store the walkthrough spec so the extension can render it. spec = { version:1, pr:{url,owner,repo,number,title,headSha}, generatedAt, overview:'2-4 sentence PR summary (background for chat, not a step)', steps:[{id,title,body(html summary),detail?(html in-depth, shown on expand),file,anchor,lines?:{side:'R'|'L',start,end},highlight?:string[],suggestions?:string[]}] }.",
-    inputSchema: { spec: z.unknown() },
+    // Give the param a concrete type: an untyped z.unknown() serializes to JSON
+    // Schema `{}`, and the MCP client then stringifies the object on the wire — so
+    // the server received a string, not an object, and rejected every call. A
+    // typed object param is delivered as an object; the string branch keeps it
+    // robust if a client still stringifies. Real validation is in parseSpecInput.
+    inputSchema: { spec: z.union([z.string(), z.record(z.string(), z.unknown())]) },
   },
   ({ spec }) => {
-    // Surface the EXACT failing fields (path + message), not a static requirements
-    // list — an author iterating blind on "spec failed validation" can't tell which
-    // field is wrong. Log the raw arg type too, to rule out a transport problem.
-    const parsed = WalkthroughSpecSchema.safeParse(spec);
-    if (!parsed.success) {
-      const issues = parsed.error.issues
-        .map((issue) => `${issue.path.join(".") || "(root)"}: ${issue.message}`)
-        .join("; ");
-      console.error(`[pr-walkthrough] publish_walkthrough rejected (received ${typeof spec}): ${issues}`);
-      throw new InvalidSpecError(`spec failed validation — ${issues}`);
+    const result = parseSpecInput(spec);
+    if (!result.ok) {
+      console.error(`[pr-walkthrough] publish_walkthrough rejected (received ${typeof spec}): ${result.error}`);
+      throw new InvalidSpecError(`spec failed validation — ${result.error}`);
     }
-    const validated: WalkthroughSpec = parsed.data;
+    const validated: WalkthroughSpec = result.spec;
     const key = prKey(validated.pr.url);
 
     // Coverage gate (bounded): if significant changed files have no step, reject
