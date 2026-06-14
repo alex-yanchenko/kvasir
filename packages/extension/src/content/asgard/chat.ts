@@ -9,9 +9,9 @@ import { bifrost } from "../bifrost";
 import type { Bifrost, SelectionPayload } from "../bifrost";
 import { chatsKey, prUrl } from "../keys";
 import { storeSet } from "../muninn";
+import { activeGuide } from "./guide";
 import { pairingStore } from "./pairing";
 import { chatsStore, PANEL_TABS, panelStore, state, touch } from "./store";
-import { tourStore } from "./tour";
 import type { ChatMessage, ChatSession } from "./types";
 
 export type AskOutcome = { ok: true; streamed: boolean } | { ok: false; error: string };
@@ -59,27 +59,6 @@ export const QUICK_PR = [
   { label: "Where to focus", q: "As a reviewer, which files or changes should I look at first, and why?" },
   { label: "Test coverage", q: "How is this PR tested, and what's missing?" },
 ];
-
-// A compact, plain-text version of the cached walkthrough — sent with chat
-// questions so even a freshly-restarted (clean-context) session understands the PR.
-export function reviewContext(): string {
-  if (!state.spec) return "";
-  const head = state.spec.overview
-    ? `Overview: ${state.spec.overview.replaceAll(/\s+/g, " ").trim()}\n\n`
-    : "";
-  const steps = state.spec.steps
-    .map((st) => {
-      const lineSuffix = st.lines ? `:${st.lines.start}-${st.lines.end}` : "";
-      const where = st.file ? ` (${st.file}${lineSuffix})` : "";
-      const body = st.body
-        .replaceAll(/<[^>]+>/g, "")
-        .replaceAll(/\s+/g, " ")
-        .trim();
-      return `• ${st.title}${where}\n  ${body}`;
-    })
-    .join("\n");
-  return (head + steps).slice(0, 12_000);
-}
 
 /** A 401 from any bridge call means our token is stale/absent: drop it so the
  * UI flips to "pair to continue". Returns true when it handled a 401. */
@@ -207,7 +186,7 @@ export const chatStore = {
       persist();
     }
     if (withStep) {
-      update(sess.key, (s) => ({ ...s, step: tourStore.stepContext() }));
+      update(sess.key, (s) => ({ ...s, step: activeGuide().stepContext() }));
     }
     const latest = state.chatHistory.find((c) => c.key === p.selectionId);
     if (latest) chatStore.open(latest);
@@ -303,7 +282,7 @@ export const chatStore = {
       lines: sess.lines,
       selection: sess.text.slice(0, 6000),
       question,
-      review: reviewContext(), // distilled PR understanding, so a fresh session is grounded
+      review: activeGuide().backgroundContext(), // distilled understanding, so a fresh session is grounded
       step: sess.step, // present when the chat is scoped to a walkthrough step
       messages: history,
     });

@@ -1,5 +1,4 @@
 // @vitest-environment jsdom
-import type { WalkthroughSpec } from "@prw/runes/spec";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 vi.mock("../api", () => ({ api: vi.fn() }));
@@ -8,7 +7,7 @@ vi.mock("../muninn", () => ({ storeGet: vi.fn(), storeSet: vi.fn(), storeRemove:
 import { api } from "../api";
 import { bifrost } from "../bifrost";
 import { storeSet } from "../muninn";
-import { chatStore, connectChat, friendlyError, POLL_MS, reviewContext } from "./chat";
+import { chatStore, connectChat, friendlyError, POLL_MS } from "./chat";
 import { pairingStore } from "./pairing";
 import { state } from "./store";
 import { tourStore } from "./tour";
@@ -52,42 +51,6 @@ beforeEach(() => {
 });
 afterEach(() => {
   offs.forEach((off) => off());
-});
-
-describe("reviewContext", () => {
-  it("distills overview + steps with locations, capped", () => {
-    state.spec = {
-      version: 1,
-      pr: { url: PR, owner: "acme", repo: "widget-api", number: 7 },
-      generatedAt: "t",
-      overview: "Adds   rate limiting.",
-      steps: [
-        {
-          id: "s1",
-          title: "Limiter",
-          body: "<b>token bucket</b>",
-          file: "src/mw.ts",
-          anchor: "diff-a",
-          lines: { side: "R", start: 1, end: 9 },
-        },
-        { id: "s2", title: "Wire-up", body: "uses it", file: "", anchor: "diff-b" },
-      ],
-    } as WalkthroughSpec;
-    expect(reviewContext()).toBe(
-      "Overview: Adds rate limiting.\n\n• Limiter (src/mw.ts:1-9)\n  token bucket\n• Wire-up\n  uses it",
-    );
-  });
-
-  it("is empty without a spec, and skips the overview line without one", () => {
-    expect(reviewContext()).toBe("");
-    state.spec = {
-      version: 1,
-      pr: { url: PR, owner: "acme", repo: "widget-api", number: 7 },
-      generatedAt: "t",
-      steps: [{ id: "s", title: "T", body: "b", file: "f.ts", anchor: "d" }],
-    };
-    expect(reviewContext()).toBe("• T (f.ts)\n  b");
-  });
 });
 
 describe("friendlyError", () => {

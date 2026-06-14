@@ -24,6 +24,7 @@ const strip = (h: string | undefined): string =>
     .trim();
 
 export const tourStore = {
+  kind: "walkthrough" as const,
   open: (): boolean => open,
   stepIndex: (): number => stepIndex,
   stepCount: (): number => state.spec?.steps.length ?? 0,
@@ -72,6 +73,27 @@ export const tourStore = {
     state.activeStep = null;
     bifrost.send("grip:context", { hasActiveStep: false });
     touch();
+  },
+
+  /** Distilled plain-text view of the whole walkthrough (overview + steps), sent
+   * to /ask so even a fresh session understands the PR. */
+  backgroundContext(): string {
+    if (!state.spec) return "";
+    const head = state.spec.overview
+      ? `Overview: ${state.spec.overview.replaceAll(/\s+/g, " ").trim()}\n\n`
+      : "";
+    const steps = state.spec.steps
+      .map((st) => {
+        const lineSuffix = st.lines ? `:${st.lines.start}-${st.lines.end}` : "";
+        const where = st.file ? ` (${st.file}${lineSuffix})` : "";
+        const body = st.body
+          .replaceAll(/<[^>]+>/g, "")
+          .replaceAll(/\s+/g, " ")
+          .trim();
+        return `• ${st.title}${where}\n  ${body}`;
+      })
+      .join("\n");
+    return (head + steps).slice(0, 12_000);
   },
 
   /** Compact text of the current step — passed to chat so answers are framed by it. */
