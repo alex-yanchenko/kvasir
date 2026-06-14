@@ -11,7 +11,7 @@
       "matches": ["https://github.com/*/*/pull/*", "https://github.com/*/*/blob/*"],
       "js": ["dist/content.js"],
       "css": ["dist/midgard.css"],
-      "run_at": "document_end"
+      "run_at": "document_idle"
     }
   ]
 }
