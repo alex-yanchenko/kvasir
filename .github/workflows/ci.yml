@@ -26,4 +26,7 @@ jobs:
       - run: pnpm build
       - run: pnpm exec size-limit
       - run: pnpm exec playwright install --with-deps chromium
-      - run: pnpm exec playwright test
+      # MV3 extension loading is flaky under bare --headless=new on headless Linux
+      # runners; xvfb-run gives Chromium a virtual display so the loaded extension
+      # reliably registers its service worker. (-a = auto-pick a free display.)
+      - run: xvfb-run -a pnpm exec playwright test
