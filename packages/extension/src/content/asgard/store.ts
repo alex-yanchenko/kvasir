@@ -6,6 +6,7 @@
 // properties can, so every importer sees the same live values. Every mutation
 // must be followed by touch() or React won't re-render.
 
+import type { Review } from "@prw/runes/review";
 import type { WalkthroughSpec, WalkthroughStep } from "@prw/runes/spec";
 import { bifrost } from "../bifrost";
 import { chatsKey, panelKey, prUrl } from "../keys";
@@ -40,6 +41,11 @@ interface PanelState {
 export const state: {
   spec: WalkthroughSpec | null;
   activeStep: WalkthroughStep | null;
+  /** Review-mode (a pushed cross-repo review): the fetched review, current step,
+   * and whether the review guide is active. Null/0/false outside review-mode. */
+  review: Review | null;
+  reviewStep: number;
+  reviewOpen: boolean;
   theme: string; // "auto" | "light" | "dark"
   hlStyle: string; // "tint" | "github"
   tourState: TourState;
@@ -48,6 +54,9 @@ export const state: {
 } = {
   spec: null,
   activeStep: null,
+  review: null,
+  reviewStep: 0,
+  reviewOpen: false,
   theme: localStorage.getItem("prwTheme") || "auto",
   hlStyle: localStorage.getItem("prwHl") || "tint",
   tourState: { step: 0, pos: null, size: null },

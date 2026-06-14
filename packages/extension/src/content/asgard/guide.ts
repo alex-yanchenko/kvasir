@@ -4,6 +4,8 @@
 // matter how the panel was opened. Only the polymorphic seams differ per source
 // (revealing a step's code, building "ask about this step"); those live on each
 // implementation, not in chat.
+import { reviewIdFromUrl } from "../keys";
+import { reviewStore } from "./review";
 import { tourStore } from "./tour";
 
 export interface Guide {
@@ -17,8 +19,8 @@ export interface Guide {
   askAboutStep(): void;
 }
 
-/** The guide backing the current page. Walkthrough today; review branches in here
- * (keyed on reviewIdFromUrl()) once review-mode lands. */
+/** The guide backing the current page — review when the URL carries a `?prw=<id>`
+ * (a pushed review), otherwise the PR walkthrough. */
 export function activeGuide(): Guide {
-  return tourStore;
+  return reviewIdFromUrl() ? reviewStore : tourStore;
 }
