@@ -20,7 +20,7 @@ import {
   type PrManifest,
 } from "./manifest";
 
-export { COVERAGE_MIN_ADDS, uncoveredFiles, type PrManifest } from "./manifest";
+export type { PrManifest } from "./manifest";
 
 /** A `gh` subprocess exited non-zero — named so callers can discriminate it. */
 class GhError extends Error {

@@ -33,9 +33,9 @@ import { z } from "zod";
 
 import { createFetchHandler } from "./bridge";
 import { createAskBroker } from "./broker";
-import { getManifest, getHeadSha, uncoveredFiles, COVERAGE_MIN_ADDS, type PrManifest } from "./diff";
+import { getManifest, getHeadSha, type PrManifest } from "./diff";
 import { createPairing } from "./pairing";
-import { parseSpecInput } from "./specInput";
+import { preparePublish } from "./publish";
 
 const PORT = Number(process.env.PR_WALKTHROUGH_PORT) || 8799;
 const ASK_TIMEOUT_MS = Number(process.env.ASK_TIMEOUT_MS) || 120_000;
@@ -175,44 +175,26 @@ server.registerTool(
     inputSchema: { spec: z.union([z.string(), z.record(z.string(), z.unknown())]) },
   },
   ({ spec }) => {
-    const result = parseSpecInput(spec);
-    if (!result.ok) {
-      console.error(`[pr-walkthrough] publish_walkthrough rejected (received ${typeof spec}): ${result.error}`);
-      throw new InvalidSpecError(`spec failed validation — ${result.error}`);
+    // All decision logic (validate, coverage-nudge, stamp) is in preparePublish
+    // (unit-tested); this only applies the side effects the outcome names.
+    const outcome = preparePublish(spec, {
+      manifests,
+      nudges: publishNudges,
+      maxNudges: MAX_COVERAGE_NUDGES,
+      now: new Date().toISOString(),
+    });
+    if (outcome.kind === "invalid") {
+      console.error(`[pr-walkthrough] publish_walkthrough rejected (received ${typeof spec}): ${outcome.message}`);
+      throw new InvalidSpecError(outcome.message);
     }
-    const validated: WalkthroughSpec = result.spec;
-    const key = prKey(validated.pr.url);
-
-    // Coverage gate (bounded): if significant changed files have no step, reject
-    // ONCE with the list so the author adds steps, then accept regardless — so a
-    // genuinely step-less file (or a stubborn model) can't loop generation forever.
-    const manifest = manifests.get(key);
-    const uncovered = manifest
-      ? uncoveredFiles(
-          manifest,
-          validated.steps.map((s) => s.file),
-        )
-      : [];
-    const nudges = publishNudges.get(key) ?? 0;
-    if (uncovered.length > 0 && nudges < MAX_COVERAGE_NUDGES) {
-      publishNudges.set(key, nudges + 1);
-      return text(
-        `NOT published — coverage check. These changed files have ≥${COVERAGE_MIN_ADDS} added lines but no step:\n` +
-          uncovered.map((p) => `  - ${p}`).join("\n") +
-          `\n\nAdd steps covering the significant changes in them (see the sizing checklist), then call publish_walkthrough again. ` +
-          `If a listed file genuinely needs no step (generated/config/trivial), just call publish_walkthrough again unchanged — it will go through.`,
-      );
+    if (outcome.kind === "nudge") {
+      publishNudges.set(outcome.key, (publishNudges.get(outcome.key) ?? 0) + 1);
+      return text(outcome.message);
     }
-
-    validated.generatedAt = new Date().toISOString(); // stamp fresh on every publish so clients detect the update
-    specs.set(key, validated);
-    publishNudges.delete(key); // published — reset for the next regenerate
-    console.error(`[pr-walkthrough] published ${key} (${validated.steps.length} steps)`);
-    const coverageNote =
-      uncovered.length > 0 ? ` (${uncovered.length} changed file(s) still without a step)` : "";
-    return text(
-      `Published ${validated.steps.length} steps.${coverageNote} Open the PR; the extension will render it.`,
-    );
+    specs.set(outcome.key, outcome.spec);
+    publishNudges.delete(outcome.key); // published — reset for the next regenerate
+    console.error(`[pr-walkthrough] published ${outcome.key} (${outcome.spec.steps.length} steps)`);
+    return text(outcome.message);
   },
 );
 
