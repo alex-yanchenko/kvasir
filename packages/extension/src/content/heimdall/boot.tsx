@@ -43,6 +43,10 @@ export function boot(): void {
   else void launcherStore.refresh();
   watchUrl();
 
+  // Review-mode: synchronously hydrate from the sessionStorage snapshot the prior
+  // page wrote, so the panel's first paint is already complete (no async blink).
+  if (reviewId) reviewStore.hydrate();
+
   const host = document.createElement("div");
   host.id = "prw-root";
   document.body.append(host);

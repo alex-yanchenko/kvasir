@@ -30,3 +30,8 @@ export const reviewIdFromUrl = (): string | null => {
 
 /** Per-review cache key (survives the page loads a review walks through). */
 export const reviewKey = (id: string): string => `prw:review:${id}`;
+
+/** Per-review SESSION snapshot key. sessionStorage is synchronous and survives a
+ * same-origin navigation, so the next page can hydrate the panel (review + step +
+ * geometry) on its first paint — no async pop-in/blink. */
+export const reviewSessionKey = (id: string): string => `prw:session:${id}`;

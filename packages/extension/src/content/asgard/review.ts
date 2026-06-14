@@ -7,13 +7,24 @@
 // stored step, because that navigation is a full page load that re-runs boot.
 import { isReview, type Review, type ReviewStep, stepBlobUrl } from "@prw/runes/review";
 import { api } from "../api";
-import { reviewKey } from "../keys";
+import { reviewIdFromUrl, reviewKey, reviewSessionKey } from "../keys";
 import { storeGet, storeSet } from "../muninn";
 import { chatStore } from "./chat";
-import { parseReviewCache } from "./persisted";
+import { parsePanelGeometry, parseReviewCache } from "./persisted";
 import { panelStore, PANEL_TABS, state, touch } from "./store";
 
 const clamp = (index: number, length: number): number => Math.min(Math.max(index, 0), length - 1);
+
+/** Snapshot the destination to sessionStorage (sync, survives the same-origin nav)
+ * so the next page hydrates the panel on its first paint. */
+const writeSession = (id: string, step: number, review: Review): void => {
+  try {
+    const snapshot = { step, review, pos: state.panel.pos, size: state.panel.size };
+    sessionStorage.setItem(reviewSessionKey(id), JSON.stringify(snapshot));
+  } catch {
+    // sessionStorage unavailable — the async chrome.storage cache still covers it
+  }
+};
 
 /** Show a review: store it, clamp the step into range, open the panel on the step tab. */
 const applyReview = (review: Review): void => {
@@ -32,6 +43,34 @@ export const reviewStore = {
   kind: "review" as const,
   isOpen: (): boolean => state.reviewOpen,
   navigating: (): boolean => state.reviewNavigating,
+
+  /** Synchronously populate review-mode state from the sessionStorage snapshot the
+   * previous page wrote before navigating — runs in boot BEFORE React mounts, so
+   * the panel's FIRST paint already has the right step + geometry (no async pop-in
+   * / window blink). A miss (new tab, opened link directly) just falls through to
+   * the async load() below. */
+  hydrate(): void {
+    const id = reviewIdFromUrl();
+    if (!id) return;
+    let parsed: unknown;
+    try {
+      const raw = sessionStorage.getItem(reviewSessionKey(id));
+      if (!raw) return;
+      parsed = JSON.parse(raw);
+    } catch {
+      return; // no/garbled/unavailable snapshot — fall back to the async load()
+    }
+    const { step, review } = parseReviewCache(parsed);
+    if (!review) return;
+    const { pos, size } = parsePanelGeometry(parsed);
+    state.review = review;
+    state.reviewStep = clamp(step, review.steps.length);
+    state.reviewOpen = true;
+    state.panel.open = true;
+    state.panel.tab = PANEL_TABS.WALKTHROUGH;
+    state.panel.pos = pos;
+    state.panel.size = size;
+  },
   steps: (): ReviewStep[] => state.review?.steps ?? [],
   stepIndex: (): number => state.reviewStep,
   stepCount: (): number => state.review?.steps.length ?? 0,
@@ -79,6 +118,7 @@ export const reviewStore = {
       return;
     }
     state.reviewNavigating = true;
+    writeSession(id, target, review); // sync snapshot so the next page paints instantly
     touch();
     setTimeout(() => globalThis.location.assign(url.href), 0);
   },

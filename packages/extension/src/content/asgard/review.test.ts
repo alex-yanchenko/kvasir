@@ -46,6 +46,7 @@ let assign: ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
   vi.useFakeTimers(); // reveal defers the cross-file navigation via setTimeout
+  sessionStorage.clear();
   state.review = null;
   state.reviewStep = 0;
   state.reviewOpen = false;
@@ -188,6 +189,61 @@ describe("reviewStore navigation", () => {
   it("close clears the open flag", async () => {
     await loadOk();
     reviewStore.close();
+    expect(reviewStore.isOpen()).toBe(false);
+  });
+
+  it("goto writes a sessionStorage snapshot (review + step + geometry) for the next page", async () => {
+    await loadOk();
+    state.panel.pos = { left: 1, top: 2 };
+    state.panel.size = { w: 3, h: 4 };
+    reviewStore.goto(1); // cross-file
+    const snap: unknown = JSON.parse(sessionStorage.getItem("prw:session:rev-1") ?? "null");
+    expect(snap).toEqual({ step: 1, review: mkReview(), pos: { left: 1, top: 2 }, size: { w: 3, h: 4 } });
+  });
+
+  it("goto survives a sessionStorage write failure", async () => {
+    await loadOk();
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("storage disabled");
+    });
+    expect(() => reviewStore.goto(1)).not.toThrow();
+  });
+});
+
+describe("reviewStore.hydrate", () => {
+  const atReviewUrl = (): void => {
+    globalThis.location.href = "https://github.com/acme/web/blob/main/src/a.ts?prw=rev-1";
+  };
+
+  it("synchronously restores review + step + geometry from the session snapshot", () => {
+    atReviewUrl();
+    sessionStorage.setItem(
+      "prw:session:rev-1",
+      JSON.stringify({ step: 1, review: mkReview(), pos: { left: 5, top: 6 }, size: { w: 7, h: 8 } }),
+    );
+    reviewStore.hydrate();
+    expect(reviewStore.isOpen()).toBe(true);
+    expect(reviewStore.stepIndex()).toBe(1);
+    expect(reviewStore.title()).toBe("Auth flow");
+    expect(state.panel.open).toBe(true);
+    expect(state.panel.pos).toEqual({ left: 5, top: 6 });
+    expect(state.panel.size).toEqual({ w: 7, h: 8 });
+  });
+
+  it("is a no-op off a review page, with no snapshot, on garbled JSON, or with no review", () => {
+    reviewStore.hydrate(); // location has no ?prw
+    expect(reviewStore.isOpen()).toBe(false);
+
+    atReviewUrl();
+    reviewStore.hydrate(); // no snapshot stored
+    expect(reviewStore.isOpen()).toBe(false);
+
+    sessionStorage.setItem("prw:session:rev-1", "{not json");
+    reviewStore.hydrate(); // parse throws → caught
+    expect(reviewStore.isOpen()).toBe(false);
+
+    sessionStorage.setItem("prw:session:rev-1", JSON.stringify({ step: 1 })); // no review
+    reviewStore.hydrate();
     expect(reviewStore.isOpen()).toBe(false);
   });
 });
