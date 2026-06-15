@@ -2,7 +2,7 @@
   <!-- Kvasir mark: a Kenaz-style chevron (torch of knowledge / code bracket / 'K')
        cut as a chisel-tapered rune with a spark, in the theme primary on a transparent
        field — a carved Younger-Futhark feel. -->
-  <g fill="#0e93ab">
+  <g fill="#0e93ab" transform="translate(128 0) scale(-1 1)">
     <polygon points="80,14 97,24 50,64 97,104 80,114 36,64"/>
     <rect x="61" y="55" width="18" height="18" transform="rotate(45 70 64)"/>
   </g>
