@@ -3,13 +3,14 @@
 # session, wires the channel into this repo's .mcp.json, installs the `kvasir`
 # CLI, and gets the extension ready to load.
 #
-#   ./install.sh                copy skills into ~/.claude/skills (re-run to re-sync)
-#   ./install.sh --link         symlink the skills instead (live-edit during dev)
+#   ./install.sh                symlink skills into ~/.claude/skills (edits here apply live)
+#   ./install.sh --copy         copy a snapshot instead (re-run to re-sync)
 #   ./install.sh --allow-push   also add the Bash(kvasir:*) permission so /kvasir
 #                               never prompts (widens agent allow-rules — opt-in)
 #
-# Copy is the default to match the "self-contained ~/.claude, no symlinks" config
-# convention; --link is for when you're actively editing the skills here.
+# Symlink is the default so edits to the skill in this repo take effect without
+# re-running install. --copy makes a self-contained snapshot (the usual
+# "no symlinks in ~/.claude" convention) for a stable, repo-independent install.
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -20,11 +21,11 @@ say() { printf '  %s\n' "$*"; }
 ok()  { printf '  \033[32m✓\033[0m %s\n' "$*"; }
 warn() { printf '  \033[33m!\033[0m %s\n' "$*"; }
 
-LINK=0
+COPY=0
 ALLOW_PUSH=0
 for arg in "$@"; do
   case "$arg" in
-    --link) LINK=1 ;;
+    --copy) COPY=1 ;;
     --allow-push) ALLOW_PUSH=1 ;;
     *) warn "ignoring unknown flag: $arg" ;;
   esac
@@ -39,7 +40,7 @@ command -v gh  >/dev/null 2>&1 && ok "gh $(gh --version | head -1 | awk '{print 
 command -v pnpm >/dev/null 2>&1 && ok "pnpm $(pnpm --version)" || warn "pnpm missing — needed to build the extension"
 command -v python3 >/dev/null 2>&1 || warn "python3 missing — can't auto-write .mcp.json (will print the step instead)"
 
-# 2. Install skills globally (copy, or symlink with --link).
+# 2. Install skills globally (symlink by default, or snapshot with --copy).
 echo "Skills → $SKILLS_DEST:"
 mkdir -p "$SKILLS_DEST"
 for dir in "$SKILLS_SRC"/*/; do
@@ -47,12 +48,12 @@ for dir in "$SKILLS_SRC"/*/; do
   name="$(basename "$dir")"
   dest="$SKILLS_DEST/$name"
   rm -rf "$dest"
-  if [[ "$LINK" == 1 ]]; then
-    ln -s "${dir%/}" "$dest"
-    ok "linked $name"
-  else
+  if [[ "$COPY" == 1 ]]; then
     cp -R "$dir" "$dest"
     ok "copied $name"
+  else
+    ln -s "${dir%/}" "$dest"
+    ok "linked $name"
   fi
 done
 
