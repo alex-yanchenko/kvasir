@@ -14,7 +14,7 @@ afterEach(() => {
 describe("App", () => {
   it("mounts the launcher chip", () => {
     render(<App />);
-    expect(screen.getByLabelText("Open PR Walkthrough")).toBeTruthy();
+    expect(screen.getByLabelText("Open Kvasir")).toBeTruthy();
   });
 
   it("toggles the theme class on the given target", () => {

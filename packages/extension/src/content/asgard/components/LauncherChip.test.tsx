@@ -16,7 +16,7 @@ afterEach(() => {
 describe("LauncherChip", () => {
   it("shows the idle label and opens the panel on click", () => {
     render(<LauncherChip />);
-    fireEvent.click(screen.getByText("PR Walkthrough"));
+    fireEvent.click(screen.getByText("Kvasir"));
     expect(panelStore.isOpen()).toBe(true);
   });
 

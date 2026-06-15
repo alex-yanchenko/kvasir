@@ -26,7 +26,7 @@ export function LauncherChip(): JSX.Element | null {
       style={{ boxShadow: "var(--elevation)" }}
       size="lg"
       onClick={() => panelStore.open()}
-      aria-label="Open PR Walkthrough"
+      aria-label="Open Kvasir"
     >
       {generating ? <Loader2 className="animate-spin" /> : <BookOpen />}
       {generating ? (
@@ -34,7 +34,7 @@ export function LauncherChip(): JSX.Element | null {
           Generating… <Elapsed startAt={launcherStore.genStartAt()} />
         </>
       ) : (
-        "PR Walkthrough"
+        "Kvasir"
       )}
     </Button>
   );

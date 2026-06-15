@@ -14,7 +14,7 @@ test.describe("pairing flow", () => {
     );
     await page.goto(PR_URL);
 
-    await page.getByRole("button", { name: "Open PR Walkthrough" }).click();
+    await page.getByRole("button", { name: "Open Kvasir" }).click();
 
     // Unpaired on boot → the panel's PairBanner offers the Pair action.
     const pairButton = page.getByRole("button", { name: "Pair", exact: true });

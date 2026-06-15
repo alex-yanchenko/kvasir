@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "PR Walkthrough",
+  "name": "Kvasir",
   "version": "0.1.0",
-  "description": "Renders Claude-authored interactive walkthroughs on GitHub PRs, with code-selection Q&A via a local channel.",
+  "description": "Kvasir — Claude-authored interactive code walkthroughs on GitHub, with select-code Q&A via a local channel.",
   "permissions": ["storage"],
   "host_permissions": ["http://localhost:8799/*"],
   "background": { "service_worker": "dist/huginn.js" },

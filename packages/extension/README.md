@@ -1,4 +1,4 @@
-# pr-walkthrough extension
+# Kvasir extension
 
 A Chrome MV3 extension that renders Claude-authored walkthroughs on GitHub PR
 pages and provides a select-code-and-ask modal. No Web Store needed — load it
@@ -6,7 +6,7 @@ unpacked.
 
 ## What it does
 
-- On a PR's **Files** page, shows a **▶ Walkthrough** launcher (bottom-left).
+- On a PR's **Files** page, shows a **▶ Kvasir** launcher (bottom-left).
   Clicking it steps through the walkthrough: scrolls to each file, highlights the
   relevant lines, and shows a card with Back / Next (arrow keys and Esc work too).
 - Highlights using GitHub's per-line anchors when the spec provides line ranges,
@@ -17,7 +17,7 @@ unpacked.
 
 ## Load it
 
-1. Start the server (see `../server/README.md`) so `http://localhost:8799` is up.
+1. Start the channel (see `../mimir/README.md`) — e.g. `kvasir` — so `http://localhost:8799` is up.
 2. Go to `chrome://extensions`, enable **Developer mode** (top-right).
 3. Click **Load unpacked** and select this `extension/` folder.
 4. Open a GitHub PR's **Files** tab. The launcher appears bottom-left.

@@ -10,11 +10,11 @@ test.describe("extension on a PR page", () => {
     await page.goto(PR_URL);
 
     // Content script injected into a real browser → shadow-root mount + React render.
-    const chip = page.getByRole("button", { name: "Open PR Walkthrough" });
+    const chip = page.getByRole("button", { name: "Open Kvasir" });
     await expect(chip).toBeVisible();
 
     await chip.click();
-    await expect(page.getByRole("dialog", { name: "PR Walkthrough" })).toBeVisible();
+    await expect(page.getByRole("dialog", { name: "Kvasir" })).toBeVisible();
     await expect(chip).toBeHidden(); // chip yields to the panel header's close affordance
   });
 
@@ -28,7 +28,7 @@ test.describe("extension on a PR page", () => {
     );
     await page.goto(PR_URL);
 
-    await page.getByRole("button", { name: "Open PR Walkthrough" }).click();
+    await page.getByRole("button", { name: "Open Kvasir" }).click();
     await page.getByRole("tab", { name: "Walkthrough" }).click();
 
     // First step renders; mounting the tab auto-starts the tour → highlight:step →

@@ -45,13 +45,13 @@ describe("Panel", () => {
     render(<Panel />);
     expect(observed).toEqual([]); // closed at boot — nothing to observe yet
     act(() => panelStore.open());
-    expect(observed).toEqual([screen.getByRole("dialog", { name: "PR Walkthrough" })]);
+    expect(observed).toEqual([screen.getByRole("dialog", { name: "Kvasir" })]);
   });
 
   it("opens with the three tabs and a default title, switching tab on click", () => {
     render(<Panel />);
     act(() => panelStore.open());
-    expect(screen.getByRole("dialog", { name: "PR Walkthrough" })).toBeTruthy();
+    expect(screen.getByRole("dialog", { name: "Kvasir" })).toBeTruthy();
     expect(screen.getByText(/No walkthrough yet/)).toBeTruthy(); // walkthrough tab, no spec
     expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual(["Walkthrough", "Chat", "Settings"]);
 
@@ -70,7 +70,7 @@ describe("Panel", () => {
     };
     render(<Panel />);
     act(() => panelStore.open());
-    expect(screen.getByRole("dialog", { name: "PR Walkthrough" })).toBeTruthy();
+    expect(screen.getByRole("dialog", { name: "Kvasir" })).toBeTruthy();
     expect(screen.getByText("Fix the thing")).toBeTruthy();
   });
 
@@ -123,7 +123,7 @@ describe("Panel", () => {
     };
     render(<Panel />);
     act(() => panelStore.open());
-    expect(screen.getByText("PR Walkthrough")).toBeTruthy(); // header title fell back
+    expect(screen.getByText("Kvasir")).toBeTruthy(); // header title fell back
   });
 
   it("closing the panel ends the tour (clears the page highlight)", () => {
@@ -176,7 +176,7 @@ describe("Panel", () => {
   it("dragging the header persists the final position", () => {
     render(<Panel />);
     act(() => panelStore.open());
-    fireEvent.mouseDown(screen.getByText("PR Walkthrough").parentElement!, { clientX: 40, clientY: 40 });
+    fireEvent.mouseDown(screen.getByText("Kvasir").parentElement!, { clientX: 40, clientY: 40 });
     fireEvent.mouseMove(document, { clientX: 60, clientY: 70 });
     fireEvent.mouseUp(document);
     expect(panelStore.pos()).toEqual({ left: 0, top: 0 }); // jsdom rects
