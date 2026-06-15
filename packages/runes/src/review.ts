@@ -66,24 +66,6 @@ export function isReview(x: unknown): x is Review {
   return ReviewSchema.safeParse(x).success;
 }
 
-/** A history-list row: enough to tell reviews apart by their term (title) and to
- * reopen one (the landing url), without shipping every step. Produced by the
- * server's GET /reviews, consumed by the extension's Reviews tab. */
-export const ReviewSummarySchema = z.object({
-  id: z.string(),
-  title: z.string(),
-  source: z.string().optional(),
-  generatedAt: z.string().optional(),
-  steps: z.number(),
-  repos: z.array(z.string()),
-  url: z.string(),
-});
-export type ReviewSummary = z.infer<typeof ReviewSummarySchema>;
-
-export function isReviewSummaryList(x: unknown): x is ReviewSummary[] {
-  return z.array(ReviewSummarySchema).safeParse(x).success;
-}
-
 /**
  * The GitHub page for a review step — its code on the blob view, carrying
  * `?prw=<reviewId>` so the extension knows which review it belongs to. Shared by

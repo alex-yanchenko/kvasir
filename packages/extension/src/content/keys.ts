@@ -41,5 +41,9 @@ export const reviewKey = (id: string): string => `prw:review:${id}`;
  * geometry) on its first paint — no async pop-in/blink. */
 export const reviewSessionKey = (id: string): string => `prw:session:${id}`;
 
-/** Cache key for the review history list (GET /reviews) — for instant paint. */
-export const REVIEWS_KEY = "prw:reviews";
+/** Cache key for the history list (GET /history) — for instant paint. */
+export const HISTORY_KEY = "prw:history";
+
+/** Per-id "last version the FE has caught up to" map (Record<id, version>), so the
+ * History tab can flag entries whose backend content advanced past what we showed. */
+export const SEEN_KEY = "prw:seen";

@@ -23,6 +23,9 @@ jobs:
       - run: pnpm spell
       - run: pnpm typecheck
       - run: pnpm test:coverage
+      # bun:sqlite store can't run under vitest/node — verify it on Bun directly.
+      - uses: oven-sh/setup-bun@v2
+      - run: cd packages/mimir && bun test ./src/guideStore.sqlite.buntest.ts
       - run: pnpm build
       - run: pnpm exec size-limit
       - run: pnpm exec playwright install --with-deps chromium

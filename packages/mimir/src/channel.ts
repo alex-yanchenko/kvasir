@@ -27,20 +27,22 @@
  */
 
 import { randomBytes } from "node:crypto";
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { prKey, type WalkthroughSpec } from "@prw/runes";
+import { isReview, isWalkthroughSpec, prKey, type WalkthroughSpec } from "@prw/runes";
 import { z } from "zod";
 
 import { createFetchHandler } from "./bridge";
 import { createAskBroker } from "./broker";
 import { getManifest, getHeadSha, type PrManifest } from "./diff";
+import { reviewToRecord, specToRecord } from "./guideStore";
+import { createSqliteGuideStore } from "./guideStore.sqlite";
 import { createPairing } from "./pairing";
 import { preparePublish } from "./publish";
 import { slugify } from "./reviewBuild";
-import { createFileReviewStore } from "./reviewStore";
 
 const PORT = Number(process.env.PR_WALKTHROUGH_PORT) || 8799;
 const ASK_TIMEOUT_MS = Number(process.env.ASK_TIMEOUT_MS) || 120_000;
@@ -60,8 +62,41 @@ class InvalidSpecError extends Error {
  * drops them and you'd re-run start_walkthrough. (TODO: optional disk cache.) */
 const specs = new Map<string, WalkthroughSpec>();
 
-/** Pushed cross-repo reviews — durable on disk so a restart doesn't drop them. */
-const reviews = createFileReviewStore(path.join(homedir(), ".kvasir", "reviews"));
+/** Durable history of stored walkthroughs (pr + code) — one SQLite db with soft
+ * deletes, so a restart keeps them and deleted rows survive for retro analysis. */
+const KVASIR_DIR = path.join(homedir(), ".kvasir");
+mkdirSync(KVASIR_DIR, { recursive: true }); // bun:sqlite creates the file, not the dir
+const guides = createSqliteGuideStore(path.join(KVASIR_DIR, "kvasir.db"));
+
+// Specs are in-memory for fast /walkthrough render; rehydrate the PR ones from the
+// durable store on boot so a restart doesn't drop every PR walkthrough's render
+// (the spec id IS its prKey, which is also the specs-map key).
+for (const entry of guides.list()) {
+  if (entry.kind !== "pr") continue;
+  const stored = guides.get(entry.id);
+  if (stored && isWalkthroughSpec(stored.payload)) specs.set(entry.id, stored.payload);
+}
+
+// One-time import of the Phase-1 file store (~/.kvasir/reviews/*.json) into the db.
+// Best-effort: corrupt files are skipped; the dir is renamed so it runs only once.
+const legacyReviewsDirectory = path.join(KVASIR_DIR, "reviews");
+const importedMarkerDirectory = path.join(KVASIR_DIR, "reviews.imported");
+if (existsSync(legacyReviewsDirectory) && !existsSync(importedMarkerDirectory)) {
+  try {
+    for (const name of readdirSync(legacyReviewsDirectory)) {
+      if (!name.endsWith(".json")) continue;
+      try {
+        const parsed: unknown = JSON.parse(readFileSync(path.join(legacyReviewsDirectory, name), "utf8"));
+        if (isReview(parsed) && parsed.id) guides.put(reviewToRecord(parsed));
+      } catch (error) {
+        console.error(`[pr-walkthrough] skipped legacy review ${name}:`, error);
+      }
+    }
+    renameSync(legacyReviewsDirectory, importedMarkerDirectory);
+  } catch (error) {
+    console.error("[pr-walkthrough] legacy review migration skipped:", error);
+  }
+}
 
 /** Last manifest per PR (from start_walkthrough) — lets publish_walkthrough check
  * that the spec actually covers the changed files. */
@@ -95,7 +130,7 @@ Bun.serve({
   hostname: "127.0.0.1", // loopback only — never exposed to the local network
   fetch: createFetchHandler({
     specs,
-    reviews,
+    guides,
     mintReviewId: (title) => `${slugify(title)}-${randomBytes(3).toString("hex")}`,
     // arrow-wrapped (not bare method refs) — the broker methods are closures with no
     // `this`, but passing them bare trips unbound-method; the wrappers keep them call-safe.
@@ -204,6 +239,7 @@ server.registerTool(
       return text(outcome.message);
     }
     specs.set(outcome.key, outcome.spec);
+    guides.put(specToRecord(outcome.spec)); // mirror into durable history (kind pr)
     publishNudges.delete(outcome.key); // published — reset for the next regenerate
     console.error(`[pr-walkthrough] published ${outcome.key} (${outcome.spec.steps.length} steps)`);
     return text(outcome.message);

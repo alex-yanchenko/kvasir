@@ -3,7 +3,7 @@ import type { Review, WalkthroughSpec } from "@prw/runes";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createFetchHandler, parseSuggestions } from "./bridge";
 import { GUARD_HEADER } from "./guard";
-import { createMemoryReviewStore, type ReviewStore } from "./reviewStore";
+import { createMemoryGuideStore, type GuideStore, reviewToRecord } from "./guideStore";
 
 const PR = "https://github.com/acme/widget-api/pull/7";
 
@@ -32,7 +32,7 @@ const mkReview = (): Review => ({
 
 let deps: {
   specs: Map<string, WalkthroughSpec>;
-  reviews: ReviewStore;
+  guides: GuideStore;
   mintReviewId: ReturnType<typeof vi.fn>;
   open: ReturnType<typeof vi.fn>;
   ask: ReturnType<typeof vi.fn>;
@@ -52,7 +52,7 @@ let handler: (req: Request) => Promise<Response>;
 beforeEach(() => {
   deps = {
     specs: new Map(),
-    reviews: createMemoryReviewStore(),
+    guides: createMemoryGuideStore(),
     mintReviewId: vi.fn().mockReturnValue("rev-1"),
     open: vi.fn().mockReturnValue("q1-test"),
     ask: vi.fn().mockResolvedValue("an answer"),
@@ -382,7 +382,7 @@ describe("/suggest", () => {
   });
 });
 
-describe("/push + /review (token-less mailbox)", () => {
+describe("/push + history mailbox (token-less)", () => {
   it("stores a pushed review under a minted id and returns the landing url", async () => {
     const r = await call("/push", { method: "POST", body: mkReview() });
     expect(await r.json()).toEqual({
@@ -391,19 +391,22 @@ describe("/push + /review (token-less mailbox)", () => {
     });
     expect(deps.mintReviewId).toHaveBeenCalledTimes(1);
     expect(deps.mintReviewId).toHaveBeenCalledWith("Auth flow");
-    expect(deps.reviews.get("rev-1")).toEqual({ ...mkReview(), id: "rev-1" });
+    expect(deps.guides.get("rev-1")).toEqual({ kind: "code", payload: { ...mkReview(), id: "rev-1" } });
   });
 
-  it("GET /reviews lists pushed reviews as summaries", async () => {
+  it("GET /history lists pushed entries as summaries", async () => {
     await call("/push", { method: "POST", body: mkReview() });
-    expect(await (await call("/reviews")).json()).toEqual({
-      reviews: [
+    expect(await (await call("/history")).json()).toEqual({
+      entries: [
         {
+          kind: "code",
           id: "rev-1",
           title: "Auth flow",
           steps: 1,
           repos: ["acme/web"],
           url: "https://github.com/acme/web/blob/main/src/auth/guard.ts?prw=rev-1#L1-L2",
+          version: 1,
+          updatedAt: expect.any(Number),
         },
       ],
     });
@@ -435,17 +438,25 @@ describe("/push + /review (token-less mailbox)", () => {
     expect(noBody.status).toBe(400);
   });
 
-  it("GET /review returns a stored review, 400 without an id, 404 for an unknown one", async () => {
-    deps.reviews.put({ ...mkReview(), id: "rev-1" });
+  it("GET /review returns the stored payload, 400 without an id, 404 for an unknown one", async () => {
+    deps.guides.put(reviewToRecord({ ...mkReview(), id: "rev-1" }));
     expect(await (await call("/review?id=rev-1")).json()).toEqual({ ...mkReview(), id: "rev-1" });
     expect((await call("/review")).status).toBe(400);
     expect((await call("/review?id=zzz")).status).toBe(404);
   });
 
+  it("DELETE /entry soft-deletes (gone from history), 400 without an id, 404 for unknown", async () => {
+    deps.guides.put(reviewToRecord({ ...mkReview(), id: "rev-1" }));
+    expect(await (await call("/entry?id=rev-1", { method: "DELETE" })).json()).toEqual({ ok: true });
+    expect(await (await call("/history")).json()).toEqual({ entries: [] });
+    expect((await call("/entry", { method: "DELETE" })).status).toBe(400);
+    expect((await call("/entry?id=rev-1", { method: "DELETE" })).status).toBe(404);
+  });
+
   it("stays open while unpaired (token-less by design)", async () => {
     deps.pairing.verify.mockReturnValue(false);
     expect((await call("/push", { method: "POST", body: mkReview() })).status).toBe(200);
-    deps.reviews.put({ ...mkReview(), id: "rev-1" });
+    deps.guides.put(reviewToRecord({ ...mkReview(), id: "rev-1" }));
     expect((await call("/review?id=rev-1")).status).toBe(200);
   });
 });

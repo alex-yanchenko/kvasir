@@ -6,6 +6,7 @@ import { X } from "lucide-react";
 import { useEffect, useRef, useSyncExternalStore } from "react";
 import type { JSX } from "react";
 import { activeGuide } from "../guide";
+import { historyStore } from "../history";
 import { useDrag } from "../hooks/useDrag";
 import { useResizePersist } from "../hooks/useResizePersist";
 import { useScrollLock } from "../hooks/useScrollLock";
@@ -17,7 +18,7 @@ import { tourStore } from "../tour";
 import { Button } from "../ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { ChatTab } from "./tabs/ChatTab";
-import { ReviewsTab } from "./tabs/ReviewsTab";
+import { HistoryTab } from "./tabs/HistoryTab";
 import { ReviewTab } from "./tabs/ReviewTab";
 import { SettingsTab } from "./tabs/SettingsTab";
 import { WalkthroughTab } from "./tabs/WalkthroughTab";
@@ -25,7 +26,7 @@ import { WalkthroughTab } from "./tabs/WalkthroughTab";
 const TAB_LABELS: Array<{ value: PanelTab; label: string }> = [
   { value: PANEL_TABS.WALKTHROUGH, label: "Walkthrough" },
   { value: PANEL_TABS.CHAT, label: "Chat" },
-  { value: PANEL_TABS.REVIEWS, label: "Reviews" },
+  { value: PANEL_TABS.HISTORY, label: "History" },
   { value: PANEL_TABS.SETTINGS, label: "Settings" },
 ];
 
@@ -77,12 +78,18 @@ function PanelWindow(): JSX.Element {
   // Closing the panel ends the tour and clears the page highlight (the Walkthrough
   // tab no longer does this on tab-switch, so the highlight survives Settings/Chat).
   useEffect(() => () => tourStore.close(), []);
+  // Auto-load history on panel open so the tab badge reflects backend drift even
+  // before the tab is viewed (cache-then-refresh; a closed bridge is a no-op).
+  useEffect(() => {
+    void historyStore.load();
+  }, []);
 
   const pos = panelStore.pos();
   const size = panelStore.size();
   // Review-mode (a pushed cross-repo review opened via ?prw) swaps the walkthrough
   // tab for the review tab; everything else (chat, settings) is unchanged.
   const isReview = activeGuide().kind === "review";
+  const staleHistory = historyStore.staleCount();
   const title = isReview ? reviewStore.title() || "Kvasir" : (launcherStore.spec()?.pr?.title ?? "Kvasir");
 
   return (
@@ -127,6 +134,14 @@ function PanelWindow(): JSX.Element {
             {TAB_LABELS.map((t) => (
               <TabsTrigger key={t.value} value={t.value} className="flex-1">
                 {t.value === PANEL_TABS.WALKTHROUGH && isReview ? "Review" : t.label}
+                {t.value === PANEL_TABS.HISTORY && staleHistory > 0 ? (
+                  <span
+                    aria-label={`${staleHistory} need sync`}
+                    className="ml-1 inline-flex min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground"
+                  >
+                    {staleHistory}
+                  </span>
+                ) : null}
               </TabsTrigger>
             ))}
           </TabsList>
@@ -137,8 +152,8 @@ function PanelWindow(): JSX.Element {
         <TabsContent value={PANEL_TABS.CHAT} className="min-h-0">
           <ChatTab />
         </TabsContent>
-        <TabsContent value={PANEL_TABS.REVIEWS} className="min-h-0">
-          <ReviewsTab />
+        <TabsContent value={PANEL_TABS.HISTORY} className="min-h-0">
+          <HistoryTab />
         </TabsContent>
         <TabsContent value={PANEL_TABS.SETTINGS} className="overflow-y-auto">
           <SettingsTab />
