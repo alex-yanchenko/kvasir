@@ -15,6 +15,8 @@ the `example-watcher` / `example-watcher` channels.
   - `GET /health`
   - `GET /walkthrough?pr=<url>` → the stored spec, or `{ status: "absent" }`
   - `POST /ask` `{pr,stepId,file,selection,question}` → an answer from your session
+  - `POST /push` `{review}` → store a pushed cross-repo review, returns its `?prw=` link
+  - `GET /review?id=<id>` → a stored review · `GET /reviews` → summaries for the history list
   - `POST /suggest` `{pr,file,selection}` → 3–4 suggested questions
 
 Browser questions are pushed into your session as
@@ -131,7 +133,7 @@ header), or point the extension at it while developing.
 
 ## TODO
 
-- Persist specs to disk so they survive a restart (currently in-memory).
+- Pushed reviews persist to `~/.kvasir/reviews/*.json` (survive a restart); specs are still in-memory — give them the same treatment.
 - Optional: a cheap-model path for `/ask` and `/suggest` so rapid-fire questions
   don't use the main session (needs an API key — skipped on locked-down accounts).
 - Stream answers instead of long-poll.

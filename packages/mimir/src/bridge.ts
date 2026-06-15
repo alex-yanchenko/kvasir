@@ -7,18 +7,15 @@ import type { QuestionSnapshot } from "./broker";
 import { authorizedLocalCaller, corsHeaders, isRecord, readJsonBody, truncate, prOrNull } from "./guard";
 import type { Pairing } from "./pairing";
 import { parseReviewInput, reviewLandingUrl } from "./review";
-
-/** A pushed review lives in memory only long enough for the user to open its
- * landing URL; evict after this so a long-lived daemon doesn't grow unbounded. */
-export const REVIEW_TTL_MS = 24 * 60 * 60 * 1000;
+import { type ReviewStore } from "./reviewStore";
 
 export interface BridgeDeps {
   /** Published specs, keyed by `owner/repo#number`. */
   specs: Map<string, WalkthroughSpec>;
-  /** Pushed reviews (cross-repo explanations), keyed by review id. */
-  reviews: Map<string, Review>;
-  /** Mint a fresh review id when a push omits one. */
-  mintReviewId(): string;
+  /** Pushed reviews (cross-repo explanations), durable across restarts. */
+  reviews: ReviewStore;
+  /** Mint a fresh review id from the title when a push omits one. */
+  mintReviewId(title: string): string;
   /** Register a streamed question for the session; returns its poll id. */
   open(eventType: string, content: string, meta: Record<string, string>): string;
   /** One-shot mode: park a question and await the full answer ("" on timeout). */
@@ -85,10 +82,9 @@ async function handlePush({ request, deps }: Context): Promise<Response> {
   if (!body) return json(request, { error: "bad request body" }, 400);
   const result = parseReviewInput(body);
   if (!result.ok) return json(request, { error: result.error }, 400);
-  const id = result.review.id ?? deps.mintReviewId();
+  const id = result.review.id ?? deps.mintReviewId(result.review.title);
   const review: Review = { ...result.review, id };
-  deps.reviews.set(id, review);
-  setTimeout(() => deps.reviews.delete(id), REVIEW_TTL_MS).unref?.();
+  deps.reviews.put(review);
   return json(request, { id, url: reviewLandingUrl(review) });
 }
 
@@ -97,6 +93,10 @@ function handleReview({ request, url, deps }: Context): Response {
   if (!id) return json(request, { error: "need an id" }, 400);
   const review = deps.reviews.get(id);
   return review ? json(request, review) : json(request, { error: "unknown review id" }, 404);
+}
+
+function handleReviews({ request, deps }: Context): Response {
+  return json(request, { reviews: deps.reviews.list() });
 }
 
 // ── token-gated routes ───────────────────────────────────────────────────────
@@ -271,6 +271,17 @@ const ROUTES: Record<string, (context: Context) => Response | Promise<Response>>
   "POST /suggest": handleSuggest,
 };
 
+// Token-less routes, dispatched the same way but BEFORE the pairing gate: /pair
+// only starts pairing, and the review mailbox pushes/pulls by id. /health stays
+// inline (a one-liner).
+const PUBLIC_ROUTES: Record<string, (context: Context) => Response | Promise<Response>> = {
+  "POST /pair": handlePair,
+  "GET /pair/claim": handlePairClaim,
+  "POST /push": handlePush,
+  "GET /reviews": handleReviews,
+  "GET /review": handleReview,
+};
+
 export function createFetchHandler(deps: BridgeDeps): (request: Request) => Promise<Response> {
   return async (request) => {
     const url = new URL(request.url);
@@ -283,15 +294,11 @@ export function createFetchHandler(deps: BridgeDeps): (request: Request) => Prom
 
     if (url.pathname === "/health") return json(request, { ok: true, specs: deps.specs.size });
 
-    // Pairing — the only token-less routes besides /health, and they only START
-    // pairing, they never answer.
-    if (url.pathname === "/pair" && request.method === "POST") return handlePair(context);
-    if (url.pathname === "/pair/claim" && request.method === "GET") return handlePairClaim(context);
-
-    // Review mailbox — token-less (see handlePush): push from any local session,
-    // pull by id (the extension reads ?prw=<id> off the GitHub landing URL).
-    if (url.pathname === "/push" && request.method === "POST") return handlePush(context);
-    if (url.pathname === "/review" && request.method === "GET") return handleReview(context);
+    // Token-less routes (before the pairing gate): /pair only starts pairing; the
+    // review mailbox pushes/pulls by id (the extension reads ?prw=<id> off the
+    // GitHub landing URL).
+    const publicRoute = PUBLIC_ROUTES[`${request.method} ${url.pathname}`];
+    if (publicRoute) return publicRoute(context);
 
     // Every route past here requires the paired token — no grace period. An
     // unpaired extension (or any other local process) gets 401 and must pair
