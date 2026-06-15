@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { type Review } from "@prw/runes";
+import { type Review, stepBlobUrl } from "@prw/runes";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createFileReviewStore, createMemoryReviewStore, toReviewSummary } from "./reviewStore";
 
@@ -27,6 +27,7 @@ describe("toReviewSummary", () => {
       generatedAt: "2026-01-02T00:00:00Z",
       steps: 2,
       repos: ["acme/web", "acme/api"],
+      url: stepBlobUrl(mkReview().steps[0], "auth-flow-abc"),
     });
   });
 
@@ -36,6 +37,7 @@ describe("toReviewSummary", () => {
       title: "Auth flow",
       steps: 2,
       repos: ["acme/web", "acme/api"],
+      url: stepBlobUrl(mkReview().steps[0], undefined),
     });
   });
 });

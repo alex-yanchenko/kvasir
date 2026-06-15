@@ -397,7 +397,15 @@ describe("/push + /review (token-less mailbox)", () => {
   it("GET /reviews lists pushed reviews as summaries", async () => {
     await call("/push", { method: "POST", body: mkReview() });
     expect(await (await call("/reviews")).json()).toEqual({
-      reviews: [{ id: "rev-1", title: "Auth flow", steps: 1, repos: ["acme/web"] }],
+      reviews: [
+        {
+          id: "rev-1",
+          title: "Auth flow",
+          steps: 1,
+          repos: ["acme/web"],
+          url: "https://github.com/acme/web/blob/main/src/auth/guard.ts?prw=rev-1#L1-L2",
+        },
+      ],
     });
   });
 

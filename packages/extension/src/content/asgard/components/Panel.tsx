@@ -17,6 +17,7 @@ import { tourStore } from "../tour";
 import { Button } from "../ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { ChatTab } from "./tabs/ChatTab";
+import { ReviewsTab } from "./tabs/ReviewsTab";
 import { ReviewTab } from "./tabs/ReviewTab";
 import { SettingsTab } from "./tabs/SettingsTab";
 import { WalkthroughTab } from "./tabs/WalkthroughTab";
@@ -24,6 +25,7 @@ import { WalkthroughTab } from "./tabs/WalkthroughTab";
 const TAB_LABELS: Array<{ value: PanelTab; label: string }> = [
   { value: PANEL_TABS.WALKTHROUGH, label: "Walkthrough" },
   { value: PANEL_TABS.CHAT, label: "Chat" },
+  { value: PANEL_TABS.REVIEWS, label: "Reviews" },
   { value: PANEL_TABS.SETTINGS, label: "Settings" },
 ];
 
@@ -134,6 +136,9 @@ function PanelWindow(): JSX.Element {
         </TabsContent>
         <TabsContent value={PANEL_TABS.CHAT} className="min-h-0">
           <ChatTab />
+        </TabsContent>
+        <TabsContent value={PANEL_TABS.REVIEWS} className="min-h-0">
+          <ReviewsTab />
         </TabsContent>
         <TabsContent value={PANEL_TABS.SETTINGS} className="overflow-y-auto">
           <SettingsTab />
