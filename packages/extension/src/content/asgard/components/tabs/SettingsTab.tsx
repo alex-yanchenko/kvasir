@@ -2,8 +2,9 @@
 // Replaces the floating gear popover; the machines (settingsStore/pairingStore)
 // are unchanged.
 import { Check, Loader2 } from "lucide-react";
-import { useEffect, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import type { JSX } from "react";
+import { wipeStoredData } from "../../debug";
 import { pairingStore } from "../../pairing";
 import { getSnapshot, settingsStore, subscribe } from "../../store";
 import { Button } from "../../ui/button";
@@ -81,6 +82,52 @@ function Connection(): JSX.Element {
   );
 }
 
+function Debug(): JSX.Element {
+  const [confirming, setConfirming] = useState(false);
+  const [wiped, setWiped] = useState(false);
+  return (
+    <div className="flex flex-col gap-2">
+      <span className="text-sm font-medium">Debug</span>
+      <div className="flex items-center gap-2">
+        <span className="text-sm text-muted-foreground">
+          {wiped ? "Wiped — reload the page" : "Clear all stored extension data"}
+        </span>
+        {confirming ? (
+          <div className="ml-auto flex gap-1">
+            <Button
+              size="sm"
+              variant="outline"
+              className="text-destructive hover:text-destructive"
+              onClick={() => {
+                void wipeStoredData();
+                setConfirming(false);
+                setWiped(true);
+              }}
+            >
+              Confirm wipe
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setConfirming(false)}>
+              Cancel
+            </Button>
+          </div>
+        ) : (
+          <Button
+            size="sm"
+            variant="outline"
+            className="ml-auto text-destructive hover:text-destructive"
+            onClick={() => {
+              setConfirming(true);
+              setWiped(false);
+            }}
+          >
+            Wipe data
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function SettingsTab(): JSX.Element {
   useSyncExternalStore(subscribe, getSnapshot);
   return (
@@ -115,6 +162,9 @@ export function SettingsTab(): JSX.Element {
       />
       <div className="border-t border-border pt-3">
         <Connection />
+      </div>
+      <div className="border-t border-border pt-3">
+        <Debug />
       </div>
     </div>
   );
