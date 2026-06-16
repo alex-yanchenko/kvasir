@@ -5,9 +5,10 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { type Review } from "@prw/runes";
+import { type Review, type WalkthroughSpec } from "@prw/runes";
+import { Database } from "bun:sqlite";
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { reviewToRecord } from "./guideStore";
+import { reviewToRecord, specToRecord } from "./guideStore";
 import { createSqliteGuideStore } from "./guideStore.sqlite";
 
 const mkReview = (over: Partial<Review> = {}): Review => ({
@@ -24,6 +25,21 @@ const mkReview = (over: Partial<Review> = {}): Review => ({
 });
 
 // Monotonic clock so updatedAt ordering is deterministic.
+const mkSpec = (over: Partial<WalkthroughSpec> = {}): WalkthroughSpec => ({
+  version: 1,
+  pr: {
+    url: "https://github.com/acme/web/pull/7",
+    owner: "acme",
+    repo: "web",
+    number: 7,
+    title: "Add rate limit",
+    author: "alice",
+  },
+  generatedAt: "2026-02-01T00:00:00Z",
+  steps: [{ id: "s1", title: "Limiter", body: "b", file: "src/x.ts", anchor: "diff-abc" }],
+  ...over,
+});
+
 const clock = () => {
   let t = 0;
   return () => ++t;
@@ -92,6 +108,23 @@ describe("createSqliteGuideStore (in-memory)", () => {
     expect(resurrected.version).toBe(1);
     expect(store.list().map((entry) => entry.id)).toEqual(["x"]);
   });
+
+  it("persists author and derives the PR number from the id (pr entry)", () => {
+    const store = createSqliteGuideStore(":memory:", clock());
+    store.put(specToRecord(mkSpec()));
+    const entry = store.list()[0];
+    expect(entry?.kind).toBe("pr");
+    expect(entry?.prNumber).toBe(7);
+    expect(entry?.author).toBe("alice");
+  });
+
+  it("still derives the PR number when the spec carries no author", () => {
+    const store = createSqliteGuideStore(":memory:", clock());
+    store.put(specToRecord(mkSpec({ pr: { ...mkSpec().pr, author: undefined } })));
+    const entry = store.list()[0];
+    expect(entry?.prNumber).toBe(7);
+    expect(entry?.author).toBeUndefined();
+  });
 });
 
 describe("createSqliteGuideStore (file-backed durability)", () => {
@@ -109,5 +142,20 @@ describe("createSqliteGuideStore (file-backed durability)", () => {
     const reopened = createSqliteGuideStore(dbPath, clock());
     expect(reopened.get("r1")).toEqual({ kind: "code", payload: mkReview({ id: "r1" }) });
     expect(reopened.list().map((entry) => entry.id)).toEqual(["r1"]);
+  });
+
+  it("migrates a db created before the author column existed", () => {
+    const dbPath = path.join(directory, "kvasir.db");
+    const old = new Database(dbPath, { create: true });
+    old.run(
+      "CREATE TABLE entries (id TEXT PRIMARY KEY, kind TEXT NOT NULL, title TEXT NOT NULL, source TEXT," +
+        " steps INTEGER NOT NULL, url TEXT NOT NULL, repos TEXT NOT NULL, payload TEXT NOT NULL," +
+        " version INTEGER NOT NULL, content_hash TEXT NOT NULL, generated_at TEXT, created_at INTEGER NOT NULL," +
+        " updated_at INTEGER NOT NULL, deleted_at INTEGER) STRICT;",
+    );
+    old.close();
+    const store = createSqliteGuideStore(dbPath, clock());
+    store.put(reviewToRecord(mkReview({ id: "x" }))); // upsert must succeed post-ALTER
+    expect(store.list().map((entry) => entry.id)).toEqual(["x"]);
   });
 });
