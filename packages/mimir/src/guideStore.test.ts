@@ -29,6 +29,7 @@ const mkSpec = (over: Partial<WalkthroughSpec> = {}): WalkthroughSpec => ({
     repo: "web",
     number: 7,
     title: "Add rate limit",
+    author: "alice",
     headSha: "deadbeef",
   },
   generatedAt: "2026-02-01T00:00:00Z",
@@ -82,11 +83,19 @@ describe("specToRecord", () => {
       url: "https://github.com/acme/web/pull/7/files",
       payload: mkSpec(),
       generatedAt: "2026-02-01T00:00:00Z",
+      prNumber: 7,
+      author: "alice",
     });
   });
 
   it("falls back to owner/repo#number when the pr title is absent", () => {
     expect(specToRecord(mkSpec({ pr: { ...mkSpec().pr, title: undefined } })).title).toBe("acme/web#7");
+  });
+
+  it("keeps prNumber but omits author when the spec carries none", () => {
+    const record = specToRecord(mkSpec({ pr: { ...mkSpec().pr, author: undefined } }));
+    expect(record.prNumber).toBe(7);
+    expect("author" in record).toBe(false);
   });
 });
 
@@ -102,6 +111,22 @@ describe("toEntrySummary", () => {
       url: stepBlobUrl(mkReview().steps[0], "auth-flow-abc"),
       version: 3,
       updatedAt: 1000,
+    });
+  });
+
+  it("includes prNumber + author for a pr record", () => {
+    expect(toEntrySummary(specToRecord(mkSpec()), 1, 5)).toEqual({
+      kind: "pr",
+      id: "acme/web#7",
+      title: "Add rate limit",
+      repos: ["acme/web"],
+      steps: 1,
+      url: "https://github.com/acme/web/pull/7/files",
+      version: 1,
+      updatedAt: 5,
+      generatedAt: "2026-02-01T00:00:00Z",
+      prNumber: 7,
+      author: "alice",
     });
   });
 });

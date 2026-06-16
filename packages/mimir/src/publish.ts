@@ -54,7 +54,13 @@ export function preparePublish(rawSpec: unknown, state: PublishState): PublishOu
     };
   }
 
-  const stamped: WalkthroughSpec = { ...spec, generatedAt: state.now }; // fresh stamp so clients detect the update
+  // Stamp generatedAt (so clients detect the update) and the PR author from the
+  // manifest server-side — the author is not trusted from the model-authored spec.
+  const stamped: WalkthroughSpec = {
+    ...spec,
+    generatedAt: state.now,
+    pr: manifest ? { ...spec.pr, author: manifest.author } : spec.pr,
+  };
   const coverageNote =
     uncovered.length > 0 ? ` (${uncovered.length} changed file(s) still without a step)` : "";
   return {

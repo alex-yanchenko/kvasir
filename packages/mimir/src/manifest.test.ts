@@ -16,6 +16,7 @@ const mkManifest = (files: Partial<PrManifest["files"][number]>[]): PrManifest =
   repo: "b",
   number: 1,
   title: "t",
+  author: "a",
   description: "",
   headSha: "sha",
   discussion: [],
@@ -179,7 +180,12 @@ describe("buildManifest", () => {
 
   it("maps files (with anchors), trims the description, and assembles discussion", () => {
     const result = buildManifest(ids, {
-      pull: { title: "Add compute", body: "  the description  ", head: { sha: "abc123" } },
+      pull: {
+        title: "Add compute",
+        body: "  the description  ",
+        head: { sha: "abc123" },
+        user: { login: "dev" },
+      },
       files: [
         { filename: "src/foo.ts", status: "modified", additions: 10, deletions: 2, patch: "@@ -1 +1 @@" },
         { filename: "img.png", status: "added", additions: 0, deletions: 0 }, // no patch → omitted
@@ -193,6 +199,7 @@ describe("buildManifest", () => {
       repo: "widget",
       number: 7,
       title: "Add compute",
+      author: "dev",
       description: "the description",
       headSha: "abc123",
       files: [
@@ -234,6 +241,7 @@ describe("buildManifest", () => {
       repo: "widget",
       number: 7,
       title: "t",
+      author: "unknown",
       description: "",
       headSha: "",
       files: [],

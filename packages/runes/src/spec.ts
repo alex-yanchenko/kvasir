@@ -16,6 +16,8 @@ export const PrRefSchema = z.object({
   repo: z.string(),
   number: z.number(),
   title: z.string().optional(),
+  /** The PR author's login — stamped server-side at publish from the manifest. */
+  author: z.string().optional(),
   headSha: z.string().optional(),
 });
 

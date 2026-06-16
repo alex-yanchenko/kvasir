@@ -22,6 +22,7 @@ const manifestWith = (files: { path: string; additions: number }[]): PrManifest 
   repo: "widget",
   number: 1,
   title: "t",
+  author: "octocat",
   description: "",
   headSha: "sha",
   discussion: [],
@@ -62,6 +63,12 @@ describe("preparePublish", () => {
     });
   });
 
+  it("stamps the PR author from the manifest (not trusting the model-authored spec)", () => {
+    const manifests = new Map([[KEY, manifestWith([{ path: "src/a.ts", additions: 1 }])]]);
+    const outcome = preparePublish(spec(), state({ manifests }));
+    expect(outcome.kind === "published" && outcome.spec.pr.author).toBe("octocat");
+  });
+
   it("nudges once when a significant file has no step", () => {
     const manifests = new Map([[KEY, manifestWith([{ path: "src/big.ts", additions: 80 }])]]);
     const outcome = preparePublish(spec([{ file: "src/other.ts" }]), state({ manifests }));
@@ -78,7 +85,11 @@ describe("preparePublish", () => {
     expect(outcome).toEqual({
       kind: "published",
       key: KEY,
-      spec: { ...spec([{ file: "src/other.ts" }]), generatedAt: NOW },
+      spec: {
+        ...spec([{ file: "src/other.ts" }]),
+        generatedAt: NOW,
+        pr: { ...spec([{ file: "src/other.ts" }]).pr, author: "octocat" },
+      },
       message:
         "Published 1 steps. (1 changed file(s) still without a step) Open the PR; the extension will render it.",
     });

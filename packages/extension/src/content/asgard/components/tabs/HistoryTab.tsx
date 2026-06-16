@@ -19,9 +19,12 @@ function HistoryRow({ entry }: Readonly<{ entry: EntrySummary }>): JSX.Element {
         onClick={() => historyStore.open(entry)}
         className="flex min-w-0 flex-1 flex-col items-start gap-0.5 rounded-md border border-border px-2 py-1.5 text-left hover:bg-secondary"
       >
-        <span className="w-full truncate text-sm font-medium text-foreground">{entry.title}</span>
+        <span className="w-full break-words text-sm font-medium text-foreground">{entry.title}</span>
         <span className="text-xs text-muted-foreground">
-          {entry.repos.join(", ")} · {entry.steps} step{entry.steps === 1 ? "" : "s"}
+          {entry.repos.join(", ")}
+          {entry.prNumber === undefined ? "" : ` #${entry.prNumber}`} · {entry.steps} step
+          {entry.steps === 1 ? "" : "s"}
+          {entry.author ? ` · by ${entry.author}` : ""}
           {entry.source ? ` · ${entry.source}` : ""}
         </span>
       </button>
