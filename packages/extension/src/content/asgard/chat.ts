@@ -241,7 +241,7 @@ export const chatStore = {
   },
 
   /** Send a question. pushUser=false resumes an already-recorded trailing user
-   * turn (event.g. after a refresh dropped the in-flight request); replaceIdx
+   * turn (e.g. after a refresh dropped the in-flight request); replaceIdx
    * overwrites that assistant turn in place (regenerate). */
   async send(
     key: string,
