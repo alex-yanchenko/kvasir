@@ -40,14 +40,11 @@ describe("loadPersisted", () => {
     const chats = [{ key: "a", file: "f.ts", lines: null, text: "t", suggestions: [], messages: [] }];
     vi.mocked(storeGet).mockImplementation(async (key: string) => {
       if (key === `prw:chats:${PR}`) return chats;
-      if (key === "prw:panel") return { pos: { left: 9, top: 8 }, size: { w: 7, h: 6 } };
       return { step: 2, pos: { left: 1, top: 2 }, size: { w: 3, h: 4 } };
     });
     await loadPersisted();
     expect(state.chatHistory).toEqual(chats);
     expect(state.tourState).toEqual({ step: 2, pos: { left: 1, top: 2 }, size: { w: 3, h: 4 } });
-    expect(state.panel.pos).toEqual({ left: 9, top: 8 });
-    expect(state.panel.size).toEqual({ w: 7, h: 6 });
   });
 
   it("keeps in-memory chats, tolerates empty storage, defaults sparse tour fields", async () => {
@@ -61,41 +58,19 @@ describe("loadPersisted", () => {
     expect(state.tourState).toEqual({ step: 0, pos: null, size: null });
   });
 
-  it("restores global panel geometry off a PR page, without touching chats/tour", async () => {
+  it("does not touch panel state off a PR page (panel is per-tab, hydrated at boot)", async () => {
     setUrl("https://github.com/acme/widget-api/blob/main/src/a.ts?prw=rev-1"); // no PR url
-    vi.mocked(storeGet).mockImplementation(async (key: string) =>
-      key === "prw:panel" ? { pos: { left: 5, top: 6 }, size: { w: 7, h: 8 } } : null,
-    );
+    state.panel = { open: true, tab: "history", pos: { left: 5, top: 6 }, size: { w: 7, h: 8 } };
+    vi.mocked(storeGet).mockResolvedValue(null);
     await loadPersisted();
-    expect(state.panel.pos).toEqual({ left: 5, top: 6 });
-    expect(state.panel.size).toEqual({ w: 7, h: 8 });
+    expect(state.panel).toEqual({
+      open: true,
+      tab: "history",
+      pos: { left: 5, top: 6 },
+      size: { w: 7, h: 8 },
+    });
     expect(state.chatHistory).toEqual([]); // per-PR content skipped without a PR
     expect(state.tourState).toEqual({ step: 0, pos: null, size: null });
-  });
-
-  it("restores the persisted open-state + tab so the panel survives navigation", async () => {
-    vi.mocked(storeGet).mockImplementation(async (key: string) =>
-      key === "prw:panel" ? { pos: null, size: null, open: true, tab: "history" } : null,
-    );
-    await loadPersisted();
-    expect(state.panel.open).toBe(true);
-    expect(state.panel.tab).toBe("history");
-  });
-
-  it("ignores an unknown persisted tab, keeping the current one", async () => {
-    state.panel.tab = "chat";
-    vi.mocked(storeGet).mockImplementation(async (key: string) =>
-      key === "prw:panel" ? { open: true, tab: "bogus" } : null,
-    );
-    await loadPersisted();
-    expect(state.panel.tab).toBe("chat"); // bogus tab dropped
-  });
-
-  it("reopens the panel on the History tab after a History jump (marker set)", async () => {
-    sessionStorage.setItem("prw:history-nav", "1");
-    await loadPersisted();
-    expect(state.panel.open).toBe(true);
-    expect(state.panel.tab).toBe("history");
   });
 
   it("tolerates empty storage with nothing stored", async () => {
@@ -142,7 +117,7 @@ describe("watchUrl", () => {
     expect(refresh).toHaveBeenCalledTimes(2);
     expect(state.chatHistory).toEqual([]);
     expect(state.tourState).toEqual({ step: 0, pos: null, size: null });
-    expect(state.panel).toEqual({ open: true, tab: "chat", pos: null, size: null }); // kept open (loadPersisted then restores the persisted open/tab); geometry cleared
+    expect(state.panel).toEqual({ open: true, tab: "chat", pos: { left: 1, top: 1 }, size: { w: 2, h: 2 } }); // untouched: panel is per-tab, a PR switch (same tab) keeps its window
     expect(state.spec).toBeNull();
     expect(vi.mocked(storeGet)).toHaveBeenCalledWith(`prw:chats:${OTHER}`);
   });

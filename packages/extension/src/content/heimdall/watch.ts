@@ -2,15 +2,10 @@
 // state (chats, tour), pushes the theme across the Bifrost, and polls the URL:
 // GitHub is a SPA, so PR navigation never re-runs the content script.
 import { launcherStore } from "../asgard/launcher";
-import {
-  isChatSessionArray,
-  parsePanelGeometry,
-  parsePanelPersisted,
-  parseTourState,
-} from "../asgard/persisted";
-import { isPanelTab, PANEL_TABS, state, touch } from "../asgard/store";
+import { isChatSessionArray, parseTourState } from "../asgard/persisted";
+import { state, touch } from "../asgard/store";
 import { bifrost } from "../bifrost";
-import { chatsKey, historyNavActive, PANEL_GEOM_KEY, prUrl, tourKey } from "../keys";
+import { chatsKey, prUrl, tourKey } from "../keys";
 import { storeGet } from "../muninn";
 
 /** Per-PR state restore (survives refresh and browser restart). */
@@ -23,23 +18,8 @@ export async function loadPersisted(): Promise<void> {
     }
     state.tourState = parseTourState(await storeGet(tourKey(pr)));
   }
-  // Panel geometry is global — restored on every page, including review/blob pages
-  // with no PR url (which otherwise snap the panel to default on each nav).
-  const storedPanel = await storeGet(PANEL_GEOM_KEY);
-  const { pos, size } = parsePanelGeometry(storedPanel);
-  state.panel.pos = pos;
-  state.panel.size = size;
-  // Restore open + tab so the panel survives navigation as a persistent window
-  // (the user asked to keep it open while moving between pages).
-  const { open, tab } = parsePanelPersisted(storedPanel);
-  state.panel.open = open;
-  if (tab && isPanelTab(tab)) state.panel.tab = tab;
-  // Landed via a History jump: force the panel open on History so the next review is
-  // one click away (review.ts then won't switch it to the Walkthrough tab).
-  if (historyNavActive()) {
-    state.panel.open = true;
-    state.panel.tab = PANEL_TABS.HISTORY;
-  }
+  // Panel state (open/tab/geometry) is per-tab and hydrated synchronously at boot
+  // (store.hydratePanel); loadPersisted only restores per-PR content.
   touch();
 }
 
@@ -66,7 +46,6 @@ export function watchUrl(intervalMs = 1500): () => void {
       state.chatHistory = [];
       touch(); // React drops the panel content with the old PR's state
       state.tourState = { step: 0, pos: null, size: null };
-      state.panel = { open: state.panel.open, tab: state.panel.tab, pos: null, size: null };
       state.spec = null;
       launcherStore.resetForPr();
       void loadPersisted();

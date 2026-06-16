@@ -132,20 +132,16 @@ describe("chatsStore", () => {
 });
 
 describe("panelStore", () => {
-  let setSpy: ReturnType<typeof vi.fn>;
   beforeEach(() => {
     Object.defineProperty(window, "location", {
       value: new URL("https://github.com/acme/widget-api/pull/7/files"),
       writable: true,
     });
-    setSpy = vi.fn();
-    vi.stubGlobal("chrome", { storage: { local: { set: setSpy } } });
     sessionStorage.clear();
     storeModule.state.panel = { open: false, tab: storeModule.PANEL_TABS.WALKTHROUGH, pos: null, size: null };
   });
-  afterEach(() => {
-    vi.unstubAllGlobals();
-  });
+
+  const persisted = (): unknown => JSON.parse(sessionStorage.getItem("prw:panel") ?? "null");
 
   it("open shows the panel and can target a tab; close hides it", () => {
     expect(storeModule.panelStore.isOpen()).toBe(false);
@@ -163,42 +159,75 @@ describe("panelStore", () => {
     expect(storeModule.panelStore.tab()).toBe("settings");
   });
 
-  it("staying on History keeps the History-nav marker; switching away or closing clears it", () => {
-    sessionStorage.setItem("prw:history-nav", "1");
-    storeModule.panelStore.setTab(storeModule.PANEL_TABS.HISTORY);
-    expect(sessionStorage.getItem("prw:history-nav")).toBe("1");
-    storeModule.panelStore.setTab(storeModule.PANEL_TABS.CHAT);
-    expect(sessionStorage.getItem("prw:history-nav")).toBeNull();
-    sessionStorage.setItem("prw:history-nav", "1");
-    storeModule.panelStore.close();
-    expect(sessionStorage.getItem("prw:history-nav")).toBeNull();
-  });
-
-  it("persists open + tab (so navigation can keep the window on the same tab)", () => {
+  it("persists {open, tab, pos, size} per-tab to sessionStorage", () => {
     storeModule.panelStore.open(storeModule.PANEL_TABS.HISTORY);
-    expect(setSpy).toHaveBeenLastCalledWith({
-      "prw:panel": { pos: null, size: null, open: true, tab: "history" },
-    });
-    storeModule.panelStore.close();
-    expect(setSpy).toHaveBeenLastCalledWith({
-      "prw:panel": { pos: null, size: null, open: false, tab: "history" },
-    });
-  });
-
-  it("setPos / setSize update geometry and persist globally (one key, not per-PR)", () => {
-    const before = getSnapshot();
+    expect(persisted()).toEqual({ open: true, tab: "history", pos: null, size: null });
     storeModule.panelStore.setPos({ left: 12, top: 34 });
     storeModule.panelStore.setSize({ w: 500, h: 600 });
-    expect(storeModule.panelStore.pos()).toEqual({ left: 12, top: 34 });
-    expect(storeModule.panelStore.size()).toEqual({ w: 500, h: 600 });
-    expect(setSpy).toHaveBeenLastCalledWith({
-      "prw:panel": {
-        pos: { left: 12, top: 34 },
-        size: { w: 500, h: 600 },
-        open: false,
-        tab: "walkthrough",
-      },
+    expect(persisted()).toEqual({
+      open: true,
+      tab: "history",
+      pos: { left: 12, top: 34 },
+      size: { w: 500, h: 600 },
     });
-    expect(getSnapshot()).toBe(before); // geometry saves skip touch() — no React re-render
+    storeModule.panelStore.close();
+    expect(persisted()).toEqual({
+      open: false,
+      tab: "history",
+      pos: { left: 12, top: 34 },
+      size: { w: 500, h: 600 },
+    });
+  });
+
+  it("setPos / setSize persist but don't trigger a React re-render", () => {
+    const before = getSnapshot();
+    storeModule.panelStore.setPos({ left: 1, top: 2 });
+    storeModule.panelStore.setSize({ w: 3, h: 4 });
+    expect(storeModule.panelStore.pos()).toEqual({ left: 1, top: 2 });
+    expect(getSnapshot()).toBe(before); // geometry saves skip touch()
+  });
+
+  it("hydratePanel restores open/tab/geometry; a bogus tab keeps the current one", () => {
+    sessionStorage.setItem(
+      "prw:panel",
+      JSON.stringify({ open: true, tab: "history", pos: { left: 5, top: 6 }, size: { w: 7, h: 8 } }),
+    );
+    storeModule.hydratePanel();
+    expect(storeModule.panelStore.isOpen()).toBe(true);
+    expect(storeModule.panelStore.tab()).toBe("history");
+    expect(storeModule.panelStore.pos()).toEqual({ left: 5, top: 6 });
+    expect(storeModule.panelStore.size()).toEqual({ w: 7, h: 8 });
+    sessionStorage.setItem("prw:panel", JSON.stringify({ open: true, tab: "bogus" }));
+    storeModule.hydratePanel();
+    expect(storeModule.panelStore.tab()).toBe("history"); // bogus tab dropped
+  });
+
+  it("hydratePanel with nothing stored leaves the panel closed at default geometry", () => {
+    storeModule.state.panel = {
+      open: true,
+      tab: storeModule.PANEL_TABS.CHAT,
+      pos: { left: 1, top: 2 },
+      size: { w: 3, h: 4 },
+    };
+    sessionStorage.clear(); // nothing persisted for this tab
+    storeModule.hydratePanel();
+    expect(storeModule.panelStore.isOpen()).toBe(false);
+    expect(storeModule.panelStore.pos()).toBeNull();
+    expect(storeModule.panelStore.size()).toBeNull();
+  });
+
+  it("survives sessionStorage being unavailable (private mode / disabled)", () => {
+    vi.stubGlobal("sessionStorage", {
+      getItem: () => {
+        throw new Error("blocked");
+      },
+      setItem: () => {
+        throw new Error("blocked");
+      },
+      removeItem: () => {},
+    });
+    expect(() => storeModule.panelStore.open()).not.toThrow(); // persist catch
+    expect(() => storeModule.hydratePanel()).not.toThrow(); // read catch
+    vi.unstubAllGlobals();
   });
 });

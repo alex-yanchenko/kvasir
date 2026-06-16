@@ -158,12 +158,11 @@ describe("reviewStore.load", () => {
     expect(state.panel.tab).toBe("walkthrough"); // a direct ?prw open shows the review
     expect(api).toHaveBeenCalledWith("/review?id=rev-1");
     expect(storeSet).toHaveBeenCalledWith("prw:review:rev-1", { step: 0, review: mkReview() });
-    expect(storeSet).toHaveBeenCalledTimes(2); // the review cache + the panel open/tab persist
-
+    expect(storeSet).toHaveBeenCalledTimes(1); // only the review cache (panel state persists to sessionStorage)
   });
 
-  it("opening via a History jump keeps the panel on the History tab", async () => {
-    sessionStorage.setItem("prw:history-nav", "1");
+  it("keeps the panel on History when the hydrated tab is History (a History jump)", async () => {
+    state.panel.tab = "history"; // hydratePanel restored this from the per-tab state
     await loadOk();
     expect(state.panel.open).toBe(true);
     expect(state.panel.tab).toBe("history");
@@ -291,13 +290,11 @@ describe("reviewStore navigation", () => {
     expect(assign).not.toHaveBeenCalled();
   });
 
-  it("goto writes a sessionStorage snapshot (review + step + geometry) for the next page", async () => {
+  it("goto writes a content-only sessionStorage snapshot (review + step) for the next page", async () => {
     await loadOk();
-    state.panel.pos = { left: 1, top: 2 };
-    state.panel.size = { w: 3, h: 4 };
     reviewStore.goto(1); // cross-file
     const snap: unknown = JSON.parse(sessionStorage.getItem("prw:session:rev-1") ?? "null");
-    expect(snap).toEqual({ step: 1, review: mkReview(), pos: { left: 1, top: 2 }, size: { w: 3, h: 4 } });
+    expect(snap).toEqual({ step: 1, review: mkReview() }); // geometry lives in the per-tab panel state
   });
 
   it("goto survives a sessionStorage write failure", async () => {
@@ -314,19 +311,23 @@ describe("reviewStore.hydrate", () => {
     globalThis.location.href = "https://github.com/acme/web/blob/main/src/a.ts?prw=rev-1";
   };
 
-  it("synchronously restores review + step + geometry from the session snapshot", () => {
+  it("synchronously restores review + step and opens the panel from the session snapshot", () => {
     atReviewUrl();
-    sessionStorage.setItem(
-      "prw:session:rev-1",
-      JSON.stringify({ step: 1, review: mkReview(), pos: { left: 5, top: 6 }, size: { w: 7, h: 8 } }),
-    );
+    sessionStorage.setItem("prw:session:rev-1", JSON.stringify({ step: 1, review: mkReview() }));
     reviewStore.hydrate();
     expect(state.panel.open).toBe(true);
+    expect(state.panel.tab).toBe("walkthrough"); // a review page shows the review
     expect(reviewStore.stepIndex()).toBe(1);
     expect(reviewStore.title()).toBe("Auth flow");
+  });
+
+  it("keeps the panel on History when hydrate runs after a History-jump hydratePanel", () => {
+    atReviewUrl();
+    state.panel.tab = "history"; // hydratePanel restored History
+    sessionStorage.setItem("prw:session:rev-1", JSON.stringify({ step: 0, review: mkReview() }));
+    reviewStore.hydrate();
     expect(state.panel.open).toBe(true);
-    expect(state.panel.pos).toEqual({ left: 5, top: 6 });
-    expect(state.panel.size).toEqual({ w: 7, h: 8 });
+    expect(state.panel.tab).toBe("history");
   });
 
   it("is a no-op off a review page, with no snapshot, on garbled JSON, or with no review", () => {

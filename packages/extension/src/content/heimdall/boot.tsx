@@ -9,6 +9,7 @@ import { connectChat } from "../asgard/chat";
 import { launcherStore } from "../asgard/launcher";
 import { pairingStore } from "../asgard/pairing";
 import { reviewStore } from "../asgard/review";
+import { hydratePanel } from "../asgard/store";
 import { bifrost } from "../bifrost";
 import { prUrl, reviewIdFromUrl } from "../keys";
 import { connectMidgard } from "../midgard/connect";
@@ -35,6 +36,7 @@ export function boot(): void {
   initTooltips();
 
   applyTheme();
+  hydratePanel(); // sync: restore the panel's per-tab open/tab/geometry before mount
   void loadPersisted();
   void pairingStore.refresh(); // resolve paired/unpaired up front so the panel can prompt
   // Review-mode (a pushed cross-repo review) pulls from the mailbox; a PR page runs

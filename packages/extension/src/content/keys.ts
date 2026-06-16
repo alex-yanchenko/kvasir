@@ -14,9 +14,11 @@ export const chatsKey = (pr: string | null): string => `prw:chats:${pr}`;
 export const specKey = (pr: string | null): string => `prw:spec:${pr}`;
 export const tourKey = (pr: string | null): string => `prw:tour:${pr}`;
 export const genKey = (pr: string | null): string => `prw:gen:${pr}`;
-/** Panel geometry is GLOBAL (one key for every PR/review/page), so the panel keeps
- * its position + size as you move between pages instead of snapping to default. */
-export const PANEL_GEOM_KEY = "prw:panel";
+/** The panel's per-tab state (open · tab · pos · size), stored in sessionStorage so
+ * it survives refresh + same-tab navigation, stays independent per tab, and is
+ * inherited by a child tab (the browser copies sessionStorage on open). NOT global —
+ * a global key clobbered across tabs and reopened the panel everywhere. */
+export const PANEL_STATE_KEY = "prw:panel";
 
 /** The bridge token's storage key — global, not per-PR (one bridge per machine). */
 export const TOKEN_KEY = "prw:token";
@@ -43,32 +45,6 @@ export const reviewSessionKey = (id: string): string => `prw:session:${id}`;
 
 /** Cache key for the history list (GET /history) — for instant paint. */
 export const HISTORY_KEY = "prw:history";
-
-/** sessionStorage flag (sync, survives a same-origin nav): the user is browsing
- * reviews via the History tab, so the next page keeps the panel open ON History
- * instead of snapping to the opened review. Cleared when they switch tabs / close. */
-const HISTORY_NAV_KEY = "prw:history-nav";
-export const markHistoryNav = (): void => {
-  try {
-    sessionStorage.setItem(HISTORY_NAV_KEY, "1");
-  } catch {
-    /* sessionStorage unavailable — the jump just won't stick to History */
-  }
-};
-export const historyNavActive = (): boolean => {
-  try {
-    return sessionStorage.getItem(HISTORY_NAV_KEY) === "1";
-  } catch {
-    return false;
-  }
-};
-export const clearHistoryNav = (): void => {
-  try {
-    sessionStorage.removeItem(HISTORY_NAV_KEY);
-  } catch {
-    /* nothing to clear */
-  }
-};
 
 /** Per-id "last version the FE has caught up to" map (Record<id, version>), so the
  * History tab can flag entries whose backend content advanced past what we showed. */
