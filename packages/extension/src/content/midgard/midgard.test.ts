@@ -170,6 +170,27 @@ describe("containerForFileLoose", () => {
   it("returns null for a file not in the diff", () => {
     expect(containerForFileLoose("other/file.ts")).toBeNull();
   });
+
+  it("prefers the longest path on a basename collision, and returns null on a true tie", () => {
+    const add = (id: string, path: string): Element => {
+      const el = document.createElement("div");
+      el.id = id;
+      const table = document.createElement("table");
+      table.setAttribute("aria-label", `Diff for: ${path}`);
+      table.append(document.createElement("tbody"));
+      el.append(table);
+      document.body.append(el);
+      return el;
+    };
+    const longer = add("diff-longer", "web/src/app.ts"); // also ends in app.ts
+    // "app.ts" loosely matches both src/app.ts and web/src/app.ts → the longest wins.
+    expect(containerForFileLoose("app.ts")).toBe(longer);
+    // Two equal-length paths sharing a basename → genuinely ambiguous → null.
+    add("diff-tie1", "x/foo.ts");
+    add("diff-tie2", "y/foo.ts");
+    expect(containerForFileLoose("foo.ts")).toBeNull();
+    for (const id of ["diff-longer", "diff-tie1", "diff-tie2"]) document.getElementById(id)?.remove();
+  });
 });
 
 describe("jumpToRef", () => {

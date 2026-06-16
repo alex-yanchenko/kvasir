@@ -204,11 +204,22 @@ export function showStep(step: HighlightableStep): void {
 export function containerForFileLoose(file: string): Element | null {
   const exact = containerForFile(file);
   if (exact) return exact;
+  const matches: Array<{ element: Element; path: string }> = [];
   for (const element of document.querySelectorAll('[id^="diff-"]')) {
-    const p = filePathFromContainer(element);
-    if (p && (p === file || p.endsWith("/" + file) || file.endsWith("/" + p))) return element;
+    const path = filePathFromContainer(element);
+    if (path && (path === file || path.endsWith("/" + file) || file.endsWith("/" + path))) {
+      matches.push({ element, path });
+    }
   }
-  return null;
+  if (matches.length <= 1) return matches[0]?.element ?? null;
+  // More than one file loosely matches (e.g. two paths sharing a basename). Prefer
+  // the most specific (longest) path; if two are equally specific it's genuinely
+  // ambiguous — return null so the caller treats it as missing rather than silently
+  // scrolling to the wrong file.
+  const maxLength = Math.max(...matches.map((m) => m.path.length));
+  const longest = matches.filter((m) => m.path.length === maxLength);
+  const only = longest.length === 1 ? longest[0] : undefined; // undefined when it's a tie
+  return only?.element ?? null;
 }
 
 // Scroll the diff to a cited path:line(-end) and highlight it. Returns false when
