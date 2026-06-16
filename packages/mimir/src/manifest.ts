@@ -201,6 +201,13 @@ export function uncoveredFiles(manifest: PrManifest, stepFiles: string[]): strin
   return significantFiles(manifest).filter((path) => !isCovered(path));
 }
 
+// A PR participant who wrote the fence marker into a comment/description could
+// otherwise close the UNTRUSTED block early and have the rest read as instructions.
+// Neutralize the marker phrase (with or without its dashes) wherever it appears in
+// attacker-authored prose, so the only real fence boundaries are the ones emitted here.
+const FENCE_MARKER = /-*\s*(?:END\s+)?UNTRUSTED PR PROSE[^\n]*/gi;
+const deFence = (text: string): string => text.replaceAll(FENCE_MARKER, "(marker redacted)");
+
 /** Render a manifest into the text `start_walkthrough` hands the model. Structural,
  * gh-sourced data (ids, files, patches, anchors, head sha) goes as JSON; the free
  * text written by arbitrary PR participants — the description and every comment
@@ -210,13 +217,13 @@ export function uncoveredFiles(manifest: PrManifest, stepFiles: string[]): strin
 export function renderManifest(manifest: PrManifest): string {
   const { description, discussion, ...structural } = manifest;
   const prose: string[] = [];
-  if (description) prose.push(`PR DESCRIPTION:\n${description}`);
+  if (description) prose.push(`PR DESCRIPTION:\n${deFence(description)}`);
   for (const item of discussion) {
     const line = typeof item.line === "number" ? `:${item.line}` : "";
     const at = item.file ? ` on ${item.file}${line}` : "";
     const state = item.state ? ` ${item.state}` : "";
     const bot = item.bot ? " [bot]" : "";
-    prose.push(`${item.author}${bot} — ${item.kind}${state}${at}:\n${item.body}`);
+    prose.push(`${item.author}${bot} — ${item.kind}${state}${at}:\n${deFence(item.body)}`);
   }
   const json = JSON.stringify(structural, null, 2);
   if (prose.length === 0) return json;
