@@ -8,7 +8,7 @@
  * IO (git, fetch) lives in scripts/build-review.ts; everything here is pure and
  * unit-tested.
  */
-import { type ReviewStep } from "@kvasir/runes/review";
+import { ReviewLinesSchema, type ReviewStep } from "@kvasir/runes/review";
 import { z } from "zod";
 
 export class ReviewBuildError extends Error {
@@ -22,7 +22,10 @@ export class ReviewBuildError extends Error {
 // `from`, optional `to` for a range) or by explicit line numbers.
 const LocatorSchema = z.union([
   z.object({ from: z.string(), to: z.string().optional() }),
-  z.object({ lines: z.object({ start: z.number(), end: z.number() }) }),
+  // Reuse the wire schema so an explicit range is validated (int, positive,
+  // start <= end) LOCALLY at draft-parse — a bad range fails here with the step
+  // context instead of deferring to a server-side 400.
+  z.object({ lines: ReviewLinesSchema }),
 ]);
 const DraftStepSchema = z.object({
   repoDir: z.string(),
