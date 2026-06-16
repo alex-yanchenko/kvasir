@@ -1,16 +1,16 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from "vitest";
 import { bifrost } from "../bifrost";
 import { getSnapshot, settingsStore, subscribe, touch, chatsStore, state } from "./store";
 import * as storeModule from "./store";
 
-let applied: ReturnType<typeof vi.fn>;
+let applied: Mock<(payload: { theme: string; hlStyle: string }) => void>;
 let offApply: () => void;
 beforeEach(() => {
   state.theme = "auto";
   state.hlStyle = "tint";
   localStorage.clear();
-  applied = vi.fn();
+  applied = vi.fn<(payload: { theme: string; hlStyle: string }) => void>();
   offApply = bifrost.handle("theme:apply", applied);
 });
 afterEach(() => {

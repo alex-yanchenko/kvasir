@@ -100,6 +100,15 @@ describe("initTooltips", () => {
     expect(tip()?.style.display ?? "none").toBe("none");
   });
 
+  it("hides safely before any tip element exists (no-op on a null tip)", async () => {
+    vi.resetModules();
+    const fresh = await import("./tooltip");
+    fresh.initTooltips();
+    document.querySelector(".kvasir-tip")?.remove(); // drop any tip left by the shared module
+    document.dispatchEvent(new Event("mousedown")); // hideTip runs with the fresh module's null tip
+    expect(tip()).toBeNull(); // hideTip created nothing
+  });
+
   it("does not hide when the cursor crosses from the tipped element into its own child", () => {
     const icon = document.createElement("span");
     btn.append(icon);

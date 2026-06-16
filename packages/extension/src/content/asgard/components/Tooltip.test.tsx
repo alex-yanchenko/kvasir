@@ -105,6 +105,15 @@ describe("Tooltips", () => {
     expect(document.querySelector(".kvasir-tip")).toBeNull();
   });
 
+  it("a mousedown with no pending tip is a harmless no-op (nothing to clear)", () => {
+    setup(); // renders Tooltips but no hover yet → timer.current stays null
+    fireEvent.mouseDown(document.body);
+    act(() => {
+      vi.advanceTimersByTime(TIP_DELAY_MS);
+    });
+    expect(document.querySelector(".kvasir-tip")).toBeNull();
+  });
+
   it("unbinds its listeners on unmount", () => {
     const btn = setup();
     cleanup();

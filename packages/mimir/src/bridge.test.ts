@@ -1,9 +1,10 @@
 import { prKey } from "@kvasir/runes";
 import type { Review, WalkthroughSpec } from "@kvasir/runes";
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { createFetchHandler, parseSuggestions } from "./bridge";
+import { describe, it, expect, vi, beforeEach, type Mock } from "vitest";
+import { type BridgeDeps, createFetchHandler, parseSuggestions } from "./bridge";
 import { GUARD_HEADER } from "./guard";
 import { createMemoryGuideStore, type GuideStore, reviewToRecord, specToRecord } from "./guideStore";
+import type { Pairing } from "./pairing";
 
 const PR = "https://github.com/acme/widget-api/pull/7";
 
@@ -33,18 +34,18 @@ const mkReview = (): Review => ({
 let deps: {
   specs: Map<string, WalkthroughSpec>;
   guides: GuideStore;
-  mintReviewId: ReturnType<typeof vi.fn>;
-  open: ReturnType<typeof vi.fn>;
-  ask: ReturnType<typeof vi.fn>;
-  snapshot: ReturnType<typeof vi.fn>;
-  pushEvent: ReturnType<typeof vi.fn>;
-  getHeadSha: ReturnType<typeof vi.fn>;
+  mintReviewId: Mock<BridgeDeps["mintReviewId"]>;
+  open: Mock<BridgeDeps["open"]>;
+  ask: Mock<BridgeDeps["ask"]>;
+  snapshot: Mock<BridgeDeps["snapshot"]>;
+  pushEvent: Mock<BridgeDeps["pushEvent"]>;
+  getHeadSha: Mock<BridgeDeps["getHeadSha"]>;
   pairing: {
-    request: ReturnType<typeof vi.fn>;
-    approve: ReturnType<typeof vi.fn>;
-    claim: ReturnType<typeof vi.fn>;
-    verify: ReturnType<typeof vi.fn>;
-    enforced: ReturnType<typeof vi.fn>;
+    request: Mock<Pairing["request"]>;
+    approve: Mock<Pairing["approve"]>;
+    claim: Mock<Pairing["claim"]>;
+    verify: Mock<Pairing["verify"]>;
+    enforced: Mock<Pairing["enforced"]>;
   };
 };
 let handler: (req: Request) => Promise<Response>;
@@ -53,18 +54,18 @@ beforeEach(() => {
   deps = {
     specs: new Map(),
     guides: createMemoryGuideStore(),
-    mintReviewId: vi.fn().mockReturnValue("rev-1"),
-    open: vi.fn().mockReturnValue("q1-test"),
-    ask: vi.fn().mockResolvedValue("an answer"),
-    snapshot: vi.fn().mockReturnValue(null),
-    pushEvent: vi.fn().mockResolvedValue(undefined),
-    getHeadSha: vi.fn().mockResolvedValue("abc123"),
+    mintReviewId: vi.fn<BridgeDeps["mintReviewId"]>().mockReturnValue("rev-1"),
+    open: vi.fn<BridgeDeps["open"]>().mockReturnValue("q1-test"),
+    ask: vi.fn<BridgeDeps["ask"]>().mockResolvedValue("an answer"),
+    snapshot: vi.fn<BridgeDeps["snapshot"]>().mockReturnValue(null),
+    pushEvent: vi.fn<BridgeDeps["pushEvent"]>().mockResolvedValue(undefined),
+    getHeadSha: vi.fn<BridgeDeps["getHeadSha"]>().mockResolvedValue("abc123"),
     pairing: {
-      request: vi.fn().mockReturnValue({ ok: true, requestId: "rid-1", code: "ABC234" }),
-      approve: vi.fn(),
-      claim: vi.fn().mockReturnValue({ status: "pending" }),
-      verify: vi.fn().mockReturnValue(true),
-      enforced: vi.fn().mockReturnValue(true),
+      request: vi.fn<Pairing["request"]>().mockReturnValue({ ok: true, requestId: "rid-1", code: "ABC234" }),
+      approve: vi.fn<Pairing["approve"]>(),
+      claim: vi.fn<Pairing["claim"]>().mockReturnValue({ status: "pending" }),
+      verify: vi.fn<Pairing["verify"]>().mockReturnValue(true),
+      enforced: vi.fn<Pairing["enforced"]>().mockReturnValue(true),
     },
   };
   handler = createFetchHandler(deps);

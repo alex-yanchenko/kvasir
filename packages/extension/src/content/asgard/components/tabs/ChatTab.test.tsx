@@ -2,6 +2,26 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
+// When armed, every `useRef(null)` returns a ref locked to a null `current` (React's
+// commit assignment is silently dropped) — the only way to drive the scroll effect's
+// `if (threadRef.current)` false arm, since the .kvasir-thread element is always in
+// the DOM and its ref is otherwise attached before effects run. Off by default so the
+// 60-odd other tests get React's real refs.
+let armNullRefs = false;
+vi.mock("react", async () => {
+  const actual = await vi.importActual<typeof import("react")>("react");
+  return {
+    ...actual,
+    useRef: <T,>(initial: T) => {
+      const ref = actual.useRef(initial);
+      if (armNullRefs && initial === null) {
+        return Object.defineProperty(ref, "current", { get: () => null, set: () => {} });
+      }
+      return ref;
+    },
+  };
+});
+
 vi.mock("../../../api", () => ({ api: vi.fn() }));
 vi.mock("../../../muninn", () => ({ storeGet: vi.fn(), storeSet: vi.fn(), storeRemove: vi.fn() }));
 
@@ -53,6 +73,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   cleanup();
+  armNullRefs = false;
   document.getElementById("kvasir-root")?.remove();
   offs.forEach((off) => off());
   vi.unstubAllGlobals();
@@ -228,6 +249,16 @@ describe("ChatTab shell", () => {
     expect(state.chatHistory.find((s) => s.key === "a")).toBeUndefined();
   });
 
+  it("the scroll-to-bottom effect is a no-op when the thread ref never attaches", () => {
+    pairingStore.markUnpaired(); // suppress the trailing-turn auto-resend; keep the render passive
+    armNullRefs = true; // threadRef.current stays null → the if (t) guard falls through
+    render(<ChatTab />);
+    // a user-only message renders a plain span (no Markdown component, whose ref is
+    // also null while armed), so the thread renders without touching a locked ref
+    openSession(mkSession("a", { messages: [{ role: "user", content: "hi there" }] }));
+    expect(screen.getByText("hi there")).toBeTruthy(); // renders fine; the guard simply skipped
+  });
+
   it("shows the step banner and closes it on an outside click", () => {
     render(<ChatTab />);
     openSession(mkSession("a", { step: "Step: X\nbody" }));
@@ -353,6 +384,15 @@ describe("asking", () => {
     });
     expect(state.chatHistory[0].messages.at(-1)).toEqual({ role: "assistant", content: "resumed" });
     vi.useRealTimers();
+  });
+
+  it("regenerate is a no-op for a leading assistant message with no question before it", () => {
+    const send = vi.spyOn(chatStore, "send");
+    render(<ChatTab />);
+    openSession(mkSession("a", { messages: [{ role: "assistant", content: "orphan answer" }] }));
+    send.mockClear(); // ignore any open-time resume call
+    fireEvent.click(screen.getByLabelText("Regenerate answer"));
+    expect(send).not.toHaveBeenCalled(); // mi === 0 → no prior question → guard skips send
   });
 
   it("regenerate replaces an answer in place", async () => {
