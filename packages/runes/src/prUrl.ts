@@ -6,9 +6,12 @@ export interface ParsedPr {
 
 /**
  * Strict GitHub PR-URL matcher. owner/repo are restricted to GitHub's allowed
- * charset so nothing arbitrary can flow into a `gh` path or a session prompt.
+ * charset so nothing arbitrary can flow into a `gh` path or a session prompt. The
+ * `(?!\.\.?\/)` guards reject a "."/".." segment so this matcher agrees with
+ * parsePrUrl — otherwise a URL like ".../../x/pull/1" passed prOrNull but threw in
+ * prKey, turning a bad request into a 500 instead of a 400.
  */
-export const PR_URL_RE = /^https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/pull\/\d+$/;
+export const PR_URL_RE = /^https:\/\/github\.com\/(?!\.\.?\/)[\w.-]+\/(?!\.\.?\/)[\w.-]+\/pull\/\d+$/;
 
 /** Parse https://github.com/<owner>/<repo>/pull/<n>. Throws on anything else. */
 export function parsePrUrl(url: string): ParsedPr {
