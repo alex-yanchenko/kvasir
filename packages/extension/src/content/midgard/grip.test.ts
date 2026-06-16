@@ -60,6 +60,15 @@ describe("grip hover", () => {
   });
 });
 
+describe("grip on scroll", () => {
+  it("hides the grip on scroll (it would otherwise drift off the row)", () => {
+    hoverRow(rowsOf(container)[1]);
+    expect(grip()!.style.display).toBe("flex");
+    globalThis.dispatchEvent(new Event("scroll"));
+    expect(grip()!.style.display).toBe("none");
+  });
+});
+
 describe("drag select", () => {
   it("tracks the cursor during the drag, repainting the span on every move", () => {
     hoverRow(rowsOf(container)[2]);
