@@ -50,9 +50,9 @@ describe("withKvasirServer", () => {
   });
 
   it("preserves other servers and overrides a stale kvasir", () => {
-    const prev = { mcpServers: { "example-watcher": { command: "x" }, kvasir: { command: "old" } } };
+    const prev = { mcpServers: { "other-server": { command: "x" }, kvasir: { command: "old" } } };
     expect(withKvasirServer(prev, channel)).toEqual({
-      mcpServers: { "example-watcher": { command: "x" }, kvasir: entry },
+      mcpServers: { "other-server": { command: "x" }, kvasir: entry },
     });
   });
 

@@ -18,7 +18,7 @@ session runs `kvasir`; ANY session can push to it.
 
 One step per distinct thing you explained. For each step, you only provide:
 
-- `repoDir` — local path to the repo on disk (e.g. `~/code/your-org/your-frontend`).
+- `repoDir` — local path to the repo on disk (e.g. `~/code/your-frontend`).
 - `file` — repo-relative path of the code (the builder verifies it exists).
 - `locator` — **how to find the lines, by VERBATIM snippet you actually read** (not
   line numbers): `{ "from": "<a unique line in the region>", "to": "<the last
@@ -41,7 +41,7 @@ Write it to a temp file, e.g. `/tmp/kvasir-draft.json`:
   "source": "Claude research chat",
   "steps": [
     {
-      "repoDir": "~/code/your-org/your-frontend",
+      "repoDir": "~/code/your-frontend",
       "file": "<the real path you read>",
       "locator": { "from": "export default handleAuth(", "to": "});" },
       "title": "Auth0 catch-all route",
@@ -49,7 +49,7 @@ Write it to a temp file, e.g. `/tmp/kvasir-draft.json`:
       "detail": "offline_access enables silent refresh; the SDK persists the session in a secure cookie after Auth0 redirects back to the callback."
     },
     {
-      "repoDir": "~/code/your-org/your-backend",
+      "repoDir": "~/code/your-backend",
       "file": "<the real path you read>",
       "locator": { "from": "@UseGuards(", "to": "}" },
       "title": "Backend token verification",

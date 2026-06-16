@@ -8,7 +8,7 @@
  *     "claude/channel" capability). This is how the browser reaches your running
  *     Claude session: a question posted by the extension is pushed in as a
  *     `<channel source="kvasir" ...>` event, you answer, and the answer
- *     flows back out. Mirrors the example-watcher / example-watcher.
+ *     flows back out. Built on the Claude Code channel pattern.
  *
  *  2. A small HTTP server on localhost that the Chrome extension talks to:
  *       GET  /health
