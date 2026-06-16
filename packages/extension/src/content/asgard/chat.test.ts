@@ -73,7 +73,10 @@ describe("open / close / delete", () => {
     expect(state.panel.open).toBe(true);
     expect(state.panel.tab).toBe("chat");
     expect(sends).toEqual([
-      { kind: "pick:rehighlight", payload: { file: "src/app.ts", text: "const a = 1;" } },
+      {
+        kind: "pick:rehighlight",
+        payload: { file: "src/app.ts", text: "const a = 1;", lines: { start: 4, end: 6 } },
+      },
     ]);
   });
 
@@ -113,7 +116,9 @@ describe("open / close / delete", () => {
     const sess = mkSession("a", { file: null });
     state.chatHistory = [sess];
     chatStore.open(sess);
-    expect(sends).toEqual([{ kind: "pick:rehighlight", payload: { file: "", text: "const a = 1;" } }]);
+    expect(sends).toEqual([
+      { kind: "pick:rehighlight", payload: { file: "", text: "const a = 1;", lines: { start: 4, end: 6 } } },
+    ]);
   });
 });
 

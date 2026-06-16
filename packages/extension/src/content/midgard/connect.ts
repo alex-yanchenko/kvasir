@@ -10,7 +10,7 @@ export function connectMidgard(bifrost: Bifrost): () => void {
     bifrost.handle("highlight:step", (step) => showStep(step)),
     bifrost.handle("highlight:clear", () => clearHL()),
     bifrost.handle("pick:rehighlight", (p) => {
-      const rows = rehighlightSession({ file: p.file, text: p.text });
+      const rows = rehighlightSession({ file: p.file, text: p.text, lines: p.lines ?? null });
       if (p.scroll) rows[0]?.scrollIntoView({ behavior: "smooth", block: "center" });
     }),
     bifrost.handle("pick:clear", () => clearPick()),

@@ -164,7 +164,8 @@ export const chatStore = {
    * selection on the page (general PR chat has none). */
   open(sess: ChatSession): void {
     activeKey = sess.key;
-    if (!sess.general) bifrost.send("pick:rehighlight", { file: sess.file ?? "", text: sess.text });
+    if (!sess.general)
+      bifrost.send("pick:rehighlight", { file: sess.file ?? "", text: sess.text, lines: sess.lines });
     panelStore.open(PANEL_TABS.CHAT);
     touch();
   },
