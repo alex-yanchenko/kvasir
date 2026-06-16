@@ -7,7 +7,7 @@ vi.mock("../muninn", () => ({ storeGet: vi.fn(), storeSet: vi.fn(), storeRemove:
 
 import { api } from "../api";
 import { HISTORY_KEY, SEEN_KEY } from "../keys";
-import { storeGet, storeSet } from "../muninn";
+import { storeGet, storeRemove, storeSet } from "../muninn";
 import { historyStore } from "./history";
 import { state } from "./store";
 
@@ -29,6 +29,9 @@ beforeEach(() => {
   state.history = null;
   state.historyQuery = "";
   state.seen = {};
+  state.review = null;
+  state.spec = null;
+  state.guideDeleted = false;
   vi.mocked(storeGet).mockResolvedValue(undefined);
   vi.mocked(api).mockResolvedValue({ ok: false });
 });
@@ -119,7 +122,29 @@ describe("historyStore.remove", () => {
     expect(api).toHaveBeenCalledWith("/entry?id=a", "DELETE");
     expect(historyStore.all()?.map((entry) => entry.id)).toEqual(["b"]);
     expect(storeSet).toHaveBeenCalledWith(HISTORY_KEY, [sum({ id: "b" })]);
+    expect(storeRemove).toHaveBeenCalledWith("prw:review:a"); // code entry's render cache cleared
     expect(state.seen).toEqual({ b: 1 });
+  });
+
+  it("clears a pr entry's spec cache (keyed by the PR url, minus /files)", async () => {
+    state.history = [sum({ id: "acme/web#7", kind: "pr", url: "https://github.com/acme/web/pull/7/files" })];
+    vi.mocked(api).mockResolvedValue({ ok: true, data: { ok: true } });
+    await historyStore.remove("acme/web#7");
+    expect(storeRemove).toHaveBeenCalledWith("prw:spec:https://github.com/acme/web/pull/7");
+  });
+
+  it("clears the open walkthrough (guideDeleted) when you delete the one you're viewing", async () => {
+    state.history = [sum({ id: "a" })];
+    state.review = {
+      version: 1,
+      id: "a",
+      title: "t",
+      steps: [{ id: "s", title: "s", body: "b", repo: { owner: "acme", name: "web" }, file: "f.ts" }],
+    };
+    vi.mocked(api).mockResolvedValue({ ok: true, data: { ok: true } });
+    await historyStore.remove("a");
+    expect(state.review).toBeNull();
+    expect(state.guideDeleted).toBe(true);
   });
 
   it("leaves the list untouched when the delete fails", async () => {
@@ -127,6 +152,53 @@ describe("historyStore.remove", () => {
     vi.mocked(api).mockResolvedValue({ ok: false });
     await historyStore.remove("a");
     expect(historyStore.all()?.map((entry) => entry.id)).toEqual(["a"]);
+  });
+});
+
+describe("historyStore.observeExternal (cross-tab delete)", () => {
+  it("adopts the new list and clears the viewed walkthrough if it was deleted elsewhere", () => {
+    state.spec = {
+      version: 1,
+      pr: { url: "https://github.com/acme/web/pull/7", owner: "acme", repo: "web", number: 7 },
+      generatedAt: "t",
+      steps: [],
+    };
+    state.history = [sum({ id: "acme/web#7", kind: "pr" })];
+    historyStore.observeExternal([sum({ id: "other", kind: "code" })]); // the pr entry is gone
+    expect(historyStore.all()?.map((entry) => entry.id)).toEqual(["other"]);
+    expect(state.spec).toBeNull();
+    expect(state.guideDeleted).toBe(true);
+  });
+
+  it("keeps the viewed walkthrough when it's still in the new list", () => {
+    state.review = {
+      version: 1,
+      id: "a",
+      title: "t",
+      steps: [{ id: "s", title: "s", body: "b", repo: { owner: "acme", name: "web" }, file: "f.ts" }],
+    };
+    state.history = [sum({ id: "a" })];
+    historyStore.observeExternal([sum({ id: "a" }), sum({ id: "b" })]);
+    expect(state.review).not.toBeNull();
+    expect(state.guideDeleted).toBe(false);
+  });
+
+  it("ignores a malformed payload", () => {
+    state.history = [sum({ id: "a" })];
+    historyStore.observeExternal("garbage");
+    expect(historyStore.all()?.map((entry) => entry.id)).toEqual(["a"]); // unchanged
+  });
+
+  it("clears a viewed review with no id (defensive) when it's absent from the new list", () => {
+    state.review = {
+      version: 1,
+      title: "t",
+      steps: [{ id: "s", title: "s", body: "b", repo: { owner: "acme", name: "web" }, file: "f.ts" }],
+    };
+    state.history = [sum({ id: "a" })];
+    historyStore.observeExternal([sum({ id: "b" })]);
+    expect(state.review).toBeNull();
+    expect(state.guideDeleted).toBe(true);
   });
 });
 

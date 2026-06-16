@@ -33,6 +33,7 @@ beforeEach(() => {
   state.panel = { open: false, tab: PANEL_TABS.WALKTHROUGH, pos: null, size: null };
   state.history = null;
   state.seen = {};
+  state.guideDeleted = false;
   pairingStore.reset(); // "unknown" → no banner unless a test sets the phase
 });
 afterEach(() => {
@@ -214,6 +215,15 @@ describe("Panel", () => {
     render(<Panel />);
     act(() => panelStore.open());
     expect(screen.getByRole("tab", { name: /History/ }).textContent).toContain("History1");
+  });
+
+  it("shows a dismissable 'deleted' notice when the viewed walkthrough was removed", () => {
+    state.guideDeleted = true; // review/spec already null from beforeEach
+    render(<Panel />);
+    act(() => panelStore.open());
+    expect(screen.getByText("This walkthrough was deleted.")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+    expect(screen.queryByText("This walkthrough was deleted.")).toBeNull();
   });
 
   it("restores persisted geometry as inline styles", () => {

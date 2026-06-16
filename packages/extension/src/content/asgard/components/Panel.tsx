@@ -59,6 +59,26 @@ function PairBanner(): JSX.Element | null {
   );
 }
 
+/** Shown when the walkthrough this tab was viewing got deleted (here or in another
+ * tab). The content is already cleared; this explains why it vanished. Auto-hides
+ * once a new walkthrough loads (panelStore.guideDeleted gates on review/spec). */
+function GuideDeletedBanner(): JSX.Element | null {
+  if (!panelStore.guideDeleted()) return null;
+  return (
+    <div className="flex items-center gap-2 border-b border-border bg-secondary px-3 py-1.5 text-xs">
+      <span className="text-muted-foreground">This walkthrough was deleted.</span>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="ml-auto h-6"
+        onClick={() => panelStore.dismissGuideDeleted()}
+      >
+        Dismiss
+      </Button>
+    </div>
+  );
+}
+
 // The panel mounts only while open, so the resize observer (a mount-only effect)
 // attaches to the live element. Keeping the hooks above an `isOpen` early-return
 // instead would run them once at boot — when the panel is closed and the ref is
@@ -123,6 +143,7 @@ function PanelWindow(): JSX.Element {
       </div>
 
       <PairBanner />
+      <GuideDeletedBanner />
 
       <Tabs
         value={panelStore.tab()}

@@ -185,7 +185,9 @@ const isExemptFromCoverage = (path: string): boolean => GENERATED_PATH.test(path
  * UP FRONT so the author covers them on the first publish (no nudge round-trip). */
 export function significantFiles(manifest: PrManifest): string[] {
   return manifest.files
-    .filter((f) => f.status !== "removed" && f.additions >= COVERAGE_MIN_ADDS && !isExemptFromCoverage(f.path))
+    .filter(
+      (f) => f.status !== "removed" && f.additions >= COVERAGE_MIN_ADDS && !isExemptFromCoverage(f.path),
+    )
     .map((f) => f.path);
 }
 

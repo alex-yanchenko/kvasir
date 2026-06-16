@@ -3,7 +3,7 @@ import type { Review, WalkthroughSpec } from "@prw/runes";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createFetchHandler, parseSuggestions } from "./bridge";
 import { GUARD_HEADER } from "./guard";
-import { createMemoryGuideStore, type GuideStore, reviewToRecord } from "./guideStore";
+import { createMemoryGuideStore, type GuideStore, reviewToRecord, specToRecord } from "./guideStore";
 
 const PR = "https://github.com/acme/widget-api/pull/7";
 
@@ -443,6 +443,17 @@ describe("/push + history mailbox (token-less)", () => {
     expect(await (await call("/review?id=rev-1")).json()).toEqual({ ...mkReview(), id: "rev-1" });
     expect((await call("/review")).status).toBe(400);
     expect((await call("/review?id=zzz")).status).toBe(404);
+  });
+
+  it("DELETE of a pr entry evicts the in-memory spec so /walkthrough stops serving it", async () => {
+    deps.specs.set("acme/widget-api#7", mkSpec());
+    deps.guides.put(specToRecord(mkSpec()));
+    const enc = encodeURIComponent("acme/widget-api#7");
+    expect(await (await call(`/entry?id=${enc}`, { method: "DELETE" })).json()).toEqual({ ok: true });
+    expect(deps.specs.has("acme/widget-api#7")).toBe(false);
+    expect(await (await call(`/walkthrough?pr=${encodeURIComponent(PR)}`)).json()).toEqual({
+      status: "absent",
+    });
   });
 
   it("DELETE /entry soft-deletes (gone from history), 400 without an id, 404 for unknown", async () => {
