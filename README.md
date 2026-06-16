@@ -132,7 +132,7 @@ puts a **`kvasir`** command on your PATH. Then:
    (Developer mode → Load unpacked). `pnpm --filter @prw/extension dev` rebuilds
    on save.
 3. **PR tour:** in your Claude session, _"Build a walkthrough for `<PR url>`,"_
-   then open the PR's **Files** tab and click the **▶ Kvasir** button.
+   then open the PR's **Files** tab and click the **Kvasir** launcher.
    **Push from any chat:** run **`/kvasir`** and open the link it prints.
 4. On any walkthrough, select code and click **Ask about this** to ask questions.
 

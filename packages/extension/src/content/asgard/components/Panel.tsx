@@ -16,6 +16,7 @@ import { reviewStore } from "../review";
 import { getSnapshot, isPanelTab, PANEL_TABS, panelStore, subscribe, type PanelTab } from "../store";
 import { tourStore } from "../tour";
 import { Button } from "../ui/button";
+import { KvasirMark } from "../ui/KvasirMark";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { ChatTab } from "./tabs/ChatTab";
 import { HistoryTab } from "./tabs/HistoryTab";
@@ -106,6 +107,7 @@ function PanelWindow(): JSX.Element {
     >
       {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions -- title-bar drag handle: drag-to-move is a non-essential reposition with no ARIA role; the panel auto-positions and every function inside is a native, keyboard-operable control. */}
       <div className="flex cursor-move items-center gap-2 px-3 py-2" onMouseDown={onHeadDown}>
+        <KvasirMark className="size-4 shrink-0 text-primary" />
         <span className="truncate text-[13px] font-semibold tracking-tight" title={title}>
           {title}
         </span>

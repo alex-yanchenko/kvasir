@@ -3,35 +3,41 @@
 /* ── theme tokens ─────────────────────────────────────────────────────────────
    theme="auto" (the default) follows the OS via the media query below; explicit
    "light"/"dark" attribute values override it. No JS needed to resolve "auto". */
+/* Page-side palette mirrors Asgard's (tailwind.css) so the on-page widgets and the
+   panel read as one product: cool graphite neutrals + the teal --primary as accent
+   (brighter cyan in dark, exactly like Asgard's --primary). */
 :root {
-  --prw-accent: #d85a30;
+  --prw-accent: #0e93ab;
 }
 body[data-prw-theme="auto"],
 body[data-prw-theme="light"] {
+  --prw-accent: #0e93ab;
   --prw-bg: #ffffff;
-  --prw-fg: #1f1f1c;
-  --prw-muted: #6b6a64;
-  --prw-border: #d8d6cf;
-  --prw-surface: #f2f1ea;
+  --prw-fg: #0c1219;
+  --prw-muted: #4a5563;
+  --prw-border: #dce3ea;
+  --prw-surface: #edf1f5;
   --prw-input: #ffffff;
 }
 body[data-prw-theme="dark"],
 body:not([data-prw-theme]) {
-  --prw-bg: #1b1b18;
-  --prw-fg: #ece9e2;
-  --prw-muted: #8a877e;
-  --prw-border: #3a3934;
-  --prw-surface: #24231f;
-  --prw-input: #111110;
+  --prw-accent: #22b8cf;
+  --prw-bg: #151a21;
+  --prw-fg: #e3e8ee;
+  --prw-muted: #8a95a3;
+  --prw-border: #232a33;
+  --prw-surface: #1a212a;
+  --prw-input: #11161c;
 }
 @media (prefers-color-scheme: dark) {
   body[data-prw-theme="auto"] {
-    --prw-bg: #1b1b18;
-    --prw-fg: #ece9e2;
-    --prw-muted: #8a877e;
-    --prw-border: #3a3934;
-    --prw-surface: #24231f;
-    --prw-input: #111110;
+    --prw-accent: #22b8cf;
+    --prw-bg: #151a21;
+    --prw-fg: #e3e8ee;
+    --prw-muted: #8a95a3;
+    --prw-border: #232a33;
+    --prw-surface: #1a212a;
+    --prw-input: #11161c;
   }
 }
 
