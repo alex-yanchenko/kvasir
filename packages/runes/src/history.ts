@@ -28,7 +28,7 @@ export const EntrySummarySchema = z.object({
   prNumber: z.number().optional(),
   /** PR author login (pr entries only). */
   author: z.string().optional(),
-  /** Where a row opens: pr -> `<pr.url>/files`; code -> the `?prw=` blob landing. */
+  /** Where a row opens: pr -> `<pr.url>/files`; code -> the `?kvasir=` blob landing. */
   url: z.string(),
   /** Bumped by the store ONLY when the stored content changes — drives FE drift. */
   version: z.number(),

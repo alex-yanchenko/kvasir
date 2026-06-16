@@ -6,9 +6,9 @@
 // properties can, so every importer sees the same live values. Every mutation
 // must be followed by touch() or React won't re-render.
 
-import type { EntrySummary } from "@prw/runes/history";
-import type { Review } from "@prw/runes/review";
-import type { WalkthroughSpec, WalkthroughStep } from "@prw/runes/spec";
+import type { EntrySummary } from "@kvasir/runes/history";
+import type { Review } from "@kvasir/runes/review";
+import type { WalkthroughSpec, WalkthroughStep } from "@kvasir/runes/spec";
 import { bifrost } from "../bifrost";
 import { chatsKey, PANEL_STATE_KEY, prUrl } from "../keys";
 import { storeSet } from "../muninn";
@@ -74,9 +74,9 @@ export const state: {
   review: null,
   reviewStep: 0,
   reviewNavigating: false,
-  reviewSync: localStorage.getItem("prwReviewSync") !== "false", // default on
-  theme: localStorage.getItem("prwTheme") || "auto",
-  hlStyle: localStorage.getItem("prwHl") || "tint",
+  reviewSync: localStorage.getItem("kvasirReviewSync") !== "false", // default on
+  theme: localStorage.getItem("kvasirTheme") || "auto",
+  hlStyle: localStorage.getItem("kvasirHl") || "tint",
   tourState: { step: 0, pos: null, size: null },
   chatHistory: [],
   history: null,
@@ -119,18 +119,18 @@ export const settingsStore = {
   reviewSync: (): boolean => state.reviewSync,
   setReviewSync(on: boolean): void {
     state.reviewSync = on;
-    localStorage.setItem("prwReviewSync", String(on));
+    localStorage.setItem("kvasirReviewSync", String(on));
     touch();
   },
   setTheme(theme: string): void {
     state.theme = theme;
-    localStorage.setItem("prwTheme", theme);
+    localStorage.setItem("kvasirTheme", theme);
     applyToPage();
     touch();
   },
   setHlStyle(hlStyle: string): void {
     state.hlStyle = hlStyle;
-    localStorage.setItem("prwHl", hlStyle);
+    localStorage.setItem("kvasirHl", hlStyle);
     applyToPage();
     touch();
   },

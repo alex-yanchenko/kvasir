@@ -68,14 +68,14 @@ export function isReview(x: unknown): x is Review {
 
 /**
  * The GitHub page for a review step — its code on the blob view, carrying
- * `?prw=<reviewId>` so the extension knows which review it belongs to. Shared by
+ * `?kvasir=<reviewId>` so the extension knows which review it belongs to. Shared by
  * the server (landing link = step 0) and the extension (per-step navigation), so
  * the URL format has ONE definition. Falls back to the repo root when the step
  * has no ref to pin a blob link.
  */
 export function stepBlobUrl(step: ReviewStep, reviewId?: string): string {
   const { owner, name } = step.repo;
-  const query = `?prw=${encodeURIComponent(reviewId ?? "")}`;
+  const query = `?kvasir=${encodeURIComponent(reviewId ?? "")}`;
   if (!step.ref) return `https://github.com/${owner}/${name}${query}`;
   // Encode each path segment (keep the slashes) so special chars survive — e.g. a
   // Next.js catch-all route `[...slug].ts` 404s on GitHub unless the brackets are

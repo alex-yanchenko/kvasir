@@ -20,8 +20,8 @@ export function connectMidgard(bifrost: Bifrost): () => void {
     bifrost.handle("theme:apply", ({ theme, hlStyle }) => {
       // "auto" is resolved in CSS via @media (prefers-color-scheme); just reflect
       // the raw choice onto the body and let the stylesheet pick the palette.
-      document.body.dataset.prwTheme = theme;
-      document.body.dataset.prwHl = hlStyle;
+      document.body.dataset.kvasirTheme = theme;
+      document.body.dataset.kvasirHl = hlStyle;
     }),
   ];
   return () => {

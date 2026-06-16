@@ -1,4 +1,4 @@
-import type { Review } from "@prw/runes";
+import type { Review } from "@kvasir/runes";
 import { describe, it, expect } from "vitest";
 import { parseReviewInput, reviewLandingUrl } from "./review";
 
@@ -52,19 +52,19 @@ describe("parseReviewInput", () => {
 });
 
 describe("reviewLandingUrl", () => {
-  it("builds a blob URL with the line range and the ?prw id", () => {
+  it("builds a blob URL with the line range and the ?kvasir id", () => {
     expect(reviewLandingUrl(review({ id: "rid" }))).toBe(
-      "https://github.com/acme/web/blob/main/src/auth/guard.ts?prw=rid#L10-L20",
+      "https://github.com/acme/web/blob/main/src/auth/guard.ts?kvasir=rid#L10-L20",
     );
   });
 
   it("omits the line hash when the step has no line range", () => {
     const r = review({ id: "rid", steps: [{ ...review().steps[0]!, lines: undefined }] });
-    expect(reviewLandingUrl(r)).toBe("https://github.com/acme/web/blob/main/src/auth/guard.ts?prw=rid");
+    expect(reviewLandingUrl(r)).toBe("https://github.com/acme/web/blob/main/src/auth/guard.ts?kvasir=rid");
   });
 
   it("falls back to the repo root when the step has no ref, and tolerates a missing id", () => {
     const r = review({ steps: [{ ...review().steps[0]!, ref: undefined }] }); // no id, no ref
-    expect(reviewLandingUrl(r)).toBe("https://github.com/acme/web?prw=");
+    expect(reviewLandingUrl(r)).toBe("https://github.com/acme/web?kvasir=");
   });
 });

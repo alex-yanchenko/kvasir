@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import type { Review } from "@prw/runes/review";
+import type { Review } from "@kvasir/runes/review";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 vi.mock("../api", () => ({ api: vi.fn() }));
@@ -155,9 +155,9 @@ describe("reviewStore.load", () => {
     expect(reviewStore.stepIndex()).toBe(0);
     expect(reviewStore.step()).toEqual(mkReview().steps[0]);
     expect(state.panel.open).toBe(true);
-    expect(state.panel.tab).toBe("walkthrough"); // a direct ?prw open shows the review
+    expect(state.panel.tab).toBe("walkthrough"); // a direct ?kvasir open shows the review
     expect(api).toHaveBeenCalledWith("/review?id=rev-1");
-    expect(storeSet).toHaveBeenCalledWith("prw:review:rev-1", { step: 0, review: mkReview() });
+    expect(storeSet).toHaveBeenCalledWith("kvasir:review:rev-1", { step: 0, review: mkReview() });
     expect(storeSet).toHaveBeenCalledTimes(1); // only the review cache (panel state persists to sessionStorage)
   });
 
@@ -237,10 +237,10 @@ describe("reviewStore navigation", () => {
     reviewStore.goto(1);
     expect(reviewStore.stepIndex()).toBe(0); // the current step stays on THIS page
     expect(reviewStore.navigating()).toBe(true);
-    expect(storeSet).toHaveBeenCalledWith("prw:review:rev-1", { step: 1, review: mkReview() }); // target cached
+    expect(storeSet).toHaveBeenCalledWith("kvasir:review:rev-1", { step: 1, review: mkReview() }); // target cached
     expect(assign).not.toHaveBeenCalled(); // deferred so the loading state paints first
     vi.runAllTimers();
-    expect(assign).toHaveBeenCalledWith("https://github.com/acme/api/blob/main/src/b.ts?prw=rev-1");
+    expect(assign).toHaveBeenCalledWith("https://github.com/acme/api/blob/main/src/b.ts?kvasir=rev-1");
   });
 
   it("a step in the current file switches in place + moves the #L highlight (no reload)", async () => {
@@ -286,14 +286,14 @@ describe("reviewStore navigation", () => {
     state.review = mkReview({ id: undefined });
     state.reviewStep = 0;
     reviewStore.goto(0);
-    expect(storeSet).toHaveBeenCalledWith("prw:review:", { step: 0, review: mkReview({ id: undefined }) });
+    expect(storeSet).toHaveBeenCalledWith("kvasir:review:", { step: 0, review: mkReview({ id: undefined }) });
     expect(assign).not.toHaveBeenCalled();
   });
 
   it("goto writes a content-only sessionStorage snapshot (review + step) for the next page", async () => {
     await loadOk();
     reviewStore.goto(1); // cross-file
-    const snap: unknown = JSON.parse(sessionStorage.getItem("prw:session:rev-1") ?? "null");
+    const snap: unknown = JSON.parse(sessionStorage.getItem("kvasir:session:rev-1") ?? "null");
     expect(snap).toEqual({ step: 1, review: mkReview() }); // geometry lives in the per-tab panel state
   });
 
@@ -308,12 +308,12 @@ describe("reviewStore navigation", () => {
 
 describe("reviewStore.hydrate", () => {
   const atReviewUrl = (): void => {
-    globalThis.location.href = "https://github.com/acme/web/blob/main/src/a.ts?prw=rev-1";
+    globalThis.location.href = "https://github.com/acme/web/blob/main/src/a.ts?kvasir=rev-1";
   };
 
   it("synchronously restores review + step and opens the panel from the session snapshot", () => {
     atReviewUrl();
-    sessionStorage.setItem("prw:session:rev-1", JSON.stringify({ step: 1, review: mkReview() }));
+    sessionStorage.setItem("kvasir:session:rev-1", JSON.stringify({ step: 1, review: mkReview() }));
     reviewStore.hydrate();
     expect(state.panel.open).toBe(true);
     expect(state.panel.tab).toBe("walkthrough"); // a review page shows the review
@@ -324,25 +324,25 @@ describe("reviewStore.hydrate", () => {
   it("keeps the panel on History when hydrate runs after a History-jump hydratePanel", () => {
     atReviewUrl();
     state.panel.tab = "history"; // hydratePanel restored History
-    sessionStorage.setItem("prw:session:rev-1", JSON.stringify({ step: 0, review: mkReview() }));
+    sessionStorage.setItem("kvasir:session:rev-1", JSON.stringify({ step: 0, review: mkReview() }));
     reviewStore.hydrate();
     expect(state.panel.open).toBe(true);
     expect(state.panel.tab).toBe("history");
   });
 
   it("is a no-op off a review page, with no snapshot, on garbled JSON, or with no review", () => {
-    reviewStore.hydrate(); // location has no ?prw
+    reviewStore.hydrate(); // location has no ?kvasir
     expect(state.panel.open).toBe(false);
 
     atReviewUrl();
     reviewStore.hydrate(); // no snapshot stored
     expect(state.panel.open).toBe(false);
 
-    sessionStorage.setItem("prw:session:rev-1", "{not json");
+    sessionStorage.setItem("kvasir:session:rev-1", "{not json");
     reviewStore.hydrate(); // parse throws → caught
     expect(state.panel.open).toBe(false);
 
-    sessionStorage.setItem("prw:session:rev-1", JSON.stringify({ step: 1 })); // no review
+    sessionStorage.setItem("kvasir:session:rev-1", JSON.stringify({ step: 1 })); // no review
     reviewStore.hydrate();
     expect(state.panel.open).toBe(false);
   });

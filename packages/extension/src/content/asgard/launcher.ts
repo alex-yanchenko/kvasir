@@ -3,7 +3,7 @@
 // generation runs in the maintainer's Claude session; we persist a marker so a
 // page refresh keeps waiting, and poll until a spec with a NEW signature lands.
 
-import { isWalkthroughSpec, type WalkthroughSpec } from "@prw/runes/spec";
+import { isWalkthroughSpec, type WalkthroughSpec } from "@kvasir/runes/spec";
 import { api, type BridgeResponse } from "../api";
 import { genKey, onFilesTab, prUrl, specKey, tourKey } from "../keys";
 import { storeGet, storeRemove, storeSet } from "../muninn";
@@ -158,7 +158,7 @@ export const launcherStore = {
     const pr = prUrl();
     if (genPoll) clearInterval(genPoll);
     genPoll = null;
-    if (pr) storeRemove(genKey(pr)); // genKey(null) would remove a phantom "prw:gen:null"
+    if (pr) storeRemove(genKey(pr)); // genKey(null) would remove a phantom "kvasir:gen:null"
     generating = false;
     touch();
   },
@@ -180,8 +180,8 @@ export const launcherStore = {
     const pr = prUrl();
     if (!pr) return;
     await loadSpec(pr);
-    if (state.spec && onFilesTab() && sessionStorage.getItem("prwAutoStart") === "1") {
-      sessionStorage.removeItem("prwAutoStart");
+    if (state.spec && onFilesTab() && sessionStorage.getItem("kvasirAutoStart") === "1") {
+      sessionStorage.removeItem("kvasirAutoStart");
       setTimeout(() => tourStore.start(), 900);
     }
     if (!genPoll && (await resumeGeneration(pr))) return;

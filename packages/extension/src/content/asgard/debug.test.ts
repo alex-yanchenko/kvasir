@@ -8,30 +8,30 @@ beforeEach(() => {
 });
 
 describe("wipeStoredData", () => {
-  it("removes only prw: keys from chrome.storage.local + web storage, keeping the rest", async () => {
-    const get = vi.fn().mockResolvedValue({ "prw:token": 1, "prw:history": [], other: 2 });
+  it("removes only kvasir: keys from chrome.storage.local + web storage, keeping the rest", async () => {
+    const get = vi.fn().mockResolvedValue({ "kvasir:token": 1, "kvasir:history": [], other: 2 });
     const remove = vi.fn().mockResolvedValue(undefined);
     vi.stubGlobal("chrome", { storage: { local: { get, remove } } });
-    localStorage.setItem("prwTheme", "dark");
+    localStorage.setItem("kvasirTheme", "dark");
     localStorage.setItem("keep", "x");
-    sessionStorage.setItem("prw:session:a", "1");
+    sessionStorage.setItem("kvasir:session:a", "1");
     sessionStorage.setItem("nope", "2");
 
     await wipeStoredData();
 
-    expect(remove).toHaveBeenCalledWith(["prw:token", "prw:history"]);
+    expect(remove).toHaveBeenCalledWith(["kvasir:token", "kvasir:history"]);
     expect(remove).toHaveBeenCalledTimes(1);
-    expect(localStorage.getItem("prwTheme")).toBeNull();
+    expect(localStorage.getItem("kvasirTheme")).toBeNull();
     expect(localStorage.getItem("keep")).toBe("x");
-    expect(sessionStorage.getItem("prw:session:a")).toBeNull();
+    expect(sessionStorage.getItem("kvasir:session:a")).toBeNull();
     expect(sessionStorage.getItem("nope")).toBe("2");
   });
 
   it("is a no-op for chrome.storage when no extension runtime, still clearing web storage", async () => {
     vi.stubGlobal("chrome", {});
-    localStorage.setItem("prwHl", "github");
+    localStorage.setItem("kvasirHl", "github");
     await wipeStoredData();
-    expect(localStorage.getItem("prwHl")).toBeNull();
+    expect(localStorage.getItem("kvasirHl")).toBeNull();
   });
 
   it("swallows web-storage failures (storage unavailable)", async () => {

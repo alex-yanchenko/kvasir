@@ -6,7 +6,7 @@
  * significant file has no step, once), or publish (stamped + ready). The handler
  * just applies the side effects the outcome names (Map writes, logging, throw).
  */
-import { prKey, type WalkthroughSpec } from "@prw/runes";
+import { prKey, type WalkthroughSpec } from "@kvasir/runes";
 import { COVERAGE_MIN_ADDS, uncoveredFiles, type PrManifest } from "./manifest";
 import { parseSpecInput } from "./specInput";
 

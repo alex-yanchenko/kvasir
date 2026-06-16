@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import type { WalkthroughSpec } from "@prw/runes/spec";
+import type { WalkthroughSpec } from "@kvasir/runes/spec";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
@@ -195,7 +195,7 @@ describe("WalkthroughTab", () => {
   it("also binds keys on the shadow root when mounted inside one", () => {
     state.spec = mkSpec();
     const host = document.createElement("div");
-    host.id = "prw-root";
+    host.id = "kvasir-root";
     document.body.append(host);
     const shadow = host.attachShadow({ mode: "open" });
     const mount = document.createElement("div");

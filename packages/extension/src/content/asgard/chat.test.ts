@@ -189,7 +189,7 @@ describe("send", () => {
       { role: "user", content: "why?" },
       { role: "assistant", content: "because." },
     ]);
-    expect(vi.mocked(storeSet)).toHaveBeenCalledWith(`prw:chats:${PR}`, state.chatHistory);
+    expect(vi.mocked(storeSet)).toHaveBeenCalledWith(`kvasir:chats:${PR}`, state.chatHistory);
   });
 
   it("streams notes and partial text through live(), then skips the typewriter", async () => {

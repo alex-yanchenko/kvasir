@@ -2,10 +2,10 @@
    markdown, suggestion rows, the regenerate dialog, tooltips, scrollbars. Layout
    and chrome come from Tailwind on the components; these cover what the markdown
    renderer and chat internals emit. Everything reads the shared dev-tool tokens
-   (tailwind.css :host / .dark) — never the old --prw-* body variables. */
+   (tailwind.css :host / .dark) — never the old --kvasir-* body variables. */
 
 /* tab-switch transition: a quick fade + small rise as the new panel mounts */
-@keyframes prw-tab-in {
+@keyframes kvasir-tab-in {
   from {
     opacity: 0;
     transform: translateY(4px);
@@ -17,7 +17,7 @@
 }
 
 /* ── regenerate dialog ──────────────────────────────────────────────────────── */
-.prw-dialog-back {
+.kvasir-dialog-back {
   position: fixed;
   inset: 0;
   z-index: 2147483010;
@@ -27,7 +27,7 @@
   align-items: center;
   justify-content: center;
 }
-.prw-dialog {
+.kvasir-dialog {
   width: 360px;
   max-width: 92vw;
   background: var(--popover);
@@ -41,33 +41,33 @@
 }
 
 /* ── walkthrough step prose ─────────────────────────────────────────────────── */
-.prw-prose {
+.kvasir-prose {
   color: var(--foreground);
 }
-.prw-prose code {
+.kvasir-prose code {
   background: var(--muted);
   padding: 1px 5px;
   border-radius: var(--radius-sm, 3px);
   font-family: var(--font-mono);
   font-size: 0.86em;
 }
-.prw-prose p {
+.kvasir-prose p {
   margin: 0 0 0.6em;
 }
-.prw-prose p:last-child {
+.kvasir-prose p:last-child {
   margin-bottom: 0;
 }
-.prw-prose ul,
-.prw-prose ol {
+.kvasir-prose ul,
+.kvasir-prose ol {
   margin: 0.5em 0;
   padding-left: 1.3em;
 }
-.prw-prose li {
+.kvasir-prose li {
   margin: 0.25em 0;
 }
 
 /* ── chat: options bar + thread ─────────────────────────────────────────────── */
-.prw-options {
+.kvasir-options {
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -75,7 +75,7 @@
   border-bottom: 1px solid var(--border);
   flex: 0 0 auto;
 }
-.prw-thread {
+.kvasir-thread {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
@@ -87,13 +87,13 @@
 }
 
 /* assistant = plain text on the surface; user = a subtle accent-tinted bubble */
-.prw-msg {
+.kvasir-msg {
   white-space: pre-wrap;
   word-break: break-word;
   font-size: 13px;
   line-height: 1.55;
 }
-.prw-msg-user {
+.kvasir-msg-user {
   align-self: flex-end;
   max-width: 88%;
   padding: 7px 11px;
@@ -102,17 +102,17 @@
   border: 1px solid color-mix(in srgb, var(--primary) 28%, var(--border));
   color: var(--foreground);
 }
-.prw-msg-bot {
+.kvasir-msg-bot {
   align-self: stretch;
   color: var(--foreground);
 }
-.prw-msg-note {
+.kvasir-msg-note {
   align-self: stretch;
   color: var(--muted-foreground);
   border-left: 2px solid var(--destructive);
   padding-left: 9px;
 }
-.prw-note-retry {
+.kvasir-note-retry {
   margin-left: 6px;
   background: transparent;
   border: 1px solid var(--border);
@@ -122,13 +122,13 @@
   font-size: 12px;
   cursor: pointer;
 }
-.prw-note-retry:hover {
+.kvasir-note-retry:hover {
   border-color: var(--primary);
   color: var(--primary);
 }
 
 /* per-message action row (regenerate / locate / copy) — reveal on hover */
-.prw-msg-actions {
+.kvasir-msg-actions {
   display: flex;
   gap: 2px;
   align-items: center;
@@ -136,11 +136,11 @@
   opacity: 0;
   transition: opacity 0.12s ease;
 }
-.prw-msg-bot:hover .prw-msg-actions,
-.prw-msg-bot:focus-within .prw-msg-actions {
+.kvasir-msg-bot:hover .kvasir-msg-actions,
+.kvasir-msg-bot:focus-within .kvasir-msg-actions {
   opacity: 1;
 }
-.prw-iconbtn {
+.kvasir-iconbtn {
   background: none;
   border: none;
   color: var(--muted-foreground);
@@ -152,40 +152,40 @@
     color 0.12s ease,
     background-color 0.12s ease;
 }
-.prw-iconbtn svg {
+.kvasir-iconbtn svg {
   width: 14px;
   height: 14px;
 }
-.prw-iconbtn:hover {
+.kvasir-iconbtn:hover {
   color: var(--foreground);
   background: var(--accent);
 }
-.prw-iconbtn.prw-ok {
+.kvasir-iconbtn.kvasir-ok {
   color: #2ea043;
 }
 
 /* ── markdown ───────────────────────────────────────────────────────────────── */
-.prw-md {
+.kvasir-md {
   white-space: normal;
 }
-.prw-md p {
+.kvasir-md p {
   margin: 0 0 8px;
 }
-.prw-md p:last-child {
+.kvasir-md p:last-child {
   margin-bottom: 0;
 }
-.prw-md strong {
+.kvasir-md strong {
   font-weight: 600;
 }
-.prw-md ul,
-.prw-md ol {
+.kvasir-md ul,
+.kvasir-md ol {
   margin: 6px 0;
   padding-left: 1.3em;
 }
-.prw-md li {
+.kvasir-md li {
   margin: 2px 0;
 }
-.prw-inline {
+.kvasir-inline {
   background: var(--muted);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm, 3px);
@@ -193,7 +193,7 @@
   font-family: var(--font-mono);
   font-size: 0.86em;
 }
-.prw-ref {
+.kvasir-ref {
   color: var(--primary);
   text-decoration: none;
   border-bottom: 1px dashed color-mix(in srgb, var(--primary) 55%, transparent);
@@ -201,10 +201,10 @@
   font-family: var(--font-mono);
   font-size: 0.86em;
 }
-.prw-ref:hover {
+.kvasir-ref:hover {
   border-bottom-style: solid;
 }
-.prw-code {
+.kvasir-code {
   position: relative;
   margin: 8px 0;
   padding: 10px 12px;
@@ -213,7 +213,7 @@
   border-radius: var(--radius);
   overflow-x: auto;
 }
-.prw-code-copy {
+.kvasir-code-copy {
   position: absolute;
   top: 5px;
   right: 5px;
@@ -222,10 +222,10 @@
   background: var(--card);
   border: 1px solid var(--border);
 }
-.prw-code:hover .prw-code-copy {
+.kvasir-code:hover .kvasir-code-copy {
   opacity: 1;
 }
-.prw-code code {
+.kvasir-code code {
   display: block;
   white-space: pre;
   font-family: var(--font-mono);
@@ -233,7 +233,7 @@
   line-height: 1.5;
   color: var(--foreground);
 }
-.prw-code-lang {
+.kvasir-code-lang {
   display: block;
   margin-bottom: 6px;
   font-size: 10px;
@@ -243,19 +243,19 @@
 }
 
 /* ── composer + quick chips ─────────────────────────────────────────────────── */
-.prw-chat-foot {
+.kvasir-chat-foot {
   display: flex;
   gap: 8px;
   align-items: flex-end;
   padding: 10px 12px;
   border-top: 1px solid var(--border);
 }
-.prw-quick {
+.kvasir-quick {
   display: flex;
   flex-wrap: wrap;
   gap: 5px;
 }
-.prw-chip {
+.kvasir-chip {
   background: transparent;
   color: var(--muted-foreground);
   border: 1px solid var(--border);
@@ -268,29 +268,29 @@
     border-color 0.12s ease,
     background-color 0.12s ease;
 }
-.prw-chip:hover {
+.kvasir-chip:hover {
   color: var(--foreground);
   background: var(--accent);
   border-color: color-mix(in srgb, var(--primary) 45%, var(--border));
 }
-.prw-chip:disabled,
-.prw-srow-ask:disabled,
-.prw-input:disabled {
+.kvasir-chip:disabled,
+.kvasir-srow-ask:disabled,
+.kvasir-input:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
-.prw-chip:disabled:hover {
+.kvasir-chip:disabled:hover {
   color: var(--muted-foreground);
   background: transparent;
   border-color: var(--border);
 }
 
 /* ── step-context disclosure banner ─────────────────────────────────────────── */
-.prw-ctxbanner {
+.kvasir-ctxbanner {
   position: relative;
   border-bottom: 1px solid var(--border);
 }
-.prw-ctxbanner-h {
+.kvasir-ctxbanner-h {
   display: block;
   width: 100%;
   text-align: left;
@@ -301,19 +301,19 @@
   list-style: none;
   user-select: none;
 }
-.prw-ctxbanner-h::-webkit-details-marker {
+.kvasir-ctxbanner-h::-webkit-details-marker {
   display: none;
 }
-.prw-ctxbanner-h::after {
+.kvasir-ctxbanner-h::after {
   content: " ▾";
 }
-.prw-ctxbanner[open] .prw-ctxbanner-h::after {
+.kvasir-ctxbanner[open] .kvasir-ctxbanner-h::after {
   content: " ▴";
 }
-.prw-ctxbanner-h:hover {
+.kvasir-ctxbanner-h:hover {
   color: var(--foreground);
 }
-.prw-ctxbanner-b {
+.kvasir-ctxbanner-b {
   position: absolute;
   top: 100%;
   left: 8px;
@@ -335,17 +335,17 @@
 }
 
 /* ── AI suggestion rows ─────────────────────────────────────────────────────── */
-.prw-ai {
+.kvasir-ai {
   display: flex;
   flex-direction: column;
   gap: 5px;
 }
-.prw-ai.prw-has {
+.kvasir-ai.kvasir-has {
   margin-top: 4px;
   padding-top: 8px;
   border-top: 1px solid var(--border);
 }
-.prw-srow {
+.kvasir-srow {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -357,10 +357,10 @@
   padding: 0 5px 0 9px;
   transition: border-color 0.12s ease;
 }
-.prw-srow:hover {
+.kvasir-srow:hover {
   border-color: color-mix(in srgb, var(--primary) 40%, var(--border));
 }
-.prw-srow-text {
+.kvasir-srow-text {
   flex: 1;
   min-width: 0;
   font-size: 12px;
@@ -371,7 +371,7 @@
   user-select: text;
   cursor: text;
 }
-.prw-srow-ask {
+.kvasir-srow-ask {
   flex: 0 0 auto;
   width: 24px;
   height: 24px;
@@ -384,15 +384,15 @@
   color: var(--muted-foreground);
   cursor: pointer;
 }
-.prw-srow-ask:hover {
+.kvasir-srow-ask:hover {
   background: var(--accent);
   color: var(--primary);
 }
-.prw-srow-ask svg {
+.kvasir-srow-ask svg {
   width: 15px;
   height: 15px;
 }
-.prw-srow-exp {
+.kvasir-srow-exp {
   flex: 0 0 auto;
   width: 20px;
   height: 24px;
@@ -404,34 +404,34 @@
   color: var(--muted-foreground);
   cursor: pointer;
 }
-.prw-srow-exp:hover {
+.kvasir-srow-exp:hover {
   color: var(--foreground);
 }
-.prw-srow-exp svg {
+.kvasir-srow-exp svg {
   width: 14px;
   height: 14px;
   transition: transform 0.15s ease;
 }
-.prw-srow-open {
+.kvasir-srow-open {
   height: auto;
   min-height: 30px;
   padding-top: 6px;
   padding-bottom: 6px;
 }
-.prw-srow-open .prw-srow-text {
+.kvasir-srow-open .kvasir-srow-text {
   white-space: normal;
   overflow: visible;
   text-overflow: clip;
 }
-.prw-srow-open .prw-srow-exp svg {
+.kvasir-srow-open .kvasir-srow-exp svg {
   transform: rotate(180deg);
 }
-.prw-srow.prw-skel {
+.kvasir-srow.kvasir-skel {
   background: linear-gradient(90deg, var(--muted) 25%, var(--border) 37%, var(--muted) 63%);
   background-size: 300% 100%;
-  animation: prw-shimmer 2.1s ease infinite;
+  animation: kvasir-shimmer 2.1s ease infinite;
 }
-@keyframes prw-shimmer {
+@keyframes kvasir-shimmer {
   0% {
     background-position: 100% 0;
   }
@@ -441,27 +441,27 @@
 }
 
 /* ── streaming typing dots ──────────────────────────────────────────────────── */
-.prw-typing {
+.kvasir-typing {
   display: inline-flex;
   gap: 4px;
   align-items: center;
   padding: 2px 0;
 }
-.prw-typing i {
+.kvasir-typing i {
   width: 5px;
   height: 5px;
   border-radius: 50%;
   background: var(--muted-foreground);
   display: inline-block;
-  animation: prw-bounce 1.4s ease-in-out infinite;
+  animation: kvasir-bounce 1.4s ease-in-out infinite;
 }
-.prw-typing i:nth-child(2) {
+.kvasir-typing i:nth-child(2) {
   animation-delay: 0.2s;
 }
-.prw-typing i:nth-child(3) {
+.kvasir-typing i:nth-child(3) {
   animation-delay: 0.4s;
 }
-@keyframes prw-bounce {
+@keyframes kvasir-bounce {
   0%,
   80%,
   100% {
@@ -475,7 +475,7 @@
 }
 
 /* ── composer input ─────────────────────────────────────────────────────────── */
-.prw-input {
+.kvasir-input {
   flex: 1;
   background: var(--input);
   color: var(--foreground);
@@ -487,16 +487,16 @@
     border-color 0.12s ease,
     box-shadow 0.12s ease;
 }
-.prw-input::placeholder {
+.kvasir-input::placeholder {
   color: var(--muted-foreground);
 }
-.prw-input:focus,
-.prw-input:focus-visible {
+.kvasir-input:focus,
+.kvasir-input:focus-visible {
   outline: none;
   border-color: var(--primary);
   box-shadow: 0 0 0 3px var(--ring-soft);
 }
-textarea.prw-chat-input {
+textarea.kvasir-chat-input {
   resize: none;
   overflow-y: auto;
   max-height: 160px;
@@ -505,44 +505,44 @@ textarea.prw-chat-input {
 }
 
 /* ── thin scrollbars on the scrolling surfaces ──────────────────────────────── */
-.prw-thread,
-.prw-code,
-.prw-ctxbanner-b,
-textarea.prw-chat-input {
+.kvasir-thread,
+.kvasir-code,
+.kvasir-ctxbanner-b,
+textarea.kvasir-chat-input {
   scrollbar-width: thin;
   scrollbar-color: var(--border) transparent;
 }
-.prw-thread::-webkit-scrollbar,
-.prw-code::-webkit-scrollbar,
-.prw-ctxbanner-b::-webkit-scrollbar,
-textarea.prw-chat-input::-webkit-scrollbar {
+.kvasir-thread::-webkit-scrollbar,
+.kvasir-code::-webkit-scrollbar,
+.kvasir-ctxbanner-b::-webkit-scrollbar,
+textarea.kvasir-chat-input::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
-.prw-thread::-webkit-scrollbar-track,
-.prw-code::-webkit-scrollbar-track,
-.prw-ctxbanner-b::-webkit-scrollbar-track,
-textarea.prw-chat-input::-webkit-scrollbar-track {
+.kvasir-thread::-webkit-scrollbar-track,
+.kvasir-code::-webkit-scrollbar-track,
+.kvasir-ctxbanner-b::-webkit-scrollbar-track,
+textarea.kvasir-chat-input::-webkit-scrollbar-track {
   background: transparent;
 }
-.prw-thread::-webkit-scrollbar-thumb,
-.prw-code::-webkit-scrollbar-thumb,
-.prw-ctxbanner-b::-webkit-scrollbar-thumb,
-textarea.prw-chat-input::-webkit-scrollbar-thumb {
+.kvasir-thread::-webkit-scrollbar-thumb,
+.kvasir-code::-webkit-scrollbar-thumb,
+.kvasir-ctxbanner-b::-webkit-scrollbar-thumb,
+textarea.kvasir-chat-input::-webkit-scrollbar-thumb {
   background: var(--border);
   border-radius: 8px;
   border: 2px solid transparent;
   background-clip: padding-box;
 }
-.prw-thread::-webkit-scrollbar-thumb:hover,
-.prw-code::-webkit-scrollbar-thumb:hover,
-.prw-ctxbanner-b::-webkit-scrollbar-thumb:hover,
-textarea.prw-chat-input::-webkit-scrollbar-thumb:hover {
+.kvasir-thread::-webkit-scrollbar-thumb:hover,
+.kvasir-code::-webkit-scrollbar-thumb:hover,
+.kvasir-ctxbanner-b::-webkit-scrollbar-thumb:hover,
+textarea.kvasir-chat-input::-webkit-scrollbar-thumb:hover {
   background: var(--muted-foreground);
 }
 
 /* ── tooltip ────────────────────────────────────────────────────────────────── */
-.prw-tip {
+.kvasir-tip {
   position: fixed;
   z-index: 2147483050;
   max-width: 240px;
@@ -559,11 +559,11 @@ textarea.prw-chat-input::-webkit-scrollbar-thumb:hover {
 }
 
 /* ── live-stream bubble ─────────────────────────────────────────────────────── */
-.prw-live-note {
+.kvasir-live-note {
   font-size: 11px;
   color: var(--muted-foreground);
   margin-bottom: 4px;
 }
-.prw-live-text {
+.kvasir-live-text {
   white-space: pre-wrap;
 }

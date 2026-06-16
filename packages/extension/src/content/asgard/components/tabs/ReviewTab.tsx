@@ -3,7 +3,7 @@
 // pushed, not generated) and its nav navigates the tab between blob pages
 // (reviewStore.goto/next/back), letting GitHub's native #L highlight land each
 // step. Chat is reached the same way as the walkthrough — through activeGuide().
-import { renderMarkdown } from "@prw/runes/markdown";
+import { renderMarkdown } from "@kvasir/runes/markdown";
 import { ChevronLeft, ChevronRight, Loader2, MessageSquare } from "lucide-react";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import type { JSX } from "react";
@@ -43,7 +43,7 @@ export function ReviewTab(): JSX.Element {
           size="icon"
           className="ml-auto h-7 w-7"
           aria-label="Ask about this step"
-          data-prw-tip="Ask about this step"
+          data-kvasir-tip="Ask about this step"
           disabled={pairingStore.needsPairing()}
           onClick={() => {
             reviewStore.askAboutStep();
@@ -60,7 +60,7 @@ export function ReviewTab(): JSX.Element {
           {step.repo.owner}/{step.repo.name} · {step.file}
         </div>
         <div
-          className="prw-prose text-sm"
+          className="kvasir-prose text-sm"
           data-testid="review-step-body"
           dangerouslySetInnerHTML={{ __html: renderMarkdown(step.body) }}
         />
@@ -76,7 +76,7 @@ export function ReviewTab(): JSX.Element {
             </Button>
             {showDetail && (
               <div
-                className="prw-prose mt-2 border-t border-border pt-2 text-sm"
+                className="kvasir-prose mt-2 border-t border-border pt-2 text-sm"
                 data-testid="review-step-detail"
                 dangerouslySetInnerHTML={{ __html: renderMarkdown(step.detail) }}
               />
@@ -100,7 +100,7 @@ export function ReviewTab(): JSX.Element {
             <button
               key={dotIndex}
               aria-label={`Go to step ${dotIndex + 1}`}
-              data-prw-tip={`Step ${dotIndex + 1}`}
+              data-kvasir-tip={`Step ${dotIndex + 1}`}
               disabled={navigating}
               onClick={() => reviewStore.goto(dotIndex)}
               className={

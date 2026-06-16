@@ -8,7 +8,7 @@
  * IO (git, fetch) lives in scripts/build-review.ts; everything here is pure and
  * unit-tested.
  */
-import { type ReviewStep } from "@prw/runes/review";
+import { type ReviewStep } from "@kvasir/runes/review";
 import { z } from "zod";
 
 export class ReviewBuildError extends Error {

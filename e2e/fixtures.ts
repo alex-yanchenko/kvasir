@@ -44,5 +44,5 @@ async function serviceWorker(context: BrowserContext): Promise<Worker> {
 // navigates (pairingStore reads the token once, at boot).
 export async function pair(context: BrowserContext, token: string): Promise<void> {
   const worker = await serviceWorker(context);
-  await worker.evaluate((value) => chrome.storage.local.set({ "prw:token": value }), token);
+  await worker.evaluate((value) => chrome.storage.local.set({ "kvasir:token": value }), token);
 }

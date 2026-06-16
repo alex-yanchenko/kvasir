@@ -32,15 +32,15 @@ test.describe("extension on a PR page", () => {
     await page.getByRole("tab", { name: "Walkthrough" }).click();
 
     // First step renders; mounting the tab auto-starts the tour → highlight:step →
-    // the controller paints prw-line on the rows the spec's line range names (2-3).
+    // the controller paints kvasir-line on the rows the spec's line range names (2-3).
     await expect(page.getByRole("heading", { name: "Compute in foo" })).toBeVisible();
-    await expect(page.locator("#diff-foo tr.diff-line-row.prw-line")).toHaveCount(2);
-    await expect(page.locator('#diff-foo tr.prw-line td[data-line-number="2"]')).toBeVisible();
+    await expect(page.locator("#diff-foo tr.diff-line-row.kvasir-line")).toHaveCount(2);
+    await expect(page.locator('#diff-foo tr.kvasir-line td[data-line-number="2"]')).toBeVisible();
 
     // Next step moves the highlight to the other file and clears the first.
     await page.getByRole("button", { name: "Next step" }).click();
     await expect(page.getByRole("heading", { name: "Log in bar" })).toBeVisible();
-    await expect(page.locator("#diff-bar tr.diff-line-row.prw-line")).toHaveCount(1);
-    await expect(page.locator("#diff-foo tr.prw-line")).toHaveCount(0);
+    await expect(page.locator("#diff-bar tr.diff-line-row.kvasir-line")).toHaveCount(1);
+    await expect(page.locator("#diff-foo tr.kvasir-line")).toHaveCount(0);
   });
 });

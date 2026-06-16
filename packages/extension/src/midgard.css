@@ -1,4 +1,4 @@
-/* All selectors are prefixed prw- to avoid clashing with GitHub's styles. */
+/* All selectors are prefixed kvasir- to avoid clashing with GitHub's styles. */
 
 /* ── theme tokens ─────────────────────────────────────────────────────────────
    theme="auto" (the default) follows the OS via the media query below; explicit
@@ -7,42 +7,42 @@
    panel read as one product: cool graphite neutrals + the teal --primary as accent
    (brighter cyan in dark, exactly like Asgard's --primary). */
 :root {
-  --prw-accent: #0e93ab;
+  --kvasir-accent: #0e93ab;
 }
-body[data-prw-theme="auto"],
-body[data-prw-theme="light"] {
-  --prw-accent: #0e93ab;
-  --prw-bg: #ffffff;
-  --prw-fg: #0c1219;
-  --prw-muted: #4a5563;
-  --prw-border: #dce3ea;
-  --prw-surface: #edf1f5;
-  --prw-input: #ffffff;
+body[data-kvasir-theme="auto"],
+body[data-kvasir-theme="light"] {
+  --kvasir-accent: #0e93ab;
+  --kvasir-bg: #ffffff;
+  --kvasir-fg: #0c1219;
+  --kvasir-muted: #4a5563;
+  --kvasir-border: #dce3ea;
+  --kvasir-surface: #edf1f5;
+  --kvasir-input: #ffffff;
 }
-body[data-prw-theme="dark"],
-body:not([data-prw-theme]) {
-  --prw-accent: #22b8cf;
-  --prw-bg: #151a21;
-  --prw-fg: #e3e8ee;
-  --prw-muted: #8a95a3;
-  --prw-border: #232a33;
-  --prw-surface: #1a212a;
-  --prw-input: #11161c;
+body[data-kvasir-theme="dark"],
+body:not([data-kvasir-theme]) {
+  --kvasir-accent: #22b8cf;
+  --kvasir-bg: #151a21;
+  --kvasir-fg: #e3e8ee;
+  --kvasir-muted: #8a95a3;
+  --kvasir-border: #232a33;
+  --kvasir-surface: #1a212a;
+  --kvasir-input: #11161c;
 }
 @media (prefers-color-scheme: dark) {
-  body[data-prw-theme="auto"] {
-    --prw-accent: #22b8cf;
-    --prw-bg: #151a21;
-    --prw-fg: #e3e8ee;
-    --prw-muted: #8a95a3;
-    --prw-border: #232a33;
-    --prw-surface: #1a212a;
-    --prw-input: #11161c;
+  body[data-kvasir-theme="auto"] {
+    --kvasir-accent: #22b8cf;
+    --kvasir-bg: #151a21;
+    --kvasir-fg: #e3e8ee;
+    --kvasir-muted: #8a95a3;
+    --kvasir-border: #232a33;
+    --kvasir-surface: #1a212a;
+    --kvasir-input: #11161c;
   }
 }
 
 /* gutter selection: ghost "grip" to select, solid chat icon to ask */
-.prw-grip {
+.kvasir-grip {
   position: fixed;
   z-index: 2147483001;
   width: 20px;
@@ -51,53 +51,53 @@ body:not([data-prw-theme]) {
   align-items: center;
   justify-content: center;
   padding: 0;
-  background: var(--prw-bg);
-  color: var(--prw-accent);
-  border: 1px solid var(--prw-accent);
+  background: var(--kvasir-bg);
+  color: var(--kvasir-accent);
+  border: 1px solid var(--kvasir-accent);
   border-radius: 6px;
   cursor: pointer;
   opacity: 0.85;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
 }
-.prw-grip:hover {
+.kvasir-grip:hover {
   opacity: 1;
 }
-.prw-grip svg {
+.kvasir-grip svg {
   width: 13px;
   height: 13px;
 }
-.prw-askbar {
+.kvasir-askbar {
   position: fixed;
   z-index: 2147483001;
   display: flex;
   gap: 6px;
 }
-.prw-askbtn {
+.kvasir-askbtn {
   width: 22px;
   height: 22px;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 0;
-  background: var(--prw-accent);
+  background: var(--kvasir-accent);
   color: #fff;
   border: none;
   border-radius: 6px;
   cursor: pointer;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
-.prw-askbtn:hover {
+.kvasir-askbtn:hover {
   opacity: 0.92;
 }
-.prw-askbtn svg {
+.kvasir-askbtn svg {
   width: 14px;
   height: 14px;
 }
 /* context ask icon: a "+" badge marks that it carries the current step's context */
-.prw-askbtn-ctx {
+.kvasir-askbtn-ctx {
   position: relative;
 }
-.prw-askbtn-ctx::after {
+.kvasir-askbtn-ctx::after {
   content: "+";
   position: absolute;
   top: -5px;
@@ -108,21 +108,21 @@ body:not([data-prw-theme]) {
   text-align: center;
   font-size: 12px;
   font-weight: 700;
-  background: var(--prw-bg);
-  color: var(--prw-accent);
-  border: 1px solid var(--prw-accent);
+  background: var(--kvasir-bg);
+  color: var(--kvasir-accent);
+  border: 1px solid var(--kvasir-accent);
   border-radius: 50%;
 }
 
 /* fast custom tooltip */
-.prw-tip {
+.kvasir-tip {
   position: fixed;
   z-index: 2147483050;
   display: none;
   max-width: 240px;
-  background: var(--prw-bg);
-  color: var(--prw-fg);
-  border: 1px solid var(--prw-border);
+  background: var(--kvasir-bg);
+  color: var(--kvasir-fg);
+  border: 1px solid var(--kvasir-border);
   border-radius: 6px;
   padding: 5px 9px;
   font:
@@ -134,14 +134,14 @@ body:not([data-prw-theme]) {
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
   pointer-events: none;
 }
-tr.prw-pick td {
+tr.kvasir-pick td {
   background: rgba(56, 138, 221, 0.2) !important;
 }
-tr.prw-pick td:first-child {
+tr.kvasir-pick td:first-child {
   box-shadow: inset 4px 0 0 #378add;
 }
-.prw-noselect,
-.prw-noselect * {
+.kvasir-noselect,
+.kvasir-noselect * {
   user-select: none !important;
   -webkit-user-select: none !important;
 }
@@ -150,16 +150,16 @@ tr.prw-pick td:first-child {
    Walkthrough step = background tint (the "look"). Chat selection wins the
    background where they overlap (turns blue) + a solid left bar that's always
    visible. GitHub's native text selection is left to the browser (glyph layer). */
-body[data-prw-hl="tint"] tr.prw-line:not(.prw-pick) td {
+body[data-kvasir-hl="tint"] tr.kvasir-line:not(.kvasir-pick) td {
   background: rgba(216, 90, 48, 0.16) !important;
 }
-body[data-prw-hl="github"] tr.prw-line:not(.prw-pick) td {
+body[data-kvasir-hl="github"] tr.kvasir-line:not(.kvasir-pick) td {
   background: rgba(255, 212, 0, 0.22) !important;
 }
 /* walkthrough bar: right of the numbers (on the code cell), both looks */
-body[data-prw-hl="tint"] tr.prw-line td.diff-text-cell {
-  box-shadow: inset 3px 0 0 var(--prw-accent) !important;
+body[data-kvasir-hl="tint"] tr.kvasir-line td.diff-text-cell {
+  box-shadow: inset 3px 0 0 var(--kvasir-accent) !important;
 }
-body[data-prw-hl="github"] tr.prw-line td.diff-text-cell {
+body[data-kvasir-hl="github"] tr.kvasir-line td.diff-text-cell {
   box-shadow: inset 3px 0 0 #c9a227 !important;
 }

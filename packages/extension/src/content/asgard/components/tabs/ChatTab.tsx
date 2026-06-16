@@ -2,7 +2,7 @@
 // per-answer actions, quick prompts + AI suggestions, the autosizing input, and
 // the live-stream bubble. The panel hosts it (no window chrome of its own); the
 // machine (chat.ts) owns the sessions and the /ask flow.
-import { renderMarkdown } from "@prw/runes/markdown";
+import { renderMarkdown } from "@kvasir/runes/markdown";
 import {
   ArrowRight,
   Check,
@@ -48,7 +48,7 @@ const FILE_RE = /\b[\w@-][\w@.-]*(?:\/[\w@.-]+)+\.\w{1,8}\b/;
 
 const mkRefLink = (label: string, ref: { file: string; start: number | null; end: number | null }) => {
   const a = document.createElement("a");
-  a.className = "prw-ref";
+  a.className = "kvasir-ref";
   a.href = "#";
   a.textContent = label;
   a.addEventListener("click", (event) => {
@@ -136,11 +136,11 @@ function Markdown({ text }: Readonly<{ text: string }>): JSX.Element {
   const html = useMemo(() => ({ __html: renderMarkdown(text) }), [text]);
   useEffect(() => {
     const element = ref.current!; // the span renders unconditionally; references are set before effects
-    for (const pre of element.querySelectorAll("pre.prw-code")) {
-      const code = pre.querySelector("code")!; // renderMarkdown always nests <code> in .prw-code
+    for (const pre of element.querySelectorAll("pre.kvasir-code")) {
+      const code = pre.querySelector("code")!; // renderMarkdown always nests <code> in .kvasir-code
       const b = document.createElement("button");
-      b.className = "prw-iconbtn prw-code-copy";
-      b.dataset.prwTip = "Copy code";
+      b.className = "kvasir-iconbtn kvasir-code-copy";
+      b.dataset.kvasirTip = "Copy code";
       b.setAttribute("aria-label", "Copy code");
       b.replaceChildren(svgIcon(ICON.copy));
       b.addEventListener("click", () => {
@@ -151,7 +151,7 @@ function Markdown({ text }: Readonly<{ text: string }>): JSX.Element {
     }
     linkifyReferences(element);
   }, [html]);
-  return <span ref={ref} className="prw-md" dangerouslySetInnerHTML={html} />;
+  return <span ref={ref} className="kvasir-md" dangerouslySetInnerHTML={html} />;
 }
 
 /** Cosmetic streaming: reveal progressively. True token streaming needs the
@@ -205,14 +205,14 @@ function Message({
   const [copied, setCopied] = useState(false);
   if (message.role === "user") {
     return (
-      <div className="prw-message prw-message-user">
+      <div className="kvasir-message kvasir-message-user">
         <span>{message.content}</span>
       </div>
     );
   }
   const locate = () => {
     // bodyRef is on this message's root div — set before any click can land
-    const references = bodyRef.current!.querySelectorAll<HTMLAnchorElement>(".prw-ref");
+    const references = bodyRef.current!.querySelectorAll<HTMLAnchorElement>(".kvasir-ref");
     if (references.length > 0) {
       // several citations: each click advances to the next (the inline links
       // jump to a specific one directly)
@@ -224,32 +224,32 @@ function Message({
     }
   };
   return (
-    <div className="prw-message prw-message-bot" ref={bodyRef}>
+    <div className="kvasir-message kvasir-message-bot" ref={bodyRef}>
       {streaming ? (
         <Typewriter text={message.content} onDone={onStreamed} />
       ) : (
         <Markdown text={message.content} />
       )}
-      <div className="prw-message-actions">
+      <div className="kvasir-message-actions">
         <button
-          className="prw-iconbtn"
-          data-prw-tip="Regenerate answer"
+          className="kvasir-iconbtn"
+          data-kvasir-tip="Regenerate answer"
           aria-label="Regenerate answer"
           onClick={() => onRegenerate(index)}
         >
           <RotateCw />
         </button>
         <button
-          className="prw-iconbtn"
-          data-prw-tip="Jump to the cited code"
+          className="kvasir-iconbtn"
+          data-kvasir-tip="Jump to the cited code"
           aria-label="Jump to the cited code"
           onClick={locate}
         >
           <Crosshair />
         </button>
         <button
-          className={"prw-iconbtn" + (copied ? " prw-ok" : "")}
-          data-prw-tip="Copy message"
+          className={"kvasir-iconbtn" + (copied ? " kvasir-ok" : "")}
+          data-kvasir-tip="Copy message"
           aria-label="Copy message"
           onClick={() => {
             void navigator.clipboard?.writeText(message.content);
@@ -287,23 +287,23 @@ function OptionRow({
     return () => ro.disconnect();
   }, []);
   return (
-    <div className={"prw-srow" + (open ? " prw-srow-open" : "")}>
+    <div className={"kvasir-srow" + (open ? " kvasir-srow-open" : "")}>
       {(clipped || open) && (
         <button
-          className="prw-srow-exp"
-          data-prw-tip={open ? "Collapse" : "Show full text"}
+          className="kvasir-srow-exp"
+          data-kvasir-tip={open ? "Collapse" : "Show full text"}
           aria-label="Show full text"
           onClick={() => setOpen((o) => !o)}
         >
           <ChevronDown />
         </button>
       )}
-      <span ref={textRef} className="prw-srow-text" data-prw-tip={label}>
+      <span ref={textRef} className="kvasir-srow-text" data-kvasir-tip={label}>
         {label}
       </span>
       <button
-        className="prw-srow-ask"
-        data-prw-tip="Ask this"
+        className="kvasir-srow-ask"
+        data-kvasir-tip="Ask this"
         aria-label="Ask this question"
         disabled={disabled}
         onClick={onAsk}
@@ -371,7 +371,7 @@ function ChatRail({ active, width }: Readonly<{ active: string | null; width: nu
   );
 }
 
-const RAIL_KEY = "prw:chatRailW";
+const RAIL_KEY = "kvasir:chatRailW";
 const RAIL_MIN = 120;
 const RAIL_MAX = 280;
 const RAIL_NUDGE: Record<string, number> = { ArrowLeft: -16, ArrowRight: 16 };
@@ -537,13 +537,13 @@ function Thread({ sess }: Readonly<{ sess: ChatSession }>): JSX.Element {
         .slice(0, 3)
         .map((q) => <OptionRow key={q} label={q} onAsk={() => ask(q)} disabled={inputDisabled} />);
     if (blocked) return null;
-    return [0, 1, 2].map((index) => <div key={index} className="prw-srow prw-skel" />);
+    return [0, 1, 2].map((index) => <div key={index} className="kvasir-srow kvasir-skel" />);
   })();
 
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center gap-2 border-b border-border px-3 py-1.5">
-        <span className="truncate text-xs font-medium text-muted-foreground" data-prw-tip={fileTitle}>
+        <span className="truncate text-xs font-medium text-muted-foreground" data-kvasir-tip={fileTitle}>
           {fileLabel}
         </span>
         <Button
@@ -551,31 +551,31 @@ function Thread({ sess }: Readonly<{ sess: ChatSession }>): JSX.Element {
           size="icon"
           className="ml-auto h-6 w-6 text-muted-foreground"
           aria-label="Close and delete"
-          data-prw-tip="Delete this chat"
+          data-kvasir-tip="Delete this chat"
           onClick={() => chatStore.deleteActive()}
         >
           <X />
         </Button>
       </div>
       {sess.step && (
-        <details ref={bannerRef} className="prw-ctxbanner">
-          <summary className="prw-ctxbanner-h">ⓘ Includes this step’s context</summary>
-          <div className="prw-ctxbanner-b">{sess.step}</div>
+        <details ref={bannerRef} className="kvasir-ctxbanner">
+          <summary className="kvasir-ctxbanner-h">ⓘ Includes this step’s context</summary>
+          <div className="kvasir-ctxbanner-b">{sess.step}</div>
         </details>
       )}
-      <div className="prw-options">
-        <div className="prw-quick">
+      <div className="kvasir-options">
+        <div className="kvasir-quick">
           {(sess.general ? QUICK_PR : QUICK).map((a) => (
-            <button key={a.label} className="prw-chip" disabled={inputDisabled} onClick={() => ask(a.q)}>
+            <button key={a.label} className="kvasir-chip" disabled={inputDisabled} onClick={() => ask(a.q)}>
               {a.label}
             </button>
           ))}
         </div>
-        <div className={"prw-ai" + (sess.general || sess.suggestions?.length === 0 ? "" : " prw-has")}>
+        <div className={"kvasir-ai" + (sess.general || sess.suggestions?.length === 0 ? "" : " kvasir-has")}>
           {!sess.general && suggestionRows}
         </div>
       </div>
-      <div className="prw-thread" ref={threadRef}>
+      <div className="kvasir-thread" ref={threadRef}>
         {sess.messages.map((m, index) => (
           <Message
             key={index}
@@ -591,15 +591,15 @@ function Thread({ sess }: Readonly<{ sess: ChatSession }>): JSX.Element {
           />
         ))}
         {busy && (
-          <div className="prw-message prw-message-bot">
-            {liveAsk?.note && <div className="prw-live-note">⚙ {liveAsk.note}</div>}
+          <div className="kvasir-message kvasir-message-bot">
+            {liveAsk?.note && <div className="kvasir-live-note">⚙ {liveAsk.note}</div>}
             {liveAsk?.text && (
-              <span className="prw-live-text">
+              <span className="kvasir-live-text">
                 <Markdown text={closeFences(liveAsk.text)} />
               </span>
             )}
             {/* the dots stay up while the stream is open — partial text above is not the end */}
-            <span className="prw-typing">
+            <span className="kvasir-typing">
               <i></i>
               <i></i>
               <i></i>
@@ -607,11 +607,11 @@ function Thread({ sess }: Readonly<{ sess: ChatSession }>): JSX.Element {
           </div>
         )}
         {error && (
-          <div className="prw-message prw-message-bot prw-message-note">
+          <div className="kvasir-message kvasir-message-bot kvasir-message-note">
             <span>
               ⚠ {error.message}{" "}
               <button
-                className="prw-note-retry"
+                className="kvasir-note-retry"
                 onClick={() => send(error.question, { pushUser: false, replaceIdx: error.replaceIdx })}
               >
                 Retry
@@ -620,10 +620,10 @@ function Thread({ sess }: Readonly<{ sess: ChatSession }>): JSX.Element {
           </div>
         )}
       </div>
-      <div className="prw-chat-foot">
+      <div className="kvasir-chat-foot">
         <textarea
           ref={inputRef}
-          className="prw-input prw-chat-input"
+          className="kvasir-input kvasir-chat-input"
           rows={1}
           disabled={inputDisabled}
           placeholder={

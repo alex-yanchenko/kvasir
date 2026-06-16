@@ -1,6 +1,6 @@
 // Bridge client: content scripts inherit the page's CORS, so every call to the
 // local channel server is routed through the background service worker (which
-// holds the localhost host_permission and sets the x-pr-walkthrough guard
+// holds the localhost host_permission and sets the x-kvasir guard
 // header). This just posts a message and resolves with the worker's reply.
 
 export interface BridgeResponse {

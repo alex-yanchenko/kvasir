@@ -23,12 +23,12 @@ test.describe("chat flow", () => {
     await input.fill("Where does compute happen?");
     await input.press("Enter");
 
-    // The answer renders and the file:line mention is linkified into a .prw-ref jump.
-    const citation = page.locator("a.prw-ref", { hasText: "foo.ts:2" });
+    // The answer renders and the file:line mention is linkified into a .kvasir-ref jump.
+    const citation = page.locator("a.kvasir-ref", { hasText: "foo.ts:2" });
     await expect(citation).toBeVisible();
 
     await citation.click();
-    // jump:ref → jumpToRef → highlightRows paints prw-pick on the cited row.
-    await expect(page.locator('#diff-foo tr.prw-pick td[data-line-number="2"]')).toBeVisible();
+    // jump:ref → jumpToRef → highlightRows paints kvasir-pick on the cited row.
+    await expect(page.locator('#diff-foo tr.kvasir-pick td[data-line-number="2"]')).toBeVisible();
   });
 });

@@ -15,7 +15,7 @@ import {
   type Review,
   stepBlobUrl,
   type WalkthroughSpec,
-} from "@prw/runes";
+} from "@kvasir/runes";
 
 /** What a caller hands the store to upsert — the display fields plus the full
  * payload (Review | WalkthroughSpec) the store hashes for idempotency + drift. */
@@ -54,7 +54,7 @@ export function contentHash(payload: unknown): string {
 // ── pure record builders (kind mappers) ──────────────────────────────────────
 
 /** A pushed cross-repo review -> a `code` record. Repos are the distinct
- * owner/name across steps; the row opens at step 1's `?prw=` blob landing. */
+ * owner/name across steps; the row opens at step 1's `?kvasir=` blob landing. */
 export function reviewToRecord(review: Review): GuideRecord {
   const repos = [...new Set(review.steps.map((step) => `${step.repo.owner}/${step.repo.name}`))];
   return {

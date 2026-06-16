@@ -75,7 +75,7 @@ builder directly: `bun run <kvasir-repo>/packages/mimir/scripts/buildReview.ts /
 
 ## 3. Hand the user the link
 
-Print the URL it output. The user opens it; the extension reads `?prw=<id>`, pulls
+Print the URL it output. The user opens it; the extension reads `?kvasir=<id>`, pulls
 the walkthrough, and walks the steps — jumping across repos/files, GitHub
 highlighting each line range, with body + "Show details" per step.
 

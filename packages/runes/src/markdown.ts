@@ -16,11 +16,11 @@ export function renderMarkdown(source: string): string {
   s = s.replaceAll(/```([^\n]*)\n([\s\S]*?)```/g, (_m: string, info: string, code: string) => {
     const index = blocks.length;
     const lang = /[\w.+#-]+/.exec(info)?.[0] ?? "";
-    const label = lang ? `<span class="prw-code-lang">${lang}</span>` : "";
-    blocks.push(`<pre class="prw-code">${label}<code>${code.replace(/\n+$/, "")}</code></pre>`);
+    const label = lang ? `<span class="kvasir-code-lang">${lang}</span>` : "";
+    blocks.push(`<pre class="kvasir-code">${label}<code>${code.replace(/\n+$/, "")}</code></pre>`);
     return `\uE000B${index}\uE000`;
   });
-  s = s.replaceAll(/`([^`\n]+)`/g, '<code class="prw-inline">$1</code>');
+  s = s.replaceAll(/`([^`\n]+)`/g, '<code class="kvasir-inline">$1</code>');
   s = s.replaceAll(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>");
   // Links: real http(s) links become anchors; any other link target (e.g. a
   // repo-relative path or GitHub #L url the model wrapped a code ref in) collapses

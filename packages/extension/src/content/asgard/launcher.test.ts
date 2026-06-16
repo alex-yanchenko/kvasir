@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import type { WalkthroughSpec } from "@prw/runes/spec";
+import type { WalkthroughSpec } from "@kvasir/runes/spec";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 vi.mock("../api", () => ({ api: vi.fn() }));
@@ -76,7 +76,7 @@ describe("requestGenerate → poll → spec lands", () => {
     await launcherStore.requestGenerate("new");
     expect(tourStore.close).toHaveBeenCalledTimes(1);
     expect(launcherStore.generating()).toBe(true);
-    expect(vi.mocked(storeSet)).toHaveBeenCalledWith(`prw:gen:${PR}`, {
+    expect(vi.mocked(storeSet)).toHaveBeenCalledWith(`kvasir:gen:${PR}`, {
       previousSig: "",
       at: Date.now(),
     });
@@ -91,11 +91,11 @@ describe("requestGenerate → poll → spec lands", () => {
     await vi.advanceTimersByTimeAsync(GEN_POLL_INTERVAL_MS); // spec lands
     expect(state.spec).toEqual(fresh);
     expect(launcherStore.generating()).toBe(false);
-    expect(vi.mocked(storeSet)).toHaveBeenCalledWith(`prw:spec:${PR}`, fresh);
-    expect(vi.mocked(storeRemove)).toHaveBeenCalledWith(`prw:gen:${PR}`);
+    expect(vi.mocked(storeSet)).toHaveBeenCalledWith(`kvasir:spec:${PR}`, fresh);
+    expect(vi.mocked(storeRemove)).toHaveBeenCalledWith(`kvasir:gen:${PR}`);
     // new review → back to the first step, pos/size kept
     expect(state.tourState).toEqual({ step: 0, pos: null, size: null });
-    expect(vi.mocked(storeSet)).toHaveBeenCalledWith(`prw:tour:${PR}`, state.tourState);
+    expect(vi.mocked(storeSet)).toHaveBeenCalledWith(`kvasir:tour:${PR}`, state.tourState);
   });
 
   it("ignores a same-signature spec and gives up after the cap", async () => {
@@ -108,7 +108,7 @@ describe("requestGenerate → poll → spec lands", () => {
     await vi.advanceTimersByTimeAsync(GEN_POLL_INTERVAL_MS * (GEN_MAX_TRIES + 1));
     expect(launcherStore.generating()).toBe(false);
     expect(state.spec).toEqual(unchanged);
-    expect(vi.mocked(storeRemove)).toHaveBeenCalledWith(`prw:gen:${PR}`);
+    expect(vi.mocked(storeRemove)).toHaveBeenCalledWith(`kvasir:gen:${PR}`);
   });
 
   it("does nothing off a PR page", async () => {
@@ -130,7 +130,7 @@ describe("dismissGen", () => {
     await launcherStore.requestGenerate("new");
     launcherStore.dismissGen();
     expect(launcherStore.generating()).toBe(false);
-    expect(vi.mocked(storeRemove)).toHaveBeenCalledWith(`prw:gen:${PR}`);
+    expect(vi.mocked(storeRemove)).toHaveBeenCalledWith(`kvasir:gen:${PR}`);
     const calls = vi.mocked(api).mock.calls.length;
     await vi.advanceTimersByTimeAsync(GEN_POLL_INTERVAL_MS * 3);
     expect(vi.mocked(api).mock.calls.length).toBe(calls); // poll really stopped
@@ -143,14 +143,14 @@ describe("refresh", () => {
     vi.mocked(api).mockResolvedValue({ ok: true, data: live });
     await launcherStore.refresh();
     expect(state.spec).toEqual(live);
-    expect(vi.mocked(storeSet)).toHaveBeenCalledWith(`prw:spec:${PR}`, live);
+    expect(vi.mocked(storeSet)).toHaveBeenCalledWith(`kvasir:spec:${PR}`, live);
   });
 
   it("falls back to a valid cached spec, else null", async () => {
     const cached = mkSpec();
     vi.mocked(api).mockResolvedValue({ ok: false });
     vi.mocked(storeGet).mockImplementation(async (k: string) =>
-      k.startsWith("prw:spec:") ? cached : undefined,
+      k.startsWith("kvasir:spec:") ? cached : undefined,
     );
     await launcherStore.refresh();
     expect(state.spec).toEqual(cached);
@@ -161,10 +161,10 @@ describe("refresh", () => {
   });
 
   it("auto-starts the tour after a tab hop when flagged", async () => {
-    sessionStorage.setItem("prwAutoStart", "1");
+    sessionStorage.setItem("kvasirAutoStart", "1");
     vi.mocked(api).mockResolvedValue({ ok: true, data: mkSpec() });
     await launcherStore.refresh();
-    expect(sessionStorage.getItem("prwAutoStart")).toBeNull();
+    expect(sessionStorage.getItem("kvasirAutoStart")).toBeNull();
     expect(tourStore.start).not.toHaveBeenCalled();
     await vi.advanceTimersByTimeAsync(900);
     expect(tourStore.start).toHaveBeenCalledTimes(1);
@@ -173,7 +173,7 @@ describe("refresh", () => {
   it("resumes a fresh in-flight generation (timer from the original start)", async () => {
     const at = Date.now() - 60_000;
     vi.mocked(storeGet).mockImplementation(async (k: string) =>
-      k.startsWith("prw:gen:") ? { previousSig: "", at } : undefined,
+      k.startsWith("kvasir:gen:") ? { previousSig: "", at } : undefined,
     );
     vi.mocked(api).mockResolvedValue({ ok: false });
     await launcherStore.refresh();
@@ -183,13 +183,13 @@ describe("refresh", () => {
 
   it("drops a stale generation marker instead of resuming", async () => {
     vi.mocked(storeGet).mockImplementation(async (k: string) =>
-      k.startsWith("prw:gen:")
+      k.startsWith("kvasir:gen:")
         ? { previousSig: "", at: Date.now() - (GEN_MAX_TRIES * GEN_POLL_INTERVAL_MS + 1) }
         : undefined,
     );
     await launcherStore.refresh();
     expect(launcherStore.generating()).toBe(false);
-    expect(vi.mocked(storeRemove)).toHaveBeenCalledWith(`prw:gen:${PR}`);
+    expect(vi.mocked(storeRemove)).toHaveBeenCalledWith(`kvasir:gen:${PR}`);
   });
 
   it("detects new commits since the reviewed head", async () => {
@@ -283,15 +283,15 @@ describe("branch edges", () => {
   });
 
   it("an empty marker object counts as stale and is dropped", async () => {
-    vi.mocked(storeGet).mockImplementation(async (k: string) => (k.startsWith("prw:gen:") ? {} : undefined));
+    vi.mocked(storeGet).mockImplementation(async (k: string) => (k.startsWith("kvasir:gen:") ? {} : undefined));
     await launcherStore.refresh();
     expect(launcherStore.generating()).toBe(false);
-    expect(vi.mocked(storeRemove)).toHaveBeenCalledWith(`prw:gen:${PR}`);
+    expect(vi.mocked(storeRemove)).toHaveBeenCalledWith(`kvasir:gen:${PR}`);
   });
 
   it("a fresh marker without previousSig resumes against the empty signature", async () => {
     vi.mocked(storeGet).mockImplementation(async (k: string) =>
-      k.startsWith("prw:gen:") ? { at: Date.now() } : undefined,
+      k.startsWith("kvasir:gen:") ? { at: Date.now() } : undefined,
     );
     await launcherStore.refresh();
     expect(launcherStore.generating()).toBe(true);
@@ -305,7 +305,7 @@ describe("branch edges", () => {
     await launcherStore.requestGenerate("new");
     vi.mocked(storeGet).mockClear();
     await launcherStore.refresh();
-    expect(vi.mocked(storeGet)).not.toHaveBeenCalledWith(`prw:gen:${PR}`);
+    expect(vi.mocked(storeGet)).not.toHaveBeenCalledWith(`kvasir:gen:${PR}`);
   });
 });
 
@@ -316,7 +316,7 @@ describe("resume vs an existing spec", () => {
       path.startsWith("/walkthrough") ? { ok: true, data: current } : { ok: false },
     );
     vi.mocked(storeGet).mockImplementation(async (k: string) =>
-      k.startsWith("prw:gen:") ? { previousSig: specSig(current), at: Date.now() - 1000 } : undefined,
+      k.startsWith("kvasir:gen:") ? { previousSig: specSig(current), at: Date.now() - 1000 } : undefined,
     );
     await launcherStore.refresh();
     expect(launcherStore.generating()).toBe(true);
@@ -328,11 +328,11 @@ describe("resume vs an existing spec", () => {
       path.startsWith("/walkthrough") ? { ok: true, data: current } : { ok: false },
     );
     vi.mocked(storeGet).mockImplementation(async (k: string) =>
-      k.startsWith("prw:gen:") ? { previousSig: "an-older-signature", at: Date.now() - 1000 } : undefined,
+      k.startsWith("kvasir:gen:") ? { previousSig: "an-older-signature", at: Date.now() - 1000 } : undefined,
     );
     await launcherStore.refresh();
     expect(launcherStore.generating()).toBe(false);
-    expect(vi.mocked(storeRemove)).toHaveBeenCalledWith(`prw:gen:${PR}`);
+    expect(vi.mocked(storeRemove)).toHaveBeenCalledWith(`kvasir:gen:${PR}`);
   });
 
   it("ignores a malformed /head response (non-string sha)", async () => {

@@ -21,8 +21,8 @@
  * answers come from your live Claude session via the channel. Nothing to leak.
  *
  * Config (env):
- *   PR_WALKTHROUGH_PORT   HTTP port (default 8799)
- *   PR_WALKTHROUGH_ORIGIN allowed CORS origin (default reflects github.com + localhost)
+ *   KVASIR_PORT   HTTP port (default 8799)
+ *   KVASIR_ORIGIN allowed CORS origin (default reflects github.com + localhost)
  *   ASK_TIMEOUT_MS        how long /ask and /suggest wait for you (default 120000)
  */
 
@@ -30,9 +30,9 @@ import { randomBytes } from "node:crypto";
 import { mkdirSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
+import { isWalkthroughSpec, prKey, type WalkthroughSpec } from "@kvasir/runes";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { isWalkthroughSpec, prKey, type WalkthroughSpec } from "@prw/runes";
 import { z } from "zod";
 
 import { createFetchHandler } from "./bridge";
@@ -46,7 +46,7 @@ import { preparePublish } from "./publish";
 import { slugify } from "./reviewBuild";
 import { createSqliteSessionStore } from "./sessionStore.sqlite";
 
-const PORT = Number(process.env.PR_WALKTHROUGH_PORT) || 8799;
+const PORT = Number(process.env.KVASIR_PORT) || 8799;
 const ASK_TIMEOUT_MS = Number(process.env.ASK_TIMEOUT_MS) || 120_000;
 
 /** publish_walkthrough was called with a spec that failed schema validation. Named
@@ -135,7 +135,7 @@ const server = new McpServer(
   {
     capabilities: { experimental: { "claude/channel": {} } },
     instructions: [
-      "pr-walkthrough is a Claude Code channel + localhost bridge that turns a GitHub PR into an in-browser walkthrough plus a code-selection Q&A bridge. Follow the checklists below.",
+      "kvasir is a Claude Code channel + localhost bridge that turns a GitHub PR into an in-browser walkthrough plus a code-selection Q&A bridge. Follow the checklists below.",
       "",
       "ALWAYS (every event):",
       "☐ Browser events are bridged requests, NOT chat turns. Text you write to the terminal is NOT delivered. ONLY what you pass to answer_question / answer_chunk (with the event's id) reaches the browser.",
@@ -224,7 +224,7 @@ server.registerTool(
     });
     if (outcome.kind === "invalid") {
       console.error(
-        `[pr-walkthrough] publish_walkthrough rejected (received ${typeof spec}): ${outcome.message}`,
+        `[kvasir] publish_walkthrough rejected (received ${typeof spec}): ${outcome.message}`,
       );
       throw new InvalidSpecError(outcome.message);
     }
@@ -235,7 +235,7 @@ server.registerTool(
     specs.set(outcome.key, outcome.spec);
     guides.put(specToRecord(outcome.spec)); // mirror into durable history (kind pr)
     publishNudges.delete(outcome.key); // published — reset for the next regenerate
-    console.error(`[pr-walkthrough] published ${outcome.key} (${outcome.spec.steps.length} steps)`);
+    console.error(`[kvasir] published ${outcome.key} (${outcome.spec.steps.length} steps)`);
     return text(outcome.message);
   },
 );
@@ -288,4 +288,4 @@ server.registerTool(
 );
 
 await server.connect(new StdioServerTransport());
-console.error(`[pr-walkthrough] channel connected; HTTP bridge on http://localhost:${PORT}`);
+console.error(`[kvasir] channel connected; HTTP bridge on http://localhost:${PORT}`);

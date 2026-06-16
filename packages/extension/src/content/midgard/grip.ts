@@ -71,8 +71,8 @@ export function connectGrip(bifrost: Bifrost): void {
   function ensureGrip(): void {
     if (grip) return;
     grip = document.createElement("button");
-    grip.className = "prw-grip";
-    grip.dataset.prwTip = "Click to select a line · drag to select a range";
+    grip.className = "kvasir-grip";
+    grip.dataset.kvasirTip = "Click to select a line · drag to select a range";
     grip.setAttribute("aria-label", "Select line");
     grip.replaceChildren(svgIcon('<path d="M4 9h16M4 15h16"/>'));
     grip.style.display = "none";
@@ -82,7 +82,7 @@ export function connectGrip(bifrost: Bifrost): void {
   function ensureAskButton(): HTMLDivElement {
     if (!askButton) {
       askButton = document.createElement("div"); // a bar holding 1-2 chat icons
-      askButton.className = "prw-askbar";
+      askButton.className = "kvasir-askbar";
       askButton.style.display = "none";
       document.body.append(askButton);
     }
@@ -105,8 +105,8 @@ export function connectGrip(bifrost: Bifrost): void {
     bar.innerHTML = "";
     const mk = (title: string, withStep: boolean, cls?: string) => {
       const b = document.createElement("button");
-      b.className = "prw-askbtn" + (cls ? " " + cls : "");
-      b.dataset.prwTip = title; // fast custom tooltip
+      b.className = "kvasir-askbtn" + (cls ? " " + cls : "");
+      b.dataset.kvasirTip = title; // fast custom tooltip
       b.setAttribute("aria-label", title);
       b.replaceChildren(svgIcon(BUBBLE));
       b.addEventListener("click", () => {
@@ -118,7 +118,7 @@ export function connectGrip(bifrost: Bifrost): void {
       bar.append(b);
     };
     // Order left→right: context chat on the left, plain chat always rightmost.
-    if (hasActiveStep) mk("Ask about these lines — with the current step's context", true, "prw-askbtn-ctx");
+    if (hasActiveStep) mk("Ask about these lines — with the current step's context", true, "kvasir-askbtn-ctx");
     mk("Ask about these lines — plain chat", false);
     const r = rowRect(rows[0] ?? null);
     bar.style.top = `${r.top + (r.height - 22) / 2}px`;
@@ -134,7 +134,7 @@ export function connectGrip(bifrost: Bifrost): void {
     event.stopPropagation();
     if (!hoverInfo) return;
     bifrost.send("pick:clear", undefined); // a new selection replaces the previous one
-    document.body.classList.add("prw-noselect");
+    document.body.classList.add("kvasir-noselect");
     globalThis.getSelection?.()?.removeAllRanges?.();
     const container = hoverInfo.container;
     const startRow = hoverInfo.row;
@@ -152,7 +152,7 @@ export function connectGrip(bifrost: Bifrost): void {
     const up = (event: MouseEvent) => {
       document.removeEventListener("mousemove", move);
       document.removeEventListener("mouseup", up);
-      document.body.classList.remove("prw-noselect");
+      document.body.classList.remove("kvasir-noselect");
       let endRow = rowAtY(bands, event.clientY, startRow);
       if (!endRow || !container.contains(endRow)) endRow = startRow;
       const rows = rowsBetween(container, startRow, endRow);

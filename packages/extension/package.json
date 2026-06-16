@@ -1,5 +1,5 @@
 {
-  "name": "@prw/extension",
+  "name": "@kvasir/extension",
   "version": "0.1.0",
   "private": true,
   "description": "Chrome MV3 extension that renders the PR walkthrough tour and the select-code-and-ask modal.",
@@ -9,7 +9,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.test.json"
   },
   "dependencies": {
-    "@prw/runes": "workspace:*",
+    "@kvasir/runes": "workspace:*",
     "@radix-ui/react-slot": "^1.2.4",
     "@radix-ui/react-tabs": "^1.1.13",
     "react": "^19.2.7",

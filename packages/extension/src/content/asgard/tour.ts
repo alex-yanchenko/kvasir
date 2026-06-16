@@ -2,7 +2,7 @@
 // this holds the step state, the page commands (highlight + grip context), the
 // per-PR persistence, and the "ask about this step" payload. Ported verbatim
 // from the vanilla tour.
-import type { WalkthroughStep } from "@prw/runes/spec";
+import type { WalkthroughStep } from "@kvasir/runes/spec";
 import { bifrost } from "../bifrost";
 import { onFilesTab, prUrl, tourKey } from "../keys";
 import { stepCode } from "../midgard/diff";
@@ -29,7 +29,7 @@ export const tourStore = {
     if (!state.spec) return;
     if (!onFilesTab()) {
       // Hop to the diff tab and auto-resume once it loads.
-      sessionStorage.setItem("prwAutoStart", "1");
+      sessionStorage.setItem("kvasirAutoStart", "1");
       location.href = prUrl() + "/files";
       return;
     }

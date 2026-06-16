@@ -1,6 +1,6 @@
 // Fast tooltips for Asgard. The native title attribute can't cross the shadow
 // boundary reliably (event retargeting) and waits ~1s; this shows a styled tip
-// ~350ms after hovering any [data-prw-tip] element inside the shadow root.
+// ~350ms after hovering any [data-kvasir-tip] element inside the shadow root.
 // Rendered once by App; finds its root via getRootNode so the same component
 // works under a shadow root (production) and under document (tests).
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
@@ -27,18 +27,18 @@ export function Tooltips(): JSX.Element {
       setTip(null);
     };
     const over = (event: Event) => {
-      const t = event.target instanceof Element ? event.target.closest<HTMLElement>("[data-prw-tip]") : null;
+      const t = event.target instanceof Element ? event.target.closest<HTMLElement>("[data-kvasir-tip]") : null;
       if (!t) return;
       if (timer.current !== null) clearTimeout(timer.current);
       timer.current = setTimeout(
-        // closest matched [data-prw-tip], so the attribute is always present
-        () => setTip({ text: String(t.dataset.prwTip), anchor: t.getBoundingClientRect() }),
+        // closest matched [data-kvasir-tip], so the attribute is always present
+        () => setTip({ text: String(t.dataset.kvasirTip), anchor: t.getBoundingClientRect() }),
         TIP_DELAY_MS,
       );
     };
     const out = (event: Event) => {
       if (!(event instanceof MouseEvent) || !(event.target instanceof Element)) return;
-      const owner = event.target.closest("[data-prw-tip]");
+      const owner = event.target.closest("[data-kvasir-tip]");
       // mouseout fires on parent->child crossings (the icon svg); don't cancel while
       // still inside the same tip owner.
       if (!owner || (event.relatedTarget instanceof Node && owner.contains(event.relatedTarget))) return;
@@ -72,7 +72,7 @@ export function Tooltips(): JSX.Element {
     <>
       <span ref={probeRef} hidden />
       {tip && (
-        <div ref={tipRef} role="tooltip" className="prw-tip">
+        <div ref={tipRef} role="tooltip" className="kvasir-tip">
           {tip.text}
         </div>
       )}

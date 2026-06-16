@@ -57,19 +57,19 @@ carry Norse names, used consistently in code and docs:
 | **Heimdall** | `extension/src/content/heimdall/` — boot + per-PR restore + the SPA URL watcher                                | the all-seeing watchman of the Bifrost                                 |
 | **Huginn**   | `extension/src/huginn.ts` — the background service worker (fetch proxy to Mimir)                               | Odin's thought-raven: flies out, returns with tidings                  |
 | **Muninn**   | `extension/src/content/muninn.ts` — the chrome.storage wrapper                                                 | the memory-raven: remembers                                            |
-| **Mimir**    | `packages/mimir` — `@prw/mimir`, the Claude Code channel + localhost bridge (Bun)                              | the well of wisdom the extension consults; your Claude session answers |
-| **Runes**    | `packages/runes` — `@prw/runes`, the pure shared contract (spec types, PR-URL parsing, diff anchors, markdown) | the shared symbols every realm can read                                |
+| **Mimir**    | `packages/mimir` — `@kvasir/mimir`, the Claude Code channel + localhost bridge (Bun)                              | the well of wisdom the extension consults; your Claude session answers |
+| **Runes**    | `packages/runes` — `@kvasir/runes`, the pure shared contract (spec types, PR-URL parsing, diff anchors, markdown) | the shared symbols every realm can read                                |
 
 One sentence holds the system: _Asgard never touches the page; a question
 crosses the Bifrost; Huginn carries it to Mimir; Muninn remembers; Heimdall
 watches the URL; all realms share the Runes._
 
-> The `@prw/*` package scope, `prw:` storage keys, and the `?prw=` link param are
+> The `@kvasir/*` package scope, `kvasir:` storage keys, and the `?kvasir=` link param are
 > an internal prefix kept for compatibility (it predates the Kvasir name) — not
 > user-facing.
 
 ```
-pr-walkthrough/
+kvasir/
 ├── packages/
 │   ├── runes/       Pure, dependency-free contract: spec types, PR-URL parsing,
 │   │                diff anchors, markdown rendering (imported by Mimir + extension)
@@ -106,7 +106,7 @@ consumes them. Either side can change independently.
                             answer_question(id) ──▶ back to the modal
 
   /kvasir (any chat)   ──▶  kvasir build → POST /push  ──▶  server cache
-                            prints a ?prw= link → open it → same panel
+                            prints a ?kvasir= link → open it → same panel
 ```
 
 ## Why this shape
@@ -129,7 +129,7 @@ puts a **`kvasir`** command on your PATH. Then:
    `kvasir` — which launches `claude --dangerously-load-development-channels server:kvasir`.
    The HTTP bridge comes up on `http://localhost:8799`.
 2. **Extension** — load `packages/extension/` unpacked in `chrome://extensions`
-   (Developer mode → Load unpacked). `pnpm --filter @prw/extension dev` rebuilds
+   (Developer mode → Load unpacked). `pnpm --filter @kvasir/extension dev` rebuilds
    on save.
 3. **PR tour:** in your Claude session, _"Build a walkthrough for `<PR url>`,"_
    then open the PR's **Files** tab and click the **Kvasir** launcher.

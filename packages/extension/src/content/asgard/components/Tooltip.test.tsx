@@ -12,7 +12,7 @@ const setup = (rect?: Partial<DOMRect>) => {
   vi.useFakeTimers();
   render(<Tooltips />);
   const btn = document.createElement("button");
-  btn.setAttribute("data-prw-tip", "Hello tip");
+  btn.setAttribute("data-kvasir-tip", "Hello tip");
   document.body.append(btn);
   if (rect) {
     vi.spyOn(btn, "getBoundingClientRect").mockReturnValue({
@@ -35,11 +35,11 @@ describe("Tooltips", () => {
   it("shows the tip after the hover delay, flipped below a top-edge anchor", () => {
     const btn = setup();
     fireEvent.mouseOver(btn);
-    expect(document.querySelector(".prw-tip")).toBeNull();
+    expect(document.querySelector(".kvasir-tip")).toBeNull();
     act(() => {
       vi.advanceTimersByTime(TIP_DELAY_MS);
     });
-    const tip = document.querySelector<HTMLElement>(".prw-tip")!;
+    const tip = document.querySelector<HTMLElement>(".kvasir-tip")!;
     expect(tip.textContent).toBe("Hello tip");
     // zero-height anchor at the viewport top: above would poke past, so below
     expect(tip.style.top).toBe("6px");
@@ -52,7 +52,7 @@ describe("Tooltips", () => {
     act(() => {
       vi.advanceTimersByTime(TIP_DELAY_MS);
     });
-    const tip = document.querySelector<HTMLElement>(".prw-tip")!;
+    const tip = document.querySelector<HTMLElement>(".kvasir-tip")!;
     expect(tip.style.top).toBe("294px"); // 300 - 0 (jsdom tip height) - 6
     expect(tip.style.left).toBe("220px"); // anchor center, zero tip width
   });
@@ -67,11 +67,11 @@ describe("Tooltips", () => {
     act(() => {
       vi.advanceTimersByTime(TIP_DELAY_MS - 50);
     });
-    expect(document.querySelector(".prw-tip")).toBeNull();
+    expect(document.querySelector(".kvasir-tip")).toBeNull();
     act(() => {
       vi.advanceTimersByTime(50);
     });
-    expect(document.querySelector(".prw-tip")).toBeTruthy();
+    expect(document.querySelector(".kvasir-tip")).toBeTruthy();
   });
 
   it("mouseout and mousedown hide the tip and cancel a pending one", () => {
@@ -81,14 +81,14 @@ describe("Tooltips", () => {
       vi.advanceTimersByTime(TIP_DELAY_MS);
     });
     fireEvent.mouseOut(btn);
-    expect(document.querySelector(".prw-tip")).toBeNull();
+    expect(document.querySelector(".kvasir-tip")).toBeNull();
 
     fireEvent.mouseOver(btn); // pending again
     fireEvent.mouseDown(document.body);
     act(() => {
       vi.advanceTimersByTime(TIP_DELAY_MS);
     });
-    expect(document.querySelector(".prw-tip")).toBeNull();
+    expect(document.querySelector(".kvasir-tip")).toBeNull();
   });
 
   it("ignores hovers and outs on untipped elements and non-element targets", () => {
@@ -102,7 +102,7 @@ describe("Tooltips", () => {
     act(() => {
       vi.advanceTimersByTime(TIP_DELAY_MS);
     });
-    expect(document.querySelector(".prw-tip")).toBeNull();
+    expect(document.querySelector(".kvasir-tip")).toBeNull();
   });
 
   it("unbinds its listeners on unmount", () => {
@@ -112,7 +112,7 @@ describe("Tooltips", () => {
     act(() => {
       vi.advanceTimersByTime(TIP_DELAY_MS);
     });
-    expect(document.querySelector(".prw-tip")).toBeNull();
+    expect(document.querySelector(".kvasir-tip")).toBeNull();
   });
   it("does not cancel a pending tip when the cursor moves into the tipped element's own child", () => {
     const btn = setup();
@@ -123,6 +123,6 @@ describe("Tooltips", () => {
     act(() => {
       vi.advanceTimersByTime(TIP_DELAY_MS);
     });
-    expect(document.querySelector(".prw-tip")).toBeTruthy();
+    expect(document.querySelector(".kvasir-tip")).toBeTruthy();
   });
 });

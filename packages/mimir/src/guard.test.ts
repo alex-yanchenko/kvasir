@@ -103,5 +103,5 @@ describe("prOrNull", () => {
 });
 
 it("GUARD_HEADER is the documented header name", () => {
-  expect(GUARD_HEADER).toBe("x-pr-walkthrough");
+  expect(GUARD_HEADER).toBe("x-kvasir");
 });

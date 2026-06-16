@@ -2,7 +2,7 @@
 // `unknown` (it's whatever was persisted, possibly from an older build), so every
 // read is narrowed here instead of cast — a mismatched field is dropped, never
 // trusted. Keeps heimdall/watch.ts honest and free of shape casts.
-import { isReview, type Review } from "@prw/runes/review";
+import { isReview, type Review } from "@kvasir/runes/review";
 import type { ChatSession } from "./types";
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null;

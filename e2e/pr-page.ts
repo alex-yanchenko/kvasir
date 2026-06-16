@@ -62,7 +62,7 @@ ${withDiff ? FILES.map(fileBlock).join("\n") : ""}
 
 // A walkthrough spec whose step anchors + line ranges match prPageHtml's diff, so
 // opening the Walkthrough tab highlights real rows. Loosely typed — the wire
-// contract (and its zod validation) lives in @prw/runes/spec.
+// contract (and its zod validation) lives in @kvasir/runes/spec.
 export const makeSpec = (): WalkthroughSpec => ({
   version: 1,
   pr: {

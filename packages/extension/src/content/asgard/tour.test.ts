@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import type { WalkthroughSpec } from "@prw/runes/spec";
+import type { WalkthroughSpec } from "@kvasir/runes/spec";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 vi.mock("../muninn", () => ({ storeGet: vi.fn(), storeSet: vi.fn(), storeRemove: vi.fn() }));
@@ -90,7 +90,7 @@ describe("start", () => {
     Object.defineProperty(window, "location", { value: new URL(PR), writable: true });
     tourStore.start();
     expect(tourStore.open()).toBe(false);
-    expect(sessionStorage.getItem("prwAutoStart")).toBe("1");
+    expect(sessionStorage.getItem("kvasirAutoStart")).toBe("1");
     expect(String(window.location.href)).toContain("/files");
   });
 
@@ -106,7 +106,7 @@ describe("navigation", () => {
     tourStore.start();
     tourStore.goto(1);
     expect(state.tourState.step).toBe(1);
-    expect(vi.mocked(storeSet)).toHaveBeenCalledWith(`prw:tour:${PR}`, state.tourState);
+    expect(vi.mocked(storeSet)).toHaveBeenCalledWith(`kvasir:tour:${PR}`, state.tourState);
   });
 
   it("next advances and is a no-op on the last step (it stays open)", () => {

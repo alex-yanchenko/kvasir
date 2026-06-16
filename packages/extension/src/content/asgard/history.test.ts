@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import type { EntrySummary } from "@prw/runes/history";
+import type { EntrySummary } from "@kvasir/runes/history";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("../api", () => ({ api: vi.fn() }));
@@ -18,7 +18,7 @@ const sum = (over: Partial<EntrySummary> = {}): EntrySummary => ({
   source: "chat",
   steps: 2,
   repos: ["acme/web"],
-  url: "https://github.com/acme/web/blob/main/a.ts?prw=a",
+  url: "https://github.com/acme/web/blob/main/a.ts?kvasir=a",
   version: 1,
   updatedAt: 1000,
   ...over,
@@ -109,7 +109,7 @@ describe("historyStore.open", () => {
     historyStore.open(sum({ id: "a", version: 3 }));
     expect(state.seen).toEqual({ a: 3 });
     expect(storeSet).toHaveBeenCalledWith(SEEN_KEY, { a: 3 });
-    expect(assign).toHaveBeenCalledWith("https://github.com/acme/web/blob/main/a.ts?prw=a");
+    expect(assign).toHaveBeenCalledWith("https://github.com/acme/web/blob/main/a.ts?kvasir=a");
   });
 });
 
@@ -122,7 +122,7 @@ describe("historyStore.remove", () => {
     expect(api).toHaveBeenCalledWith("/entry?id=a", "DELETE");
     expect(historyStore.all()?.map((entry) => entry.id)).toEqual(["b"]);
     expect(storeSet).toHaveBeenCalledWith(HISTORY_KEY, [sum({ id: "b" })]);
-    expect(storeRemove).toHaveBeenCalledWith("prw:review:a"); // code entry's render cache cleared
+    expect(storeRemove).toHaveBeenCalledWith("kvasir:review:a"); // code entry's render cache cleared
     expect(state.seen).toEqual({ b: 1 });
     expect(storeSet).toHaveBeenCalledWith(SEEN_KEY, { b: 1 }); // pruned seen is persisted, not just in-state
   });
@@ -131,7 +131,7 @@ describe("historyStore.remove", () => {
     state.history = [sum({ id: "acme/web#7", kind: "pr", url: "https://github.com/acme/web/pull/7/files" })];
     vi.mocked(api).mockResolvedValue({ ok: true, data: { ok: true } });
     await historyStore.remove("acme/web#7");
-    expect(storeRemove).toHaveBeenCalledWith("prw:spec:https://github.com/acme/web/pull/7");
+    expect(storeRemove).toHaveBeenCalledWith("kvasir:spec:https://github.com/acme/web/pull/7");
   });
 
   it("clears the open walkthrough (guideDeleted) when you delete the one you're viewing", async () => {

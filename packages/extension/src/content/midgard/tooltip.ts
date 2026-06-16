@@ -1,5 +1,5 @@
 // Fast tooltips for Midgard's light-DOM widgets (grip, ask bar): the native title
-// waits ~1s; this shows a styled tip ~350ms after hover. Driven by a data-prw-tip
+// waits ~1s; this shows a styled tip ~350ms after hover. Driven by a data-kvasir-tip
 // attribute. Self-contained — owns its own tip element and hover timer. (Asgard
 // has its own shadow-scoped Tooltips component — events don't cross the boundary.)
 
@@ -13,11 +13,11 @@ function hideTip(): void {
 }
 
 function showTip(target: HTMLElement): void {
-  const text = target.dataset.prwTip;
+  const text = target.dataset.kvasirTip;
   if (!text) return;
   if (!tipElement) {
     tipElement = document.createElement("div");
-    tipElement.className = "prw-tip";
+    tipElement.className = "kvasir-tip";
     document.body.append(tipElement);
   }
   tipElement.textContent = text;
@@ -35,14 +35,14 @@ function showTip(target: HTMLElement): void {
 // bind exactly once, even if the content script is injected twice.
 export function initTooltips(): void {
   document.addEventListener("mouseover", (event) => {
-    const t = event.target instanceof Element ? event.target.closest<HTMLElement>("[data-prw-tip]") : null;
+    const t = event.target instanceof Element ? event.target.closest<HTMLElement>("[data-kvasir-tip]") : null;
     if (!t) return;
     if (tipTimer !== null) clearTimeout(tipTimer);
     tipTimer = setTimeout(() => showTip(t), 350);
   });
   document.addEventListener("mouseout", (event) => {
     if (!(event instanceof MouseEvent) || !(event.target instanceof Element)) return;
-    const owner = event.target.closest("[data-prw-tip]");
+    const owner = event.target.closest("[data-kvasir-tip]");
     // mouseout bubbles and fires when the cursor crosses into a child (e.g. the icon
     // <svg>); don't hide while still inside the same tip owner, or the tip flickers.
     if (!owner || (event.relatedTarget instanceof Node && owner.contains(event.relatedTarget))) return;

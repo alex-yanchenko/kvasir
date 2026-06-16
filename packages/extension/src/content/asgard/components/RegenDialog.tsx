@@ -23,7 +23,7 @@ export function RegenDialog({ onClose }: Readonly<{ onClose: () => void }>): JSX
   return (
     // eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events -- backdrop click-to-dismiss is a mouse convenience; keyboard users close via the Cancel button or Escape (handler above).
     <div
-      className="prw-dialog-back fixed inset-0 z-[2147483010] flex items-center justify-center bg-black/45"
+      className="kvasir-dialog-back fixed inset-0 z-[2147483010] flex items-center justify-center bg-black/45"
       onClick={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
@@ -31,10 +31,10 @@ export function RegenDialog({ onClose }: Readonly<{ onClose: () => void }>): JSX
       <div
         role="dialog"
         aria-modal="true"
-        aria-labelledby="prw-regen-title"
-        className="prw-dialog w-[380px] max-w-[92vw] rounded-xl border border-border bg-background p-4 text-foreground shadow-2xl"
+        aria-labelledby="kvasir-regen-title"
+        className="kvasir-dialog w-[380px] max-w-[92vw] rounded-xl border border-border bg-background p-4 text-foreground shadow-2xl"
       >
-        <div id="prw-regen-title" className="mb-1 text-base font-semibold">
+        <div id="kvasir-regen-title" className="mb-1 text-base font-semibold">
           {newCommits ? "New commits since this review" : "Regenerate this review"}
         </div>
         <p className="mb-3 text-sm text-muted-foreground">

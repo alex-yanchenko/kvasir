@@ -27,7 +27,7 @@ describe("settingsStore", () => {
     const before = getSnapshot();
     settingsStore.setTheme("dark");
     expect(state.theme).toBe("dark");
-    expect(localStorage.getItem("prwTheme")).toBe("dark");
+    expect(localStorage.getItem("kvasirTheme")).toBe("dark");
     expect(applied).toHaveBeenCalledWith({ theme: "dark", hlStyle: "tint" });
     expect(applied).toHaveBeenCalledTimes(1);
     expect(getSnapshot()).toBe(before + 1);
@@ -36,7 +36,7 @@ describe("settingsStore", () => {
   it("setHlStyle writes through the same path", () => {
     settingsStore.setHlStyle("github");
     expect(state.hlStyle).toBe("github");
-    expect(localStorage.getItem("prwHl")).toBe("github");
+    expect(localStorage.getItem("kvasirHl")).toBe("github");
     expect(applied).toHaveBeenCalledWith({ theme: "auto", hlStyle: "github" });
     expect(applied).toHaveBeenCalledTimes(1);
   });
@@ -46,7 +46,7 @@ describe("settingsStore", () => {
     const before = getSnapshot();
     settingsStore.setReviewSync(false);
     expect(state.reviewSync).toBe(false);
-    expect(localStorage.getItem("prwReviewSync")).toBe("false");
+    expect(localStorage.getItem("kvasirReviewSync")).toBe("false");
     expect(getSnapshot()).toBe(before + 1);
   });
 });
@@ -96,7 +96,7 @@ describe("chatsStore", () => {
     chatsStore.dropSession("a");
     expect(state.chatHistory.map((s) => s.key)).toEqual(["b"]);
     expect(setSpy).toHaveBeenCalledWith({
-      "prw:chats:https://github.com/acme/widget-api/pull/7": state.chatHistory,
+      "kvasir:chats:https://github.com/acme/widget-api/pull/7": state.chatHistory,
     });
   });
 
@@ -141,7 +141,7 @@ describe("panelStore", () => {
     storeModule.state.panel = { open: false, tab: storeModule.PANEL_TABS.WALKTHROUGH, pos: null, size: null };
   });
 
-  const persisted = (): unknown => JSON.parse(sessionStorage.getItem("prw:panel") ?? "null");
+  const persisted = (): unknown => JSON.parse(sessionStorage.getItem("kvasir:panel") ?? "null");
 
   it("open shows the panel and can target a tab; close hides it", () => {
     expect(storeModule.panelStore.isOpen()).toBe(false);
@@ -189,7 +189,7 @@ describe("panelStore", () => {
 
   it("hydratePanel restores open/tab/geometry; a bogus tab keeps the current one", () => {
     sessionStorage.setItem(
-      "prw:panel",
+      "kvasir:panel",
       JSON.stringify({ open: true, tab: "history", pos: { left: 5, top: 6 }, size: { w: 7, h: 8 } }),
     );
     storeModule.hydratePanel();
@@ -197,7 +197,7 @@ describe("panelStore", () => {
     expect(storeModule.panelStore.tab()).toBe("history");
     expect(storeModule.panelStore.pos()).toEqual({ left: 5, top: 6 });
     expect(storeModule.panelStore.size()).toEqual({ w: 7, h: 8 });
-    sessionStorage.setItem("prw:panel", JSON.stringify({ open: true, tab: "bogus" }));
+    sessionStorage.setItem("kvasir:panel", JSON.stringify({ open: true, tab: "bogus" }));
     storeModule.hydratePanel();
     expect(storeModule.panelStore.tab()).toBe("history"); // bogus tab dropped
   });
