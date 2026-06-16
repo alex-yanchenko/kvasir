@@ -7,7 +7,7 @@
 // `seen` is flagged for re-sync (and counted into the tab badge).
 import { type EntrySummary, isEntrySummaryList } from "@prw/runes/history";
 import { api } from "../api";
-import { HISTORY_KEY, SEEN_KEY } from "../keys";
+import { HISTORY_KEY, markHistoryNav, SEEN_KEY } from "../keys";
 import { storeGet, storeSet } from "../muninn";
 import { state, touch } from "./store";
 
@@ -90,6 +90,7 @@ export const historyStore = {
    * (opening always re-fetches fresh content from the bridge on the next page). */
   open(entry: EntrySummary): void {
     writeSeen({ ...state.seen, [entry.id]: entry.version });
+    markHistoryNav(); // keep the panel on History after the jump (consecutive picks)
     globalThis.location.assign(entry.url);
   },
 

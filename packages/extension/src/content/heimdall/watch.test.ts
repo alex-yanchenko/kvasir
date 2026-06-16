@@ -20,6 +20,7 @@ let stop: (() => void) | null;
 beforeEach(() => {
   vi.useFakeTimers();
   vi.stubGlobal("chrome", { runtime: { id: "ext" } });
+  sessionStorage.clear();
   setUrl(`${PR}/files`);
   state.spec = null;
   state.chatHistory = [];
@@ -70,6 +71,13 @@ describe("loadPersisted", () => {
     expect(state.panel.size).toEqual({ w: 7, h: 8 });
     expect(state.chatHistory).toEqual([]); // per-PR content skipped without a PR
     expect(state.tourState).toEqual({ step: 0, pos: null, size: null });
+  });
+
+  it("reopens the panel on the History tab after a History jump (marker set)", async () => {
+    sessionStorage.setItem("prw:history-nav", "1");
+    await loadPersisted();
+    expect(state.panel.open).toBe(true);
+    expect(state.panel.tab).toBe("history");
   });
 
   it("tolerates empty storage with nothing stored", async () => {

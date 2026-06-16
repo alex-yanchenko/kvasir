@@ -44,6 +44,32 @@ export const reviewSessionKey = (id: string): string => `prw:session:${id}`;
 /** Cache key for the history list (GET /history) — for instant paint. */
 export const HISTORY_KEY = "prw:history";
 
+/** sessionStorage flag (sync, survives a same-origin nav): the user is browsing
+ * reviews via the History tab, so the next page keeps the panel open ON History
+ * instead of snapping to the opened review. Cleared when they switch tabs / close. */
+const HISTORY_NAV_KEY = "prw:history-nav";
+export const markHistoryNav = (): void => {
+  try {
+    sessionStorage.setItem(HISTORY_NAV_KEY, "1");
+  } catch {
+    /* sessionStorage unavailable — the jump just won't stick to History */
+  }
+};
+export const historyNavActive = (): boolean => {
+  try {
+    return sessionStorage.getItem(HISTORY_NAV_KEY) === "1";
+  } catch {
+    return false;
+  }
+};
+export const clearHistoryNav = (): void => {
+  try {
+    sessionStorage.removeItem(HISTORY_NAV_KEY);
+  } catch {
+    /* nothing to clear */
+  }
+};
+
 /** Per-id "last version the FE has caught up to" map (Record<id, version>), so the
  * History tab can flag entries whose backend content advanced past what we showed. */
 export const SEEN_KEY = "prw:seen";

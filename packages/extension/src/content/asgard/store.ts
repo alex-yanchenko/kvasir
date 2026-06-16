@@ -10,7 +10,7 @@ import type { EntrySummary } from "@prw/runes/history";
 import type { Review } from "@prw/runes/review";
 import type { WalkthroughSpec, WalkthroughStep } from "@prw/runes/spec";
 import { bifrost } from "../bifrost";
-import { chatsKey, PANEL_GEOM_KEY, prUrl } from "../keys";
+import { chatsKey, clearHistoryNav, PANEL_GEOM_KEY, prUrl } from "../keys";
 import { storeSet } from "../muninn";
 import type { ChatSession } from "./types";
 
@@ -170,10 +170,12 @@ export const panelStore = {
   },
   close(): void {
     state.panel.open = false;
+    clearHistoryNav(); // closing ends a History-browsing run
     touch();
   },
   setTab(tab: PanelTab): void {
     state.panel.tab = tab;
+    if (tab !== PANEL_TABS.HISTORY) clearHistoryNav(); // switching away ends the run
     touch();
   },
   setPos(pos: { left: number; top: number }): void {
