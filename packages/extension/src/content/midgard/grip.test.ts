@@ -71,6 +71,19 @@ describe("drag select", () => {
     expect(picked(container)).toEqual(rowsOf(container));
   });
 
+  it("ends the drag on a window blur (released outside the page): clears noselect and re-enables the grip", () => {
+    hoverRow(rowsOf(container)[2]);
+    grip()!.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+    expect(document.body.classList.contains("kvasir-noselect")).toBe(true);
+    // No mouseup (the button was released outside the document) — a window blur
+    // must finalize the drag instead of leaving it wedged.
+    globalThis.dispatchEvent(new Event("blur"));
+    expect(document.body.classList.contains("kvasir-noselect")).toBe(false);
+    // picking is reset, so the grip shows again on the next hover (it stays hidden mid-drag).
+    hoverRow(rowsOf(container)[1]);
+    expect(grip()!.style.display).toBe("flex");
+  });
+
   it("selects the row span, paints kvasir-pick, and reports selection:completed as data", () => {
     const completed = vi.fn();
     const off = bifrost.on("selection:completed", completed);
