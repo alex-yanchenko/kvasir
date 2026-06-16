@@ -189,4 +189,16 @@ describe("createMemoryGuideStore", () => {
     expect(resurrected.version).toBe(1); // unchanged content -> version held
     expect(store.list().map((entry) => entry.id)).toEqual(["x"]);
   });
+
+  it("wipe hard-deletes every row, live and soft-deleted", () => {
+    const store = createMemoryGuideStore(clock());
+    store.put(reviewToRecord(mkReview({ id: "x" })));
+    store.put(reviewToRecord(mkReview({ id: "y" })));
+    store.softDelete("y");
+    store.wipe();
+    expect(store.list()).toEqual([]);
+    expect(store.get("x")).toBeNull();
+    // A soft-deleted row could resurrect on re-push; after wipe it cannot.
+    expect(store.put(reviewToRecord(mkReview({ id: "y" }))).version).toBe(1);
+  });
 });

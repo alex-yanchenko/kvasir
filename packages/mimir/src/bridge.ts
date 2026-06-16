@@ -113,6 +113,17 @@ function handleDeleteEntry({ request, url, deps }: Context): Response {
   return json(request, { ok: true });
 }
 
+// Hard-wipe the whole mailbox — every stored entry AND the in-memory specs map, so
+// a running channel stops serving immediately (no restart). Token-less by design,
+// like the rest of the mailbox: it must work even when unpaired, and never depend
+// on the token the Settings wipe button is about to drop. (Pairing sessions are
+// NOT touched here — that is the wipe-all script's job.)
+function handleWipeEntries({ request, deps }: Context): Response {
+  deps.guides.wipe();
+  deps.specs.clear();
+  return json(request, { ok: true });
+}
+
 // ── token-gated routes ───────────────────────────────────────────────────────
 
 function handleWalkthrough({ request, url, deps }: Context): Response {
@@ -295,6 +306,7 @@ const PUBLIC_ROUTES: Record<string, (context: Context) => Response | Promise<Res
   "GET /history": handleHistory,
   "GET /review": handleReview,
   "DELETE /entry": handleDeleteEntry,
+  "DELETE /entries": handleWipeEntries,
 };
 
 export function createFetchHandler(deps: BridgeDeps): (request: Request) => Promise<Response> {

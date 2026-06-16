@@ -43,6 +43,9 @@ export interface GuideStore {
   list(): EntrySummary[];
   /** Soft-delete a live row (kept for retro analysis); false if absent/already gone. */
   softDelete(id: string): boolean;
+  /** Hard-delete ALL rows, live and soft-deleted — a full reset, not the
+   * retro-preserving softDelete. Backs the wipe-all script and DELETE /entries. */
+  wipe(): void;
 }
 
 /** sha256 of the canonical JSON payload: equal hash ⇒ unchanged ⇒ no version bump
@@ -160,6 +163,9 @@ export function createMemoryGuideStore(now: () => number = () => Date.now()): Gu
       if (!row || row.deletedAt !== null) return false;
       row.deletedAt = now();
       return true;
+    },
+    wipe() {
+      rows.clear();
     },
   };
 }
