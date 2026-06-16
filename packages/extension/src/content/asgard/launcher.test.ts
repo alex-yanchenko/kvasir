@@ -415,4 +415,25 @@ describe("resume vs an existing spec", () => {
     await refreshing;
     expect(state.spec).toBeNull(); // the stale write was dropped, not applied to PR 999
   });
+
+  it("a generation poll tick that resolves after a PR switch doesn't write the old PR's spec", async () => {
+    vi.mocked(storeGet).mockImplementation(async (k: string) =>
+      k.startsWith("kvasir:gen:") ? { previousSig: "old-sig", at: Date.now() } : undefined,
+    );
+    let resolveTick!: (r: { ok: boolean; data?: unknown }) => void;
+    vi.mocked(api)
+      .mockResolvedValueOnce({ ok: false }) // loadSpec → no live spec → resumeGeneration polls
+      .mockReturnValue(new Promise((res) => (resolveTick = res))); // the poll tick's /walkthrough
+    await launcherStore.refresh();
+    expect(launcherStore.generating()).toBe(true); // the poll took over
+    vi.advanceTimersByTime(GEN_POLL_INTERVAL_MS); // fire one tick → it awaits the bridge
+    Object.defineProperty(window, "location", {
+      value: new URL("https://github.com/acme/widget-api/pull/999/files"),
+      writable: true,
+    });
+    resolveTick({ ok: true, data: mkSpec({ generatedAt: "2099-01-01T00:00:00Z" }) }); // new spec lands late
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(state.spec).toBeNull(); // the stale poll write was dropped
+  });
 });
