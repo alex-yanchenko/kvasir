@@ -53,9 +53,9 @@ function HistoryRow({ entry }: Readonly<{ entry: EntrySummary }>): JSX.Element {
 function HistorySection({ label, items }: Readonly<{ label: string; items: EntrySummary[] }>): JSX.Element {
   return (
     <section className="flex flex-col gap-1">
-      <h3 className="px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</h3>
+      <h3 className="px-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</h3>
       {items.length === 0 ? (
-        <p className="px-1 py-1 text-sm text-muted-foreground">
+        <p className="px-2 py-1 text-sm text-muted-foreground">
           {historyStore.query().trim() ? "No matches." : "None yet."}
         </p>
       ) : (
