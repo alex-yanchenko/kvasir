@@ -4,6 +4,7 @@ import {
   buildDiscussion,
   buildManifest,
   COVERAGE_MIN_ADDS,
+  renderManifest,
   significantFiles,
   uncoveredFiles,
   type GhInline,
@@ -263,5 +264,45 @@ describe("buildManifest", () => {
       files: [],
       discussion: [],
     });
+  });
+});
+
+describe("renderManifest", () => {
+  const structural = {
+    owner: "a",
+    repo: "b",
+    number: 1,
+    title: "t",
+    author: "a",
+    headSha: "sha",
+    files: [{ path: "src/a.ts", anchor: "diff-0", status: "modified", additions: 40, deletions: 0 }],
+  };
+
+  it("keeps structure as JSON and fences the description + every comment body as untrusted data", () => {
+    const manifest: PrManifest = {
+      ...mkManifest([{ path: "src/a.ts", additions: 40 }]),
+      description: "Does X.",
+      discussion: [
+        { kind: "inline", author: "bot1", bot: true, body: "nit here", file: "src/a.ts", line: 12 },
+        { kind: "review", author: "rev", bot: false, body: "looks good", state: "APPROVED" },
+        { kind: "comment", author: "dev", bot: false, body: "thanks" },
+      ],
+    };
+    const out = renderManifest(manifest);
+    const [jsonPart] = out.split("\n\n--- UNTRUSTED PR PROSE");
+    // The JSON the model authors from carries no untrusted free text.
+    expect(JSON.parse(jsonPart)).toEqual(structural);
+    expect(out).toContain("--- UNTRUSTED PR PROSE");
+    expect(out).toContain("PR DESCRIPTION:\nDoes X.");
+    expect(out).toContain("bot1 [bot] — inline on src/a.ts:12:\nnit here");
+    expect(out).toContain("rev — review APPROVED:\nlooks good");
+    expect(out).toContain("dev — comment:\nthanks");
+    expect(out).toContain("--- END UNTRUSTED PR PROSE ---");
+  });
+
+  it("emits plain JSON with no fence when there is no description and no discussion", () => {
+    const out = renderManifest(mkManifest([{ path: "src/a.ts", additions: 40 }]));
+    expect(out).not.toContain("UNTRUSTED PR PROSE");
+    expect(JSON.parse(out)).toEqual(structural);
   });
 });

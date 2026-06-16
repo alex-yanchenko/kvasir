@@ -1,6 +1,16 @@
 // @vitest-environment jsdom
 import { describe, it, expect } from "vitest";
-import { chatsKey, genKey, onFilesTab, prUrl, reviewIdFromUrl, reviewKey, specKey, tourKey } from "./keys";
+import {
+  chatsKey,
+  genKey,
+  isGithubHttpsUrl,
+  onFilesTab,
+  prUrl,
+  reviewIdFromUrl,
+  reviewKey,
+  specKey,
+  tourKey,
+} from "./keys";
 
 describe("storage keys", () => {
   it("embed the PR url per concern", () => {
@@ -46,6 +56,18 @@ describe("location readers", () => {
     expect(reviewIdFromUrl()).toBeNull();
     at("https://github.com/acme/web/blob/main/src/a.ts?kvasir=%");
     expect(reviewIdFromUrl()).toBeNull(); // malformed escape — decodeURIComponent throws, swallowed
+  });
+});
+
+describe("isGithubHttpsUrl", () => {
+  it("accepts only absolute https://github.com urls, rejecting other origins and junk", () => {
+    expect(isGithubHttpsUrl("https://github.com/acme/web/blob/main/a.ts?kvasir=a")).toBe(true);
+    expect(isGithubHttpsUrl("https://evil.example/acme/web")).toBe(false);
+    expect(isGithubHttpsUrl("http://github.com/acme/web")).toBe(false);
+    expect(isGithubHttpsUrl("https://github.com.evil.example/x")).toBe(false);
+    expect(isGithubHttpsUrl("javascript:alert(1)")).toBe(false);
+    expect(isGithubHttpsUrl("/acme/web/blob/main/a.ts")).toBe(false);
+    expect(isGithubHttpsUrl("not a url")).toBe(false);
   });
 });
 

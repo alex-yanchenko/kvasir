@@ -23,6 +23,18 @@ export const PANEL_STATE_KEY = "kvasir:panel";
 /** The bridge token's storage key — global, not per-PR (one bridge per machine). */
 export const TOKEN_KEY = "kvasir:token";
 
+/** True only for an absolute `https://github.com` URL — the single origin the panel
+ * ever navigates to. Guards a `location` assignment against an off-origin redirect
+ * smuggled in through a stored entry's url (the `/history` response is data we render,
+ * so it's treated as untrusted at the navigation boundary). */
+export const isGithubHttpsUrl = (url: string): boolean => {
+  try {
+    return new URL(url).origin === "https://github.com";
+  } catch {
+    return false; // not an absolute/parseable URL
+  }
+};
+
 /** A pushed review's id, carried on the GitHub landing URL as `?kvasir=<id>` — how
  * the extension knows a page is a review (vs a plain PR) and which one to pull. */
 export const reviewIdFromUrl = (): string | null => {

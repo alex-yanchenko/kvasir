@@ -77,11 +77,11 @@ curl http://localhost:8799/health      # → {"ok":true,"specs":0}
 
 ## Config (env)
 
-| Var              | Default                       | Purpose                               |
-| ---------------- | ----------------------------- | ------------------------------------- |
-| `KVASIR_PORT`    | `8799`                        | HTTP bridge port                      |
-| `KVASIR_ORIGIN`  | reflects github.com/localhost | CORS allow-origin                     |
-| `ASK_TIMEOUT_MS` | `120000`                      | how long `/ask` waits for your answer |
+| Var              | Default                   | Purpose                               |
+| ---------------- | ------------------------- | ------------------------------------- |
+| `KVASIR_PORT`    | `8799`                    | HTTP bridge port                      |
+| `KVASIR_ORIGIN`  | unset (nothing reflected) | optional extra CORS origin — see note |
+| `ASK_TIMEOUT_MS` | `120000`                  | how long `/ask` waits for your answer |
 
 ## Security
 
@@ -109,9 +109,11 @@ project's browser extension, on the same machine. Defenses:
   localhost CSRF). The extension sets it from its background worker (not CORS-bound).
 - **Host check.** Requests whose `Host` isn't loopback are rejected, which blocks
   DNS-rebinding (a domain that resolves to `127.0.0.1`).
-- **No wildcard CORS.** No `Access-Control-Allow-Origin: *`, and github.com is not
-  granted by default (the extension never needs it). Override with
-  `KVASIR_ORIGIN` only if you know why.
+- **No wildcard CORS.** No `Access-Control-Allow-Origin: *`, and nothing is granted
+  by default (the extension's worker isn't CORS-bound, so it never needs a grant).
+  `KVASIR_ORIGIN` adds one extra allowed origin — **never set it to a multi-tenant
+  origin like `https://github.com`**: that would let any script running on that
+  origin reach the token-less routes (`/history`, `/review`, `DELETE /entries`).
 
 Residual risks to be aware of:
 

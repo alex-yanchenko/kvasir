@@ -8,7 +8,7 @@
 import { type EntrySummary, isEntrySummaryList } from "@kvasir/runes/history";
 import { prKey } from "@kvasir/runes/prUrl";
 import { api } from "../api";
-import { HISTORY_KEY, reviewKey, SEEN_KEY, specKey } from "../keys";
+import { HISTORY_KEY, isGithubHttpsUrl, reviewKey, SEEN_KEY, specKey } from "../keys";
 import { storeGet, storeRemove, storeSet } from "../muninn";
 import { state, touch } from "./store";
 
@@ -112,6 +112,9 @@ export const historyStore = {
   /** Open an entry from its row — a full navigation. Marks it caught-up first
    * (opening always re-fetches fresh content from the bridge on the next page). */
   open(entry: EntrySummary): void {
+    // Refuse to navigate anywhere but github.com — the only origin a stored entry
+    // should point to. Guards against an off-origin url in the /history response.
+    if (!isGithubHttpsUrl(entry.url)) return;
     writeSeen({ ...state.seen, [entry.id]: entry.version });
     // The panel's per-tab state (open + History tab) is already in sessionStorage, so
     // a same-tab navigation carries it — the next page opens on History automatically.
