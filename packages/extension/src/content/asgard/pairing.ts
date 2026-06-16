@@ -3,6 +3,7 @@
 // the code off this panel, and approves that code in chat; we poll the claim
 // until the token lands and persist it for Huginn to attach on every request.
 import { api } from "../api";
+import type { BridgeResponse } from "../api";
 import { TOKEN_KEY } from "../keys";
 import { storeGet, storeRemove, storeSet } from "../muninn";
 import { touch } from "./store";
@@ -35,6 +36,18 @@ const requestIdOf = (data: unknown): { requestId: string; code: string } | null 
   typeof data.code === "string"
     ? { requestId: data.requestId, code: data.code }
     : null;
+
+/** Map an /auth result for a request that DID carry a stored token to a phase.
+ * ok -> paired; 401 -> the token is genuinely stale, drop it and force a re-pair;
+ * anything else is a transient failure -> keep the token and stay paired. */
+function authToPhase(r: BridgeResponse): PairingPhase {
+  if (r.ok) return { phase: "paired" };
+  if (r.status === 401) {
+    storeRemove(TOKEN_KEY);
+    return { phase: "unpaired" };
+  }
+  return { phase: "paired" };
+}
 
 const tokenOf = (data: unknown): string | null =>
   typeof data === "object" && data !== null && "token" in data && typeof data.token === "string"
@@ -75,12 +88,7 @@ export const pairingStore = {
     }
     const r = await api("/auth");
     if (state.phase !== "unknown") return; // pair() may have started during the await
-    if (r.ok) {
-      set({ phase: "paired" });
-    } else {
-      storeRemove(TOKEN_KEY);
-      set({ phase: "unpaired" });
-    }
+    set(authToPhase(r));
   },
 
   /** Re-verify the stored token against the bridge on demand — fired when the user
@@ -95,13 +103,7 @@ export const pairingStore = {
       set({ phase: "unpaired" });
       return;
     }
-    const r = await api("/auth");
-    if (r.ok) {
-      set({ phase: "paired" });
-    } else {
-      storeRemove(TOKEN_KEY);
-      set({ phase: "unpaired" });
-    }
+    set(authToPhase(await api("/auth")));
   },
 
   /** Ask the bridge to pair, show the code, poll the claim until the token lands. */
