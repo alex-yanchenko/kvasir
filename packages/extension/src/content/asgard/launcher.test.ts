@@ -401,4 +401,18 @@ describe("resume vs an existing spec", () => {
     await launcherStore.refresh();
     expect(launcherStore.newCommits()).toBe(false);
   });
+
+  it("does not let a stale PR's in-flight spec clobber the current PR after an SPA switch", async () => {
+    let resolveApi!: (r: { ok: boolean; data?: unknown }) => void;
+    vi.mocked(api).mockReturnValueOnce(new Promise((res) => (resolveApi = res)));
+    const refreshing = launcherStore.refresh(); // loadSpec(PR 7) awaits the bridge
+    // SPA-navigate to a different PR before PR 7's fetch resolves.
+    Object.defineProperty(window, "location", {
+      value: new URL("https://github.com/acme/widget-api/pull/999/files"),
+      writable: true,
+    });
+    resolveApi({ ok: true, data: mkSpec() }); // PR 7's spec lands late
+    await refreshing;
+    expect(state.spec).toBeNull(); // the stale write was dropped, not applied to PR 999
+  });
 });
