@@ -68,14 +68,13 @@ const rowToSummary = (row: EntryRow): EntrySummary => {
   const repos: unknown = JSON.parse(row.repos);
   const kind = EntryKindSchema.parse(row.kind);
   const prNumber = prNumberFromId(kind, row.id);
-  const record: GuideRecord = {
+  const record: Omit<GuideRecord, "payload"> = {
     kind,
     id: row.id,
     title: row.title,
     steps: row.steps,
     url: row.url,
     repos: asStringArray(repos),
-    payload: undefined,
     ...(row.source === null ? {} : { source: row.source }),
     ...(row.generated_at === null ? {} : { generatedAt: row.generated_at }),
     ...(prNumber === undefined ? {} : { prNumber }),
@@ -93,7 +92,13 @@ export function createSqliteGuideStore(dbPath: string, now: () => number = () =>
   db.run(CREATE_INDEX);
   const columns = db.query<{ name: string }, []>("PRAGMA table_info(entries)").all();
   if (!columns.some((column) => column.name === "author")) {
-    db.run("ALTER TABLE entries ADD COLUMN author TEXT");
+    try {
+      db.run("ALTER TABLE entries ADD COLUMN author TEXT");
+    } catch (error) {
+      // A second connection racing the same migration loses with "duplicate column
+      // name: author" — benign, the column now exists. Anything else is real.
+      if (!(error instanceof Error) || !error.message.includes("duplicate column name")) throw error;
+    }
   }
 
   const selectById = db.query<EntryRow, [string]>("SELECT * FROM entries WHERE id = ?");

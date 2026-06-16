@@ -49,4 +49,16 @@ describe("createSqliteSessionStore (file durability)", () => {
     createSqliteSessionStore(dbPath).add(rec({ id: "s1" }));
     expect(createSqliteSessionStore(dbPath).all()).toEqual([rec({ id: "s1" })]);
   });
+
+  it("remove + clear write through to the file (a reopened store sees the effect)", () => {
+    const dbPath = path.join(directory, "kvasir.db");
+    const store = createSqliteSessionStore(dbPath);
+    store.add(rec({ id: "s1" }));
+    store.add(rec({ id: "s2", createdAt: 2000 }));
+    expect(store.remove("nope")).toBe(false); // a missing id reports no-op, not a throw
+    expect(store.remove("s1")).toBe(true);
+    expect(createSqliteSessionStore(dbPath).all()).toEqual([rec({ id: "s2", createdAt: 2000 })]);
+    store.clear();
+    expect(createSqliteSessionStore(dbPath).all()).toEqual([]);
+  });
 });
