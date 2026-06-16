@@ -40,6 +40,7 @@ import { createAskBroker } from "./broker";
 import { getManifest, getHeadSha, type PrManifest } from "./diff";
 import { reviewToRecord, specToRecord } from "./guideStore";
 import { createSqliteGuideStore } from "./guideStore.sqlite";
+import { COVERAGE_MIN_ADDS, significantFiles } from "./manifest";
 import { createPairing } from "./pairing";
 import { preparePublish } from "./publish";
 import { slugify } from "./reviewBuild";
@@ -168,9 +169,9 @@ const server = new McpServer(
       "☐ 2. Understand the change, applying this weighting: CODE (the diff/patches) is the substance — base the walkthrough on it. DESCRIPTION is the author's intent/scope — use it to frame the overview and the WHY. DISCUSSION is supplementary — fold a comment into a step ONLY when it changes what a reviewer should know about the code (unresolved concern, constraint, rationale, a critical bug a human/AI reviewer flagged). Do NOT let comments dominate: the walkthrough explains the change, it is NOT a summary of the discussion, and most comments earn no mention. Flag a genuinely critical unresolved concern in the relevant step or the overview. Some discussion may already be resolved — treat it as context, not a to-do list.",
       "☐ 3. Size the walkthrough to the change — cover ALL of it. Budget steps from each file's additions/deletions in the manifest: a large PR (many files or hundreds of changed lines) needs MANY focused steps — roughly one per distinct logical change / significant function or file section — not a handful of sweeping ones. Prefer several small, tightly-scoped steps over a few broad ones. As a rough calibration, a ~1500-2000 line PR is usually well into the double digits of steps, not 5-10. Do NOT cap the count to save effort or tokens; under-covering is the most common failure.",
       "☐ 4. Author the spec (shape in the publish_walkthrough description): set overview = 2-4 plain-text sentences (what it does, approach/architecture, key risks) — NOT shown as a step; it's chat background so a fresh session still understands the PR.",
-      "☐ 5. For EACH step: set lines:{side:'R',start,end} to the exact added-line range the step is about (read line numbers from the @@ -a,b +c,d @@ hunk header — the new side starts at line c); keep the range tight; add 2-4 verbatim highlight substrings as a fallback; write body (concise summary) and a substantive detail (edge cases, rationale, gotchas) where worthwhile; give 2-3 suggestion questions.",
+      "☐ 5. For EACH step: set lines:{side:'R',start,end} to the exact added-line range the step is about — read the numbers straight from the @@ -a,b +c,d @@ hunk header (the new side starts at line c) and count down the '+' lines; do NOT open the source files just to find line numbers, the patch + highlight substrings are sufficient (opening files is the main thing that makes this slow). Keep the range tight; add 2-4 verbatim highlight substrings as a fallback; write body (concise summary) and a substantive detail where worthwhile; give 2-3 suggestion questions.",
       '☐ 6. If mode="incremental": author steps for ONLY what changed since the `since` commit, and publish a spec containing ONLY those new steps (do NOT re-include earlier steps).',
-      "☐ 7. Self-check coverage BEFORE publishing: walk the changed files and confirm every one with non-trivial logic has at least one step and no significant block of added code is left unexplained. If a meaningful region is uncovered, add steps for it before publishing — do not ship a walkthrough that skims a large PR.",
+      "☐ 7. Self-check coverage BEFORE publishing: start_walkthrough printed a 'COVER each of these files' list — make sure every file on it has at least one step (that is exactly what publish_walkthrough's coverage check enforces, so covering them up front means a single publish, no re-author round-trip). Tests/generated files are already excluded from that list; you may add a test step but are not required to.",
       "☐ 8. Call publish_walkthrough(spec). The Chrome extension renders it on the PR page.",
       "",
       'ANSWER A CODE QUESTION — on <channel source="kvasir" event_type="code_question" id=...> (the user selected code and asked):',
@@ -204,9 +205,18 @@ server.registerTool(
   async ({ pr }) => {
     const manifest = await getManifest(pr);
     manifests.set(prKey(pr), manifest); // remembered for the publish-time coverage check
+    // Surface the coverage contract UP FRONT so the spec covers it on the first
+    // publish — avoids the nudge -> re-author -> re-publish round-trip.
+    const mustCover = significantFiles(manifest);
+    const coverList = mustCover.map((path) => `  - ${path}`).join("\n");
+    const coverage =
+      mustCover.length > 0
+        ? `COVER each of these files with at least one step (≥${COVERAGE_MIN_ADDS} added lines; tests/generated already excluded) so the first publish passes the coverage check:\n${coverList}\n\n`
+        : "";
     return text(
       `Manifest for ${manifest.owner}/${manifest.repo}#${manifest.number} — "${manifest.title}" @ ${manifest.headSha}\n\n` +
         `Author a walkthrough spec from this, then call publish_walkthrough.\n\n` +
+        coverage +
         JSON.stringify(manifest, null, 2),
     );
   },
