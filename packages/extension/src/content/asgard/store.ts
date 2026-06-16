@@ -154,7 +154,13 @@ export const chatsStore = {
 // geometry (persisted per-PR). Content lives in the tab bodies, which reuse the
 // existing machines (tour/chat/launcher/pairing).
 
-const persistPanel = (): void => storeSet(PANEL_GEOM_KEY, { pos: state.panel.pos, size: state.panel.size });
+const persistPanel = (): void =>
+  storeSet(PANEL_GEOM_KEY, {
+    pos: state.panel.pos,
+    size: state.panel.size,
+    open: state.panel.open,
+    tab: state.panel.tab,
+  });
 
 export const panelStore = {
   isOpen: (): boolean => state.panel.open,
@@ -166,16 +172,19 @@ export const panelStore = {
   open(tab?: PanelTab): void {
     state.panel.open = true;
     if (tab) state.panel.tab = tab;
+    persistPanel(); // remember open + tab so navigation keeps the window
     touch();
   },
   close(): void {
     state.panel.open = false;
     clearHistoryNav(); // closing ends a History-browsing run
+    persistPanel();
     touch();
   },
   setTab(tab: PanelTab): void {
     state.panel.tab = tab;
     if (tab !== PANEL_TABS.HISTORY) clearHistoryNav(); // switching away ends the run
+    persistPanel();
     touch();
   },
   setPos(pos: { left: number; top: number }): void {

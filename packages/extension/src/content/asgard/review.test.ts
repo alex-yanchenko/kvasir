@@ -158,7 +158,8 @@ describe("reviewStore.load", () => {
     expect(state.panel.tab).toBe("walkthrough"); // a direct ?prw open shows the review
     expect(api).toHaveBeenCalledWith("/review?id=rev-1");
     expect(storeSet).toHaveBeenCalledWith("prw:review:rev-1", { step: 0, review: mkReview() });
-    expect(storeSet).toHaveBeenCalledTimes(1);
+    expect(storeSet).toHaveBeenCalledTimes(2); // the review cache + the panel open/tab persist
+
   });
 
   it("opening via a History jump keeps the panel on the History tab", async () => {

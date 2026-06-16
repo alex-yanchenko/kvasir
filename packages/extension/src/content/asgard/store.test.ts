@@ -174,6 +174,17 @@ describe("panelStore", () => {
     expect(sessionStorage.getItem("prw:history-nav")).toBeNull();
   });
 
+  it("persists open + tab (so navigation can keep the window on the same tab)", () => {
+    storeModule.panelStore.open(storeModule.PANEL_TABS.HISTORY);
+    expect(setSpy).toHaveBeenLastCalledWith({
+      "prw:panel": { pos: null, size: null, open: true, tab: "history" },
+    });
+    storeModule.panelStore.close();
+    expect(setSpy).toHaveBeenLastCalledWith({
+      "prw:panel": { pos: null, size: null, open: false, tab: "history" },
+    });
+  });
+
   it("setPos / setSize update geometry and persist globally (one key, not per-PR)", () => {
     const before = getSnapshot();
     storeModule.panelStore.setPos({ left: 12, top: 34 });
@@ -184,6 +195,8 @@ describe("panelStore", () => {
       "prw:panel": {
         pos: { left: 12, top: 34 },
         size: { w: 500, h: 600 },
+        open: false,
+        tab: "walkthrough",
       },
     });
     expect(getSnapshot()).toBe(before); // geometry saves skip touch() — no React re-render
