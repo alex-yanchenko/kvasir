@@ -43,6 +43,7 @@ import { createSqliteGuideStore } from "./guideStore.sqlite";
 import { createPairing } from "./pairing";
 import { preparePublish } from "./publish";
 import { slugify } from "./reviewBuild";
+import { createSqliteSessionStore } from "./sessionStore.sqlite";
 
 const PORT = Number(process.env.PR_WALKTHROUGH_PORT) || 8799;
 const ASK_TIMEOUT_MS = Number(process.env.ASK_TIMEOUT_MS) || 120_000;
@@ -118,9 +119,13 @@ async function pushEvent(content: string, meta: Record<string, string>): Promise
 /** Pending questions live in the broker; answer_question (called by you) resolves them. */
 const broker = createAskBroker({ timeoutMs: ASK_TIMEOUT_MS, pushEvent });
 
-/** Extension pairing — code-confirmed through this session; the token lives only
- * in memory, so restarting the session forces a fresh pairing. */
-const pairing = createPairing({ pushEvent });
+/** Extension pairing — code-confirmed through this session. Sessions persist as
+ * sha256 token hashes in kvasir.db, so a channel restart reloads them instead of
+ * forcing a re-pair. */
+const pairing = createPairing({
+  pushEvent,
+  sessions: createSqliteSessionStore(path.join(KVASIR_DIR, "kvasir.db")),
+});
 
 // ── HTTP bridge ──────────────────────────────────────────────────────────────
 // Routes + auth + prompts live in ./bridge (unit-tested); this just binds them.

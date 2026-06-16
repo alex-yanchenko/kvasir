@@ -1,9 +1,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { createPairing, type Pairing } from "./pairing";
+import { createMemorySessionStore, hashToken, type SessionStore } from "./sessionStore";
 
 let pushed: Array<{ content: string; meta: Record<string, string> }>;
 
-const mkPairing = (over: { requestTtlMs?: number } = {}): Pairing =>
+const mkPairing = (
+  over: { requestTtlMs?: number; sessions?: SessionStore; now?: () => number } = {},
+): Pairing =>
   createPairing({
     pushEvent: async (content, meta) => {
       pushed.push({ content, meta });
@@ -55,7 +58,7 @@ describe("the happy pairing flow", () => {
     expect(req.code).toMatch(/^[A-HJKMNP-Z2-9]{6}$/);
   });
 
-  it("approve tolerates whitespace and lowercase; re-pairing the same instance keeps the token", () => {
+  it("approve tolerates whitespace and lowercase; re-pairing mints a new token, both stay valid", () => {
     const pairing = mkPairing();
     const req = pairing.request("a");
     if (!req.ok) throw new Error("expected ok");
@@ -64,7 +67,9 @@ describe("the happy pairing flow", () => {
     if (!first || !("token" in first)) throw new Error("expected a token");
 
     const again = pairFully(pairing);
-    expect(again.token).toBe(first.token);
+    expect(again.token).not.toBe(first.token); // multi-session: a fresh token per pairing
+    expect(pairing.verify(first.token)).toBe(true); // the earlier token still works
+    expect(pairing.verify(again.token)).toBe(true);
   });
 
   it("a fresh instance (a restarted session) forgets the token — re-pair required", () => {
@@ -122,5 +127,38 @@ describe("the gates", () => {
     const pairing = mkPairing();
     expect(pairing.enforced()).toBe(false);
     expect(pairing.verify("anything")).toBe(false);
+  });
+});
+
+describe("persistence (SessionStore)", () => {
+  it("a restart backed by the same store stays paired — no re-pair", () => {
+    const sessions = createMemorySessionStore();
+    const a = pairFully(mkPairing({ sessions }));
+    const restarted = mkPairing({ sessions }); // new process, same db
+    expect(restarted.enforced()).toBe(true);
+    expect(restarted.verify(a.token)).toBe(true);
+  });
+
+  it("stores the token only as a sha256 hash (never the plaintext), with the name + createdAt", () => {
+    const sessions = createMemorySessionStore();
+    const { token } = pairFully(mkPairing({ sessions, now: () => 123 }));
+    expect(sessions.all()).toEqual([
+      { id: expect.any(String), tokenHash: hashToken(token), name: "Chrome", createdAt: 123 },
+    ]);
+    expect(sessions.all()[0]!.tokenHash).not.toBe(token);
+  });
+
+  it("multiple clients coexist; removing one revokes only its token", () => {
+    const sessions = createMemorySessionStore();
+    const pairing = mkPairing({ sessions });
+    const a = pairFully(pairing);
+    const b = pairFully(pairing);
+    expect(sessions.all()).toHaveLength(2);
+    const idA = sessions.all().find((session) => session.tokenHash === hashToken(a.token))?.id;
+    if (!idA) throw new Error("expected session a");
+    sessions.remove(idA);
+    const restarted = mkPairing({ sessions });
+    expect(restarted.verify(a.token)).toBe(false); // revoked
+    expect(restarted.verify(b.token)).toBe(true); // still paired
   });
 });

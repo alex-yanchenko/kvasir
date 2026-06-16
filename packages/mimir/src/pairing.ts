@@ -9,12 +9,13 @@
 //                token exactly once; the id never appears in chat or on screen
 //   verify()   — every bridge call thereafter must carry the token
 //
-// The token lives ONLY in this process's memory — never on disk. Restarting the
-// Claude session forgets it, so a new session always re-pairs: auth lifetime is
-// tied to the session, which is the trust anchor. The extension keeps its copy
-// in storage so a page refresh within a live session doesn't re-pair, but its
-// token goes stale the moment the session restarts and the bridge 401s it.
+// Tokens are persisted as a HASH (sha256) via the optional SessionStore, so a
+// channel restart reloads paired sessions instead of forcing a re-pair; the
+// plaintext token is never written to disk. Without a SessionStore the pairing is
+// memory-only (a restart forgets it). The bridge still requires the token on every
+// call, and a token the store no longer holds 401s.
 import { randomBytes, timingSafeEqual } from "node:crypto";
+import { hashToken, type SessionStore } from "./sessionStore";
 
 /** No 0/O/1/I/L — the user reads this code off a screen and types it. */
 const CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
@@ -24,6 +25,10 @@ const PAIR_REQUEST_TTL_MS = 120_000;
 export interface PairingDeps {
   pushEvent(content: string, meta: Record<string, string>): Promise<void>;
   requestTtlMs?: number;
+  /** Persistence for paired sessions (sha256 token hashes). Omit for memory-only. */
+  sessions?: SessionStore;
+  /** Injectable clock for a session's createdAt (tests). */
+  now?: () => number;
 }
 
 type PairRequestResult = { ok: true; requestId: string; code: string } | { ok: false; reason: "busy" };
@@ -50,6 +55,8 @@ interface PendingPair {
   name: string;
   expiresAt: number;
   approved: boolean;
+  /** Minted at approve, delivered once at claim, then persisted as a hash. */
+  token: string | null;
 }
 
 const CODE_LEN = 6;
@@ -69,13 +76,11 @@ const newCode = (): string => {
 
 export function createPairing(deps: PairingDeps): Pairing {
   const requestTtlMs = deps.requestTtlMs ?? PAIR_REQUEST_TTL_MS;
+  const now = deps.now ?? ((): number => Date.now());
   let pending: PendingPair | null = null;
-  let cachedToken: string | null = null;
-
-  const ensureToken = (): string => {
-    if (!cachedToken) cachedToken = randomBytes(32).toString("hex");
-    return cachedToken;
-  };
+  // Live token hashes (sha256), seeded from the persisted store on boot so a restart
+  // stays paired. Membership ⇒ a valid token; the plaintext token never lives here.
+  const tokenHashes = new Set<string>(deps.sessions?.all().map((session) => session.tokenHash));
 
   const livePending = (): PendingPair | null => {
     if (pending && pending.expiresAt <= Date.now()) pending = null;
@@ -99,6 +104,7 @@ export function createPairing(deps: PairingDeps): Pairing {
         name,
         expiresAt: Date.now() + requestTtlMs,
         approved: false,
+        token: null,
       };
       void deps.pushEvent(
         `Pairing request from "${name}" — code ${pending.code}. Confirm with the user via the AskUserQuestion tool (options "Approve" / "Decline", with this code in the question) and call approve_pairing only if they Approve. If you did not initiate this, ignore it and let it expire.`,
@@ -111,25 +117,35 @@ export function createPairing(deps: PairingDeps): Pairing {
       const p = livePending();
       if (!p || p.approved || p.code !== code.trim().toUpperCase()) return false;
       p.approved = true;
-      ensureToken();
+      p.token = randomBytes(32).toString("hex"); // minted now; delivered once at claim
       return true;
     },
 
     claim(requestId) {
       const p = livePending();
       if (!p || p.requestId !== requestId) return null;
-      if (!p.approved) return { status: "pending" };
+      if (!p.approved || !p.token) return { status: "pending" };
       pending = null;
-      return { token: ensureToken() };
+      const tokenHash = hashToken(p.token);
+      tokenHashes.add(tokenHash);
+      deps.sessions?.add({ id: p.requestId, tokenHash, name: p.name, createdAt: now() });
+      return { token: p.token };
     },
 
     verify(presented) {
-      if (!cachedToken || presented.length !== cachedToken.length) return false;
-      return timingSafeEqual(Buffer.from(presented), Buffer.from(cachedToken));
+      if (tokenHashes.size === 0) return false;
+      const presentedHash = Buffer.from(hashToken(presented), "hex"); // always 32 bytes
+      for (const stored of tokenHashes) {
+        const storedHash = Buffer.from(stored, "hex");
+        if (storedHash.length === presentedHash.length && timingSafeEqual(storedHash, presentedHash)) {
+          return true;
+        }
+      }
+      return false;
     },
 
     enforced() {
-      return cachedToken !== null;
+      return tokenHashes.size > 0;
     },
   };
 }
