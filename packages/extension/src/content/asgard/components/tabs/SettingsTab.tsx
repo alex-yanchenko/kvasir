@@ -208,6 +208,16 @@ export function SettingsTab(): JSX.Element {
         ]}
         onChange={(value) => settingsStore.setPreloadQuestions(value === "on")}
       />
+      <Segmented
+        label="Flow diagram"
+        hint="Have the session author a flow diagram of the change (adds time to generation; the renderer loads only when you open one). Off by default."
+        value={settingsStore.generateDiagram() ? "on" : "off"}
+        options={[
+          { value: "off", label: "Off" },
+          { value: "on", label: "On" },
+        ]}
+        onChange={(value) => settingsStore.setGenerateDiagram(value === "on")}
+      />
       <div className="border-t border-border pt-3">
         <Connection />
       </div>

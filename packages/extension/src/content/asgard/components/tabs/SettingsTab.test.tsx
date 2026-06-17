@@ -22,6 +22,7 @@ beforeEach(() => {
   state.reviewMode = "heavy";
   state.reviewReposRoot = "~/code";
   state.preloadQuestions = false;
+  state.generateDiagram = false;
   localStorage.clear();
   pairingStore.reset();
   vi.mocked(storeGet).mockResolvedValue(undefined);
@@ -85,6 +86,15 @@ describe("SettingsTab", () => {
     expect(state.preloadQuestions).toBe(true);
     fireEvent.click(within(group).getByRole("button", { name: "Off" }));
     expect(state.preloadQuestions).toBe(false);
+  });
+
+  it("flow-diagram toggle flips generateDiagram (default off)", () => {
+    render(<SettingsTab />);
+    const group = screen.getByRole("group", { name: "Flow diagram" });
+    fireEvent.click(within(group).getByRole("button", { name: "On" }));
+    expect(state.generateDiagram).toBe(true);
+    fireEvent.click(within(group).getByRole("button", { name: "Off" }));
+    expect(state.generateDiagram).toBe(false);
   });
 
   it("explains each setting with a hint; the repos-root hint shows only on heavy", () => {

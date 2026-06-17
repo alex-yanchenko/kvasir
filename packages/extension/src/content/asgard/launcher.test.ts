@@ -135,6 +135,7 @@ describe("requestGenerate → poll → spec lands", () => {
       sinceSha: undefined,
       depth: "heavy",
       reposRoot: "~/code",
+      diagram: false,
     });
 
     await vi.advanceTimersByTimeAsync(GEN_POLL_INTERVAL_MS); // empty tick — still generating

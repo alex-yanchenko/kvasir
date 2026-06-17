@@ -21,6 +21,9 @@ let detailOpen = false;
 // The outline (flow skeleton) overlay's open state — module-level for the same
 // reason as detailOpen: it survives a tab switch and back.
 let outlineOpen = false;
+// The flow-diagram overlay's open state (same module-level rationale). Outline and
+// diagram are mutually exclusive overlays; the toggles close each other.
+let diagramOpen = false;
 
 const clamp = (index: number, length: number): number => Math.min(Math.max(index, 0), length - 1);
 
@@ -38,6 +41,13 @@ export const tourStore = {
   outlineOpen: (): boolean => outlineOpen,
   setOutlineOpen(value: boolean): void {
     outlineOpen = value;
+    if (value) diagramOpen = false; // one overlay at a time
+    touch();
+  },
+  diagramOpen: (): boolean => diagramOpen,
+  setDiagramOpen(value: boolean): void {
+    diagramOpen = value;
+    if (value) outlineOpen = false; // one overlay at a time
     touch();
   },
 

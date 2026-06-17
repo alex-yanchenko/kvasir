@@ -165,6 +165,9 @@ async function handleGenerate({ request, deps }: Context): Promise<Response> {
   // setting; strip newlines/tabs so it can't inject extra prompt lines.
   const depth = b.depth === "light" ? "light" : "heavy";
   const reposRoot = truncate(b.reposRoot, 500).replaceAll(/[\n\r\t]+/g, " ") || "~/code";
+  // Opt-in flow diagram (off by default) — only authored when the client asks, so
+  // generation cost is paid only when the user wants it.
+  const wantsDiagram = b.diagram === true;
   const baseInstruction =
     mode === "incremental"
       ? `The user asked for an INCREMENTAL update of the walkthrough for ${pr}. Fetch ONLY what changed since commit ${since} (the previously-reviewed head) and author steps for ONLY those new/changed lines. Call publish_walkthrough with a spec whose steps array contains ONLY those new steps — do NOT re-include the earlier steps. Keep it minimal (fewer steps = less data to send and a faster update).`
@@ -177,8 +180,18 @@ async function handleGenerate({ request, deps }: Context): Promise<Response> {
   // After publishing, record the shareable build log: depth = what you ACTUALLY did
   // ("light" if heavy fell back), rationale = a short note on how you built it.
   const buildLogStep = ` Finally, call record_build_log(pr, depth, rationale) — depth is what you actually did ("heavy" or "light"; use "light" if heavy fell back to the diff), and rationale is a short markdown note on how you built it (for heavy: which files/callers/types you read and any correctness concerns; for light: that it was diff-only).`;
-  const content = (depth === "heavy" ? baseInstruction + heavyProtocol : baseInstruction) + buildLogStep;
-  await deps.pushEvent(content, { event_type: "generate_walkthrough", pr, mode, since, depth });
+  // Authored into the spec's `diagram` field; the extension lazy-loads mermaid to render it.
+  const diagramStep = ` Also set the spec's \`diagram\` field to mermaid source (a \`flowchart\` or \`sequenceDiagram\`) capturing how the change's pieces connect — entry points and the calls/data flow between the changed files, plus key branches. Keep it to the essential flow (roughly 5-15 nodes) with plain node labels, and make sure it parses as valid mermaid.`;
+  const reviewBody = depth === "heavy" ? baseInstruction + heavyProtocol : baseInstruction;
+  const content = reviewBody + (wantsDiagram ? diagramStep : "") + buildLogStep;
+  await deps.pushEvent(content, {
+    event_type: "generate_walkthrough",
+    pr,
+    mode,
+    since,
+    depth,
+    diagram: String(wantsDiagram),
+  });
   return json(request, { queued: true });
 }
 

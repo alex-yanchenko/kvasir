@@ -87,10 +87,31 @@ const ctx = await context({
   plugins: [compileTailwind, copyAssets],
 });
 
+// mermaid (~3 MB) builds to its OWN esm file, lazy-loaded at runtime via
+// import(chrome.runtime.getURL("dist/mermaid.mjs")) only when a diagram opens — so
+// it never weighs down the content script injected on every GitHub page. Separate
+// context because the format differs (esm, not the content script's iife).
+const mermaidCtx = await context({
+  entryPoints: [{ in: resolve(src, "mermaidEntry.ts"), out: "mermaid" }],
+  outdir: dist,
+  bundle: true,
+  format: "esm",
+  outExtension: { ".js": ".mjs" },
+  platform: "browser",
+  target: ["chrome111"],
+  define: { "process.env.NODE_ENV": '"production"' },
+  minify: true,
+  sourcemap: false,
+  logLevel: "info",
+});
+
 if (watch) {
   await ctx.watch();
+  await mermaidCtx.watch();
   console.log("watching for changes…");
 } else {
   await ctx.rebuild();
   await ctx.dispose();
+  await mermaidCtx.rebuild();
+  await mermaidCtx.dispose();
 }

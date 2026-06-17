@@ -17,6 +17,7 @@ import {
   MessageSquareMore,
   Play,
   RefreshCw,
+  Workflow,
 } from "lucide-react";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import type { JSX } from "react";
@@ -28,6 +29,7 @@ import { pairingStore } from "../../pairing";
 import { getSnapshot, PANEL_TABS, panelStore, subscribe } from "../../store";
 import { tourStore } from "../../tour";
 import { Button } from "../../ui/button";
+import { Diagram } from "../Diagram";
 import { RegenDialog } from "../RegenDialog";
 
 function Generating(): JSX.Element {
@@ -240,23 +242,30 @@ function StepBody({ step }: Readonly<{ step: WalkthroughStep }>): JSX.Element {
   );
 }
 
-function Steps({ spec }: Readonly<{ spec: WalkthroughSpec }>): JSX.Element {
-  const [dialog, setDialog] = useState(false);
-  const [copiedLog, setCopiedLog] = useState(false);
-  const step = tourStore.step();
-  const index = tourStore.stepIndex();
-  const count = tourStore.stepCount();
+// The main pane: at most one overlay (diagram or outline) over the step body.
+// Diagram wins when both somehow set; the toggles already keep them exclusive.
+function MainView({
+  spec,
+  step,
+  index,
+  outlineOpen,
+  diagramOpen,
+}: Readonly<{
+  spec: WalkthroughSpec;
+  step: WalkthroughStep;
+  index: number;
+  outlineOpen: boolean;
+  diagramOpen: boolean;
+}>): JSX.Element {
+  if (diagramOpen && spec.diagram) return <Diagram source={spec.diagram} />;
+  if (outlineOpen) return <Outline steps={spec.steps} current={index} />;
+  return <StepBody step={step} />;
+}
 
-  // Start (resume) the tour when this tab opens. We deliberately do NOT close on
-  // unmount: leaving for Settings/Chat keeps the page highlight up — so the
-  // highlight-style toggle is testable against a real selection. The panel close
-  // clears it (Panel's unmount), and start() is idempotent on re-entry.
-  useEffect(() => {
-    tourStore.start();
-  }, []);
-
-  // Arrow keys navigate; bound to the document AND the shadow root (the hotkey
-  // shield keeps shadow-origin keys off the document), skipping editable fields.
+// Arrow keys navigate steps; bound to the document AND the shadow root (the hotkey
+// shield keeps shadow-origin keys off the document), skipping editable fields.
+// Extracted from Steps so that component stays under the cognitive-complexity bar.
+function useArrowKeyNav(): void {
   useEffect(() => {
     const keys = (event: Event): void => {
       if (!(event instanceof KeyboardEvent)) return;
@@ -279,11 +288,118 @@ function Steps({ spec }: Readonly<{ spec: WalkthroughSpec }>): JSX.Element {
       if (root !== document) root.removeEventListener("keydown", keys);
     };
   }, []);
+}
+
+// The header utility cluster (outline/diagram toggles, ask, re-scroll, copy log,
+// regenerate). Split out of Steps so that component stays under the
+// cognitive-complexity bar; reads its own toggle/chat/commit state from the stores.
+function StepTools({
+  spec,
+  step,
+  index,
+  onRegen,
+}: Readonly<{
+  spec: WalkthroughSpec;
+  step: WalkthroughStep;
+  index: number;
+  onRegen: () => void;
+}>): JSX.Element {
+  const [copiedLog, setCopiedLog] = useState(false);
+  const outlineOpen = tourStore.outlineOpen();
+  const diagramOpen = tourStore.diagramOpen();
+  const stepChat = chatStore.stepChat(step.id);
+  const newCommits = launcherStore.newCommits();
+  return (
+    <div className="ml-auto flex items-center gap-1">
+      <Button
+        variant="ghost"
+        size="icon"
+        className={"h-7 w-7" + (outlineOpen ? " text-primary" : "")}
+        aria-label={outlineOpen ? "Hide outline" : "Show outline"}
+        data-kvasir-tip="Outline — the whole flow; jump to any step"
+        onClick={() => tourStore.setOutlineOpen(!outlineOpen)}
+      >
+        <ListTree />
+      </Button>
+      {spec.diagram && (
+        <Button
+          variant="ghost"
+          size="icon"
+          className={"h-7 w-7" + (diagramOpen ? " text-primary" : "")}
+          aria-label={diagramOpen ? "Hide diagram" : "Show diagram"}
+          data-kvasir-tip="Flow diagram of the change"
+          onClick={() => tourStore.setDiagramOpen(!diagramOpen)}
+        >
+          <Workflow />
+        </Button>
+      )}
+      <Button
+        variant="ghost"
+        size="icon"
+        className={"h-7 w-7" + (stepChat ? " text-primary" : "")}
+        aria-label={stepChat ? "Reopen chat for this step" : "Ask about this step"}
+        data-kvasir-tip={stepChat ? "Reopen this step's chat" : "Ask about this step"}
+        disabled={pairingStore.needsPairing()}
+        onClick={() => {
+          tourStore.askAboutStep();
+          panelStore.setTab(PANEL_TABS.CHAT);
+        }}
+      >
+        {stepChat ? <MessageSquareMore /> : <MessageSquare />}
+      </Button>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-7 w-7"
+        aria-label="Scroll to this step's code"
+        data-kvasir-tip="Scroll to this step's code"
+        onClick={() => tourStore.goto(index)}
+      >
+        <Crosshair />
+      </Button>
+      <Button
+        variant="ghost"
+        size="icon"
+        className={"h-7 w-7" + (copiedLog ? " text-primary" : "")}
+        aria-label="Copy build log"
+        data-kvasir-tip="Copy how this was built — paste to Claude to review"
+        onClick={() => void launcherStore.copyBuildLog().then((result) => setCopiedLog(result === "ok"))}
+      >
+        {copiedLog ? <Check /> : <FileText />}
+      </Button>
+      <Button
+        variant="ghost"
+        size="icon"
+        className={"h-7 w-7" + (newCommits ? " text-primary" : "")}
+        aria-label={newCommits ? "Update" : "Regenerate"}
+        data-kvasir-tip={newCommits ? "Update — new commits since this review" : "Regenerate review"}
+        disabled={pairingStore.needsPairing()}
+        onClick={onRegen}
+      >
+        <RefreshCw />
+      </Button>
+    </div>
+  );
+}
+
+function Steps({ spec }: Readonly<{ spec: WalkthroughSpec }>): JSX.Element {
+  const [dialog, setDialog] = useState(false);
+  const step = tourStore.step();
+  const index = tourStore.stepIndex();
+  const count = tourStore.stepCount();
+
+  // Start (resume) the tour when this tab opens. We deliberately do NOT close on
+  // unmount: leaving for Settings/Chat keeps the page highlight up — so the
+  // highlight-style toggle is testable against a real selection. The panel close
+  // clears it (Panel's unmount), and start() is idempotent on re-entry.
+  useEffect(() => {
+    tourStore.start();
+  }, []);
+  useArrowKeyNav();
 
   if (!step) return <Empty />;
-  const newCommits = launcherStore.newCommits();
-  const stepChat = chatStore.stepChat(step.id);
   const outlineOpen = tourStore.outlineOpen();
+  const diagramOpen = tourStore.diagramOpen();
   const atFirst = index === 0;
   const atLast = index >= count - 1;
   return (
@@ -293,69 +409,13 @@ function Steps({ spec }: Readonly<{ spec: WalkthroughSpec }>): JSX.Element {
         <span className="text-xs text-muted-foreground">
           Step <span className="font-medium text-primary">{index + 1}</span> / {count}
         </span>
-        <div className="ml-auto flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            className={"h-7 w-7" + (outlineOpen ? " text-primary" : "")}
-            aria-label={outlineOpen ? "Hide outline" : "Show outline"}
-            data-kvasir-tip="Outline — the whole flow; jump to any step"
-            onClick={() => tourStore.setOutlineOpen(!outlineOpen)}
-          >
-            <ListTree />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className={"h-7 w-7" + (stepChat ? " text-primary" : "")}
-            aria-label={stepChat ? "Reopen chat for this step" : "Ask about this step"}
-            data-kvasir-tip={stepChat ? "Reopen this step's chat" : "Ask about this step"}
-            disabled={pairingStore.needsPairing()}
-            onClick={() => {
-              tourStore.askAboutStep();
-              panelStore.setTab(PANEL_TABS.CHAT);
-            }}
-          >
-            {stepChat ? <MessageSquareMore /> : <MessageSquare />}
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7"
-            aria-label="Scroll to this step's code"
-            data-kvasir-tip="Scroll to this step's code"
-            onClick={() => tourStore.goto(index)}
-          >
-            <Crosshair />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className={"h-7 w-7" + (copiedLog ? " text-primary" : "")}
-            aria-label="Copy build log"
-            data-kvasir-tip="Copy how this was built — paste to Claude to review"
-            onClick={() => void launcherStore.copyBuildLog().then((result) => setCopiedLog(result === "ok"))}
-          >
-            {copiedLog ? <Check /> : <FileText />}
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className={"h-7 w-7" + (newCommits ? " text-primary" : "")}
-            aria-label={newCommits ? "Update" : "Regenerate"}
-            data-kvasir-tip={newCommits ? "Update — new commits since this review" : "Regenerate review"}
-            disabled={pairingStore.needsPairing()}
-            onClick={() => setDialog(true)}
-          >
-            <RefreshCw />
-          </Button>
-        </div>
+        <StepTools spec={spec} step={step} index={index} onRegen={() => setDialog(true)} />
       </div>
 
       <Coverage coverage={spec.coverage} />
       <Trail steps={spec.steps} current={index} />
 
-      {outlineOpen ? <Outline steps={spec.steps} current={index} /> : <StepBody step={step} />}
+      <MainView spec={spec} step={step} index={index} outlineOpen={outlineOpen} diagramOpen={diagramOpen} />
 
       {/* wizard footer: Back (quiet) · progress dots · Next (accent) */}
       <div className="flex items-center gap-2 border-t border-border px-3 py-2">

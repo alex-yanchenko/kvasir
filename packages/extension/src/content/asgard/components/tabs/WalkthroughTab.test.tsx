@@ -4,6 +4,10 @@ import { act, cleanup, fireEvent, render, screen, within } from "@testing-librar
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 vi.mock("../../../muninn", () => ({ storeGet: vi.fn(), storeSet: vi.fn(), storeRemove: vi.fn() }));
+vi.mock("../../mermaidLoader", () => ({
+  loadMermaid: () =>
+    Promise.resolve({ initialize: () => {}, render: () => Promise.resolve({ svg: "<svg></svg>" }) }),
+}));
 
 import { bifrost } from "../../../bifrost";
 import { launcherStore } from "../../launcher";
@@ -42,6 +46,7 @@ beforeEach(() => {
   if (tourStore.open()) tourStore.close();
   tourStore.setDetailOpen(false); // detail state is module-level now — reset per test
   tourStore.setOutlineOpen(false); // outline state is module-level too — reset per test
+  tourStore.setDiagramOpen(false); // diagram overlay state is module-level too
 });
 afterEach(() => {
   cleanup();
@@ -330,6 +335,22 @@ describe("WalkthroughTab", () => {
     render(<WalkthroughTab />);
     expect(screen.getByTestId("outline")).toBeTruthy(); // module-level state persisted
     expect(screen.getByLabelText("Hide outline")).toBeTruthy();
+  });
+
+  it("shows no diagram toggle when the spec has no diagram", () => {
+    state.spec = mkSpec();
+    render(<WalkthroughTab />);
+    expect(screen.queryByLabelText("Show diagram")).toBeNull();
+  });
+
+  it("shows the diagram toggle when present; opening it renders the diagram and closes the outline", async () => {
+    state.spec = { ...mkSpec(), diagram: "flowchart TD; A-->B" };
+    render(<WalkthroughTab />);
+    fireEvent.click(screen.getByLabelText("Show outline"));
+    expect(screen.getByTestId("outline")).toBeTruthy();
+    fireEvent.click(screen.getByLabelText("Show diagram")); // mutually exclusive with outline
+    expect(screen.queryByTestId("outline")).toBeNull();
+    expect(await screen.findByTestId("diagram")).toBeTruthy();
   });
 
   it("shows a jump trail of visited files once the flow crosses files, and a crumb jumps back", () => {

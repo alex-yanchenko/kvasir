@@ -64,6 +64,9 @@ export const state: {
   reviewReposRoot: string;
   /** Preload 3 AI-suggested questions when a code/step chat opens. Default off. */
   preloadQuestions: boolean;
+  /** Ask the session to author a mermaid flow diagram into the spec. Default off
+   * (it adds time to generation and pulls in the lazy-loaded mermaid renderer). */
+  generateDiagram: boolean;
   theme: string; // "auto" | "light" | "dark"
   hlStyle: string; // "tint" | "github"
   tourState: TourState;
@@ -87,6 +90,7 @@ export const state: {
   reviewMode: localStorage.getItem("kvasirReviewMode") || "heavy", // default heavy
   reviewReposRoot: localStorage.getItem("kvasirReviewReposRoot") || "~/code",
   preloadQuestions: localStorage.getItem("kvasirPreloadQuestions") === "true", // default off
+  generateDiagram: localStorage.getItem("kvasirGenerateDiagram") === "true", // default off
   theme: localStorage.getItem("kvasirTheme") || "auto",
   hlStyle: localStorage.getItem("kvasirHl") || "tint",
   tourState: { step: 0, pos: null, size: null },
@@ -150,6 +154,12 @@ export const settingsStore = {
   setPreloadQuestions(on: boolean): void {
     state.preloadQuestions = on;
     localStorage.setItem("kvasirPreloadQuestions", String(on));
+    touch();
+  },
+  generateDiagram: (): boolean => state.generateDiagram,
+  setGenerateDiagram(on: boolean): void {
+    state.generateDiagram = on;
+    localStorage.setItem("kvasirGenerateDiagram", String(on));
     touch();
   },
   setTheme(theme: string): void {
