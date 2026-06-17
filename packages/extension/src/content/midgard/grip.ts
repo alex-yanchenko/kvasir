@@ -19,13 +19,28 @@ import {
 } from "./diff";
 import { highlightRows } from "./midgard";
 
-const BUBBLE = '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>';
-// Parse a static icon to an <svg> element (DOMParser is inert — no innerHTML sink).
-const svgIcon = (inner: string): Element =>
-  new DOMParser().parseFromString(
-    `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${inner}</svg>`,
-    "image/svg+xml",
-  ).documentElement;
+// eslint-disable-next-line unicorn/prefer-https -- the SVG namespace is a fixed identifier string required verbatim by createElementNS, not a fetchable URL.
+const SVG_NS = "http://www.w3.org/2000/svg";
+const BUBBLE = "M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z";
+const GRIP = "M4 9h16M4 15h16";
+// Build the icon in the live page document via createElementNS, not DOMParser:
+// a node parsed into a separate image/svg+xml document and then adopted into the
+// GitHub page does not reliably lay out or paint in the light DOM. Element + its
+// path are created in the SVG namespace here, so they render. `d` is a static
+// constant (never user input), so there's no markup-injection surface.
+const svgIcon = (d: string): SVGSVGElement => {
+  const svg = document.createElementNS(SVG_NS, "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("fill", "none");
+  svg.setAttribute("stroke", "currentColor");
+  svg.setAttribute("stroke-width", "2");
+  svg.setAttribute("stroke-linecap", "round");
+  svg.setAttribute("stroke-linejoin", "round");
+  const path = document.createElementNS(SVG_NS, "path");
+  path.setAttribute("d", d);
+  svg.append(path);
+  return svg;
+};
 
 interface Selection {
   container: Element;
@@ -74,7 +89,7 @@ export function connectGrip(bifrost: Bifrost): void {
     grip.className = "kvasir-grip";
     grip.dataset.kvasirTip = "Click to select a line · drag to select a range";
     grip.setAttribute("aria-label", "Select line");
-    grip.replaceChildren(svgIcon('<path d="M4 9h16M4 15h16"/>'));
+    grip.replaceChildren(svgIcon(GRIP));
     grip.style.display = "none";
     document.body.append(grip);
     grip.addEventListener("mousedown", onGripDown);
