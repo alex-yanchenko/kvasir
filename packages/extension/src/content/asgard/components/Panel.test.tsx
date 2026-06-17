@@ -40,6 +40,7 @@ beforeEach(() => {
   state.history = null;
   state.seen = {};
   state.guideDeleted = false;
+  tourStore.setOutlineOpen(false); // module-level rail state — reset so the panel width is clean
   pairingStore.reset(); // "unknown" → no banner unless a test sets the phase
 });
 afterEach(() => {
@@ -51,6 +52,14 @@ describe("Panel", () => {
   it("renders nothing while closed", () => {
     const { container } = render(<Panel />);
     expect(container.innerHTML).toBe("");
+  });
+
+  it("extends the panel by the rail width when the outline rail is open (content not shrunk)", () => {
+    tourStore.setOutlineOpen(true); // walkthrough tab is the default + not a review
+    render(<Panel />);
+    act(() => panelStore.open());
+    const dialog = screen.getByRole("dialog", { name: "Kvasir" });
+    expect(dialog.style.width).toBe(`${420 + tourStore.railWidth()}px`);
   });
 
   it("attaches the resize observer only once the panel opens (so size persists across refresh)", () => {

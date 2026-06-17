@@ -94,7 +94,16 @@ function PanelWindow(): JSX.Element {
     ignore: "button",
     onEnd: (pos) => panelStore.setPos(pos),
   });
-  useResizePersist(panelRef, (size) => panelStore.setSize(size));
+  // The outline rail EXTENDS the panel rather than shrinking the content: rendered
+  // width = content width + the rail's width (only while the rail shows), and we
+  // persist the CONTENT width (observed − offset) so opening/closing or resizing
+  // the rail never drifts the stored size.
+  const isReview = activeGuide().kind === "review";
+  const railOffset =
+    !isReview && panelStore.tab() === PANEL_TABS.WALKTHROUGH && tourStore.outlineOpen()
+      ? tourStore.railWidth()
+      : 0;
+  useResizePersist(panelRef, (size) => panelStore.setSize({ w: size.w - railOffset, h: size.h }));
   useScrollLock(panelRef);
   // Closing the panel ends the tour and clears the page highlight (the Walkthrough
   // tab no longer does this on tab-switch, so the highlight survives Settings/Chat).
@@ -108,8 +117,8 @@ function PanelWindow(): JSX.Element {
   const pos = panelStore.pos();
   const size = panelStore.size();
   // Review-mode (a pushed cross-repo review opened via ?kvasir) swaps the walkthrough
-  // tab for the review tab; everything else (chat, settings) is unchanged.
-  const isReview = activeGuide().kind === "review";
+  // tab for the review tab; everything else (chat, settings) is unchanged. (isReview
+  // is computed above for the rail-offset.)
   const staleHistory = historyStore.staleCount();
   const title = isReview ? reviewStore.title() || "Kvasir" : (launcherStore.spec()?.pr?.title ?? "Kvasir");
 
@@ -122,7 +131,8 @@ function PanelWindow(): JSX.Element {
       style={{
         boxShadow: "var(--elevation)",
         ...(pos ? { left: pos.left, top: pos.top, right: "auto", bottom: "auto" } : null),
-        ...(size ? { width: size.w, height: size.h } : null),
+        width: (size?.w ?? 420) + railOffset,
+        ...(size ? { height: size.h } : null),
       }}
     >
       {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions -- title-bar drag handle: drag-to-move is a non-essential reposition with no ARIA role; the panel auto-positions and every function inside is a native, keyboard-operable control. */}
