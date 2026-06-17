@@ -10,7 +10,7 @@ import {
   Copy,
   Crosshair,
   MessageSquare,
-  Minimize2,
+  Minus,
   Plus,
   RotateCw,
   Trash2,
@@ -555,7 +555,7 @@ function Thread({ sess }: Readonly<{ sess: ChatSession }>): JSX.Element {
           data-kvasir-tip="Collapse (keep in the list)"
           onClick={() => chatStore.closeActive()}
         >
-          <Minimize2 />
+          <Minus />
         </Button>
         <Button
           variant="ghost"
