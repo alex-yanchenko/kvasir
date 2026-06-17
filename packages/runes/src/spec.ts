@@ -57,6 +57,16 @@ export const WalkthroughSpecSchema = z.object({
    * stored and fed to chat as background so a fresh session understands the PR. */
   overview: z.string().optional(),
   steps: z.array(WalkthroughStepSchema).min(1),
+  /** Coverage of the PR's significant changed files by the steps, stamped
+   * server-side at publish (never trusted from the model). `significant` =
+   * changed files a walkthrough is expected to cover; `uncovered` = those with no
+   * step. Absent on pre-coverage cached specs and on non-PR reviews (no diff). */
+  coverage: z
+    .object({
+      significant: z.array(z.string()),
+      uncovered: z.array(z.string()),
+    })
+    .optional(),
 });
 
 export type PrRef = z.infer<typeof PrRefSchema>;

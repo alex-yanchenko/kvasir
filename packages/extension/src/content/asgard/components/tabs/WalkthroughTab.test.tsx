@@ -5,6 +5,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 vi.mock("../../../muninn", () => ({ storeGet: vi.fn(), storeSet: vi.fn(), storeRemove: vi.fn() }));
 
+import { bifrost } from "../../../bifrost";
 import { launcherStore } from "../../launcher";
 import { pairingStore } from "../../pairing";
 import { PANEL_TABS, panelStore, state } from "../../store";
@@ -294,6 +295,40 @@ describe("WalkthroughTab", () => {
       fireEvent.click(screen.getByLabelText("Copy build log"));
     });
     expect(screen.getByLabelText("Copy build log").className).not.toContain("text-primary");
+  });
+
+  const COVERAGE_LABEL = "Walkthrough coverage of changed files";
+
+  it("shows partial coverage and jumps to an uncovered file", () => {
+    state.spec = { ...mkSpec(), coverage: { significant: ["f.ts", "g.ts", "h.ts"], uncovered: ["h.ts"] } };
+    const send = vi.spyOn(bifrost, "send").mockImplementation(() => {});
+    render(<WalkthroughTab />);
+    expect(screen.getByLabelText(COVERAGE_LABEL).textContent).toContain("Explains 2/3 changed files");
+    fireEvent.click(screen.getByLabelText(COVERAGE_LABEL)); // expand the uncovered list
+    fireEvent.click(screen.getByRole("button", { name: "h.ts" }));
+    // start() also sends (highlights) on mount, so assert the one jump:ref specifically.
+    const jumpCalls = send.mock.calls.filter(([message]) => message === "jump:ref");
+    expect(jumpCalls).toEqual([["jump:ref", { file: "h.ts", start: null, end: null }]]);
+  });
+
+  it("shows a complete, non-expandable badge at full coverage", () => {
+    state.spec = { ...mkSpec(), coverage: { significant: ["f.ts", "g.ts"], uncovered: [] } };
+    render(<WalkthroughTab />);
+    const badge = screen.getByLabelText(COVERAGE_LABEL) as HTMLButtonElement;
+    expect(badge.textContent).toContain("Explains 2/2 changed files");
+    expect(badge.disabled).toBe(true);
+  });
+
+  it("shows no coverage badge when the spec carries none", () => {
+    state.spec = mkSpec();
+    render(<WalkthroughTab />);
+    expect(screen.queryByLabelText(COVERAGE_LABEL)).toBeNull();
+  });
+
+  it("shows no coverage badge when no changed files are significant", () => {
+    state.spec = { ...mkSpec(), coverage: { significant: [], uncovered: [] } };
+    render(<WalkthroughTab />);
+    expect(screen.queryByLabelText(COVERAGE_LABEL)).toBeNull();
   });
 
   it("a step without detail shows no details toggle", () => {

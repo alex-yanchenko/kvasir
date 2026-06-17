@@ -7,7 +7,7 @@
  * just applies the side effects the outcome names (Map writes, logging, throw).
  */
 import { prKey, type WalkthroughSpec } from "@kvasir/runes";
-import { COVERAGE_MIN_ADDS, uncoveredFiles, type PrManifest } from "./manifest";
+import { COVERAGE_MIN_ADDS, significantFiles, uncoveredFiles, type PrManifest } from "./manifest";
 import { parseSpecInput } from "./specInput";
 
 export interface PublishState {
@@ -60,6 +60,10 @@ export function preparePublish(rawSpec: unknown, state: PublishState): PublishOu
     ...spec,
     generatedAt: state.now,
     pr: manifest ? { ...spec.pr, author: manifest.author } : spec.pr,
+    // Coverage is meaningful only against a diff manifest — omit it (rather than
+    // stamp empty arrays) when start_walkthrough wasn't recorded, so the panel
+    // can tell "fully covered" from "unknown".
+    ...(manifest ? { coverage: { significant: significantFiles(manifest), uncovered } } : {}),
   };
   const coverageNote =
     uncovered.length > 0 ? ` (${uncovered.length} changed file(s) still without a step)` : "";
