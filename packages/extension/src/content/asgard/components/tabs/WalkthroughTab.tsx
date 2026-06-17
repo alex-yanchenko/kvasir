@@ -164,6 +164,44 @@ function Outline(): JSX.Element {
   );
 }
 
+// Jump trail: the file path the flow has taken to the current step — distinct
+// consecutive files across steps[0..current], each crumb jumping to where that
+// file's run begins. Pure-derived from the step index; hidden for a single-file
+// flow (nothing to orient against).
+function Trail(): JSX.Element | null {
+  const steps = launcherStore.spec()?.steps ?? [];
+  const current = tourStore.stepIndex();
+  const crumbs: { file: string; index: number }[] = [];
+  for (let index = 0; index <= current && index < steps.length; index += 1) {
+    const file = steps[index]?.file ?? "";
+    const last = crumbs.at(-1);
+    if (!last || last.file !== file) crumbs.push({ file, index });
+  }
+  if (crumbs.length < 2) return null;
+  return (
+    <div
+      className="flex items-center gap-1 overflow-x-auto border-b border-border px-3 py-1 text-xs text-muted-foreground"
+      data-testid="trail"
+    >
+      {crumbs.map((crumb, crumbIndex) => (
+        <span key={crumb.index} className="flex shrink-0 items-center gap-1">
+          {crumbIndex > 0 && <ChevronRight className="size-3 opacity-50" />}
+          <button
+            className={
+              "truncate font-mono hover:text-primary " +
+              (crumbIndex === crumbs.length - 1 ? "text-primary" : "")
+            }
+            data-kvasir-tip={`Jump to ${crumb.file}`}
+            onClick={() => tourStore.goto(crumb.index)}
+          >
+            {crumb.file.split("/").pop()}
+          </button>
+        </span>
+      ))}
+    </div>
+  );
+}
+
 // The current step's prose + its expandable detail. Split out of Steps so that
 // component stays under the cognitive-complexity bar; detail open state is
 // module-level (tourStore) so it persists across a tab switch.
@@ -313,6 +351,7 @@ function Steps(): JSX.Element {
       </div>
 
       <Coverage />
+      <Trail />
 
       {outlineOpen ? <Outline /> : <StepBody step={step} />}
 

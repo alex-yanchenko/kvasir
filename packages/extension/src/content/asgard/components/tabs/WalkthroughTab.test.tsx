@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import type { WalkthroughSpec } from "@kvasir/runes/spec";
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 vi.mock("../../../muninn", () => ({ storeGet: vi.fn(), storeSet: vi.fn(), storeRemove: vi.fn() }));
@@ -330,6 +330,18 @@ describe("WalkthroughTab", () => {
     render(<WalkthroughTab />);
     expect(screen.getByTestId("outline")).toBeTruthy(); // module-level state persisted
     expect(screen.getByLabelText("Hide outline")).toBeTruthy();
+  });
+
+  it("shows a jump trail of visited files once the flow crosses files, and a crumb jumps back", () => {
+    state.spec = mkSpec(); // step 1 in f.ts, step 2 in g.ts
+    render(<WalkthroughTab />);
+    expect(screen.queryByTestId("trail")).toBeNull(); // one file so far → no trail
+    fireEvent.click(screen.getByLabelText("Next step")); // cross into g.ts
+    const trail = screen.getByTestId("trail");
+    expect(trail.textContent).toContain("f.ts");
+    expect(trail.textContent).toContain("g.ts");
+    fireEvent.click(within(trail).getByRole("button", { name: "f.ts" }));
+    expect(screen.getByText("First step")).toBeTruthy(); // jumped back to the f.ts step
   });
 
   const COVERAGE_LABEL = "Walkthrough coverage of changed files";
