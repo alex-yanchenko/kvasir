@@ -80,6 +80,12 @@
     "dismissable",
     "unrecognised",
     "nofile",
-    "noline"
+    "noline",
+    "buildlog",
+    "worktree",
+    "worktrees",
+    "pids",
+    "pipefail",
+    "esac"
   ]
 }

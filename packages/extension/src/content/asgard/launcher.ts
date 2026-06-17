@@ -8,7 +8,7 @@ import { api, type BridgeResponse } from "../api";
 import { genKey, onFilesTab, prUrl, specKey, tourKey } from "../keys";
 import { storeGet, storeRemove, storeSet } from "../muninn";
 import { pairingStore } from "./pairing";
-import { state, touch } from "./store";
+import { settingsStore, state, touch } from "./store";
 import { tourStore } from "./tour";
 
 /** Any 401 from the bridge means the token is stale/absent — flip to unpaired so
@@ -150,7 +150,15 @@ export const launcherStore = {
     genStartAt = Date.now();
     storeSet(genKey(pr), { previousSig, at: genStartAt });
     touch();
-    const r = noteAuth(await api("/generate", "POST", { pr, mode, sinceSha }));
+    const r = noteAuth(
+      await api("/generate", "POST", {
+        pr,
+        mode,
+        sinceSha,
+        depth: settingsStore.reviewMode(),
+        reposRoot: settingsStore.reviewReposRoot(),
+      }),
+    );
     if (!r.ok) {
       // unpaired (or the channel is down) — don't spin a 20-minute poll on nothing
       generating = false;
@@ -159,6 +167,27 @@ export const launcherStore = {
       return;
     }
     pollForSpec(pr, previousSig);
+  },
+
+  /** Fetch this PR's build log and copy it to the clipboard so the user can paste
+   * it for a quality review. Returns the outcome so the panel can flash feedback. */
+  async copyBuildLog(): Promise<"ok" | "absent" | "error"> {
+    const pr = prUrl();
+    if (!pr) return "error";
+    const r = noteAuth(await api(`/buildlog?pr=${encodeURIComponent(pr)}`));
+    if (!r.ok) return "error";
+    const log =
+      r.data && typeof r.data === "object" && "log" in r.data && typeof r.data.log === "string"
+        ? r.data.log
+        : null;
+    if (!log) return "absent";
+    if (!navigator.clipboard) return "error";
+    try {
+      await navigator.clipboard.writeText(log);
+      return "ok";
+    } catch {
+      return "error";
+    }
   },
 
   /** Stop watching — generation keeps running in the session; reopen later. */
@@ -188,10 +217,11 @@ export const launcherStore = {
     const pr = prUrl();
     if (!pr) return;
     await loadSpec(pr);
-    if (state.spec && onFilesTab() && sessionStorage.getItem("kvasirAutoStart") === "1") {
-      sessionStorage.removeItem("kvasirAutoStart");
-      setTimeout(() => tourStore.start(), 900);
-    }
+    // The panel persists across SPA tab switches (Conversation ↔ Files) without
+    // remounting, so re-issue the current step's highlight whenever a refresh lands
+    // on the diff with the tour open — otherwise highlights wouldn't reappear when
+    // you navigate back to Files. (start() never navigates the page; see tour.ts.)
+    if (state.spec && onFilesTab() && tourStore.open()) tourStore.goto(tourStore.stepIndex());
     if (!genPoll && (await resumeGeneration(pr))) return;
     if (state.spec && !generating) await detectNewCommits(pr);
   },

@@ -34,10 +34,12 @@ beforeEach(() => {
     writable: true,
   });
   state.spec = null;
+  state.chatHistory = [];
   state.tourState = { step: 0, pos: null, size: null };
   state.panel = { open: true, tab: PANEL_TABS.WALKTHROUGH, pos: null, size: null };
   pairingStore.reset(); // "unknown" → backend actions enabled unless a test sets unpaired
   if (tourStore.open()) tourStore.close();
+  tourStore.setDetailOpen(false); // detail state is module-level now — reset per test
 });
 afterEach(() => {
   cleanup();
@@ -119,6 +121,56 @@ describe("WalkthroughTab", () => {
     expect(screen.queryByTestId("step-detail")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Show details" }));
     expect(screen.getByTestId("step-detail")).toBeTruthy();
+  });
+
+  it("keeps 'Show details' expanded across step navigation", () => {
+    state.spec = {
+      version: 1,
+      pr: { url: "u", owner: "a", repo: "b", number: 7 },
+      generatedAt: "t",
+      steps: [
+        { id: "s1", title: "First step", body: "b1", detail: "d1", file: "f.ts", anchor: "x1" },
+        { id: "s2", title: "Second step", body: "b2", detail: "d2", file: "g.ts", anchor: "x2" },
+      ],
+    };
+    render(<WalkthroughTab />);
+    fireEvent.click(screen.getByRole("button", { name: "Show details" }));
+    expect(screen.getByTestId("step-detail")).toBeTruthy();
+    fireEvent.click(screen.getByLabelText("Next step"));
+    expect(screen.getByText("Second step")).toBeTruthy();
+    expect(screen.getByTestId("step-detail")).toBeTruthy(); // expansion persists across steps
+  });
+
+  it("keeps 'Show details' expanded across an unmount/remount (tab switch)", () => {
+    state.spec = mkSpec();
+    const { unmount } = render(<WalkthroughTab />);
+    fireEvent.click(screen.getByRole("button", { name: "Show details" }));
+    expect(screen.getByTestId("step-detail")).toBeTruthy();
+    unmount(); // leaving to Chat/Settings unmounts the tab
+    render(<WalkthroughTab />); // …and back
+    expect(screen.getByTestId("step-detail")).toBeTruthy(); // still expanded
+  });
+
+  it("the step chat icon flips to Reopen when a chat exists for the step", () => {
+    state.spec = mkSpec();
+    render(<WalkthroughTab />);
+    expect(screen.getByLabelText("Ask about this step")).toBeTruthy();
+    // a chat linked to the first step (s1) makes the icon offer Reopen
+    state.chatHistory = [
+      {
+        key: "step:s1",
+        stepId: "s1",
+        file: "f.ts",
+        lines: null,
+        text: "x",
+        suggestions: [],
+        messages: [],
+      },
+    ];
+    cleanup();
+    render(<WalkthroughTab />);
+    expect(screen.getByLabelText("Reopen chat for this step")).toBeTruthy();
+    expect(screen.queryByLabelText("Ask about this step")).toBeNull();
   });
 
   it("arrow keys navigate; Ask about this step routes to the Chat tab", () => {
@@ -221,6 +273,27 @@ describe("WalkthroughTab", () => {
     vi.spyOn(launcherStore, "newCommits").mockReturnValue(true);
     render(<WalkthroughTab />);
     expect(screen.getByRole("button", { name: "Update" })).toBeTruthy();
+  });
+
+  it("copies the build log and flashes a confirmation on success", async () => {
+    state.spec = mkSpec();
+    const copy = vi.spyOn(launcherStore, "copyBuildLog").mockResolvedValue("ok");
+    render(<WalkthroughTab />);
+    await act(async () => {
+      fireEvent.click(screen.getByLabelText("Copy build log"));
+    });
+    expect(copy).toHaveBeenCalledTimes(1);
+    expect(screen.getByLabelText("Copy build log").className).toContain("text-primary");
+  });
+
+  it("does not flash when the build log copy fails", async () => {
+    state.spec = mkSpec();
+    vi.spyOn(launcherStore, "copyBuildLog").mockResolvedValue("absent");
+    render(<WalkthroughTab />);
+    await act(async () => {
+      fireEvent.click(screen.getByLabelText("Copy build log"));
+    });
+    expect(screen.getByLabelText("Copy build log").className).not.toContain("text-primary");
   });
 
   it("a step without detail shows no details toggle", () => {

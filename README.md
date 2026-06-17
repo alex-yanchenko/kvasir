@@ -12,30 +12,47 @@ extension) and was rebuilt into something stable, cheap, and credential-free.
 
 ## Quick start
 
-Prerequisites: **bun**, **gh**, and **pnpm** on your PATH. Then, from the repo
-root:
+Prerequisites: the **claude** CLI and **gh** (run `gh auth login` once — PR data
+needs it). The channel ships as a standalone binary: the installer compiles it
+with **bun** if present, otherwise downloads the prebuilt binary for your platform
+from the latest release — so at runtime the floor is just **claude + gh + the
+binary** (no `node_modules`). **pnpm** is only needed to build the extension from
+source; without it the installer downloads the prebuilt extension from the latest
+release. Then, from the repo root:
 
 ```bash
 ./install.sh
 ```
 
-That installs the `/kvasir` skill, builds the extension, **registers the channel
-in `.mcp.json`**, and puts a **`kvasir`** command on your PATH. (Add
-`--allow-push` to also skip the per-push permission prompt.)
+That installs the `/kvasir` skill, sets up the extension (builds it with pnpm or
+downloads the prebuilt bundle), **compiles (or
+downloads) the channel binary** into `~/.kvasir/bin` and **registers it in
+`.mcp.json`**, and puts a **`kvasir`** command on your PATH. (Add `--allow-push` to
+also skip the per-push permission prompt.)
 
 Three one-time steps:
 
 1. **Load the extension** — `chrome://extensions` → enable **Developer mode** →
    **Load unpacked** → select `packages/extension/`.
-2. **Start the channel** — run **`kvasir`** (one instance serves every Claude
-   session; the bridge listens on `http://localhost:8799`).
+2. **Start the channel** — run **`kvasir`** from anywhere. It opens a Claude Code
+   session that serves the channel (one instance per machine serves every browser
+   tab; the bridge listens on `http://localhost:8799`). Leave it running.
 3. **Pair** — open any GitHub PR, click the **Kvasir** launcher → **Settings →
-   Pair**, and approve the code in your Claude session.
+   Pair**, and approve the code in that session.
 
-Then make a walkthrough:
+Then make a walkthrough — you drive it from the extension, not the terminal:
 
-- **From a PR:** in your Claude session, ask _"Build a walkthrough for `<PR url>`,"_ then open the PR's **Files** tab and click the **Kvasir** launcher.
-- **From any chat:** run **`/kvasir`** and open the link it prints.
+- **From a PR:** open the PR's **Files** tab, click the **Kvasir** launcher, and hit
+  **Run review**. The panel asks your running session to generate the walkthrough and
+  renders it; **Regenerate/Update** live in the panel too. Two depths (Settings →
+  **Review depth**): **Heavy** (default) checks out the PR's local clone — a throwaway
+  worktree at the PR head — and reads the surrounding code so the review reasons about
+  correctness, not just the diff; **Light** authors from the PR diff alone via `gh`
+  (no checkout). Heavy looks for the repo under your **Local repos root** (default
+  `~/code`) and silently falls back to Light if it isn't there.
+- **From any chat (cross-repo):** after you've explained code across one or more
+  **locally-cloned** repos, run the **`/kvasir`** skill — it builds the walkthrough
+  from those repos on disk and prints a link to open.
 
 On any walkthrough, **select code → Ask** to ask questions in place.
 
@@ -57,10 +74,20 @@ of wisdom — here, the local channel your Claude session answers through.
 Both produce the same artifact — a stepped walkthrough rendered in Kvasir's
 panel — and differ only in where the steps come from:
 
-1. **PR tour (in-session).** In your Claude session: _"Build a walkthrough for
-   `<PR url>`."_ Claude reads the diff via `gh`, authors a spec, and publishes it.
-   Open the PR's **Files** tab and the panel renders the tour. Generated once per
-   commit and cached — reopening costs nothing.
+1. **PR tour (from the panel).** Open the PR's **Files** tab and click **Run review**
+   in the Kvasir panel. That asks your running session to read the PR, author a spec,
+   and publish it. **Review depth** (Settings) decides how much it reads: **Heavy**
+   (default) adds a local-repo pass — it finds the clone under your **Local repos root**
+   (default `~/code`), adds a worktree at the PR head, and reads callers / called
+   definitions / types to judge correctness, then removes the worktree; if the repo
+   isn't found it falls back to **Light**, which authors from the `gh` diff alone.
+   Heavy needs `git` and the repo cloned locally. Generated once per commit and cached,
+   so reopening costs nothing. (You can also just ask the session _"Build a walkthrough
+   for `<PR url>`"_ by hand, but the button is the point.) After it publishes, the panel's
+   **Copy build log** button grabs _how_ it was built — the change/coverage facts plus the
+   session's own rationale (for heavy: what it read, any correctness concerns) — to paste
+   for a quality review. It's also saved under `~/.kvasir/logs/`, so any session can read it
+   when you ask _"how was this walkthrough built?"_.
 
 2. **Push / capture (from any chat).** After you've explained some code — often
    across several repos — run the **`/kvasir`** skill. It drafts the steps, the

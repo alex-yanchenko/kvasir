@@ -11,7 +11,7 @@ import { chatsKey, prUrl } from "../keys";
 import { storeSet } from "../muninn";
 import { activeGuide } from "./guide";
 import { pairingStore } from "./pairing";
-import { chatsStore, PANEL_TABS, panelStore, state, touch } from "./store";
+import { chatsStore, PANEL_TABS, panelStore, settingsStore, state, touch } from "./store";
 import type { ChatMessage, ChatSession } from "./types";
 
 export type AskOutcome = { ok: true; streamed: boolean } | { ok: false; error: string };
@@ -160,6 +160,10 @@ export const chatStore = {
   active: (): ChatSession | null => state.chatHistory.find((s) => s.key === activeKey) ?? null,
   live: (): LiveAsk | null => live,
 
+  /** The chat opened from a given walkthrough step, if one exists. */
+  stepChat: (stepId: string): ChatSession | null =>
+    state.chatHistory.find((s) => s.stepId === stepId) ?? null,
+
   /** Show a session in the Chat tab; routes the panel there and repaints its
    * selection on the page (general PR chat has none). */
   open(sess: ChatSession): void {
@@ -182,6 +186,7 @@ export const chatStore = {
         text: p.text,
         suggestions: null,
         messages: [],
+        ...(p.stepId ? { stepId: p.stepId } : {}),
       };
       state.chatHistory = [sess, ...state.chatHistory];
       persist();
@@ -288,10 +293,16 @@ export const chatStore = {
     return { ok: true, streamed: result.streamed };
   },
 
-  /** Prefetch the AI suggestions once per session; cached on the session. */
+  /** Prefetch the AI suggestions once per session; cached on the session. Gated by
+   * the Suggested-questions setting (default off) — when off, cache an empty list so
+   * the chat opens clean (no skeleton, no /suggest call). */
   async ensureSuggestions(key: string): Promise<void> {
     const sess = state.chatHistory.find((s) => s.key === key);
     if (!sess || sess.suggestions) return;
+    if (!settingsStore.preloadQuestions()) {
+      update(key, (s) => ({ ...s, suggestions: [] }));
+      return;
+    }
     const r = await api("/suggest", "POST", {
       pr: prUrl(),
       file: sess.file,

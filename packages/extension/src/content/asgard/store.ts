@@ -55,6 +55,15 @@ export const state: {
   /** Review nav: true = advance the panel only once the page lands (loading in
    * between); false = advance immediately. Default true. */
   reviewSync: boolean;
+  /** Review depth: "heavy" has the session check out the PR's local clone (a
+   * worktree at the PR head) and read the surrounding code for correctness;
+   * "light" authors from the PR diff alone (gh only). Default heavy. */
+  reviewMode: string; // "heavy" | "light"
+  /** Filesystem root the session searches for the PR's local clone in heavy mode;
+   * if the repo isn't found under it, heavy degrades to light. */
+  reviewReposRoot: string;
+  /** Preload 3 AI-suggested questions when a code/step chat opens. Default off. */
+  preloadQuestions: boolean;
   theme: string; // "auto" | "light" | "dark"
   hlStyle: string; // "tint" | "github"
   tourState: TourState;
@@ -75,6 +84,9 @@ export const state: {
   reviewStep: 0,
   reviewNavigating: false,
   reviewSync: localStorage.getItem("kvasirReviewSync") !== "false", // default on
+  reviewMode: localStorage.getItem("kvasirReviewMode") || "heavy", // default heavy
+  reviewReposRoot: localStorage.getItem("kvasirReviewReposRoot") || "~/code",
+  preloadQuestions: localStorage.getItem("kvasirPreloadQuestions") === "true", // default off
   theme: localStorage.getItem("kvasirTheme") || "auto",
   hlStyle: localStorage.getItem("kvasirHl") || "tint",
   tourState: { step: 0, pos: null, size: null },
@@ -120,6 +132,24 @@ export const settingsStore = {
   setReviewSync(on: boolean): void {
     state.reviewSync = on;
     localStorage.setItem("kvasirReviewSync", String(on));
+    touch();
+  },
+  reviewMode: (): string => state.reviewMode,
+  reviewReposRoot: (): string => state.reviewReposRoot,
+  setReviewMode(mode: string): void {
+    state.reviewMode = mode;
+    localStorage.setItem("kvasirReviewMode", mode);
+    touch();
+  },
+  setReviewReposRoot(root: string): void {
+    state.reviewReposRoot = root;
+    localStorage.setItem("kvasirReviewReposRoot", root);
+    touch();
+  },
+  preloadQuestions: (): boolean => state.preloadQuestions,
+  setPreloadQuestions(on: boolean): void {
+    state.preloadQuestions = on;
+    localStorage.setItem("kvasirPreloadQuestions", String(on));
     touch();
   },
   setTheme(theme: string): void {

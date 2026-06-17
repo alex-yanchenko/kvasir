@@ -63,6 +63,55 @@ describe("fmtElapsed / specSig", () => {
   });
 });
 
+describe("copyBuildLog", () => {
+  const writeText = vi.fn();
+  beforeEach(() => {
+    writeText.mockReset();
+    vi.stubGlobal("navigator", { clipboard: { writeText } });
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("fetches the log and writes it to the clipboard", async () => {
+    vi.mocked(api).mockResolvedValue({ ok: true, data: { log: "## build log" } });
+    expect(await launcherStore.copyBuildLog()).toBe("ok");
+    expect(vi.mocked(api)).toHaveBeenCalledWith(`/buildlog?pr=${encodeURIComponent(PR)}`);
+    expect(writeText).toHaveBeenCalledWith("## build log");
+  });
+
+  it("returns absent when no log is recorded yet", async () => {
+    vi.mocked(api).mockResolvedValue({ ok: true, data: { status: "absent" } });
+    expect(await launcherStore.copyBuildLog()).toBe("absent");
+    expect(writeText).not.toHaveBeenCalled();
+  });
+
+  it("returns error on a failed request", async () => {
+    vi.mocked(api).mockResolvedValue({ ok: false });
+    expect(await launcherStore.copyBuildLog()).toBe("error");
+  });
+
+  it("returns error when the clipboard is unavailable", async () => {
+    vi.stubGlobal("navigator", {});
+    vi.mocked(api).mockResolvedValue({ ok: true, data: { log: "x" } });
+    expect(await launcherStore.copyBuildLog()).toBe("error");
+  });
+
+  it("returns error when the clipboard write throws", async () => {
+    writeText.mockRejectedValue(new Error("denied"));
+    vi.mocked(api).mockResolvedValue({ ok: true, data: { log: "x" } });
+    expect(await launcherStore.copyBuildLog()).toBe("error");
+  });
+
+  it("returns error off a PR page", async () => {
+    Object.defineProperty(window, "location", {
+      value: new URL("https://github.com/acme/widget-api"),
+      writable: true,
+    });
+    expect(await launcherStore.copyBuildLog()).toBe("error");
+  });
+});
+
 describe("requestGenerate → poll → spec lands", () => {
   it("persists the marker, closes the tour, polls, and installs the new spec", async () => {
     const fresh = mkSpec({ generatedAt: "2026-02-02T00:00:00Z" });
@@ -84,6 +133,8 @@ describe("requestGenerate → poll → spec lands", () => {
       pr: PR,
       mode: "new",
       sinceSha: undefined,
+      depth: "heavy",
+      reposRoot: "~/code",
     });
 
     await vi.advanceTimersByTimeAsync(GEN_POLL_INTERVAL_MS); // empty tick — still generating
@@ -176,14 +227,25 @@ describe("refresh", () => {
     expect(state.spec).toBeNull();
   });
 
-  it("auto-starts the tour after a tab hop when flagged", async () => {
-    sessionStorage.setItem("kvasirAutoStart", "1");
+  it("re-highlights the current step on a refresh while touring the diff", async () => {
     vi.mocked(api).mockResolvedValue({ ok: true, data: mkSpec() });
+    vi.spyOn(tourStore, "open").mockReturnValue(true);
+    vi.spyOn(tourStore, "stepIndex").mockReturnValue(2);
+    const goto = vi.spyOn(tourStore, "goto").mockImplementation(() => {});
     await launcherStore.refresh();
-    expect(sessionStorage.getItem("kvasirAutoStart")).toBeNull();
-    expect(tourStore.start).not.toHaveBeenCalled();
-    await vi.advanceTimersByTimeAsync(900);
-    expect(tourStore.start).toHaveBeenCalledTimes(1);
+    expect(goto).toHaveBeenCalledWith(2);
+  });
+
+  it("does not re-highlight off the diff tab", async () => {
+    Object.defineProperty(window, "location", {
+      value: new URL("https://github.com/acme/widget-api/pull/7"),
+      writable: true,
+    });
+    vi.mocked(api).mockResolvedValue({ ok: true, data: mkSpec() });
+    vi.spyOn(tourStore, "open").mockReturnValue(true);
+    const goto = vi.spyOn(tourStore, "goto").mockImplementation(() => {});
+    await launcherStore.refresh();
+    expect(goto).not.toHaveBeenCalled();
   });
 
   it("resumes a fresh in-flight generation (timer from the original start)", async () => {

@@ -9,6 +9,9 @@ let offApply: () => void;
 beforeEach(() => {
   state.theme = "auto";
   state.hlStyle = "tint";
+  state.reviewMode = "heavy";
+  state.reviewReposRoot = "~/code";
+  state.preloadQuestions = false;
   localStorage.clear();
   applied = vi.fn<(payload: { theme: string; hlStyle: string }) => void>();
   offApply = bifrost.handle("theme:apply", applied);
@@ -47,6 +50,34 @@ describe("settingsStore", () => {
     settingsStore.setReviewSync(false);
     expect(state.reviewSync).toBe(false);
     expect(localStorage.getItem("kvasirReviewSync")).toBe("false");
+    expect(getSnapshot()).toBe(before + 1);
+  });
+
+  it("reviewMode defaults heavy, and setReviewMode persists + bumps the version (no page command)", () => {
+    expect(settingsStore.reviewMode()).toBe("heavy");
+    const before = getSnapshot();
+    settingsStore.setReviewMode("light");
+    expect(state.reviewMode).toBe("light");
+    expect(localStorage.getItem("kvasirReviewMode")).toBe("light");
+    expect(applied).not.toHaveBeenCalled();
+    expect(getSnapshot()).toBe(before + 1);
+  });
+
+  it("reviewReposRoot defaults to ~/code, and setReviewReposRoot persists + bumps the version", () => {
+    expect(settingsStore.reviewReposRoot()).toBe("~/code");
+    const before = getSnapshot();
+    settingsStore.setReviewReposRoot("/srv/repos");
+    expect(state.reviewReposRoot).toBe("/srv/repos");
+    expect(localStorage.getItem("kvasirReviewReposRoot")).toBe("/srv/repos");
+    expect(getSnapshot()).toBe(before + 1);
+  });
+
+  it("preloadQuestions defaults off, and setPreloadQuestions persists + bumps the version", () => {
+    expect(settingsStore.preloadQuestions()).toBe(false);
+    const before = getSnapshot();
+    settingsStore.setPreloadQuestions(true);
+    expect(state.preloadQuestions).toBe(true);
+    expect(localStorage.getItem("kvasirPreloadQuestions")).toBe("true");
     expect(getSnapshot()).toBe(before + 1);
   });
 });

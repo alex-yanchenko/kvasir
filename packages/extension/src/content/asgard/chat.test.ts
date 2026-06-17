@@ -145,6 +145,14 @@ describe("openSelection", () => {
     expect(state.chatHistory[0].step).toBe("Step: X\nbody");
   });
 
+  it("links the session to a step via stepId, found by stepChat", () => {
+    chatStore.openSelection({ ...payload, selectionId: "step:s1", stepId: "s1" }, false);
+    const sess = chatStore.stepChat("s1");
+    expect(sess?.key).toBe("step:s1");
+    expect(sess?.stepId).toBe("s1");
+    expect(chatStore.stepChat("missing")).toBeNull();
+  });
+
   it("does not open a session that vanished during the step update", () => {
     vi.spyOn(tourStore, "stepContext").mockReturnValue("Step: X\nbody");
     // The withStep update's touch() lets a subscriber drop the session before the
@@ -345,6 +353,18 @@ describe("send", () => {
 });
 
 describe("ensureSuggestions", () => {
+  beforeEach(() => {
+    state.preloadQuestions = true; // the fetch path; the off path is its own test
+  });
+
+  it("caches [] without calling /suggest when preload is off (default)", async () => {
+    state.preloadQuestions = false;
+    state.chatHistory = [mkSession("d")];
+    await chatStore.ensureSuggestions("d");
+    expect(state.chatHistory[0].suggestions).toEqual([]);
+    expect(vi.mocked(api)).not.toHaveBeenCalled();
+  });
+
   it("fetches once and caches on the session; malformed data caches []", async () => {
     state.chatHistory = [mkSession("a")];
     vi.mocked(api).mockResolvedValue({ ok: true, data: { suggestions: ["q1", "q2"] } });

@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
+  bunTarget,
+  channelAssetName,
   KVASIR_PERMISSION,
   kvasirShim,
   parseSetupArgs,
@@ -41,25 +43,53 @@ describe("SETUP_USAGE", () => {
 });
 
 describe("withKvasirServer", () => {
-  const channel = "/repo/packages/mimir/src/channel.ts";
-  const entry = { command: "bun", args: ["run", channel] };
+  const binary = "/home/me/.kvasir/bin/kvasir-channel";
+  const entry = { command: binary, args: [] };
 
-  it("adds the kvasir entry to an absent/non-object config", () => {
-    expect(withKvasirServer(undefined, channel)).toEqual({ mcpServers: { kvasir: entry } });
-    expect(withKvasirServer("garbage", channel)).toEqual({ mcpServers: { kvasir: entry } });
+  it("adds the kvasir binary entry (empty args) to an absent/non-object config", () => {
+    expect(withKvasirServer(undefined, binary)).toEqual({ mcpServers: { kvasir: entry } });
+    expect(withKvasirServer("garbage", binary)).toEqual({ mcpServers: { kvasir: entry } });
+  });
+
+  it("supports a command + args (the bun-run fallback)", () => {
+    expect(withKvasirServer(undefined, "bun", ["run", "/repo/src/channel.ts"])).toEqual({
+      mcpServers: { kvasir: { command: "bun", args: ["run", "/repo/src/channel.ts"] } },
+    });
   });
 
   it("preserves other servers and overrides a stale kvasir", () => {
-    const prev = { mcpServers: { "other-server": { command: "x" }, kvasir: { command: "old" } } };
-    expect(withKvasirServer(prev, channel)).toEqual({
+    const prev = {
+      mcpServers: { "other-server": { command: "x" }, kvasir: { command: "old", args: ["a"] } },
+    };
+    expect(withKvasirServer(prev, binary)).toEqual({
       mcpServers: { "other-server": { command: "x" }, kvasir: entry },
     });
   });
 
   it("does not mutate the input", () => {
     const prev = { mcpServers: { a: { command: "x" } } };
-    withKvasirServer(prev, channel);
+    withKvasirServer(prev, binary);
     expect(prev).toEqual({ mcpServers: { a: { command: "x" } } });
+  });
+});
+
+describe("bunTarget / channelAssetName", () => {
+  it("maps supported platforms to a bun --compile target", () => {
+    expect(bunTarget("darwin", "arm64")).toBe("bun-darwin-arm64");
+    expect(bunTarget("darwin", "x64")).toBe("bun-darwin-x64");
+    expect(bunTarget("linux", "x64")).toBe("bun-linux-x64");
+    expect(bunTarget("linux", "arm64")).toBe("bun-linux-arm64");
+  });
+
+  it("returns null for an unsupported platform/arch", () => {
+    expect(bunTarget("win32", "x64")).toBeNull();
+    expect(bunTarget("darwin", "ia32")).toBeNull();
+  });
+
+  it("derives the release asset name, null when unsupported", () => {
+    expect(channelAssetName("darwin", "arm64")).toBe("kvasir-channel-darwin-arm64");
+    expect(channelAssetName("linux", "x64")).toBe("kvasir-channel-linux-x64");
+    expect(channelAssetName("win32", "x64")).toBeNull();
   });
 });
 
@@ -86,9 +116,20 @@ describe("withKvasirPermission", () => {
 });
 
 describe("kvasirShim", () => {
-  it("hands off to the in-repo bun CLI, forwarding args", () => {
-    expect(kvasirShim("/abs/repo")).toBe(
-      '#!/usr/bin/env bash\nexec bun run "/abs/repo/packages/mimir/scripts/kvasir.ts" "$@"\n',
-    );
+  const shim = kvasirShim("/abs/repo");
+
+  it("runs Claude with the channel from the repo dir, freeing the bridge first (no bun)", () => {
+    expect(shim).toContain('cd "/abs/repo"');
+    expect(shim).toContain("exec claude --dangerously-load-development-channels server:kvasir");
+    expect(shim).toContain("iTCP:8799"); // frees the single-owner bridge before launch
+    expect(shim).not.toContain("kvasir.ts");
+    // `shift` with no positional args returns non-zero; under `set -e` a bare
+    // `kvasir` (no subcommand) would abort before launching Claude.
+    expect(shim).toContain("shift || true");
+  });
+
+  it("routes build to the bun authoring script, guarded on bun being present", () => {
+    expect(shim).toContain('exec bun run "/abs/repo/packages/mimir/scripts/buildReview.ts"');
+    expect(shim).toContain("kvasir build needs bun");
   });
 });

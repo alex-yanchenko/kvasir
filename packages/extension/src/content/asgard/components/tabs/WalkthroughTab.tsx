@@ -2,10 +2,22 @@
 // states: no spec (run a review), generating (status), or the step walkthrough.
 // tourStore drives the page highlights; the tab mount/unmount starts/stops the
 // tour so switching tabs or closing the panel clears the highlight.
-import { ChevronLeft, ChevronRight, Crosshair, Loader2, MessageSquare, Play, RefreshCw } from "lucide-react";
+import {
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Crosshair,
+  FileText,
+  Loader2,
+  MessageSquare,
+  MessageSquareMore,
+  Play,
+  RefreshCw,
+} from "lucide-react";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import type { JSX } from "react";
 import { sanitizeSpecHtml } from "../../../sanitize";
+import { chatStore } from "../../chat";
 import { fmtElapsed, launcherStore } from "../../launcher";
 import { pairingStore } from "../../pairing";
 import { getSnapshot, PANEL_TABS, panelStore, subscribe } from "../../store";
@@ -50,8 +62,8 @@ function Empty(): JSX.Element {
 }
 
 function Steps(): JSX.Element {
-  const [showDetail, setShowDetail] = useState(false);
   const [dialog, setDialog] = useState(false);
+  const [copiedLog, setCopiedLog] = useState(false);
   const step = tourStore.step();
   const index = tourStore.stepIndex();
   const count = tourStore.stepCount();
@@ -63,7 +75,6 @@ function Steps(): JSX.Element {
   useEffect(() => {
     tourStore.start();
   }, []);
-  useEffect(() => setShowDetail(false), [index]);
 
   // Arrow keys navigate; bound to the document AND the shadow root (the hotkey
   // shield keeps shadow-origin keys off the document), skipping editable fields.
@@ -92,6 +103,8 @@ function Steps(): JSX.Element {
 
   if (!step) return <Empty />;
   const newCommits = launcherStore.newCommits();
+  const stepChat = chatStore.stepChat(step.id);
+  const detailOpen = tourStore.detailOpen();
   const atFirst = index === 0;
   const atLast = index >= count - 1;
   return (
@@ -105,16 +118,16 @@ function Steps(): JSX.Element {
           <Button
             variant="ghost"
             size="icon"
-            className="h-7 w-7"
-            aria-label="Ask about this step"
-            data-kvasir-tip="Ask about this step"
+            className={"h-7 w-7" + (stepChat ? " text-primary" : "")}
+            aria-label={stepChat ? "Reopen chat for this step" : "Ask about this step"}
+            data-kvasir-tip={stepChat ? "Reopen this step's chat" : "Ask about this step"}
             disabled={pairingStore.needsPairing()}
             onClick={() => {
               tourStore.askAboutStep();
               panelStore.setTab(PANEL_TABS.CHAT);
             }}
           >
-            <MessageSquare />
+            {stepChat ? <MessageSquareMore /> : <MessageSquare />}
           </Button>
           <Button
             variant="ghost"
@@ -125,6 +138,16 @@ function Steps(): JSX.Element {
             onClick={() => tourStore.goto(index)}
           >
             <Crosshair />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className={"h-7 w-7" + (copiedLog ? " text-primary" : "")}
+            aria-label="Copy build log"
+            data-kvasir-tip="Copy how this was built — paste to Claude to review"
+            onClick={() => void launcherStore.copyBuildLog().then((result) => setCopiedLog(result === "ok"))}
+          >
+            {copiedLog ? <Check /> : <FileText />}
           </Button>
           <Button
             variant="ghost"
@@ -153,11 +176,11 @@ function Steps(): JSX.Element {
               variant="link"
               size="sm"
               className="mt-2 h-auto p-0"
-              onClick={() => setShowDetail((d) => !d)}
+              onClick={() => tourStore.setDetailOpen(!detailOpen)}
             >
-              {showDetail ? "Hide details" : "Show details"}
+              {detailOpen ? "Hide details" : "Show details"}
             </Button>
-            {showDetail && (
+            {detailOpen && (
               <div
                 className="kvasir-prose mt-2 border-t border-border pt-2 text-sm"
                 data-testid="step-detail"

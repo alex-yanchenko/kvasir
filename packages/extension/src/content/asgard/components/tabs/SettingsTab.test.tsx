@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 vi.mock("../../../api", () => ({ api: vi.fn() }));
@@ -19,6 +19,9 @@ let off: () => void;
 beforeEach(() => {
   state.theme = "auto";
   state.hlStyle = "tint";
+  state.reviewMode = "heavy";
+  state.reviewReposRoot = "~/code";
+  state.preloadQuestions = false;
   localStorage.clear();
   pairingStore.reset();
   vi.mocked(storeGet).mockResolvedValue(undefined);
@@ -54,6 +57,34 @@ describe("SettingsTab", () => {
     expect(state.reviewSync).toBe(false);
     fireEvent.click(screen.getByRole("button", { name: "On load" }));
     expect(state.reviewSync).toBe(true);
+  });
+
+  it("review-depth toggle flips reviewMode and shows the repos-root input only on heavy", () => {
+    render(<SettingsTab />);
+    // "Light" also names a Theme option, so scope the clicks to the Review depth group.
+    const depth = screen.getByRole("group", { name: "Review depth" });
+    expect(screen.getByLabelText("Local repos root")).toBeTruthy(); // heavy default
+    fireEvent.click(within(depth).getByRole("button", { name: "Light" }));
+    expect(state.reviewMode).toBe("light");
+    expect(screen.queryByLabelText("Local repos root")).toBeNull();
+    fireEvent.click(within(depth).getByRole("button", { name: "Heavy" }));
+    expect(state.reviewMode).toBe("heavy");
+    expect(screen.getByLabelText("Local repos root")).toBeTruthy();
+  });
+
+  it("repos-root input writes through the store", () => {
+    render(<SettingsTab />);
+    fireEvent.change(screen.getByLabelText("Local repos root"), { target: { value: "/srv/repos" } });
+    expect(state.reviewReposRoot).toBe("/srv/repos");
+  });
+
+  it("suggested-questions toggle flips preloadQuestions (default off)", () => {
+    render(<SettingsTab />);
+    const group = screen.getByRole("group", { name: "Suggested questions" });
+    fireEvent.click(within(group).getByRole("button", { name: "On" }));
+    expect(state.preloadQuestions).toBe(true);
+    fireEvent.click(within(group).getByRole("button", { name: "Off" }));
+    expect(state.preloadQuestions).toBe(false);
   });
 
   it("shows the unpaired state and starts pairing on Pair", async () => {

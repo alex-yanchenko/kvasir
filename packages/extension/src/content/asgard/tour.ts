@@ -4,7 +4,7 @@
 // from the vanilla tour.
 import type { WalkthroughStep } from "@kvasir/runes/spec";
 import { bifrost } from "../bifrost";
-import { onFilesTab, prUrl, tourKey } from "../keys";
+import { prUrl, tourKey } from "../keys";
 import { stepCode } from "../midgard/diff";
 import { storeSet } from "../muninn";
 import { chatStore } from "./chat";
@@ -15,6 +15,9 @@ import { state, touch } from "./store";
 
 let open = false;
 let stepIndex = 0;
+// The detail pane's open state lives here, NOT in React component state, so it
+// survives the WalkthroughTab unmount when you switch to Chat/Settings and back.
+let detailOpen = false;
 
 const clamp = (index: number, length: number): number => Math.min(Math.max(index, 0), length - 1);
 
@@ -24,17 +27,21 @@ export const tourStore = {
   stepIndex: (): number => stepIndex,
   stepCount: (): number => state.spec?.steps.length ?? 0,
   step: (): WalkthroughStep | null => (open && state.spec ? (state.spec.steps[stepIndex] ?? null) : null),
+  detailOpen: (): boolean => detailOpen,
+  setDetailOpen(value: boolean): void {
+    detailOpen = value;
+    touch();
+  },
 
   start(): void {
     if (!state.spec) return;
-    if (!onFilesTab()) {
-      // Hop to the diff tab and auto-resume once it loads.
-      sessionStorage.setItem("kvasirAutoStart", "1");
-      location.href = prUrl() + "/files";
-      return;
-    }
+    // Open and resume where you left off. Off the diff (e.g. the PR conversation
+    // tab) the highlight commands simply find no rows and no-op — the panel still
+    // shows the step text, and highlighting re-engages when you're on the Files
+    // tab. Deliberately does NOT navigate: a passive restore on refresh must never
+    // yank the page to /files.
     open = true;
-    tourStore.goto(state.tourState.step || 0); // resume where you left off
+    tourStore.goto(state.tourState.step || 0);
   },
 
   goto(index: number): void {
@@ -114,7 +121,10 @@ export const tourStore = {
     const rect = page?.rect ?? { left: 60, top: 90, bottom: 114, height: 24 };
     chatStore.openSelection(
       {
-        selectionId: `${s.file}::${text.slice(0, 200)}`,
+        // Key the chat by the step id (stable) so re-asking reopens the same chat
+        // and WalkthroughTab can tell a step already has one.
+        selectionId: `step:${s.id}`,
+        stepId: s.id,
         file: s.file,
         text,
         lines: s.lines ?? null,

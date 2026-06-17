@@ -17,6 +17,9 @@ export interface SelectionPayload {
   text: string;
   lines: LineRange | null;
   rect: RowRect;
+  /** Set only when the chat is opened from a walkthrough step — links the session
+   * to that step (a grip selection on the page leaves it unset). */
+  stepId?: string;
 }
 
 /** What a step highlight needs painted (subset of a Runes WalkthroughStep). */

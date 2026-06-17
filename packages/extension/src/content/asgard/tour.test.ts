@@ -86,12 +86,13 @@ describe("start", () => {
     expect(tourStore.stepIndex()).toBe(1);
   });
 
-  it("off the diff tab: flags auto-start and hops to /files instead of opening", () => {
+  it("off the diff tab: opens and highlights without navigating to /files", () => {
     Object.defineProperty(window, "location", { value: new URL(PR), writable: true });
     tourStore.start();
-    expect(tourStore.open()).toBe(false);
-    expect(sessionStorage.getItem("kvasirAutoStart")).toBe("1");
-    expect(String(window.location.href)).toContain("/files");
+    expect(tourStore.open()).toBe(true);
+    expect(sessionStorage.getItem("kvasirAutoStart")).toBeNull();
+    expect(String(window.location.href)).not.toContain("/files");
+    expect(sent.some((step) => step.kind === "highlight:step")).toBe(true);
   });
 
   it("does nothing without a spec", () => {
@@ -162,7 +163,8 @@ describe("step context + ask", () => {
     tourStore.askAboutStep();
     expect(open).toHaveBeenCalledWith(
       {
-        selectionId: "src/app.ts::const a = 1;",
+        selectionId: "step:s1",
+        stepId: "s1",
         file: "src/app.ts",
         text: "const a = 1;",
         lines: { side: "R", start: 4, end: 6 },
