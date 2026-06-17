@@ -267,4 +267,10 @@ describe("backgroundContext", () => {
     };
     expect(tourStore.backgroundContext()).toBe("• T (f.ts)\n  b");
   });
+
+  it("persists the rail width (rounded) to localStorage", () => {
+    tourStore.setRailWidth(212.7);
+    expect(tourStore.railWidth()).toBe(213);
+    expect(localStorage.getItem("kvasirRailWidth")).toBe("213");
+  });
 });

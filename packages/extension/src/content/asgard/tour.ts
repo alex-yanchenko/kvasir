@@ -18,12 +18,19 @@ let stepIndex = 0;
 // The detail pane's open state lives here, NOT in React component state, so it
 // survives the WalkthroughTab unmount when you switch to Chat/Settings and back.
 let detailOpen = false;
-// The outline (flow skeleton) overlay's open state — module-level for the same
-// reason as detailOpen: it survives a tab switch and back.
+// The outline rail's open state — module-level for the same reason as detailOpen
+// (survives a tab switch). The rail is a persistent left column, not an overlay,
+// so it coexists with the diagram (which overlays the content area, not the rail).
 let outlineOpen = false;
-// The flow-diagram overlay's open state (same module-level rationale). Outline and
-// diagram are mutually exclusive overlays; the toggles close each other.
+// The flow-diagram overlay's open state (same module-level rationale).
 let diagramOpen = false;
+// Steps the user has actually opened this walkthrough (by id) — drives the rail's
+// "visited" dots. Reset when the spec is regenerated (generatedAt changes), tracked
+// here rather than recomputed from stepIndex so a visited mark persists after you
+// navigate back. railWidth is the persisted side-rail width.
+let visited = new Set<string>();
+let visitedStamp = "";
+let railWidth = Number(localStorage.getItem("kvasirRailWidth")) || 190;
 
 const clamp = (index: number, length: number): number => Math.min(Math.max(index, 0), length - 1);
 
@@ -41,13 +48,18 @@ export const tourStore = {
   outlineOpen: (): boolean => outlineOpen,
   setOutlineOpen(value: boolean): void {
     outlineOpen = value;
-    if (value) diagramOpen = false; // one overlay at a time
     touch();
   },
   diagramOpen: (): boolean => diagramOpen,
   setDiagramOpen(value: boolean): void {
     diagramOpen = value;
-    if (value) outlineOpen = false; // one overlay at a time
+    touch();
+  },
+  isVisited: (stepId: string): boolean => visited.has(stepId),
+  railWidth: (): number => railWidth,
+  setRailWidth(width: number): void {
+    railWidth = Math.round(width);
+    localStorage.setItem("kvasirRailWidth", String(railWidth));
     touch();
   },
 
@@ -69,6 +81,12 @@ export const tourStore = {
     storeSet(tourKey(prUrl()), state.tourState);
     const s = state.spec.steps[stepIndex];
     if (!s) return; // empty spec / out-of-range — nothing to highlight
+    // Reset the visited set when the walkthrough is regenerated, then mark this step.
+    if (state.spec.generatedAt !== visitedStamp) {
+      visited = new Set<string>();
+      visitedStamp = state.spec.generatedAt;
+    }
+    visited.add(s.id);
     state.activeStep = s; // current step → available as chat context
     bifrost.send("grip:context", { hasActiveStep: true });
     bifrost.send("highlight:step", {

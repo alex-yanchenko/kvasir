@@ -303,27 +303,43 @@ describe("WalkthroughTab", () => {
     expect(screen.getByLabelText("Copy build log").className).not.toContain("text-primary");
   });
 
-  it("opens the outline, groups steps by file, and a step jumps + closes the outline", () => {
-    state.spec = {
-      version: 1,
-      pr: { url: "u", owner: "a", repo: "b", number: 7 },
-      generatedAt: "t",
-      steps: [
-        { id: "s1", title: "First step", body: "b1", file: "f.ts", anchor: "x1" },
-        { id: "s2", title: "Second step", body: "b2", file: "f.ts", anchor: "x2" },
-        { id: "s3", title: "Third step", body: "b3", file: "g.ts", anchor: "x3" },
-      ],
-    };
+  const threeStepSpec = (generatedAt: string) => ({
+    version: 1 as const,
+    pr: { url: "u", owner: "a", repo: "b", number: 7 },
+    generatedAt,
+    steps: [
+      { id: "s1", title: "First step", body: "b1", file: "f.ts", anchor: "x1" },
+      { id: "s2", title: "Second step", body: "b2", file: "f.ts", anchor: "x2" },
+      { id: "s3", title: "Third step", body: "b3", file: "g.ts", anchor: "x3" },
+    ],
+  });
+
+  it("opens the outline rail, groups steps by file, and a step jumps WITHOUT closing the rail", () => {
+    state.spec = threeStepSpec("rail-jump");
     render(<WalkthroughTab />);
     fireEvent.click(screen.getByLabelText("Show outline"));
     const outline = screen.getByTestId("outline");
-    // two file groups (f.ts twice consecutively → one group, then g.ts)
-    expect(outline.querySelectorAll("ul").length).toBe(2);
+    expect(outline.querySelectorAll("ul").length).toBe(2); // f.ts (s1,s2) then g.ts (s3)
     expect(outline.textContent).toContain("f.ts");
     expect(outline.textContent).toContain("g.ts");
-    fireEvent.click(screen.getByRole("button", { name: /Third step/ }));
-    expect(screen.queryByTestId("outline")).toBeNull(); // outline closed
-    expect(screen.getByText("Third step")).toBeTruthy(); // jumped to step 3
+    fireEvent.click(within(outline).getByRole("button", { name: /Third step/ }));
+    expect(tourStore.stepIndex()).toBe(2); // jumped
+    expect(screen.getByTestId("outline")).toBeTruthy(); // rail stays open (side menu)
+  });
+
+  it("marks rail dots visited / current / upcoming and connectors last vs not", () => {
+    state.spec = threeStepSpec("rail-dots"); // unique stamp → visited set resets on first goto
+    render(<WalkthroughTab />); // start() opens s1 (visited+current)
+    fireEvent.click(screen.getByLabelText("Next step")); // now s2 current, s1 visited, s3 upcoming
+    fireEvent.click(screen.getByLabelText("Show outline"));
+    const buttons = within(screen.getByTestId("outline")).getAllByRole("button");
+    const dot = (button: HTMLElement) => button.querySelector("span.rounded-full");
+    expect(dot(buttons[0]!)?.className).toContain("bg-muted-foreground"); // s1 visited
+    expect(dot(buttons[1]!)?.className).toContain("bg-primary"); // s2 current
+    expect(dot(buttons[2]!)?.className).toContain("border"); // s3 upcoming (hollow)
+    expect(buttons[1]!.getAttribute("aria-current")).toBe("step");
+    expect(buttons[0]!.textContent).toContain("├─"); // s1 is not last in the f.ts group
+    expect(buttons[1]!.textContent).toContain("└─"); // s2 is last in the f.ts group
   });
 
   it("keeps the outline open across an unmount/remount (tab switch)", () => {
@@ -343,26 +359,14 @@ describe("WalkthroughTab", () => {
     expect(screen.queryByLabelText("Show diagram")).toBeNull();
   });
 
-  it("shows the diagram toggle when present; opening it renders the diagram and closes the outline", async () => {
+  it("the diagram and the outline rail coexist (rail is not an overlay)", async () => {
     state.spec = { ...mkSpec(), diagram: "flowchart TD; A-->B" };
     render(<WalkthroughTab />);
     fireEvent.click(screen.getByLabelText("Show outline"));
     expect(screen.getByTestId("outline")).toBeTruthy();
-    fireEvent.click(screen.getByLabelText("Show diagram")); // mutually exclusive with outline
-    expect(screen.queryByTestId("outline")).toBeNull();
+    fireEvent.click(screen.getByLabelText("Show diagram"));
     expect(await screen.findByTestId("diagram")).toBeTruthy();
-  });
-
-  it("shows a jump trail of visited files once the flow crosses files, and a crumb jumps back", () => {
-    state.spec = mkSpec(); // step 1 in f.ts, step 2 in g.ts
-    render(<WalkthroughTab />);
-    expect(screen.queryByTestId("trail")).toBeNull(); // one file so far → no trail
-    fireEvent.click(screen.getByLabelText("Next step")); // cross into g.ts
-    const trail = screen.getByTestId("trail");
-    expect(trail.textContent).toContain("f.ts");
-    expect(trail.textContent).toContain("g.ts");
-    fireEvent.click(within(trail).getByRole("button", { name: "f.ts" }));
-    expect(screen.getByText("First step")).toBeTruthy(); // jumped back to the f.ts step
+    expect(screen.getByTestId("outline")).toBeTruthy(); // rail stays alongside the diagram
   });
 
   const COVERAGE_LABEL = "Walkthrough coverage of changed files";
