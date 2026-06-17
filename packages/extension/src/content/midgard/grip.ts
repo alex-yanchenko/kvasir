@@ -65,6 +65,19 @@ export function connectGrip(bifrost: Bifrost): void {
     bifrost.report("selection:cleared", undefined);
   });
 
+  // A click anywhere off the selection drops it — except on the ask bar (those
+  // clicks open the chat) or the grip (starting a new selection clears its own).
+  // Routed through pick:clear so the page highlight is cleared too, not just the
+  // affordances. mousedown (not click) so it fires before the ask-bar's own click.
+  function onOutsideDown(event: MouseEvent): void {
+    if (!sel) return;
+    const target = event.target;
+    if (!(target instanceof Node)) return;
+    if (askButton?.contains(target) || grip?.contains(target)) return;
+    bifrost.send("pick:clear", undefined);
+  }
+  document.addEventListener("mousedown", onOutsideDown);
+
   // The data that crosses the Bifrost — rebuilt from the rows, never the rows.
   // selectionId doubles as the chat-session key (file + leading text).
   function payloadFor(s: Selection): SelectionPayload | null {

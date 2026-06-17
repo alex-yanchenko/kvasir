@@ -156,6 +156,23 @@ describe("pick:clear", () => {
     offC();
     offA();
   });
+
+  it("drops the selection on a mousedown off it, but not on a mousedown on the ask bar", () => {
+    const cleared = vi.fn();
+    const off = bifrost.on("selection:cleared", cleared);
+    dragFrom(rowsOf(container)[0]);
+    expect(askbar()!.style.display).toBe("flex");
+    cleared.mockClear(); // dragFrom's own new-drag-clears-previous fired one already
+    // a mousedown on the ask bar keeps the selection (that click opens the chat)
+    askbar()!.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+    expect(askbar()!.style.display).toBe("flex");
+    expect(cleared).not.toHaveBeenCalled();
+    // a mousedown anywhere else drops it
+    document.body.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+    expect(askbar()!.style.display).toBe("none");
+    expect(cleared).toHaveBeenCalled();
+    off();
+  });
 });
 
 describe("mouseover guards", () => {
