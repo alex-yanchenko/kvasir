@@ -32,6 +32,12 @@ downloads) the channel binary** into `~/.kvasir/bin` and **registers it in
 `.mcp.json`**, and puts a **`kvasir`** command on your PATH. (Add `--allow-push` to
 also skip the per-push permission prompt.)
 
+> **Keep the clone — it _is_ the install.** Chrome loads the extension from
+> `<clone>/packages/extension`, the `kvasir` command launches Claude from the clone
+> to read its `.mcp.json`, and that `.mcp.json` lives in the clone. So clone it
+> somewhere permanent (not `/tmp`) and don't move or delete it — doing so breaks
+> `kvasir`. Re-run `./install.sh` from a new location to relocate.
+
 Three one-time steps:
 
 1. **Load the extension** — `chrome://extensions` → enable **Developer mode** →
