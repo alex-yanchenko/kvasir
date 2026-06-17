@@ -342,6 +342,30 @@ describe("WalkthroughTab", () => {
     expect(buttons[1]!.textContent).toContain("└─"); // s2 is last in the f.ts group
   });
 
+  it("drag-resizes the outline rail and persists the width", () => {
+    state.spec = mkSpec();
+    render(<WalkthroughTab />);
+    fireEvent.click(screen.getByLabelText("Show outline"));
+    const before = tourStore.railWidth();
+    const splitter = screen.getByLabelText("Resize outline");
+    fireEvent.mouseDown(splitter, { clientX: 100 });
+    fireEvent.mouseMove(document, { clientX: 140 }); // +40
+    fireEvent.mouseUp(document);
+    expect(tourStore.railWidth()).toBeGreaterThan(before);
+  });
+
+  it("arrow-key resizes the rail; a non-arrow key is ignored", () => {
+    state.spec = mkSpec();
+    render(<WalkthroughTab />);
+    fireEvent.click(screen.getByLabelText("Show outline"));
+    const splitter = screen.getByLabelText("Resize outline");
+    const before = tourStore.railWidth();
+    fireEvent.keyDown(splitter, { key: "Enter" }); // no nudge mapping → unchanged
+    expect(tourStore.railWidth()).toBe(before);
+    fireEvent.keyDown(splitter, { key: "ArrowRight" }); // +16
+    expect(tourStore.railWidth()).toBe(Math.min(320, before + 16));
+  });
+
   it("keeps the outline open across an unmount/remount (tab switch)", () => {
     state.spec = mkSpec();
     const { unmount } = render(<WalkthroughTab />);
