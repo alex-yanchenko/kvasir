@@ -9,34 +9,42 @@ import { pairingStore } from "../../pairing";
 import { getSnapshot, settingsStore, subscribe } from "../../store";
 import { Button } from "../../ui/button";
 
+// Every setting carries a one-line `hint` describing what it does — users can't
+// infer "Review depth" or "Highlight" from the label alone. Required, so a new
+// setting can't ship unexplained.
 function Segmented({
   label,
   value,
   options,
   onChange,
+  hint,
 }: Readonly<{
   label: string;
   value: string;
   options: Array<{ value: string; label: string }>;
   onChange: (v: string) => void;
+  hint: string;
 }>): JSX.Element {
   return (
-    <div className="flex items-center justify-between gap-3">
-      <span className="text-sm text-muted-foreground">{label}</span>
-      <div className="inline-flex gap-0.5 rounded-lg bg-muted p-0.5" role="group" aria-label={label}>
-        {options.map((o) => (
-          <Button
-            key={o.value}
-            size="sm"
-            variant={value === o.value ? "default" : "ghost"}
-            aria-pressed={value === o.value}
-            className="h-7 border-0 shadow-none"
-            onClick={() => onChange(o.value)}
-          >
-            {o.label}
-          </Button>
-        ))}
+    <div className="flex flex-col gap-1">
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-sm text-muted-foreground">{label}</span>
+        <div className="inline-flex gap-0.5 rounded-lg bg-muted p-0.5" role="group" aria-label={label}>
+          {options.map((o) => (
+            <Button
+              key={o.value}
+              size="sm"
+              variant={value === o.value ? "default" : "ghost"}
+              aria-pressed={value === o.value}
+              className="h-7 border-0 shadow-none"
+              onClick={() => onChange(o.value)}
+            >
+              {o.label}
+            </Button>
+          ))}
+        </div>
       </div>
+      <p className="text-xs text-muted-foreground/75">{hint}</p>
     </div>
   );
 }
@@ -134,6 +142,7 @@ export function SettingsTab(): JSX.Element {
     <div className="flex flex-col gap-4 p-4">
       <Segmented
         label="Theme"
+        hint="Match the page, or force light/dark for the panel."
         value={settingsStore.theme()}
         options={[
           { value: "auto", label: "Auto" },
@@ -144,6 +153,7 @@ export function SettingsTab(): JSX.Element {
       />
       <Segmented
         label="Highlight"
+        hint="How a step's lines are marked on the diff — a subtle tint, or GitHub's native line highlight."
         value={settingsStore.hlStyle()}
         options={[
           { value: "tint", label: "Tint" },
@@ -153,6 +163,7 @@ export function SettingsTab(): JSX.Element {
       />
       <Segmented
         label="Step nav"
+        hint="On load = scroll the page to your saved step when a walkthrough opens; Instant = only when you pick a step."
         value={settingsStore.reviewSync() ? "synced" : "instant"}
         options={[
           { value: "synced", label: "On load" },
@@ -162,6 +173,7 @@ export function SettingsTab(): JSX.Element {
       />
       <Segmented
         label="Review depth"
+        hint="Heavy reads the locally-cloned repo for correctness (falls back to Light if it isn't found); Light uses only the PR diff."
         value={settingsStore.reviewMode()}
         options={[
           { value: "heavy", label: "Heavy" },
@@ -170,19 +182,25 @@ export function SettingsTab(): JSX.Element {
         onChange={(v) => settingsStore.setReviewMode(v)}
       />
       {settingsStore.reviewMode() === "heavy" && (
-        <div className="flex items-center justify-between gap-3">
-          <span className="text-sm text-muted-foreground">Local repos root</span>
-          <input
-            type="text"
-            aria-label="Local repos root"
-            value={settingsStore.reviewReposRoot()}
-            onChange={(event) => settingsStore.setReviewReposRoot(event.target.value)}
-            className="h-7 w-40 rounded-lg border border-border bg-muted px-2 text-sm text-foreground"
-          />
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-sm text-muted-foreground">Local repos root</span>
+            <input
+              type="text"
+              aria-label="Local repos root"
+              value={settingsStore.reviewReposRoot()}
+              onChange={(event) => settingsStore.setReviewReposRoot(event.target.value)}
+              className="h-7 w-40 rounded-lg border border-border bg-muted px-2 text-sm text-foreground"
+            />
+          </div>
+          <p className="text-xs text-muted-foreground/75">
+            Where Heavy looks for the clone — it searches here for a repo whose name or remote matches the PR.
+          </p>
         </div>
       )}
       <Segmented
         label="Suggested questions"
+        hint="Preload three AI-suggested questions in each chat (costs a model call). Off by default."
         value={settingsStore.preloadQuestions() ? "on" : "off"}
         options={[
           { value: "off", label: "Off" },

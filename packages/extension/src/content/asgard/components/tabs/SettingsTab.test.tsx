@@ -87,6 +87,16 @@ describe("SettingsTab", () => {
     expect(state.preloadQuestions).toBe(false);
   });
 
+  it("explains each setting with a hint; the repos-root hint shows only on heavy", () => {
+    render(<SettingsTab />);
+    expect(screen.getByText(/Heavy reads the locally-cloned repo/)).toBeTruthy();
+    expect(screen.getByText(/Preload three AI-suggested questions/)).toBeTruthy();
+    expect(screen.getByText(/Where Heavy looks for the clone/)).toBeTruthy(); // heavy default
+    const depth = screen.getByRole("group", { name: "Review depth" });
+    fireEvent.click(within(depth).getByRole("button", { name: "Light" }));
+    expect(screen.queryByText(/Where Heavy looks for the clone/)).toBeNull(); // gone on light
+  });
+
   it("shows the unpaired state and starts pairing on Pair", async () => {
     vi.mocked(storeGet).mockResolvedValue(undefined);
     vi.mocked(api).mockResolvedValue({ ok: true, data: { requestId: "r", code: "ABC234" } });
