@@ -2,7 +2,7 @@
 // states: no spec (run a review), generating (status), or the step walkthrough.
 // tourStore drives the page highlights; the tab mount/unmount starts/stops the
 // tour so switching tabs or closing the panel clears the highlight.
-import type { WalkthroughStep } from "@kvasir/runes/spec";
+import type { WalkthroughSpec, WalkthroughStep } from "@kvasir/runes/spec";
 import {
   AlertTriangle,
   Check,
@@ -69,9 +69,10 @@ function Empty(): JSX.Element {
 // Coverage confidence: does the walkthrough explain the whole change? Stamped
 // server-side onto the spec at publish (PR walkthroughs only). Absent → render
 // nothing (a cross-repo review or a pre-coverage cached spec).
-function Coverage(): JSX.Element | null {
+function Coverage({
+  coverage,
+}: Readonly<{ coverage: { significant: string[]; uncovered: string[] } | undefined }>): JSX.Element | null {
   const [open, setOpen] = useState(false);
-  const coverage = launcherStore.spec()?.coverage;
   if (!coverage || coverage.significant.length === 0) return null;
   const { significant, uncovered } = coverage;
   const covered = significant.length - uncovered.length;
@@ -122,9 +123,10 @@ function Coverage(): JSX.Element | null {
 // grouped by consecutive same-file runs so the flow's file structure is visible.
 // Click a step to jump in and drop back to the walk. Open state is module-level
 // (tourStore) so it survives a tab switch.
-function Outline(): JSX.Element {
-  const steps = launcherStore.spec()?.steps ?? [];
-  const current = tourStore.stepIndex();
+function Outline({
+  steps,
+  current,
+}: Readonly<{ steps: readonly WalkthroughStep[]; current: number }>): JSX.Element {
   const groups: { file: string; items: { title: string; index: number }[] }[] = [];
   let position = 0;
   for (const walkStep of steps) {
@@ -168,14 +170,14 @@ function Outline(): JSX.Element {
 // consecutive files across steps[0..current], each crumb jumping to where that
 // file's run begins. Pure-derived from the step index; hidden for a single-file
 // flow (nothing to orient against).
-function Trail(): JSX.Element | null {
-  const steps = launcherStore.spec()?.steps ?? [];
-  const current = tourStore.stepIndex();
+function Trail({
+  steps,
+  current,
+}: Readonly<{ steps: readonly WalkthroughStep[]; current: number }>): JSX.Element | null {
   const crumbs: { file: string; index: number }[] = [];
-  for (let index = 0; index <= current && index < steps.length; index += 1) {
-    const file = steps[index]?.file ?? "";
+  for (const [index, walkStep] of steps.slice(0, current + 1).entries()) {
     const last = crumbs.at(-1);
-    if (!last || last.file !== file) crumbs.push({ file, index });
+    if (!last || last.file !== walkStep.file) crumbs.push({ file: walkStep.file, index });
   }
   if (crumbs.length < 2) return null;
   return (
@@ -238,7 +240,7 @@ function StepBody({ step }: Readonly<{ step: WalkthroughStep }>): JSX.Element {
   );
 }
 
-function Steps(): JSX.Element {
+function Steps({ spec }: Readonly<{ spec: WalkthroughSpec }>): JSX.Element {
   const [dialog, setDialog] = useState(false);
   const [copiedLog, setCopiedLog] = useState(false);
   const step = tourStore.step();
@@ -350,10 +352,10 @@ function Steps(): JSX.Element {
         </div>
       </div>
 
-      <Coverage />
-      <Trail />
+      <Coverage coverage={spec.coverage} />
+      <Trail steps={spec.steps} current={index} />
 
-      {outlineOpen ? <Outline /> : <StepBody step={step} />}
+      {outlineOpen ? <Outline steps={spec.steps} current={index} /> : <StepBody step={step} />}
 
       {/* wizard footer: Back (quiet) · progress dots · Next (accent) */}
       <div className="flex items-center gap-2 border-t border-border px-3 py-2">
@@ -402,6 +404,7 @@ function Steps(): JSX.Element {
 export function WalkthroughTab(): JSX.Element {
   useSyncExternalStore(subscribe, getSnapshot);
   if (launcherStore.generating()) return <Generating />;
-  if (!launcherStore.spec()?.steps.length) return <Empty />;
-  return <Steps />;
+  const spec = launcherStore.spec();
+  if (!spec?.steps.length) return <Empty />;
+  return <Steps spec={spec} />;
 }
