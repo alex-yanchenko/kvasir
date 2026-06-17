@@ -4,9 +4,9 @@ Kvasir is a **comprehension** tool: understand a PR or a piece of code — its _
 surrounding context — not a review-output tool. Nothing here posts to GitHub or duplicates
 review comments. (See the product-scope decision: comprehension axis only.)
 
-Five shippable slices, each its own PR. Order is cheap→rich; the first three add **zero**
+Six shippable slices, each its own PR. Order is cheap→rich; all but one add **zero**
 generation cost (render-side or deterministic), so they don't make walkthrough generation
-slower — they make the panel deeper.
+slower — they make the panel deeper. (Only S5, the opt-in diagram, adds LLM time.)
 
 ## Principles & invariants (anchors for curveballs)
 
