@@ -121,21 +121,48 @@ walk has taken to the current step.
 - **AC:** with the toggle on, the spec carries a diagram and the panel renders it; off →
   generation unchanged and no diagram UI.
 
+## Slice 6 — Settings help text (render-side, zero gen cost)
+
+**Goal:** every setting explains itself. Users won't infer what "Review depth", "Local
+repos root", "Suggested questions", or "Highlight style" do — each control needs a short,
+plain description of what it changes and when to pick which option.
+
+- **Render** (`SettingsTab`): a one-line muted description under each control (or an info
+  `(i)` affordance using the existing `data-kvasir-tip` tooltip — match whatever reads
+  cleanest in the panel width). Cover every setting:
+  - **Review depth** — Heavy reads the local repo for correctness (needs the repo cloned
+    under the repos root); Light authors from the PR diff alone. Note the silent Heavy→Light
+    fallback.
+  - **Local repos root** — where Heavy looks for the clone (it searches under this path for
+    a repo whose remote/name matches); shown only in Heavy.
+  - **Suggested questions** — preload 3 AI question chips per chat (off by default; costs a
+    model call when on).
+  - **Theme / Highlight style** — what they restyle.
+  - **(when S5 lands) Flow diagram** — opt-in; adds time to generation.
+  - **Debug / Wipe** — already has a hint; keep it.
+- **Tests:** each setting renders its description text; Heavy-only repos-root help shows only
+  in Heavy.
+- **AC:** no setting is unlabeled; descriptions match actual behavior (reconcile after any
+  settings change — Hyrum: the text becomes the contract users rely on).
+
 ---
 
 ## Cost ledger
 
-| Slice          | Generation cost                | Lives in                |
-| -------------- | ------------------------------ | ----------------------- |
-| S1 coverage    | none (already computed)        | publish.ts + render     |
-| S2 outline     | none                           | render                  |
-| S3 trail       | none                           | render                  |
-| S4 def/callers | none (on click)                | bridge + channel query  |
-| S5 diagram     | **yes — gated off by default** | settings + gen + render |
+| Slice            | Generation cost                | Lives in                |
+| ---------------- | ------------------------------ | ----------------------- |
+| S1 coverage      | none (already computed)        | publish.ts + render     |
+| S2 outline       | none                           | render                  |
+| S3 trail         | none                           | render                  |
+| S4 def/callers   | none (on click)                | bridge + channel query  |
+| S5 diagram       | **yes — gated off by default** | settings + gen + render |
+| S6 settings help | none                           | render                  |
 
-Generation stays ~as-is for S1–S4; only S5 (opt-in) adds LLM time.
+Generation stays ~as-is for S1–S4 and S6; only S5 (opt-in) adds LLM time.
 
 ## Build order
 
-S1 → S2 → S3 → S4 → S5. Reconcile this doc at each slice boundary: name which slice the
-work served; if S4/S5 scope shifts, revise here first, then build.
+S1 → S2 → S3 → S4 → S5 → S6 (settings help lands last so it can describe S5's diagram
+toggle too — or pull it earlier if the current settings need explaining sooner). Reconcile
+this doc at each slice boundary: name which slice the work served; if scope shifts, revise
+here first, then build.
