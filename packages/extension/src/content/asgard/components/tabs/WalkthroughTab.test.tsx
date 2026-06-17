@@ -41,6 +41,7 @@ beforeEach(() => {
   pairingStore.reset(); // "unknown" → backend actions enabled unless a test sets unpaired
   if (tourStore.open()) tourStore.close();
   tourStore.setDetailOpen(false); // detail state is module-level now — reset per test
+  tourStore.setOutlineOpen(false); // outline state is module-level too — reset per test
 });
 afterEach(() => {
   cleanup();
@@ -295,6 +296,40 @@ describe("WalkthroughTab", () => {
       fireEvent.click(screen.getByLabelText("Copy build log"));
     });
     expect(screen.getByLabelText("Copy build log").className).not.toContain("text-primary");
+  });
+
+  it("opens the outline, groups steps by file, and a step jumps + closes the outline", () => {
+    state.spec = {
+      version: 1,
+      pr: { url: "u", owner: "a", repo: "b", number: 7 },
+      generatedAt: "t",
+      steps: [
+        { id: "s1", title: "First step", body: "b1", file: "f.ts", anchor: "x1" },
+        { id: "s2", title: "Second step", body: "b2", file: "f.ts", anchor: "x2" },
+        { id: "s3", title: "Third step", body: "b3", file: "g.ts", anchor: "x3" },
+      ],
+    };
+    render(<WalkthroughTab />);
+    fireEvent.click(screen.getByLabelText("Show outline"));
+    const outline = screen.getByTestId("outline");
+    // two file groups (f.ts twice consecutively → one group, then g.ts)
+    expect(outline.querySelectorAll("ul").length).toBe(2);
+    expect(outline.textContent).toContain("f.ts");
+    expect(outline.textContent).toContain("g.ts");
+    fireEvent.click(screen.getByRole("button", { name: /Third step/ }));
+    expect(screen.queryByTestId("outline")).toBeNull(); // outline closed
+    expect(screen.getByText("Third step")).toBeTruthy(); // jumped to step 3
+  });
+
+  it("keeps the outline open across an unmount/remount (tab switch)", () => {
+    state.spec = mkSpec();
+    const { unmount } = render(<WalkthroughTab />);
+    fireEvent.click(screen.getByLabelText("Show outline"));
+    expect(screen.getByTestId("outline")).toBeTruthy();
+    unmount();
+    render(<WalkthroughTab />);
+    expect(screen.getByTestId("outline")).toBeTruthy(); // module-level state persisted
+    expect(screen.getByLabelText("Hide outline")).toBeTruthy();
   });
 
   const COVERAGE_LABEL = "Walkthrough coverage of changed files";

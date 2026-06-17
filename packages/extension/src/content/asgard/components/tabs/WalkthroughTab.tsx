@@ -2,6 +2,7 @@
 // states: no spec (run a review), generating (status), or the step walkthrough.
 // tourStore drives the page highlights; the tab mount/unmount starts/stops the
 // tour so switching tabs or closing the panel clears the highlight.
+import type { WalkthroughStep } from "@kvasir/runes/spec";
 import {
   AlertTriangle,
   Check,
@@ -10,6 +11,7 @@ import {
   ChevronRight,
   Crosshair,
   FileText,
+  ListTree,
   Loader2,
   MessageSquare,
   MessageSquareMore,
@@ -116,6 +118,88 @@ function Coverage(): JSX.Element | null {
   );
 }
 
+// Flow outline (altitude): the whole walkthrough as a skeleton — step titles
+// grouped by consecutive same-file runs so the flow's file structure is visible.
+// Click a step to jump in and drop back to the walk. Open state is module-level
+// (tourStore) so it survives a tab switch.
+function Outline(): JSX.Element {
+  const steps = launcherStore.spec()?.steps ?? [];
+  const current = tourStore.stepIndex();
+  const groups: { file: string; items: { title: string; index: number }[] }[] = [];
+  let position = 0;
+  for (const walkStep of steps) {
+    const last = groups.at(-1);
+    if (last && last.file === walkStep.file) last.items.push({ title: walkStep.title, index: position });
+    else groups.push({ file: walkStep.file, items: [{ title: walkStep.title, index: position }] });
+    position += 1;
+  }
+  return (
+    <div className="min-h-0 flex-1 overflow-y-auto px-3 py-2" data-testid="outline">
+      {groups.map((group, groupIndex) => (
+        <div key={groupIndex} className="mb-2">
+          <div className="truncate font-mono text-xs text-muted-foreground" data-kvasir-tip={group.file}>
+            {group.file}
+          </div>
+          <ul className="mt-0.5">
+            {group.items.map((item) => (
+              <li key={item.index}>
+                <button
+                  className={
+                    "block w-full truncate rounded px-2 py-1 text-left text-sm hover:bg-muted " +
+                    (item.index === current ? "bg-muted font-medium text-primary" : "")
+                  }
+                  onClick={() => {
+                    tourStore.goto(item.index);
+                    tourStore.setOutlineOpen(false);
+                  }}
+                >
+                  <span className="text-muted-foreground">{item.index + 1}.</span> {item.title}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// The current step's prose + its expandable detail. Split out of Steps so that
+// component stays under the cognitive-complexity bar; detail open state is
+// module-level (tourStore) so it persists across a tab switch.
+function StepBody({ step }: Readonly<{ step: WalkthroughStep }>): JSX.Element {
+  const detailOpen = tourStore.detailOpen();
+  return (
+    <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+      <h3 className="mb-2 text-base font-semibold">{step.title}</h3>
+      <div
+        className="kvasir-prose text-sm"
+        data-testid="step-body"
+        dangerouslySetInnerHTML={{ __html: sanitizeSpecHtml(step.body) }}
+      />
+      {step.detail && (
+        <>
+          <Button
+            variant="link"
+            size="sm"
+            className="mt-2 h-auto p-0"
+            onClick={() => tourStore.setDetailOpen(!detailOpen)}
+          >
+            {detailOpen ? "Hide details" : "Show details"}
+          </Button>
+          {detailOpen && (
+            <div
+              className="kvasir-prose mt-2 border-t border-border pt-2 text-sm"
+              data-testid="step-detail"
+              dangerouslySetInnerHTML={{ __html: sanitizeSpecHtml(step.detail) }}
+            />
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 function Steps(): JSX.Element {
   const [dialog, setDialog] = useState(false);
   const [copiedLog, setCopiedLog] = useState(false);
@@ -159,7 +243,7 @@ function Steps(): JSX.Element {
   if (!step) return <Empty />;
   const newCommits = launcherStore.newCommits();
   const stepChat = chatStore.stepChat(step.id);
-  const detailOpen = tourStore.detailOpen();
+  const outlineOpen = tourStore.outlineOpen();
   const atFirst = index === 0;
   const atLast = index >= count - 1;
   return (
@@ -170,6 +254,16 @@ function Steps(): JSX.Element {
           Step <span className="font-medium text-primary">{index + 1}</span> / {count}
         </span>
         <div className="ml-auto flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            className={"h-7 w-7" + (outlineOpen ? " text-primary" : "")}
+            aria-label={outlineOpen ? "Hide outline" : "Show outline"}
+            data-kvasir-tip="Outline — the whole flow; jump to any step"
+            onClick={() => tourStore.setOutlineOpen(!outlineOpen)}
+          >
+            <ListTree />
+          </Button>
           <Button
             variant="ghost"
             size="icon"
@@ -220,33 +314,7 @@ function Steps(): JSX.Element {
 
       <Coverage />
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
-        <h3 className="mb-2 text-base font-semibold">{step.title}</h3>
-        <div
-          className="kvasir-prose text-sm"
-          data-testid="step-body"
-          dangerouslySetInnerHTML={{ __html: sanitizeSpecHtml(step.body) }}
-        />
-        {step.detail && (
-          <>
-            <Button
-              variant="link"
-              size="sm"
-              className="mt-2 h-auto p-0"
-              onClick={() => tourStore.setDetailOpen(!detailOpen)}
-            >
-              {detailOpen ? "Hide details" : "Show details"}
-            </Button>
-            {detailOpen && (
-              <div
-                className="kvasir-prose mt-2 border-t border-border pt-2 text-sm"
-                data-testid="step-detail"
-                dangerouslySetInnerHTML={{ __html: sanitizeSpecHtml(step.detail) }}
-              />
-            )}
-          </>
-        )}
-      </div>
+      {outlineOpen ? <Outline /> : <StepBody step={step} />}
 
       {/* wizard footer: Back (quiet) · progress dots · Next (accent) */}
       <div className="flex items-center gap-2 border-t border-border px-3 py-2">

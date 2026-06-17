@@ -18,6 +18,9 @@ let stepIndex = 0;
 // The detail pane's open state lives here, NOT in React component state, so it
 // survives the WalkthroughTab unmount when you switch to Chat/Settings and back.
 let detailOpen = false;
+// The outline (flow skeleton) overlay's open state — module-level for the same
+// reason as detailOpen: it survives a tab switch and back.
+let outlineOpen = false;
 
 const clamp = (index: number, length: number): number => Math.min(Math.max(index, 0), length - 1);
 
@@ -30,6 +33,11 @@ export const tourStore = {
   detailOpen: (): boolean => detailOpen,
   setDetailOpen(value: boolean): void {
     detailOpen = value;
+    touch();
+  },
+  outlineOpen: (): boolean => outlineOpen,
+  setOutlineOpen(value: boolean): void {
+    outlineOpen = value;
     touch();
   },
 
