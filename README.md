@@ -12,13 +12,15 @@ extension) and was rebuilt into something stable, cheap, and credential-free.
 
 ## Quick start
 
-Prerequisites: the **claude** CLI and **gh** (run `gh auth login` once — PR data
-needs it). The channel ships as a standalone binary: the installer compiles it
-with **bun** if present, otherwise downloads the prebuilt binary for your platform
-from the latest release — so at runtime the floor is just **claude + gh + the
-binary** (no `node_modules`). **pnpm** is only needed to build the extension from
-source; without it the installer downloads the prebuilt extension from the latest
-release. Then, from the repo root:
+Prerequisites: **bun** (the installer runs under it), the **claude** CLI, and
+**gh** (run `gh auth login` once — PR data needs it). The channel ships as a
+standalone binary: with the repo's dependencies installed, the installer compiles
+it; otherwise (e.g. a no-pnpm clone, where there's nothing to resolve the channel's
+imports against) it downloads the prebuilt binary for your platform from the latest
+release. Either way, at runtime the floor is just **claude + gh + the binary** (no
+`node_modules`). **pnpm** is only needed to build the extension from source; without
+it the installer downloads the prebuilt extension from the latest release. Then,
+from the repo root:
 
 ```bash
 ./install.sh

@@ -21,6 +21,8 @@ import { homedir } from "node:os";
 import path from "node:path";
 import {
   channelAssetName,
+  type ChannelOutcome,
+  channelRegistration,
   KVASIR_PERMISSION,
   kvasirShim,
   parseSetupArgs,
@@ -126,27 +128,33 @@ if ((process.env.PATH ?? "").split(":").includes(binDirectory)) {
   warn(`installed kvasir → ${binDirectory} (add to PATH: export PATH="$HOME/.local/bin:$PATH")`);
 }
 
-// Compile (or download) the channel into a standalone binary so the running
-// channel needs neither bun nor node_modules — the floor is claude + gh + binary.
-// bun present → compile locally; else gh → download the platform's release asset;
-// neither → register the bun-run fallback (so a dev clone still works).
+// Get the channel as a standalone binary so the running channel needs neither
+// bun nor node_modules — the floor is claude + gh + binary. bun + the repo's
+// node_modules → compile locally; if that's unavailable or fails (e.g. a no-pnpm
+// clone with nothing to resolve @kvasir/runes against) → download the platform's
+// prebuilt release asset; if a usable binary from a prior run is still in place →
+// keep it; otherwise → register the bun-run fallback (a dev-clone convenience).
 console.log("Channel binary:");
 const channelSource = path.join(REPO, "packages/mimir/src/channel.ts");
 const channelBinDirectory = path.join(HOME, ".kvasir/bin");
 mkdirSync(channelBinDirectory, { recursive: true });
 const channelBinary = path.join(channelBinDirectory, "kvasir-channel");
+const hadPriorBinary = existsSync(channelBinary);
+
+let channelOutcome: ChannelOutcome = "none";
 if (have("bun")) {
   const compiled = Bun.spawnSync(["bun", "build", channelSource, "--compile", "--outfile", channelBinary], {
     stdout: "ignore",
     stderr: "ignore",
   });
-  if (compiled.exitCode === 0) ok(`compiled channel → ${channelBinary}`);
-  else warn("channel compile failed — registering the 'bun run' fallback instead");
-} else {
+  if (compiled.exitCode === 0) {
+    ok(`compiled channel → ${channelBinary}`);
+    channelOutcome = "compiled";
+  } else warn("channel compile failed (no node_modules to resolve deps?) — trying the prebuilt download");
+}
+if (channelOutcome === "none") {
   const asset = channelAssetName(process.platform, process.arch);
-  if (!asset) {
-    warn(`no prebuilt channel for ${process.platform}/${process.arch} — install bun to compile it locally`);
-  } else if (have("gh")) {
+  if (asset && have("gh")) {
     const downloaded = Bun.spawnSync(
       // prettier-ignore
       ["gh", "release", "download", "--repo", "alex-yanchenko/kvasir", "--pattern", asset, "--output", channelBinary, "--clobber"],
@@ -155,10 +163,21 @@ if (have("bun")) {
     if (downloaded.exitCode === 0) {
       chmodSync(channelBinary, 0o755);
       ok(`downloaded channel → ${channelBinary}`);
-    } else warn("channel download failed (no release yet?) — install bun to compile it locally");
+      channelOutcome = "downloaded";
+    } else warn("channel download failed (no release yet?)");
+  } else if (asset) {
+    warn("need gh to download the channel (or 'pnpm install' so bun can compile it locally)");
   } else {
-    warn("need bun (to compile) or gh (to download) for the channel binary");
+    warn(
+      `no prebuilt channel for ${process.platform}/${process.arch} — install bun + run 'pnpm install' to compile`,
+    );
   }
+}
+// Compile/download both failed but a standalone binary from a prior run survives:
+// keep serving with it rather than dropping to the deps-requiring bun-run fallback.
+if (channelOutcome === "none" && hadPriorBinary && existsSync(channelBinary)) {
+  channelOutcome = "reused";
+  ok(`keeping the existing channel binary → ${channelBinary}`);
 }
 
 console.log("Channel registration:");
@@ -171,15 +190,10 @@ if (existsSync(mcpPath)) {
     mcpPrevious = {};
   }
 }
-const haveBinary = existsSync(channelBinary);
-const merged = haveBinary
-  ? withKvasirServer(mcpPrevious, channelBinary)
-  : withKvasirServer(mcpPrevious, "bun", ["run", channelSource]);
+const channelEntry = channelRegistration(channelOutcome, channelBinary, channelSource);
+const merged = withKvasirServer(mcpPrevious, channelEntry.command, channelEntry.args);
 writeFileSync(mcpPath, `${JSON.stringify(merged, null, 2)}\n`);
-ok(
-  `registered 'kvasir' in ${mcpPath}` +
-    (haveBinary ? " (compiled binary)" : " (bun run — install bun or gh for a standalone binary)"),
-);
+ok(`registered 'kvasir' in ${mcpPath} ${channelEntry.label}`);
 
 console.log("Permission:");
 const settingsPath = path.join(HOME, ".claude/settings.json");

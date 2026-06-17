@@ -129,6 +129,54 @@ export function withKvasirPermission(previous: unknown): {
   return { config, changed: true };
 }
 
+/** How the channel binary was obtained this install run. `compiled`/`downloaded`
+ * = produced now; `reused` = a binary from a prior run was left in place (e.g.
+ * compile failed with no node_modules but an older standalone binary exists);
+ * `none` = no binary at all, so we register the bun-run fallback. The installer
+ * picks this from the actual run outcome — never from a bare existsSync, which
+ * can't tell a freshly-built binary from a stale leftover. */
+export type ChannelOutcome = "compiled" | "downloaded" | "reused" | "none";
+
+export interface ChannelRegistration {
+  command: string;
+  args: string[];
+  /** Trailing note for the "registered 'kvasir' …" line, describing provenance. */
+  label: string;
+}
+
+/** Map a channel-binary outcome to the .mcp.json server entry + an honest log
+ * note. `none` falls back to `bun run channel.ts` (needs node_modules at run
+ * time — a dev-clone convenience, not the standalone path). Exhaustive over
+ * ChannelOutcome: adding a variant without a case is a compile error. */
+export function channelRegistration(
+  outcome: ChannelOutcome,
+  binary: string,
+  channelSource: string,
+): ChannelRegistration {
+  switch (outcome) {
+    case "compiled": {
+      return { command: binary, args: [], label: "(compiled binary)" };
+    }
+    case "downloaded": {
+      return { command: binary, args: [], label: "(downloaded prebuilt binary)" };
+    }
+    case "reused": {
+      return {
+        command: binary,
+        args: [],
+        label: "(existing binary — re-run after 'pnpm install' to refresh)",
+      };
+    }
+    case "none": {
+      return {
+        command: "bun",
+        args: ["run", channelSource],
+        label: "(bun run — install bun + run 'pnpm install', or gh, for a standalone binary)",
+      };
+    }
+  }
+}
+
 /** The ~/.local/bin/kvasir shim. `run` (the default) needs only Claude — it frees
  * the single-owner :8799 bridge then launches Claude with the channel from the
  * repo dir (so Claude loads this repo's .mcp.json). `build` is the walkthrough

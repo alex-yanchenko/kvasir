@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   bunTarget,
   channelAssetName,
+  channelRegistration,
   KVASIR_PERMISSION,
   kvasirShim,
   parseSetupArgs,
@@ -90,6 +91,43 @@ describe("bunTarget / channelAssetName", () => {
     expect(channelAssetName("darwin", "arm64")).toBe("kvasir-channel-darwin-arm64");
     expect(channelAssetName("linux", "x64")).toBe("kvasir-channel-linux-x64");
     expect(channelAssetName("win32", "x64")).toBeNull();
+  });
+});
+
+describe("channelRegistration", () => {
+  const binary = "/home/me/.kvasir/bin/kvasir-channel";
+  const source = "/repo/packages/mimir/src/channel.ts";
+
+  it("registers the standalone binary for a compiled outcome", () => {
+    expect(channelRegistration("compiled", binary, source)).toEqual({
+      command: binary,
+      args: [],
+      label: "(compiled binary)",
+    });
+  });
+
+  it("registers the standalone binary for a downloaded outcome", () => {
+    expect(channelRegistration("downloaded", binary, source)).toEqual({
+      command: binary,
+      args: [],
+      label: "(downloaded prebuilt binary)",
+    });
+  });
+
+  it("registers a reused prior binary, flagging it as not freshly built", () => {
+    expect(channelRegistration("reused", binary, source)).toEqual({
+      command: binary,
+      args: [],
+      label: "(existing binary — re-run after 'pnpm install' to refresh)",
+    });
+  });
+
+  it("falls back to bun run channel.ts when no binary could be obtained", () => {
+    expect(channelRegistration("none", binary, source)).toEqual({
+      command: "bun",
+      args: ["run", source],
+      label: "(bun run — install bun + run 'pnpm install', or gh, for a standalone binary)",
+    });
   });
 });
 
