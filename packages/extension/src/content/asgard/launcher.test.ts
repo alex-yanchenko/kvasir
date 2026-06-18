@@ -37,6 +37,7 @@ beforeEach(() => {
   });
   sessionStorage.clear();
   state.spec = null;
+  state.generateDiagram = false; // default off — a test that flips it must not leak
   state.tourState = { step: 3, pos: null, size: null };
   launcherStore.resetForPr();
   vi.spyOn(tourStore, "start").mockImplementation(() => {});
@@ -170,6 +171,24 @@ describe("requestGenerate → poll → spec lands", () => {
     });
     await launcherStore.requestGenerate("new");
     expect(vi.mocked(api)).not.toHaveBeenCalled();
+  });
+
+  it("forwards diagram: true to /generate when the setting is enabled", async () => {
+    state.generateDiagram = true;
+    const fresh = mkSpec({ generatedAt: "2026-03-03T00:00:00Z" });
+    vi.mocked(api).mockImplementation(async (path: string) =>
+      path.startsWith("/walkthrough") ? { ok: true, data: fresh } : { ok: true },
+    );
+    await launcherStore.requestGenerate("new");
+    expect(vi.mocked(api)).toHaveBeenCalledWith("/generate", "POST", {
+      pr: PR,
+      mode: "new",
+      sinceSha: undefined,
+      depth: "heavy",
+      reposRoot: "~/code",
+      diagram: true,
+    });
+    await vi.advanceTimersByTimeAsync(GEN_POLL_INTERVAL_MS); // drain the poll so generation ends
   });
 });
 

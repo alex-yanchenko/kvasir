@@ -108,13 +108,13 @@ function panelGeom(): { content: number; height: number; pos: { left: number; to
 // shrinking it. A positioned window shifts its left edge by the sidebar chrome; a
 // default (bottom-right anchored) one moves leftward on its own.
 function toggleSidebar(): void {
-  const open = tourStore.outlineOpen();
+  const open = panelStore.sidebarOpen();
   const { pos } = panelGeom();
   if (pos) {
-    const chrome = tourStore.railWidth() + DIVIDER_W;
+    const chrome = panelStore.railWidth() + DIVIDER_W;
     panelStore.setPos({ left: open ? pos.left + chrome : pos.left - chrome, top: pos.top });
   }
-  tourStore.setOutlineOpen(!open);
+  panelStore.setSidebarOpen(!open);
 }
 
 // The divider is a NORMAL split: it redistributes width between sidebar and content
@@ -123,12 +123,12 @@ function toggleSidebar(): void {
 function onDividerDown(event: ReactMouseEvent): void {
   event.preventDefault();
   const startX = event.clientX;
-  const startSidebar = tourStore.railWidth();
+  const startSidebar = panelStore.railWidth();
   const { content: startContent, height: startHeight } = panelGeom();
   const maxByContent = startSidebar + (startContent - CONTENT_MIN);
   const move = (moved: MouseEvent): void => {
-    tourStore.setRailWidth(Math.min(startSidebar + (moved.clientX - startX), maxByContent));
-    const applied = tourStore.railWidth() - startSidebar;
+    panelStore.setRailWidth(Math.min(startSidebar + (moved.clientX - startX), maxByContent));
+    const applied = panelStore.railWidth() - startSidebar;
     panelStore.setSize({ w: startContent - applied, h: startHeight });
   };
   const up = (): void => {
@@ -143,10 +143,11 @@ function onDividerKey(event: ReactKeyboardEvent): void {
   const delta = DIVIDER_NUDGE[event.key] ?? 0;
   if (!delta) return;
   event.preventDefault();
-  const startSidebar = tourStore.railWidth();
+  const startSidebar = panelStore.railWidth();
   const { content: startContent, height: startHeight } = panelGeom();
-  tourStore.setRailWidth(startSidebar + delta);
-  const applied = tourStore.railWidth() - startSidebar;
+  const maxByContent = startSidebar + (startContent - CONTENT_MIN);
+  panelStore.setRailWidth(Math.min(startSidebar + delta, maxByContent));
+  const applied = panelStore.railWidth() - startSidebar;
   panelStore.setSize({ w: startContent - applied, h: startHeight });
 }
 
@@ -158,11 +159,11 @@ function onCornerDown(event: ReactMouseEvent): void {
   event.stopPropagation();
   const startX = event.clientX;
   const startY = event.clientY;
-  const startSidebar = tourStore.railWidth();
+  const startSidebar = panelStore.railWidth();
   const { content: startContent, height: startHeight, pos: startPos } = panelGeom();
   const move = (moved: MouseEvent): void => {
-    tourStore.setRailWidth(startSidebar + (startX - moved.clientX)); // drag left → wider sidebar
-    const applied = tourStore.railWidth() - startSidebar; // clamped delta
+    panelStore.setRailWidth(startSidebar + (startX - moved.clientX)); // drag left → wider sidebar
+    const applied = panelStore.railWidth() - startSidebar; // clamped delta
     panelStore.setSize({
       w: startContent,
       h: Math.max(DEFAULT_HEIGHT, startHeight + (moved.clientY - startY)),
@@ -195,8 +196,8 @@ function PanelWindow(): JSX.Element {
   // so the rendered window is content + chrome (see panelGeom). Open state + width are
   // global (shared across tabs), so switching tabs never resizes anything.
   const isReview = activeGuide().kind === "review";
-  const sidebarOpen = tourStore.outlineOpen();
-  const chrome = sidebarOpen ? tourStore.railWidth() + DIVIDER_W : 0;
+  const sidebarOpen = panelStore.sidebarOpen();
+  const chrome = sidebarOpen ? panelStore.railWidth() + DIVIDER_W : 0;
   const onHeadDown = useDrag(panelRef, { ignore: "button", onEnd: (p) => panelStore.setPos(p) });
   // The observer measures the whole window; back out the sidebar chrome so size.w stays
   // the content width. No drift: opening the sidebar leaves the stored content the same.
@@ -243,7 +244,7 @@ function PanelWindow(): JSX.Element {
           role="separator"
           aria-orientation="vertical"
           aria-label="Resize sidebar"
-          aria-valuenow={tourStore.railWidth()}
+          aria-valuenow={panelStore.railWidth()}
           aria-valuemin={SIDEBAR_MIN}
           aria-valuemax={SIDEBAR_MAX}
           tabIndex={0}

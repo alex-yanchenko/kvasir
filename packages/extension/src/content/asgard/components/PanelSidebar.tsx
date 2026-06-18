@@ -5,7 +5,6 @@
 // in Panel (it needs the panel size to redistribute width).
 import type { JSX } from "react";
 import { PANEL_TABS, panelStore, type PanelTab } from "../store";
-import { tourStore } from "../tour";
 import { ChatList } from "./ChatList";
 import { OutlineRail } from "./OutlineRail";
 
@@ -30,7 +29,7 @@ export function PanelSidebar(): JSX.Element {
   return (
     <div
       className="flex shrink-0 flex-col overflow-hidden"
-      style={{ width: `${tourStore.railWidth()}px` }}
+      style={{ width: `${panelStore.railWidth()}px` }}
       data-testid="sidebar"
     >
       {/* h-11 = the title bar's height (py-2 + h-7), so the list below lines up with

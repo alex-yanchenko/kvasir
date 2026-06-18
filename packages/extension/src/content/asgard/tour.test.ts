@@ -140,6 +140,18 @@ describe("navigation", () => {
     tourStore.close();
     expect(sent.at(-1)).toEqual({ kind: "grip:context", payload: { hasActiveStep: false } });
   });
+
+  it("isVisited marks opened steps and resets the set when the spec is regenerated", () => {
+    tourStore.start(); // goto(0) → s1 visited
+    tourStore.goto(1); // s2 visited
+    expect(tourStore.isVisited("s1")).toBe(true);
+    expect(tourStore.isVisited("s2")).toBe(true);
+    // a regenerated spec carries a new generatedAt → the next goto resets the visited set
+    state.spec = { ...mkSpec(), generatedAt: "2026-02-02T00:00:00Z" };
+    tourStore.goto(1);
+    expect(tourStore.isVisited("s1")).toBe(false); // not visited in the new session
+    expect(tourStore.isVisited("s2")).toBe(true);
+  });
 });
 
 describe("step context + ask", () => {
@@ -266,11 +278,5 @@ describe("backgroundContext", () => {
       steps: [{ id: "s", title: "T", body: "b", file: "f.ts", anchor: "d" }],
     };
     expect(tourStore.backgroundContext()).toBe("• T (f.ts)\n  b");
-  });
-
-  it("persists the rail width (rounded) to localStorage", () => {
-    tourStore.setRailWidth(212.7);
-    expect(tourStore.railWidth()).toBe(213);
-    expect(localStorage.getItem("kvasirRailWidth")).toBe("213");
   });
 });

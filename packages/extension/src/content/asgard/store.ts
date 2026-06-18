@@ -236,11 +236,32 @@ export function hydratePanel(): void {
   state.panel.size = parsed.size;
 }
 
+// The global left sidebar's open state + reserved width — panel geometry, shared
+// across all tabs (its CONTENT swaps per tab, but the column itself is the panel's).
+// Lives here, not in tourStore, so the walkthrough's close()/regenerate can never
+// collapse a sidebar the user opened on the Chat/History tab. railWidth persists in
+// localStorage; sidebarOpen is per-session UI state.
+let sidebarOpen = false;
+let railWidth = Number(localStorage.getItem("kvasirRailWidth")) || 190;
+
 export const panelStore = {
   isOpen: (): boolean => state.panel.open,
   tab: (): PanelTab => state.panel.tab,
   pos: () => state.panel.pos,
   size: () => state.panel.size,
+  sidebarOpen: (): boolean => sidebarOpen,
+  setSidebarOpen(value: boolean): void {
+    sidebarOpen = value;
+    touch();
+  },
+  railWidth: (): number => railWidth,
+  setRailWidth(width: number): void {
+    // Bounds mirror the sidebar splitter (Panel) so every caller — the divider AND
+    // the bottom-left window-resize corner — stays in range.
+    railWidth = Math.min(360, Math.max(130, Math.round(width)));
+    localStorage.setItem("kvasirRailWidth", String(railWidth));
+    touch();
+  },
 
   /** Show the panel (optionally on a specific tab). */
   open(tab?: PanelTab): void {

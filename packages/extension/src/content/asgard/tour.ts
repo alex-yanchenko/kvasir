@@ -18,19 +18,16 @@ let stepIndex = 0;
 // The detail pane's open state lives here, NOT in React component state, so it
 // survives the WalkthroughTab unmount when you switch to Chat/Settings and back.
 let detailOpen = false;
-// The outline rail's open state — module-level for the same reason as detailOpen
-// (survives a tab switch). The rail is a persistent left column, not an overlay,
-// so it coexists with the diagram (which overlays the content area, not the rail).
-let outlineOpen = false;
-// The flow-diagram overlay's open state (same module-level rationale).
+// The flow-diagram overlay's open state — module-level for the same reason as
+// detailOpen (survives a tab switch). The sidebar's open state + width are panel
+// geometry and live in panelStore (so this machine's close() can't collapse them).
 let diagramOpen = false;
-// Steps the user has actually opened this walkthrough (by id) — drives the rail's
+// Steps the user has actually opened this walkthrough (by id) — drives the outline's
 // "visited" dots. Reset when the spec is regenerated (generatedAt changes), tracked
 // here rather than recomputed from stepIndex so a visited mark persists after you
-// navigate back. railWidth is the persisted side-rail width.
+// navigate back.
 let visited = new Set<string>();
 let visitedStamp = "";
-let railWidth = Number(localStorage.getItem("kvasirRailWidth")) || 190;
 
 const clamp = (index: number, length: number): number => Math.min(Math.max(index, 0), length - 1);
 
@@ -45,25 +42,12 @@ export const tourStore = {
     detailOpen = value;
     touch();
   },
-  outlineOpen: (): boolean => outlineOpen,
-  setOutlineOpen(value: boolean): void {
-    outlineOpen = value;
-    touch();
-  },
   diagramOpen: (): boolean => diagramOpen,
   setDiagramOpen(value: boolean): void {
     diagramOpen = value;
     touch();
   },
   isVisited: (stepId: string): boolean => visited.has(stepId),
-  railWidth: (): number => railWidth,
-  setRailWidth(width: number): void {
-    // Bounds mirror the sidebar splitter (PanelSidebar) so every caller — the
-    // divider AND the bottom-left window-resize corner — stays in range.
-    railWidth = Math.min(360, Math.max(130, Math.round(width)));
-    localStorage.setItem("kvasirRailWidth", String(railWidth));
-    touch();
-  },
 
   start(): void {
     if (!state.spec) return;
@@ -109,6 +93,9 @@ export const tourStore = {
 
   close(): void {
     open = false;
+    // The diagram overlay is walkthrough-scoped: closing/regenerating must not leave
+    // it open, or a regenerated spec that carries a diagram would auto-open it unasked.
+    diagramOpen = false;
     bifrost.send("highlight:clear", undefined);
     state.activeStep = null;
     bifrost.send("grip:context", { hasActiveStep: false });

@@ -40,7 +40,7 @@ beforeEach(() => {
   state.history = null;
   state.seen = {};
   state.guideDeleted = false;
-  tourStore.setOutlineOpen(false); // module-level rail state — reset so the panel width is clean
+  panelStore.setSidebarOpen(false); // module-level rail state — reset so the panel width is clean
   pairingStore.reset(); // "unknown" → no banner unless a test sets the phase
 });
 afterEach(() => {
@@ -66,7 +66,7 @@ describe("Panel", () => {
 
   it("toggling on a positioned window shifts the left edge to keep the right edge fixed", () => {
     state.panel.pos = { left: 300, top: 40 };
-    tourStore.setRailWidth(200); // chrome on open = 200 + DIVIDER_W(3) = 203
+    panelStore.setRailWidth(200); // chrome on open = 200 + DIVIDER_W(3) = 203
     render(<Panel />);
     act(() => panelStore.open());
     const setPos = vi.spyOn(panelStore, "setPos");
@@ -78,24 +78,26 @@ describe("Panel", () => {
   });
 
   it("the bottom-left corner grip grows window height + sidebar; content width stays fixed", () => {
-    tourStore.setOutlineOpen(true);
-    tourStore.setRailWidth(200);
+    panelStore.setSidebarOpen(true);
+    panelStore.setRailWidth(200);
     render(<Panel />);
     act(() => panelStore.open());
     const setSize = vi.spyOn(panelStore, "setSize");
+    const setPos = vi.spyOn(panelStore, "setPos");
     const corner = screen.getByTestId("resize-corner");
     fireEvent.mouseDown(corner, { clientX: 200, clientY: 200 });
     fireEvent.mouseMove(document, { clientX: 160, clientY: 260 }); // left 40 → sidebar 240; down 60 → taller
     fireEvent.mouseUp(document);
-    expect(tourStore.railWidth()).toBe(240); // sidebar grew; window extends left to fit
+    expect(panelStore.railWidth()).toBe(240); // sidebar grew; window extends left to fit
     expect(setSize).toHaveBeenLastCalledWith({ w: 420, h: 380 }); // content width fixed (default 420), taller
+    expect(setPos).not.toHaveBeenCalled(); // unpositioned (bottom-right anchored) → grows left on its own
   });
 
   it("the corner grip on a positioned window keeps content width and shifts the left edge out", () => {
     state.panel.size = { w: 500, h: 400 }; // exercise the size-set path (not the defaults)
     state.panel.pos = { left: 100, top: 50 }; // positioned → setPos shifts the left edge
-    tourStore.setOutlineOpen(true);
-    tourStore.setRailWidth(200);
+    panelStore.setSidebarOpen(true);
+    panelStore.setRailWidth(200);
     render(<Panel />);
     act(() => panelStore.open());
     const setSize = vi.spyOn(panelStore, "setSize");
@@ -104,15 +106,15 @@ describe("Panel", () => {
     fireEvent.mouseDown(corner, { clientX: 200, clientY: 200 });
     fireEvent.mouseMove(document, { clientX: 170, clientY: 280 }); // left 30 → sidebar 230; down 80
     fireEvent.mouseUp(document);
-    expect(tourStore.railWidth()).toBe(230); // sidebar grew by 30
+    expect(panelStore.railWidth()).toBe(230); // sidebar grew by 30
     expect(setSize).toHaveBeenLastCalledWith({ w: 500, h: 480 }); // content width fixed, 80 taller
     expect(setPos).toHaveBeenLastCalledWith({ left: 70, top: 50 }); // left edge out by 30, right edge fixed
   });
 
   it("the sidebar divider redistributes width: sidebar grows, content shrinks, window fixed", () => {
     state.panel.size = { w: 500, h: 400 };
-    tourStore.setOutlineOpen(true);
-    tourStore.setRailWidth(200); // deterministic start
+    panelStore.setSidebarOpen(true);
+    panelStore.setRailWidth(200); // deterministic start
     render(<Panel />);
     act(() => panelStore.open());
     const setSize = vi.spyOn(panelStore, "setSize");
@@ -121,25 +123,38 @@ describe("Panel", () => {
     fireEvent.mouseDown(divider, { clientX: 100 });
     fireEvent.mouseMove(document, { clientX: 130 }); // +30 → sidebar 230
     fireEvent.mouseUp(document);
-    expect(tourStore.railWidth()).toBe(230); // sidebar grew by 30
+    expect(panelStore.railWidth()).toBe(230); // sidebar grew by 30
     expect(setSize).toHaveBeenLastCalledWith({ w: 470, h: 400 }); // content shrank by 30; window 470+230+3 unchanged
     expect(setPos).not.toHaveBeenCalled(); // window position untouched
   });
 
   it("the divider arrow keys redistribute width; a non-arrow key is ignored", () => {
     state.panel.size = { w: 500, h: 400 };
-    tourStore.setOutlineOpen(true);
-    tourStore.setRailWidth(200);
+    panelStore.setSidebarOpen(true);
+    panelStore.setRailWidth(200);
     render(<Panel />);
     act(() => panelStore.open());
     const setSize = vi.spyOn(panelStore, "setSize");
     const divider = screen.getByLabelText("Resize sidebar");
     fireEvent.keyDown(divider, { key: "Enter" }); // ignored
-    expect(tourStore.railWidth()).toBe(200);
+    expect(panelStore.railWidth()).toBe(200);
     expect(setSize).not.toHaveBeenCalled();
     fireEvent.keyDown(divider, { key: "ArrowRight" }); // +16 → sidebar 216, content 484
-    expect(tourStore.railWidth()).toBe(216);
+    expect(panelStore.railWidth()).toBe(216);
     expect(setSize).toHaveBeenLastCalledWith({ w: 484, h: 400 });
+  });
+
+  it("the divider arrow keys stop at the content minimum (240)", () => {
+    state.panel.size = { w: 250, h: 400 }; // only 10px of content slack above CONTENT_MIN
+    panelStore.setSidebarOpen(true);
+    panelStore.setRailWidth(200);
+    render(<Panel />);
+    act(() => panelStore.open());
+    const setSize = vi.spyOn(panelStore, "setSize");
+    const divider = screen.getByLabelText("Resize sidebar");
+    fireEvent.keyDown(divider, { key: "ArrowRight" }); // wants +16, capped to +10 by CONTENT_MIN
+    expect(panelStore.railWidth()).toBe(210); // 200 + 10, not 216
+    expect(setSize).toHaveBeenLastCalledWith({ w: 240, h: 400 }); // content held at the minimum
   });
 
   it("shows no corner grip when the sidebar is closed", () => {
@@ -166,6 +181,21 @@ describe("Panel", () => {
     });
     expect(setSize).toHaveBeenCalledWith({ w: 0, h: 0 }); // jsdom offsetWidth/Height = 0
     expect(setSize).toHaveBeenCalledTimes(1);
+    vi.useRealTimers();
+  });
+
+  it("backs the sidebar chrome out of the observed size so stored content excludes it", () => {
+    vi.useFakeTimers();
+    panelStore.setSidebarOpen(true);
+    panelStore.setRailWidth(200); // chrome = 200 + DIVIDER_W(3) = 203
+    const setSize = vi.spyOn(panelStore, "setSize");
+    render(<Panel />);
+    act(() => panelStore.open());
+    act(() => roCallback?.());
+    act(() => {
+      vi.advanceTimersByTime(300);
+    });
+    expect(setSize).toHaveBeenCalledWith({ w: -203, h: 0 }); // jsdom offsetWidth 0 minus the 203 chrome
     vi.useRealTimers();
   });
 

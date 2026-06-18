@@ -45,7 +45,7 @@ beforeEach(() => {
   pairingStore.reset(); // "unknown" → backend actions enabled unless a test sets unpaired
   if (tourStore.open()) tourStore.close();
   tourStore.setDetailOpen(false); // detail state is module-level now — reset per test
-  tourStore.setOutlineOpen(false); // outline state is module-level too — reset per test
+  panelStore.setSidebarOpen(false); // sidebar state lives in panelStore — reset per test
   tourStore.setDiagramOpen(false); // diagram overlay state is module-level too
 });
 afterEach(() => {
@@ -309,11 +309,13 @@ describe("WalkthroughTab", () => {
     expect(screen.queryByLabelText("Show diagram")).toBeNull();
   });
 
-  it("the diagram toggle opens the diagram view", async () => {
+  it("the diagram toggle opens then hides the diagram view", async () => {
     state.spec = { ...mkSpec(), diagram: "flowchart TD; A-->B" };
     render(<WalkthroughTab />);
     fireEvent.click(screen.getByLabelText("Show diagram"));
     expect(await screen.findByTestId("diagram")).toBeTruthy();
+    fireEvent.click(screen.getByLabelText("Hide diagram")); // toggle back off → step body returns
+    expect(screen.queryByTestId("diagram")).toBeNull();
   });
 
   const COVERAGE_LABEL = "Walkthrough coverage of changed files";
