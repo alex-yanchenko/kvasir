@@ -7,6 +7,7 @@ import type { WalkthroughStep } from "@kvasir/runes/spec";
 import type { JSX } from "react";
 import { launcherStore } from "../launcher";
 import { tourStore } from "../tour";
+import { Coverage } from "./Coverage";
 
 // A step's status dot: current (accent), actually-visited (muted fill), or
 // upcoming (hollow ring).
@@ -28,47 +29,52 @@ export function OutlineRail(): JSX.Element | null {
     else groups.push({ file: walkStep.file, items: [{ step: walkStep, index: position }] });
     position += 1;
   }
+  const hasCoverage = (spec.coverage?.significant.length ?? 0) > 0;
   return (
-    <div className="py-2" data-testid="outline">
-      {groups.map((group, groupIndex) => (
-        <div key={groupIndex} className="mb-2">
-          <div
-            className="whitespace-nowrap px-3 py-1 font-mono text-[11px] text-muted-foreground/80"
-            data-kvasir-tip={group.file}
-          >
-            {group.file}
-          </div>
-          <ul>
-            {group.items.map((item, itemIndex) => {
-              const isCurrent = item.index === current;
-              return (
-                <li key={item.index}>
-                  <button
-                    className={
-                      "flex min-w-full items-center gap-1.5 whitespace-nowrap py-1.5 pl-3 pr-3 text-left text-sm hover:bg-muted " +
-                      (isCurrent ? "font-medium text-primary" : "text-foreground/90")
-                    }
-                    aria-current={isCurrent ? "step" : undefined}
-                    data-kvasir-tip={item.step.title}
-                    onClick={() => tourStore.goto(item.index)}
-                  >
-                    <span className="select-none font-mono text-[11px] text-muted-foreground/40">
-                      {itemIndex === group.items.length - 1 ? "└" : "├"}
-                    </span>
-                    <span
+    <div data-testid="outline">
+      {/* Tabs-aligned spacer: holds the coverage chip when present and offsets the tree
+          down so the list starts roughly inline with the step content. Border only when
+          there's coverage, so a spec without it leaves a clean gap, not an empty bar. */}
+      <div className={"px-3 py-2.5" + (hasCoverage ? " border-b border-border" : "")}>
+        <Coverage coverage={spec.coverage} />
+      </div>
+      <div className="py-2">
+        {groups.map((group, groupIndex) => (
+          <div key={groupIndex} className="mb-2">
+            <div className="whitespace-nowrap px-3 py-1 font-mono text-[11px] text-muted-foreground/80">
+              {group.file}
+            </div>
+            <ul>
+              {group.items.map((item, itemIndex) => {
+                const isCurrent = item.index === current;
+                return (
+                  <li key={item.index}>
+                    <button
                       className={
-                        "size-1.5 shrink-0 rounded-full " +
-                        dotClass(isCurrent, tourStore.isVisited(item.step.id))
+                        "flex min-w-full items-center gap-1.5 whitespace-nowrap py-1.5 pl-3 pr-3 text-left text-sm hover:bg-muted " +
+                        (isCurrent ? "font-medium text-primary" : "text-foreground/90")
                       }
-                    />
-                    <span>{item.step.title}</span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      ))}
+                      aria-current={isCurrent ? "step" : undefined}
+                      onClick={() => tourStore.goto(item.index)}
+                    >
+                      <span className="select-none font-mono text-[11px] text-muted-foreground/40">
+                        {itemIndex === group.items.length - 1 ? "└" : "├"}
+                      </span>
+                      <span
+                        className={
+                          "size-1.5 shrink-0 rounded-full " +
+                          dotClass(isCurrent, tourStore.isVisited(item.step.id))
+                        }
+                      />
+                      <span>{item.step.title}</span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

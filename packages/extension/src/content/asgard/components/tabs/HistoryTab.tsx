@@ -50,14 +50,25 @@ function HistoryRow({ entry }: Readonly<{ entry: EntrySummary }>): JSX.Element {
   );
 }
 
-function HistorySection({ label, items }: Readonly<{ label: string; items: EntrySummary[] }>): JSX.Element {
+// Empty-state copy: distinguish a search miss, "never saved any", and "the active
+// filter excludes them all" — so a facet that empties a non-empty kind isn't "None yet."
+function emptyCopy(facet: string): string {
+  if (historyStore.query().trim()) return "No matches.";
+  if (facet === "all") return "None yet.";
+  return "None in this filter.";
+}
+
+function HistorySection({
+  label,
+  items,
+  facet,
+}: Readonly<{ label: string; items: EntrySummary[]; facet: string }>): JSX.Element {
+  const empty = emptyCopy(facet);
   return (
     <section className="flex flex-col gap-1">
       <h3 className="px-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</h3>
       {items.length === 0 ? (
-        <p className="px-2 py-1 text-sm text-muted-foreground">
-          {historyStore.query().trim() ? "No matches." : "None yet."}
-        </p>
+        <p className="px-2 py-1 text-sm text-muted-foreground">{empty}</p>
       ) : (
         <ul className="flex flex-col gap-1">
           {items.map((entry) => (
@@ -77,6 +88,7 @@ export function HistoryTab(): JSX.Element {
 
   const loaded = historyStore.all();
   const stale = historyStore.staleCount();
+  const facet = historyStore.facet();
 
   if (loaded === null) {
     return (
@@ -108,8 +120,13 @@ export function HistoryTab(): JSX.Element {
         ) : null}
       </div>
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto">
-        <HistorySection label="PR Walkthroughs" items={historyStore.prItems()} />
-        <HistorySection label="Code Walkthroughs" items={historyStore.codeItems()} />
+        {/* The sidebar facet hides the section it excludes (e.g. "pr" → no Code section). */}
+        {facet !== "code" && (
+          <HistorySection label="PR Walkthroughs" items={historyStore.prItems()} facet={facet} />
+        )}
+        {facet !== "pr" && (
+          <HistorySection label="Code Walkthroughs" items={historyStore.codeItems()} facet={facet} />
+        )}
       </div>
     </div>
   );

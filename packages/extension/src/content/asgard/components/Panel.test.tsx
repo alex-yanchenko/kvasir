@@ -111,6 +111,44 @@ describe("Panel", () => {
     expect(setPos).toHaveBeenLastCalledWith({ left: 70, top: 50 }); // left edge out by 30, right edge fixed
   });
 
+  it("the corner grip spills into content once the sidebar hits its minimum", () => {
+    state.panel.size = { w: 500, h: 400 };
+    state.panel.pos = { left: 100, top: 50 };
+    panelStore.setSidebarOpen(true);
+    panelStore.setRailWidth(140); // only 10px above the 130 minimum
+    render(<Panel />);
+    act(() => panelStore.open());
+    const setSize = vi.spyOn(panelStore, "setSize");
+    const setPos = vi.spyOn(panelStore, "setPos");
+    const corner = screen.getByTestId("resize-corner");
+    fireEvent.mouseDown(corner, { clientX: 200, clientY: 200 });
+    // drag right 40: sidebar wants 100 → clamps to 130 (−10), the extra −30 spills to content
+    fireEvent.mouseMove(document, { clientX: 240, clientY: 200 });
+    fireEvent.mouseUp(document);
+    expect(panelStore.railWidth()).toBe(130); // sidebar bottomed out
+    expect(setSize).toHaveBeenLastCalledWith({ w: 470, h: 400 }); // content absorbed the 30 overflow
+    expect(setPos).toHaveBeenLastCalledWith({ left: 140, top: 50 }); // window shrank 40 from the left
+  });
+
+  it("the corner grip spills into content once the sidebar hits its maximum", () => {
+    state.panel.size = { w: 500, h: 400 };
+    state.panel.pos = { left: 100, top: 50 };
+    panelStore.setSidebarOpen(true);
+    panelStore.setRailWidth(340); // 20px below the 360 maximum
+    render(<Panel />);
+    act(() => panelStore.open());
+    const setSize = vi.spyOn(panelStore, "setSize");
+    const setPos = vi.spyOn(panelStore, "setPos");
+    const corner = screen.getByTestId("resize-corner");
+    fireEvent.mouseDown(corner, { clientX: 200, clientY: 200 });
+    // drag left 50: sidebar wants 390 → clamps to 360 (+20), the extra +30 spills to content
+    fireEvent.mouseMove(document, { clientX: 150, clientY: 200 });
+    fireEvent.mouseUp(document);
+    expect(panelStore.railWidth()).toBe(360); // sidebar topped out
+    expect(setSize).toHaveBeenLastCalledWith({ w: 530, h: 400 }); // content grew by the 30 overflow
+    expect(setPos).toHaveBeenLastCalledWith({ left: 50, top: 50 }); // window grew 50 to the left
+  });
+
   it("the sidebar divider redistributes width: sidebar grows, content shrinks, window fixed", () => {
     state.panel.size = { w: 500, h: 400 };
     panelStore.setSidebarOpen(true);
@@ -170,16 +208,24 @@ describe("Panel", () => {
     expect(observed).toEqual([screen.getByRole("dialog", { name: "Kvasir" })]);
   });
 
+  // jsdom reports 0 for offsetWidth/Height; pin them so the observer math is testable.
+  const pinSize = (w: number, h: number): void => {
+    const dialog = screen.getByRole("dialog", { name: "Kvasir" });
+    Object.defineProperty(dialog, "offsetWidth", { value: w, configurable: true });
+    Object.defineProperty(dialog, "offsetHeight", { value: h, configurable: true });
+  };
+
   it("persists the panel size when the resize observer fires (debounced)", () => {
     vi.useFakeTimers();
     const setSize = vi.spyOn(panelStore, "setSize");
     render(<Panel />);
     act(() => panelStore.open());
+    pinSize(600, 400);
     act(() => roCallback?.());
     act(() => {
       vi.advanceTimersByTime(300);
     });
-    expect(setSize).toHaveBeenCalledWith({ w: 0, h: 0 }); // jsdom offsetWidth/Height = 0
+    expect(setSize).toHaveBeenCalledWith({ w: 600, h: 400 }); // sidebar closed → no chrome backed out
     expect(setSize).toHaveBeenCalledTimes(1);
     vi.useRealTimers();
   });
@@ -191,11 +237,28 @@ describe("Panel", () => {
     const setSize = vi.spyOn(panelStore, "setSize");
     render(<Panel />);
     act(() => panelStore.open());
+    pinSize(600, 400);
     act(() => roCallback?.());
     act(() => {
       vi.advanceTimersByTime(300);
     });
-    expect(setSize).toHaveBeenCalledWith({ w: -203, h: 0 }); // jsdom offsetWidth 0 minus the 203 chrome
+    expect(setSize).toHaveBeenCalledWith({ w: 397, h: 400 }); // 600 − 203 chrome
+    vi.useRealTimers();
+  });
+
+  it("floors the stored content at CONTENT_MIN so a narrow window can't go negative", () => {
+    vi.useFakeTimers();
+    panelStore.setSidebarOpen(true);
+    panelStore.setRailWidth(360); // chrome = 363 (sidebar at max), wider than the window min
+    const setSize = vi.spyOn(panelStore, "setSize");
+    render(<Panel />);
+    act(() => panelStore.open());
+    pinSize(380, 400); // 380 − 363 = 17, below the 240 floor
+    act(() => roCallback?.());
+    act(() => {
+      vi.advanceTimersByTime(300);
+    });
+    expect(setSize).toHaveBeenCalledWith({ w: 240, h: 400 }); // floored, not 17 (and never negative)
     vi.useRealTimers();
   });
 
