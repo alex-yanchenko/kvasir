@@ -14,8 +14,28 @@ function scrollable(
   Object.defineProperty(el, "scrollTop", { value: over.scrollTop ?? 0, writable: true, configurable: true });
 }
 
+function scrollableX(
+  el: HTMLElement,
+  over: { scrollWidth?: number; clientWidth?: number; scrollLeft?: number },
+) {
+  el.style.overflowX = "auto";
+  Object.defineProperty(el, "scrollWidth", { value: over.scrollWidth ?? 1000, configurable: true });
+  Object.defineProperty(el, "clientWidth", { value: over.clientWidth ?? 200, configurable: true });
+  Object.defineProperty(el, "scrollLeft", {
+    value: over.scrollLeft ?? 0,
+    writable: true,
+    configurable: true,
+  });
+}
+
 const wheel = (target: Element, deltaY: number): WheelEvent => {
   const e = new WheelEvent("wheel", { deltaY, bubbles: true, cancelable: true });
+  target.dispatchEvent(e);
+  return e;
+};
+
+const wheelX = (target: Element, deltaX: number): WheelEvent => {
+  const e = new WheelEvent("wheel", { deltaX, deltaY: 0, bubbles: true, cancelable: true });
   target.dispatchEvent(e);
   return e;
 };
@@ -70,6 +90,24 @@ describe("useScrollLock", () => {
     Object.defineProperty(short, "scrollHeight", { value: 100, configurable: true });
     Object.defineProperty(short, "clientHeight", { value: 200, configurable: true });
     expect(wheel(short, 40).defaultPrevented).toBe(true); // not actually scrollable
+  });
+
+  it("lets an inner horizontal scroller consume a horizontal wheel (page untouched)", () => {
+    const r = mount();
+    const row = r.appendChild(document.createElement("div"));
+    scrollableX(row, { scrollLeft: 50 }); // room left and right
+    expect(wheelX(row, 40).defaultPrevented).toBe(false); // right: room ahead
+    expect(wheelX(row, -40).defaultPrevented).toBe(false); // left: room behind
+  });
+
+  it("swallows a horizontal wheel when the inner scroller is at the horizontal edge", () => {
+    const r = mount();
+    const atLeft = r.appendChild(document.createElement("div"));
+    scrollableX(atLeft, { scrollLeft: 0 });
+    expect(wheelX(atLeft, -40).defaultPrevented).toBe(true); // left at the start
+    const atRight = r.appendChild(document.createElement("div"));
+    scrollableX(atRight, { scrollLeft: 800, scrollWidth: 1000, clientWidth: 200 });
+    expect(wheelX(atRight, 40).defaultPrevented).toBe(true); // right at the end
   });
 
   it("detaches the listener on unmount", () => {

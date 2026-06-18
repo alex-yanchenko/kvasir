@@ -7,6 +7,7 @@ import type { WalkthroughStep } from "@kvasir/runes/spec";
 import type { JSX } from "react";
 import { launcherStore } from "../launcher";
 import { tourStore } from "../tour";
+import { Coverage } from "./Coverage";
 
 // A step's status dot: current (accent), actually-visited (muted fill), or
 // upcoming (hollow ring).
@@ -14,6 +15,26 @@ function dotClass(isCurrent: boolean, isVisited: boolean): string {
   if (isCurrent) return "bg-primary";
   if (isVisited) return "bg-muted-foreground";
   return "border border-muted-foreground/50";
+}
+
+// Key for the status dots — the same three styles dotClass produces.
+function Legend(): JSX.Element {
+  return (
+    <div className="flex shrink-0 items-center gap-2 text-[10px] text-muted-foreground/70">
+      <span className="flex items-center gap-1">
+        <span className="size-1.5 rounded-full bg-primary" />
+        now
+      </span>
+      <span className="flex items-center gap-1">
+        <span className="size-1.5 rounded-full bg-muted-foreground" />
+        seen
+      </span>
+      <span className="flex items-center gap-1">
+        <span className="size-1.5 rounded-full border border-muted-foreground/50" />
+        next
+      </span>
+    </div>
+  );
 }
 
 export function OutlineRail(): JSX.Element | null {
@@ -29,46 +50,54 @@ export function OutlineRail(): JSX.Element | null {
     position += 1;
   }
   return (
-    <div className="py-2" data-testid="outline">
-      {groups.map((group, groupIndex) => (
-        <div key={groupIndex} className="mb-2">
-          <div
-            className="whitespace-nowrap px-3 py-1 font-mono text-[11px] text-muted-foreground/80"
-            data-kvasir-tip={group.file}
-          >
-            {group.file}
-          </div>
-          <ul>
-            {group.items.map((item, itemIndex) => {
-              const isCurrent = item.index === current;
-              return (
-                <li key={item.index}>
-                  <button
-                    className={
-                      "flex min-w-full items-center gap-1.5 whitespace-nowrap py-1.5 pl-3 pr-3 text-left text-sm hover:bg-muted " +
-                      (isCurrent ? "font-medium text-primary" : "text-foreground/90")
-                    }
-                    aria-current={isCurrent ? "step" : undefined}
-                    data-kvasir-tip={item.step.title}
-                    onClick={() => tourStore.goto(item.index)}
-                  >
-                    <span className="select-none font-mono text-[11px] text-muted-foreground/40">
-                      {itemIndex === group.items.length - 1 ? "└" : "├"}
-                    </span>
-                    <span
+    <div data-testid="outline">
+      {/* Tabs-aligned sub-row: coverage (left) + dot legend (right). It also offsets
+          the tree down so the list starts roughly inline with the step content. */}
+      <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2.5">
+        <Coverage coverage={spec.coverage} />
+        <Legend />
+      </div>
+      <div className="py-2">
+        {groups.map((group, groupIndex) => (
+          <div key={groupIndex} className="mb-2">
+            <div
+              className="whitespace-nowrap px-3 py-1 font-mono text-[11px] text-muted-foreground/80"
+              data-kvasir-tip={group.file}
+            >
+              {group.file}
+            </div>
+            <ul>
+              {group.items.map((item, itemIndex) => {
+                const isCurrent = item.index === current;
+                return (
+                  <li key={item.index}>
+                    <button
                       className={
-                        "size-1.5 shrink-0 rounded-full " +
-                        dotClass(isCurrent, tourStore.isVisited(item.step.id))
+                        "flex min-w-full items-center gap-1.5 whitespace-nowrap py-1.5 pl-3 pr-3 text-left text-sm hover:bg-muted " +
+                        (isCurrent ? "font-medium text-primary" : "text-foreground/90")
                       }
-                    />
-                    <span>{item.step.title}</span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      ))}
+                      aria-current={isCurrent ? "step" : undefined}
+                      data-kvasir-tip={item.step.title}
+                      onClick={() => tourStore.goto(item.index)}
+                    >
+                      <span className="select-none font-mono text-[11px] text-muted-foreground/40">
+                        {itemIndex === group.items.length - 1 ? "└" : "├"}
+                      </span>
+                      <span
+                        className={
+                          "size-1.5 shrink-0 rounded-full " +
+                          dotClass(isCurrent, tourStore.isVisited(item.step.id))
+                        }
+                      />
+                      <span>{item.step.title}</span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

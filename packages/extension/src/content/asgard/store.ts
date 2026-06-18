@@ -75,6 +75,8 @@ export const state: {
    * `seen` maps an entry id -> the version the FE last caught up to (drift flag). */
   history: EntrySummary[] | null;
   historyQuery: string;
+  /** Sidebar facet narrowing the History list: "all" | "pr" | "code" | "stale". */
+  historyFacet: string;
   seen: Record<string, number>;
   /** True when the walkthrough/review this tab was viewing got deleted (here or in
    * another tab) — drives the "This walkthrough was deleted" notice. */
@@ -97,6 +99,7 @@ export const state: {
   chatHistory: [],
   history: null,
   historyQuery: "",
+  historyFacet: "all",
   seen: {},
   guideDeleted: false,
   panel: { open: false, tab: PANEL_TABS.WALKTHROUGH, pos: null, size: null },

@@ -15,6 +15,11 @@ import { state, touch } from "./store";
 /** Drift of one entry vs what the FE last caught up to. */
 type Drift = "new" | "current" | "update";
 
+/** Sidebar facet narrowing the list. "stale" = entries whose backend version moved
+ * past what we last synced. */
+export const HISTORY_FACETS = ["all", "pr", "code", "stale"] as const;
+export type HistoryFacet = (typeof HISTORY_FACETS)[number];
+
 /** Pull the summary list out of the bridge's { entries: [...] } envelope. */
 const entriesFromResponse = (data: unknown): EntrySummary[] | null => {
   if (typeof data !== "object" || data === null || !("entries" in data)) return null;
@@ -68,12 +73,38 @@ export const historyStore = {
     state.historyQuery = value;
     touch();
   },
+  facet: (): string => state.historyFacet,
+  setFacet(value: HistoryFacet): void {
+    state.historyFacet = value;
+    touch();
+  },
 
-  /** The list filtered by the search term (title · source · repos). */
-  filtered(): EntrySummary[] {
+  /** The search-filtered list, before the sidebar facet — drives the facet counts so
+   * they don't change as you switch facets. */
+  searched(): EntrySummary[] {
     const list = state.history ?? [];
     const term = state.historyQuery.trim().toLowerCase();
     return term ? list.filter((entry) => matchesTerm(entry, term)) : list;
+  },
+  /** Per-facet counts over the search-filtered list, for the sidebar chips. */
+  facetCounts(): { all: number; pr: number; code: number; stale: number } {
+    const base = historyStore.searched();
+    return {
+      all: base.length,
+      pr: base.filter((entry) => entry.kind === "pr").length,
+      code: base.filter((entry) => entry.kind === "code").length,
+      stale: base.filter((entry) => historyStore.driftFor(entry) === "update").length,
+    };
+  },
+
+  /** The list filtered by the search term (title · source · repos) AND the facet. */
+  filtered(): EntrySummary[] {
+    const base = historyStore.searched();
+    const facet = historyStore.facet();
+    if (facet === "pr") return base.filter((entry) => entry.kind === "pr");
+    if (facet === "code") return base.filter((entry) => entry.kind === "code");
+    if (facet === "stale") return base.filter((entry) => historyStore.driftFor(entry) === "update");
+    return base;
   },
   /** Filtered entries of each kind, for the two sections. */
   prItems: (): EntrySummary[] => historyStore.filtered().filter((entry) => entry.kind === "pr"),

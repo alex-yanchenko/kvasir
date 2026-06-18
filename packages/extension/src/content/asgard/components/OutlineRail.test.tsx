@@ -55,4 +55,17 @@ describe("OutlineRail", () => {
     fireEvent.click(buttons[2]!);
     expect(tourStore.stepIndex()).toBe(2); // jumped to s3
   });
+
+  it("renders the dot legend and a coverage chip when the spec carries coverage", () => {
+    state.spec = { ...spec3("rail-cov"), coverage: { significant: ["f.ts", "g.ts"], uncovered: ["g.ts"] } };
+    tourStore.start();
+    render(<OutlineRail />);
+    const rail = screen.getByTestId("outline");
+    expect(within(rail).getByText("now")).toBeTruthy(); // legend keys
+    expect(within(rail).getByText("seen")).toBeTruthy();
+    expect(within(rail).getByText("next")).toBeTruthy();
+    expect(within(rail).getByLabelText("Walkthrough coverage of key changed files").textContent).toContain(
+      "1/2 key",
+    );
+  });
 });

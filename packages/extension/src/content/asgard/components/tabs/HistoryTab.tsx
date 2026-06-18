@@ -77,6 +77,7 @@ export function HistoryTab(): JSX.Element {
 
   const loaded = historyStore.all();
   const stale = historyStore.staleCount();
+  const facet = historyStore.facet();
 
   if (loaded === null) {
     return (
@@ -108,8 +109,9 @@ export function HistoryTab(): JSX.Element {
         ) : null}
       </div>
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto">
-        <HistorySection label="PR Walkthroughs" items={historyStore.prItems()} />
-        <HistorySection label="Code Walkthroughs" items={historyStore.codeItems()} />
+        {/* The sidebar facet hides the section it excludes (e.g. "pr" → no Code section). */}
+        {facet !== "code" && <HistorySection label="PR Walkthroughs" items={historyStore.prItems()} />}
+        {facet !== "pr" && <HistorySection label="Code Walkthroughs" items={historyStore.codeItems()} />}
       </div>
     </div>
   );

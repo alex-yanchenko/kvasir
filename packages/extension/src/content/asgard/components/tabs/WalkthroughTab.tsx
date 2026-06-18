@@ -4,9 +4,7 @@
 // tour so switching tabs or closing the panel clears the highlight.
 import type { WalkthroughSpec, WalkthroughStep } from "@kvasir/runes/spec";
 import {
-  AlertTriangle,
   Check,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Crosshair,
@@ -20,7 +18,6 @@ import {
 } from "lucide-react";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import type { JSX } from "react";
-import { bifrost } from "../../../bifrost";
 import { sanitizeSpecHtml } from "../../../sanitize";
 import { chatStore } from "../../chat";
 import { fmtElapsed, launcherStore } from "../../launcher";
@@ -63,59 +60,6 @@ function Empty(): JSX.Element {
       >
         <Play /> Run review
       </Button>
-    </div>
-  );
-}
-
-// Coverage confidence: does the walkthrough explain the whole change? Stamped
-// server-side onto the spec at publish (PR walkthroughs only). Absent → render
-// nothing (a cross-repo review or a pre-coverage cached spec).
-function Coverage({
-  coverage,
-}: Readonly<{ coverage: { significant: string[]; uncovered: string[] } | undefined }>): JSX.Element | null {
-  const [open, setOpen] = useState(false);
-  if (!coverage || coverage.significant.length === 0) return null;
-  const { significant, uncovered } = coverage;
-  const covered = significant.length - uncovered.length;
-  const full = uncovered.length === 0;
-  return (
-    <div className="border-b border-border px-3 py-1.5 text-xs">
-      <button
-        className="flex w-full items-center gap-1.5 text-left"
-        aria-label="Walkthrough coverage of changed files"
-        data-kvasir-tip={
-          full ? "Every significant changed file has a step" : "Some changed files have no step"
-        }
-        disabled={full}
-        onClick={() => setOpen((value) => !value)}
-      >
-        {full ? (
-          <Check className="size-3.5 shrink-0 text-primary" />
-        ) : (
-          <AlertTriangle className="size-3.5 shrink-0 text-amber-500" />
-        )}
-        <span className="text-muted-foreground">
-          Explains {covered}/{significant.length} changed files
-        </span>
-        {!full && (
-          <ChevronDown className={"ml-auto size-3.5 transition-transform" + (open ? " rotate-180" : "")} />
-        )}
-      </button>
-      {open && !full && (
-        <ul className="mt-1.5 space-y-0.5">
-          {uncovered.map((path) => (
-            <li key={path}>
-              <button
-                className="block w-full truncate text-left font-mono text-muted-foreground hover:text-primary"
-                data-kvasir-tip="Jump to this uncovered file in the diff"
-                onClick={() => bifrost.send("jump:ref", { file: path, start: null, end: null })}
-              >
-                {path}
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
     </div>
   );
 }
@@ -352,7 +296,6 @@ function Steps({ spec }: Readonly<{ spec: WalkthroughSpec }>): JSX.Element {
         <StepTools spec={spec} step={step} index={index} onRegen={() => setDialog(true)} />
       </div>
 
-      <Coverage coverage={spec.coverage} />
       <MainView spec={spec} step={step} diagramOpen={diagramOpen} />
 
       <Footer index={index} count={count} />

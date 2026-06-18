@@ -7,11 +7,17 @@
 import { useEffect } from "react";
 import type { RefObject } from "react";
 
-/** An element that can still scroll vertically in the wheel's direction. */
-function canScroll(node: HTMLElement, deltaY: number): boolean {
-  if (!/auto|scroll/.test(getComputedStyle(node).overflowY)) return false;
-  if (node.scrollHeight <= node.clientHeight) return false;
-  return deltaY < 0 ? node.scrollTop > 0 : node.scrollTop + node.clientHeight < node.scrollHeight;
+/** Whether `node` can still scroll along one axis in the wheel's direction. Handles
+ * both axes so a horizontal wheel (deltaX) over a horizontally-scrolling region — e.g.
+ * the sidebar's long file/step rows — isn't swallowed along with vertical locking. */
+function canScroll(node: HTMLElement, axis: "x" | "y", delta: number): boolean {
+  const style = getComputedStyle(node);
+  if (!/auto|scroll/.test(axis === "y" ? style.overflowY : style.overflowX)) return false;
+  const size = axis === "y" ? node.scrollHeight : node.scrollWidth;
+  const client = axis === "y" ? node.clientHeight : node.clientWidth;
+  if (size <= client) return false;
+  const pos = axis === "y" ? node.scrollTop : node.scrollLeft;
+  return delta < 0 ? pos > 0 : pos + client < size;
 }
 
 export function useScrollLock(targetRef: RefObject<HTMLElement | null>): void {
@@ -21,7 +27,13 @@ export function useScrollLock(targetRef: RefObject<HTMLElement | null>): void {
     const onWheel = (event: WheelEvent): void => {
       const start = event.target instanceof HTMLElement ? event.target : null;
       for (let node = start; node; node = node.parentElement) {
-        if (canScroll(node, event.deltaY)) return; // an inner scroller will consume it
+        // Let it through if an inner scroller can move in an axis the wheel actually
+        // pushes (only a non-zero-delta axis counts), else swallow at the panel edge.
+        if (
+          (event.deltaY !== 0 && canScroll(node, "y", event.deltaY)) ||
+          (event.deltaX !== 0 && canScroll(node, "x", event.deltaX))
+        )
+          return;
         if (node === root) break; // reached the panel edge without finding room
       }
       event.preventDefault(); // nothing inside can scroll further → don't scroll the page
