@@ -72,15 +72,3 @@ jobs:
       # runners; xvfb-run gives Chromium a virtual display so the loaded extension
       # reliably registers its service worker. (-a = auto-pick a free display.)
       - run: xvfb-run -a pnpm exec playwright test
-
-  # Aggregate gate — the single required status check. `always()` + the explicit
-  # failure check means it runs even when a dependency fails and turns red then (a
-  # skipped required check would otherwise be treated as passing).
-  check:
-    needs: [lint, test, build, e2e]
-    if: always()
-    runs-on: ubuntu-latest
-    steps:
-      - if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
-        run: echo "A required CI job failed." && exit 1
-      - run: echo "All CI jobs passed."
