@@ -17,6 +17,7 @@ test.describe("chat flow", () => {
 
     await page.getByRole("button", { name: "Open Kvasir" }).click();
     await page.getByRole("tab", { name: "Chat" }).click();
+    await page.getByRole("button", { name: "Show sidebar" }).click(); // chat list + New chat live in the sidebar
     await page.getByRole("button", { name: "New chat" }).click();
 
     const input = page.getByRole("textbox");
