@@ -114,13 +114,6 @@ describe("WalkthroughTab", () => {
     expect(tourStore.open()).toBe(true);
   });
 
-  it("a progress dot jumps to that step", () => {
-    state.spec = mkSpec();
-    render(<WalkthroughTab />);
-    fireEvent.click(screen.getByLabelText("Go to step 2"));
-    expect(screen.getByText("Second step")).toBeTruthy();
-  });
-
   it("toggles step detail", () => {
     state.spec = mkSpec();
     render(<WalkthroughTab />);

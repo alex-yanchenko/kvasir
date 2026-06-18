@@ -220,54 +220,34 @@ function StepTools({
   );
 }
 
-// Footer: the step counter (moved here from the header) above Back · dots · Next.
-// Split out so Steps stays under the cognitive-complexity bar.
+// Footer: Back · step counter · Next on one row. The counter sits between the buttons
+// (it stays short at any step count); the outline sidebar handles jumping to a step.
 function Footer({ index, count }: Readonly<{ index: number; count: number }>): JSX.Element {
   const atFirst = index === 0;
   const atLast = index >= count - 1;
   return (
-    <div className="border-t border-border">
-      <div className="py-1 text-center text-xs text-muted-foreground">
+    <div className="flex items-center justify-between gap-2 border-t border-border px-3 py-2">
+      <Button
+        variant="ghost"
+        size="sm"
+        aria-label="Previous step"
+        disabled={atFirst}
+        onClick={() => tourStore.back()}
+      >
+        <ChevronLeft /> Back
+      </Button>
+      <span className="shrink-0 text-xs text-muted-foreground">
         Step <span className="font-medium text-primary">{index + 1}</span> / {count}
-      </div>
-      <div className="flex items-center gap-2 px-3 pb-2">
-        <span data-kvasir-tip={atFirst ? "First step" : undefined}>
-          <Button
-            variant="ghost"
-            size="sm"
-            aria-label="Previous step"
-            disabled={atFirst}
-            onClick={() => tourStore.back()}
-          >
-            <ChevronLeft /> Back
-          </Button>
-        </span>
-        <div className="mx-auto flex items-center gap-1.5">
-          {Array.from({ length: count }, (_unused, dotIndex) => (
-            <button
-              key={dotIndex}
-              aria-label={`Go to step ${dotIndex + 1}`}
-              data-kvasir-tip={`Step ${dotIndex + 1}`}
-              onClick={() => tourStore.goto(dotIndex)}
-              className={
-                "h-1.5 cursor-pointer rounded-full transition-all " +
-                (dotIndex === index ? "w-4 bg-primary" : "w-1.5 bg-border hover:bg-muted-foreground")
-              }
-            />
-          ))}
-        </div>
-        <span data-kvasir-tip={atLast ? "Last step" : undefined}>
-          <Button
-            variant="default"
-            size="sm"
-            aria-label="Next step"
-            disabled={atLast}
-            onClick={() => tourStore.next()}
-          >
-            Next <ChevronRight />
-          </Button>
-        </span>
-      </div>
+      </span>
+      <Button
+        variant="default"
+        size="sm"
+        aria-label="Next step"
+        disabled={atLast}
+        onClick={() => tourStore.next()}
+      >
+        Next <ChevronRight />
+      </Button>
     </div>
   );
 }
