@@ -22,6 +22,7 @@ beforeEach(() => {
   state.reviewMode = "heavy";
   state.reviewReposRoot = "~/code";
   state.preloadQuestions = false;
+  state.generateDiagram = false;
   localStorage.clear();
   pairingStore.reset();
   vi.mocked(storeGet).mockResolvedValue(undefined);
@@ -85,6 +86,25 @@ describe("SettingsTab", () => {
     expect(state.preloadQuestions).toBe(true);
     fireEvent.click(within(group).getByRole("button", { name: "Off" }));
     expect(state.preloadQuestions).toBe(false);
+  });
+
+  it("flow-diagram toggle flips generateDiagram (default off)", () => {
+    render(<SettingsTab />);
+    const group = screen.getByRole("group", { name: "Flow diagram" });
+    fireEvent.click(within(group).getByRole("button", { name: "On" }));
+    expect(state.generateDiagram).toBe(true);
+    fireEvent.click(within(group).getByRole("button", { name: "Off" }));
+    expect(state.generateDiagram).toBe(false);
+  });
+
+  it("explains each setting with a hint; the repos-root hint shows only on heavy", () => {
+    render(<SettingsTab />);
+    expect(screen.getByText(/Heavy reads the locally-cloned repo/)).toBeTruthy();
+    expect(screen.getByText(/Preload three AI-suggested questions/)).toBeTruthy();
+    expect(screen.getByText(/Where Heavy looks for the clone/)).toBeTruthy(); // heavy default
+    const depth = screen.getByRole("group", { name: "Review depth" });
+    fireEvent.click(within(depth).getByRole("button", { name: "Light" }));
+    expect(screen.queryByText(/Where Heavy looks for the clone/)).toBeNull(); // gone on light
   });
 
   it("shows the unpaired state and starts pairing on Pair", async () => {

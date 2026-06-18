@@ -28,6 +28,10 @@ export default defineConfig({
         "packages/extension/src/content/heimdall/boot.tsx",
         // 30-line worker fetch proxy; no service-worker harness
         "packages/extension/src/huginn.ts",
+        // Lazy-load glue: a runtime dynamic import() of the web-accessible mermaid
+        // chunk via chrome.runtime.getURL — can't resolve/run under vitest. The
+        // Diagram component that uses it IS covered (loadMermaid is mocked there).
+        "packages/extension/src/content/asgard/mermaidLoader.ts",
         // Genuine glue only — every branch of decision logic has been extracted to a
         // covered module: channel.ts is the Bun entrypoint (McpServer wiring +
         // Bun.serve + StdioServerTransport; can't import under vitest), with its

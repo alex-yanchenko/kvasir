@@ -5,12 +5,17 @@ name: Nightly
 #  - audit: a dependency-advisory feed moves on its own; a brand-new, unpatched
 #    advisory in a runtime dep would otherwise turn unrelated PRs red. Kept here.
 #  - mutation (Stryker): too slow for the per-PR job.
+#  - e2e (real-browser smoke test): chromium install is too slow for the per-PR gate;
+#    runs here and on push to main (see e2e.yml) so a boot regression still surfaces.
 on:
   schedule:
     - cron: "0 4 * * *"
   workflow_dispatch:
 
 jobs:
+  e2e:
+    uses: ./.github/workflows/e2e.yml
+
   audit:
     runs-on: ubuntu-latest
     steps:

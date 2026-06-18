@@ -262,6 +262,26 @@ describe("panelStore", () => {
     vi.unstubAllGlobals();
   });
 
+  it("setSidebarOpen toggles the sidebar and re-renders", () => {
+    const before = getSnapshot();
+    expect(storeModule.panelStore.sidebarOpen()).toBe(false);
+    storeModule.panelStore.setSidebarOpen(true);
+    expect(storeModule.panelStore.sidebarOpen()).toBe(true);
+    expect(getSnapshot()).not.toBe(before); // touch() fired
+    storeModule.panelStore.setSidebarOpen(false);
+    expect(storeModule.panelStore.sidebarOpen()).toBe(false);
+  });
+
+  it("setRailWidth rounds, clamps to [130, 360], and persists to localStorage", () => {
+    storeModule.panelStore.setRailWidth(212.7);
+    expect(storeModule.panelStore.railWidth()).toBe(213); // rounded
+    expect(localStorage.getItem("kvasirRailWidth")).toBe("213");
+    storeModule.panelStore.setRailWidth(50); // below min
+    expect(storeModule.panelStore.railWidth()).toBe(130);
+    storeModule.panelStore.setRailWidth(9000); // above max
+    expect(storeModule.panelStore.railWidth()).toBe(360);
+  });
+
   it("guideDeleted shows only while nothing is loaded; dismiss + close clear the flag", () => {
     storeModule.state.review = null;
     storeModule.state.spec = null;

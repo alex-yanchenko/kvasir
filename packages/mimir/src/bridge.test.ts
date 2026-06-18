@@ -214,6 +214,7 @@ describe("/generate", () => {
       mode: "new",
       since: "",
       depth: "heavy",
+      diagram: "false",
     });
 
     await call("/generate", { method: "POST", body: { pr: PR, mode: "incremental", sinceSha: "abc" } });
@@ -223,6 +224,7 @@ describe("/generate", () => {
       mode: "incremental",
       since: "abc",
       depth: "heavy",
+      diagram: "false",
     });
     expect(deps.pushEvent.mock.lastCall![0]).toContain("since commit abc");
   });
@@ -255,6 +257,18 @@ describe("/generate", () => {
     expect(content).toContain("fresh walkthrough");
     expect(content).not.toContain("HEAVY REVIEW");
     expect(meta.depth).toBe("light");
+  });
+
+  it("adds the diagram instruction and tags the event only when diagram is requested", async () => {
+    await call("/generate", { method: "POST", body: { pr: PR, diagram: true } });
+    const [withDiagram, metaOn] = deps.pushEvent.mock.lastCall!;
+    expect(withDiagram).toContain("`diagram` field to mermaid source");
+    expect(metaOn.diagram).toBe("true");
+
+    await call("/generate", { method: "POST", body: { pr: PR, diagram: false } });
+    const [withoutDiagram, metaOff] = deps.pushEvent.mock.lastCall!;
+    expect(withoutDiagram).not.toContain("mermaid source");
+    expect(metaOff.diagram).toBe("false");
   });
 
   it("400 on a malformed body or a bad pr", async () => {

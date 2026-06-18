@@ -11,18 +11,16 @@ import {
   Crosshair,
   MessageSquare,
   Minus,
-  Plus,
   RotateCw,
-  Trash2,
   X,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import type { JSX, KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent } from "react";
+import type { JSX } from "react";
 import { bifrost } from "../../../bifrost";
 import { changedFilePaths } from "../../../midgard/diff";
 import { chatStore, QUICK, QUICK_PR } from "../../chat";
 import { pairingStore } from "../../pairing";
-import { chatSnippet, chatsStore, getSnapshot, subscribe } from "../../store";
+import { getSnapshot, subscribe } from "../../store";
 import type { ChatMessage, ChatSession } from "../../types";
 import { Button } from "../../ui/button";
 
@@ -315,137 +313,19 @@ function OptionRow({
   );
 }
 
-/** The chat rail: New chat, the list of open chats (active highlighted, each with
- * a trash), and Clear all. Lets several chats run at once — pick any to view it. */
-function ChatRail({ active, width }: Readonly<{ active: string | null; width: number }>): JSX.Element {
-  const sessions = chatsStore.sessions();
-  return (
-    <div className="flex shrink-0 flex-col" style={{ width }}>
-      <div className="p-2">
-        <Button size="sm" className="w-full" onClick={() => chatStore.newChat()}>
-          <Plus /> New chat
-        </Button>
-      </div>
-      <div className="min-h-0 flex-1 overflow-y-auto px-1">
-        {sessions.length === 0 ? (
-          <p className="px-2 py-1 text-xs text-muted-foreground">No chats yet.</p>
-        ) : (
-          sessions.map((sess) => (
-            <div
-              key={sess.key}
-              className={
-                "group flex items-center rounded-md " +
-                (sess.key === active ? "bg-accent" : "hover:bg-accent")
-              }
-            >
-              <button
-                className="flex-1 truncate px-2 py-1.5 text-left text-xs"
-                title={chatSnippet(sess)}
-                onClick={() => chatStore.open(sess)}
-              >
-                {chatSnippet(sess)}
-              </button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-6 w-6 shrink-0 text-muted-foreground opacity-0 hover:text-destructive group-hover:opacity-100"
-                aria-label="Delete this chat"
-                onClick={() => chatStore.deleteSession(sess.key)}
-              >
-                <Trash2 />
-              </Button>
-            </div>
-          ))
-        )}
-      </div>
-      {sessions.length > 0 && (
-        <Button
-          variant="ghost"
-          size="sm"
-          className="m-2 mt-1 hover:border-destructive/40 hover:bg-destructive/10 hover:text-destructive"
-          onClick={() => chatsStore.clearSessions()}
-        >
-          <Trash2 /> Clear all
-        </Button>
-      )}
-    </div>
-  );
-}
-
-const RAIL_KEY = "kvasir:chatRailW";
-const RAIL_MIN = 120;
-const RAIL_MAX = 280;
-const RAIL_NUDGE: Record<string, number> = { ArrowLeft: -16, ArrowRight: 16 };
-const clampRail = (n: number): number => Math.min(RAIL_MAX, Math.max(RAIL_MIN, Math.round(n)));
-const initialRail = (): number => {
-  const stored = Number(localStorage.getItem(RAIL_KEY));
-  return Number.isFinite(stored) && stored > 0 ? clampRail(stored) : 152;
-};
-
 export function ChatTab(): JSX.Element {
   useSyncExternalStore(subscribe, getSnapshot);
   const sess = chatStore.active();
-  const rowRef = useRef<HTMLDivElement>(null);
-  const [railW, setRailW] = useState(initialRail);
-
-  // Drag the divider to resize the rail; persist the final width (a global UI
-  // pref, like the theme — localStorage, not the per-PR chrome store).
-  const onResize = (event: ReactMouseEvent): void => {
-    event.preventDefault();
-    const left = rowRef.current!.getBoundingClientRect().left; // the row is mounted — the handle lives in it
-    const move = (event: MouseEvent): void => setRailW(clampRail(event.clientX - left));
-    const up = (): void => {
-      document.removeEventListener("mousemove", move);
-      document.removeEventListener("mouseup", up);
-      setRailW((w) => {
-        localStorage.setItem(RAIL_KEY, String(w));
-        return w;
-      });
-    };
-    document.addEventListener("mousemove", move);
-    document.addEventListener("mouseup", up);
-  };
-  // Keyboard equivalent of the drag (WAI-ARIA window-splitter pattern): arrows
-  // nudge the rail, persisting like the drag's mouseup does.
-  const onResizeKey = (event: ReactKeyboardEvent): void => {
-    const delta = RAIL_NUDGE[event.key] ?? 0;
-    if (!delta) return;
-    event.preventDefault();
-    setRailW((w) => {
-      const next = clampRail(w + delta);
-      localStorage.setItem(RAIL_KEY, String(next));
-      return next;
-    });
-  };
-
   return (
-    <div ref={rowRef} className="flex h-full min-h-0">
-      <ChatRail active={sess?.key ?? null} width={railW} />
-      {/* Keyboard-operable splitter (WAI-ARIA window-splitter): focusable, arrows resize. The lint maps role="separator" as non-interactive and so rejects the tabIndex + handlers, but that pattern is exactly how an accessible splitter is built. */}
-      {/* eslint-disable jsx-a11y/no-noninteractive-element-interactions, jsx-a11y/no-noninteractive-tabindex -- see above */}
-      <div
-        role="separator"
-        aria-orientation="vertical"
-        aria-label="Resize chat list"
-        aria-valuenow={railW}
-        aria-valuemin={RAIL_MIN}
-        aria-valuemax={RAIL_MAX}
-        tabIndex={0}
-        className="w-[5px] shrink-0 cursor-col-resize border-x border-border bg-transparent transition-colors hover:border-primary/40 hover:bg-primary/60 focus-visible:border-primary focus-visible:bg-primary/60 focus-visible:outline-none"
-        onMouseDown={onResize}
-        onKeyDown={onResizeKey}
-      />
-      {/* eslint-enable jsx-a11y/no-noninteractive-element-interactions, jsx-a11y/no-noninteractive-tabindex */}
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        {sess ? (
-          <Thread key={sess.key} sess={sess} />
-        ) : (
-          <div className="flex flex-1 flex-col items-center justify-center gap-2 p-6 text-center text-sm text-muted-foreground">
-            <MessageSquare className="size-6 opacity-50" />
-            Pick a chat, start a New chat, or select code in the diff.
-          </div>
-        )}
-      </div>
+    <div className="flex h-full min-h-0 flex-col">
+      {sess ? (
+        <Thread key={sess.key} sess={sess} />
+      ) : (
+        <div className="flex flex-1 flex-col items-center justify-center gap-2 p-6 text-center text-sm text-muted-foreground">
+          <MessageSquare className="size-6 opacity-50" />
+          Pick a chat from the sidebar, start a New chat, or select code in the diff.
+        </div>
+      )}
     </div>
   );
 }

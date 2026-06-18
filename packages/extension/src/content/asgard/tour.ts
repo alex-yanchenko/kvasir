@@ -18,6 +18,16 @@ let stepIndex = 0;
 // The detail pane's open state lives here, NOT in React component state, so it
 // survives the WalkthroughTab unmount when you switch to Chat/Settings and back.
 let detailOpen = false;
+// The flow-diagram overlay's open state — module-level for the same reason as
+// detailOpen (survives a tab switch). The sidebar's open state + width are panel
+// geometry and live in panelStore (so this machine's close() can't collapse them).
+let diagramOpen = false;
+// Steps the user has actually opened this walkthrough (by id) — drives the outline's
+// "visited" dots. Reset when the spec is regenerated (generatedAt changes), tracked
+// here rather than recomputed from stepIndex so a visited mark persists after you
+// navigate back.
+let visited = new Set<string>();
+let visitedStamp = "";
 
 const clamp = (index: number, length: number): number => Math.min(Math.max(index, 0), length - 1);
 
@@ -32,6 +42,12 @@ export const tourStore = {
     detailOpen = value;
     touch();
   },
+  diagramOpen: (): boolean => diagramOpen,
+  setDiagramOpen(value: boolean): void {
+    diagramOpen = value;
+    touch();
+  },
+  isVisited: (stepId: string): boolean => visited.has(stepId),
 
   start(): void {
     if (!state.spec) return;
@@ -51,6 +67,12 @@ export const tourStore = {
     storeSet(tourKey(prUrl()), state.tourState);
     const s = state.spec.steps[stepIndex];
     if (!s) return; // empty spec / out-of-range — nothing to highlight
+    // Reset the visited set when the walkthrough is regenerated, then mark this step.
+    if (state.spec.generatedAt !== visitedStamp) {
+      visited = new Set<string>();
+      visitedStamp = state.spec.generatedAt;
+    }
+    visited.add(s.id);
     state.activeStep = s; // current step → available as chat context
     bifrost.send("grip:context", { hasActiveStep: true });
     bifrost.send("highlight:step", {
@@ -71,6 +93,9 @@ export const tourStore = {
 
   close(): void {
     open = false;
+    // The diagram overlay is walkthrough-scoped: closing/regenerating must not leave
+    // it open, or a regenerated spec that carries a diagram would auto-open it unasked.
+    diagramOpen = false;
     bifrost.send("highlight:clear", undefined);
     state.activeStep = null;
     bifrost.send("grip:context", { hasActiveStep: false });

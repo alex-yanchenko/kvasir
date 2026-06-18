@@ -45,6 +45,14 @@ describe("significantFiles", () => {
     ]);
     expect(significantFiles(m)).toEqual(["src/a.ts"]);
   });
+
+  it("includes a file at exactly COVERAGE_MIN_ADDS and excludes one just below", () => {
+    const m = mkManifest([
+      { path: "src/at.ts", additions: COVERAGE_MIN_ADDS }, // boundary included (>=)
+      { path: "src/below.ts", additions: COVERAGE_MIN_ADDS - 1 }, // boundary excluded
+    ]);
+    expect(significantFiles(m)).toEqual(["src/at.ts"]);
+  });
 });
 
 describe("uncoveredFiles", () => {

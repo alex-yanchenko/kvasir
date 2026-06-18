@@ -89,10 +89,34 @@ describe("preparePublish", () => {
         ...spec([{ file: "src/other.ts" }]),
         generatedAt: NOW,
         pr: { ...spec([{ file: "src/other.ts" }]).pr, author: "octocat" },
+        coverage: { significant: ["src/big.ts"], uncovered: ["src/big.ts"] },
       },
       message:
         "Published 1 steps. (1 changed file(s) still without a step) Open the PR; the extension will render it.",
     });
+  });
+
+  it("stamps coverage (significant files + the uncovered ones) from the manifest", () => {
+    const manifests = new Map([
+      [
+        KEY,
+        manifestWith([
+          { path: "src/a.ts", additions: 80 },
+          { path: "src/b.ts", additions: 80 },
+        ]),
+      ],
+    ]);
+    const nudges = new Map([[KEY, 1]]); // budget spent → publishes despite the gap
+    const outcome = preparePublish(spec([{ file: "src/a.ts" }]), state({ manifests, nudges }));
+    expect(outcome.kind === "published" && outcome.spec.coverage).toEqual({
+      significant: ["src/a.ts", "src/b.ts"],
+      uncovered: ["src/b.ts"],
+    });
+  });
+
+  it("omits coverage entirely when no manifest was recorded", () => {
+    const outcome = preparePublish(spec(), state());
+    expect(outcome.kind === "published" && outcome.spec.coverage).toBeUndefined();
   });
 
   it("does not nudge for a big test file — tests are excluded from the coverage check", () => {

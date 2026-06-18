@@ -157,6 +157,7 @@ export const launcherStore = {
         sinceSha,
         depth: settingsStore.reviewMode(),
         reposRoot: settingsStore.reviewReposRoot(),
+        diagram: settingsStore.generateDiagram(),
       }),
     );
     if (!r.ok) {

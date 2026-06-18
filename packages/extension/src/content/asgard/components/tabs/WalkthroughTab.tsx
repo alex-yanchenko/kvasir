@@ -2,8 +2,11 @@
 // states: no spec (run a review), generating (status), or the step walkthrough.
 // tourStore drives the page highlights; the tab mount/unmount starts/stops the
 // tour so switching tabs or closing the panel clears the highlight.
+import type { WalkthroughSpec, WalkthroughStep } from "@kvasir/runes/spec";
 import {
+  AlertTriangle,
   Check,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Crosshair,
@@ -13,9 +16,11 @@ import {
   MessageSquareMore,
   Play,
   RefreshCw,
+  Workflow,
 } from "lucide-react";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import type { JSX } from "react";
+import { bifrost } from "../../../bifrost";
 import { sanitizeSpecHtml } from "../../../sanitize";
 import { chatStore } from "../../chat";
 import { fmtElapsed, launcherStore } from "../../launcher";
@@ -23,6 +28,7 @@ import { pairingStore } from "../../pairing";
 import { getSnapshot, PANEL_TABS, panelStore, subscribe } from "../../store";
 import { tourStore } from "../../tour";
 import { Button } from "../../ui/button";
+import { Diagram } from "../Diagram";
 import { RegenDialog } from "../RegenDialog";
 
 function Generating(): JSX.Element {
@@ -61,23 +67,110 @@ function Empty(): JSX.Element {
   );
 }
 
-function Steps(): JSX.Element {
-  const [dialog, setDialog] = useState(false);
-  const [copiedLog, setCopiedLog] = useState(false);
-  const step = tourStore.step();
-  const index = tourStore.stepIndex();
-  const count = tourStore.stepCount();
+// Coverage confidence: does the walkthrough explain the whole change? Stamped
+// server-side onto the spec at publish (PR walkthroughs only). Absent → render
+// nothing (a cross-repo review or a pre-coverage cached spec).
+function Coverage({
+  coverage,
+}: Readonly<{ coverage: { significant: string[]; uncovered: string[] } | undefined }>): JSX.Element | null {
+  const [open, setOpen] = useState(false);
+  if (!coverage || coverage.significant.length === 0) return null;
+  const { significant, uncovered } = coverage;
+  const covered = significant.length - uncovered.length;
+  const full = uncovered.length === 0;
+  return (
+    <div className="border-b border-border px-3 py-1.5 text-xs">
+      <button
+        className="flex w-full items-center gap-1.5 text-left"
+        aria-label="Walkthrough coverage of changed files"
+        data-kvasir-tip={
+          full ? "Every significant changed file has a step" : "Some changed files have no step"
+        }
+        disabled={full}
+        onClick={() => setOpen((value) => !value)}
+      >
+        {full ? (
+          <Check className="size-3.5 shrink-0 text-primary" />
+        ) : (
+          <AlertTriangle className="size-3.5 shrink-0 text-amber-500" />
+        )}
+        <span className="text-muted-foreground">
+          Explains {covered}/{significant.length} changed files
+        </span>
+        {!full && (
+          <ChevronDown className={"ml-auto size-3.5 transition-transform" + (open ? " rotate-180" : "")} />
+        )}
+      </button>
+      {open && !full && (
+        <ul className="mt-1.5 space-y-0.5">
+          {uncovered.map((path) => (
+            <li key={path}>
+              <button
+                className="block w-full truncate text-left font-mono text-muted-foreground hover:text-primary"
+                data-kvasir-tip="Jump to this uncovered file in the diff"
+                onClick={() => bifrost.send("jump:ref", { file: path, start: null, end: null })}
+              >
+                {path}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
 
-  // Start (resume) the tour when this tab opens. We deliberately do NOT close on
-  // unmount: leaving for Settings/Chat keeps the page highlight up — so the
-  // highlight-style toggle is testable against a real selection. The panel close
-  // clears it (Panel's unmount), and start() is idempotent on re-entry.
-  useEffect(() => {
-    tourStore.start();
-  }, []);
+// The current step's prose + its expandable detail. Split out of Steps so that
+// component stays under the cognitive-complexity bar; detail open state is
+// module-level (tourStore) so it persists across a tab switch.
+function StepBody({ step }: Readonly<{ step: WalkthroughStep }>): JSX.Element {
+  const detailOpen = tourStore.detailOpen();
+  return (
+    <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+      <h3 className="mb-2 text-base font-semibold">{step.title}</h3>
+      <div
+        className="kvasir-prose text-sm"
+        data-testid="step-body"
+        dangerouslySetInnerHTML={{ __html: sanitizeSpecHtml(step.body) }}
+      />
+      {step.detail && (
+        <>
+          <Button
+            variant="link"
+            size="sm"
+            className="mt-2 h-auto p-0"
+            onClick={() => tourStore.setDetailOpen(!detailOpen)}
+          >
+            {detailOpen ? "Hide details" : "Show details"}
+          </Button>
+          {detailOpen && (
+            <div
+              className="kvasir-prose mt-2 border-t border-border pt-2 text-sm"
+              data-testid="step-detail"
+              dangerouslySetInnerHTML={{ __html: sanitizeSpecHtml(step.detail) }}
+            />
+          )}
+        </>
+      )}
+    </div>
+  );
+}
 
-  // Arrow keys navigate; bound to the document AND the shadow root (the hotkey
-  // shield keeps shadow-origin keys off the document), skipping editable fields.
+// The content pane (right of the rail): the diagram overlay when open, else the
+// step body. The outline rail is a sibling column, not part of this pane.
+function MainView({
+  spec,
+  step,
+  diagramOpen,
+}: Readonly<{ spec: WalkthroughSpec; step: WalkthroughStep; diagramOpen: boolean }>): JSX.Element {
+  if (diagramOpen && spec.diagram) return <Diagram source={spec.diagram} />;
+  return <StepBody step={step} />;
+}
+
+// Arrow keys navigate steps; bound to the document AND the shadow root (the hotkey
+// shield keeps shadow-origin keys off the document), skipping editable fields.
+// Extracted from Steps so that component stays under the cognitive-complexity bar.
+function useArrowKeyNav(): void {
   useEffect(() => {
     const keys = (event: Event): void => {
       if (!(event instanceof KeyboardEvent)) return;
@@ -100,99 +193,100 @@ function Steps(): JSX.Element {
       if (root !== document) root.removeEventListener("keydown", keys);
     };
   }, []);
+}
 
-  if (!step) return <Empty />;
-  const newCommits = launcherStore.newCommits();
+// The header utility cluster (outline/diagram toggles, ask, re-scroll, copy log,
+// regenerate). Split out of Steps so that component stays under the
+// cognitive-complexity bar; reads its own toggle/chat/commit state from the stores.
+function StepTools({
+  spec,
+  step,
+  index,
+  onRegen,
+}: Readonly<{
+  spec: WalkthroughSpec;
+  step: WalkthroughStep;
+  index: number;
+  onRegen: () => void;
+}>): JSX.Element {
+  const [copiedLog, setCopiedLog] = useState(false);
+  const diagramOpen = tourStore.diagramOpen();
   const stepChat = chatStore.stepChat(step.id);
-  const detailOpen = tourStore.detailOpen();
+  const newCommits = launcherStore.newCommits();
+  return (
+    <div className="ml-auto flex items-center gap-1">
+      {spec.diagram && (
+        <Button
+          variant="ghost"
+          size="icon"
+          className={"h-7 w-7" + (diagramOpen ? " text-primary" : "")}
+          aria-label={diagramOpen ? "Hide diagram" : "Show diagram"}
+          data-kvasir-tip="Flow diagram of the change"
+          onClick={() => tourStore.setDiagramOpen(!diagramOpen)}
+        >
+          <Workflow />
+        </Button>
+      )}
+      <Button
+        variant="ghost"
+        size="icon"
+        className={"h-7 w-7" + (stepChat ? " text-primary" : "")}
+        aria-label={stepChat ? "Reopen chat for this step" : "Ask about this step"}
+        data-kvasir-tip={stepChat ? "Reopen this step's chat" : "Ask about this step"}
+        disabled={pairingStore.needsPairing()}
+        onClick={() => {
+          tourStore.askAboutStep();
+          panelStore.setTab(PANEL_TABS.CHAT);
+        }}
+      >
+        {stepChat ? <MessageSquareMore /> : <MessageSquare />}
+      </Button>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-7 w-7"
+        aria-label="Scroll to this step's code"
+        data-kvasir-tip="Scroll to this step's code"
+        onClick={() => tourStore.goto(index)}
+      >
+        <Crosshair />
+      </Button>
+      <Button
+        variant="ghost"
+        size="icon"
+        className={"h-7 w-7" + (copiedLog ? " text-primary" : "")}
+        aria-label="Copy build log"
+        data-kvasir-tip="Copy how this was built — paste to Claude to review"
+        onClick={() => void launcherStore.copyBuildLog().then((result) => setCopiedLog(result === "ok"))}
+      >
+        {copiedLog ? <Check /> : <FileText />}
+      </Button>
+      <Button
+        variant="ghost"
+        size="icon"
+        className={"h-7 w-7" + (newCommits ? " text-primary" : "")}
+        aria-label={newCommits ? "Update" : "Regenerate"}
+        data-kvasir-tip={newCommits ? "Update — new commits since this review" : "Regenerate review"}
+        disabled={pairingStore.needsPairing()}
+        onClick={onRegen}
+      >
+        <RefreshCw />
+      </Button>
+    </div>
+  );
+}
+
+// Footer: the step counter (moved here from the header) above Back · dots · Next.
+// Split out so Steps stays under the cognitive-complexity bar.
+function Footer({ index, count }: Readonly<{ index: number; count: number }>): JSX.Element {
   const atFirst = index === 0;
   const atLast = index >= count - 1;
   return (
-    <div className="flex h-full flex-col">
-      {/* header: where you are + low-frequency utilities (re-scroll, regenerate) */}
-      <div className="flex items-center gap-1 border-b border-border px-3 py-2">
-        <span className="text-xs text-muted-foreground">
-          Step <span className="font-medium text-primary">{index + 1}</span> / {count}
-        </span>
-        <div className="ml-auto flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            className={"h-7 w-7" + (stepChat ? " text-primary" : "")}
-            aria-label={stepChat ? "Reopen chat for this step" : "Ask about this step"}
-            data-kvasir-tip={stepChat ? "Reopen this step's chat" : "Ask about this step"}
-            disabled={pairingStore.needsPairing()}
-            onClick={() => {
-              tourStore.askAboutStep();
-              panelStore.setTab(PANEL_TABS.CHAT);
-            }}
-          >
-            {stepChat ? <MessageSquareMore /> : <MessageSquare />}
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7"
-            aria-label="Scroll to this step's code"
-            data-kvasir-tip="Scroll to this step's code"
-            onClick={() => tourStore.goto(index)}
-          >
-            <Crosshair />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className={"h-7 w-7" + (copiedLog ? " text-primary" : "")}
-            aria-label="Copy build log"
-            data-kvasir-tip="Copy how this was built — paste to Claude to review"
-            onClick={() => void launcherStore.copyBuildLog().then((result) => setCopiedLog(result === "ok"))}
-          >
-            {copiedLog ? <Check /> : <FileText />}
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className={"h-7 w-7" + (newCommits ? " text-primary" : "")}
-            aria-label={newCommits ? "Update" : "Regenerate"}
-            data-kvasir-tip={newCommits ? "Update — new commits since this review" : "Regenerate review"}
-            disabled={pairingStore.needsPairing()}
-            onClick={() => setDialog(true)}
-          >
-            <RefreshCw />
-          </Button>
-        </div>
+    <div className="border-t border-border">
+      <div className="py-1 text-center text-xs text-muted-foreground">
+        Step <span className="font-medium text-primary">{index + 1}</span> / {count}
       </div>
-
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
-        <h3 className="mb-2 text-base font-semibold">{step.title}</h3>
-        <div
-          className="kvasir-prose text-sm"
-          data-testid="step-body"
-          dangerouslySetInnerHTML={{ __html: sanitizeSpecHtml(step.body) }}
-        />
-        {step.detail && (
-          <>
-            <Button
-              variant="link"
-              size="sm"
-              className="mt-2 h-auto p-0"
-              onClick={() => tourStore.setDetailOpen(!detailOpen)}
-            >
-              {detailOpen ? "Hide details" : "Show details"}
-            </Button>
-            {detailOpen && (
-              <div
-                className="kvasir-prose mt-2 border-t border-border pt-2 text-sm"
-                data-testid="step-detail"
-                dangerouslySetInnerHTML={{ __html: sanitizeSpecHtml(step.detail) }}
-              />
-            )}
-          </>
-        )}
-      </div>
-
-      {/* wizard footer: Back (quiet) · progress dots · Next (accent) */}
-      <div className="flex items-center gap-2 border-t border-border px-3 py-2">
+      <div className="flex items-center gap-2 px-3 pb-2">
         <span data-kvasir-tip={atFirst ? "First step" : undefined}>
           <Button
             variant="ghost"
@@ -230,6 +324,38 @@ function Steps(): JSX.Element {
           </Button>
         </span>
       </div>
+    </div>
+  );
+}
+
+function Steps({ spec }: Readonly<{ spec: WalkthroughSpec }>): JSX.Element {
+  const [dialog, setDialog] = useState(false);
+  const step = tourStore.step();
+  const index = tourStore.stepIndex();
+  const count = tourStore.stepCount();
+
+  // Start (resume) the tour when this tab opens. We deliberately do NOT close on
+  // unmount: leaving for Settings/Chat keeps the page highlight up — so the
+  // highlight-style toggle is testable against a real selection. The panel close
+  // clears it (Panel's unmount), and start() is idempotent on re-entry.
+  useEffect(() => {
+    tourStore.start();
+  }, []);
+  useArrowKeyNav();
+
+  if (!step) return <Empty />;
+  const diagramOpen = tourStore.diagramOpen();
+  return (
+    <div className="flex h-full flex-col">
+      {/* header: low-frequency utilities (the outline toggle lives in the panel title bar) */}
+      <div className="flex items-center gap-1 border-b border-border px-3 py-2">
+        <StepTools spec={spec} step={step} index={index} onRegen={() => setDialog(true)} />
+      </div>
+
+      <Coverage coverage={spec.coverage} />
+      <MainView spec={spec} step={step} diagramOpen={diagramOpen} />
+
+      <Footer index={index} count={count} />
       {dialog && <RegenDialog onClose={() => setDialog(false)} />}
     </div>
   );
@@ -238,6 +364,7 @@ function Steps(): JSX.Element {
 export function WalkthroughTab(): JSX.Element {
   useSyncExternalStore(subscribe, getSnapshot);
   if (launcherStore.generating()) return <Generating />;
-  if (!launcherStore.spec()?.steps.length) return <Empty />;
-  return <Steps />;
+  const spec = launcherStore.spec();
+  if (!spec?.steps.length) return <Empty />;
+  return <Steps spec={spec} />;
 }

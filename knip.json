@@ -3,7 +3,10 @@
   "ignore": ["**/*.css"],
   "ignoreDependencies": ["tailwindcss"],
   "workspaces": {
-    "packages/extension": { "entry": ["src/content/index.tsx", "src/huginn.ts"], "project": "src/**" },
+    "packages/extension": {
+      "entry": ["src/content/index.tsx", "src/huginn.ts", "src/mermaidEntry.ts"],
+      "project": "src/**"
+    },
     "packages/mimir": {
       "entry": ["src/channel.ts", "scripts/buildReview.ts", "src/**/*.buntest.ts"],
       "project": "src/**"

@@ -147,7 +147,7 @@ describe("ChatTab shell", () => {
     openSession(mkSession("a1", { lines: { start: 4, end: 4 } }));
     expect(screen.getByText("app.ts:4")).toBeTruthy();
     openSession(mkSession("g", { general: true, file: null, lines: null, text: "", suggestions: [] }));
-    expect(screen.getAllByText("This PR").length).toBeGreaterThan(0); // rail entry + thread header
+    expect(screen.getAllByText("This PR").length).toBeGreaterThan(0); // the thread header
   });
 
   it("delete removes the active session and falls back to the empty state", () => {
@@ -166,49 +166,6 @@ describe("ChatTab shell", () => {
     expect(state.chatHistory.find((s) => s.key === "a")).toBeDefined(); // kept, not deleted
   });
 
-  it("resizes the chat rail by dragging the divider and persists the width", () => {
-    render(<ChatTab />);
-    const sep = screen.getByRole("separator", { name: "Resize chat list" });
-    act(() => {
-      fireEvent.mouseDown(sep, { clientX: 152 });
-      fireEvent.mouseMove(document, { clientX: 210 });
-      fireEvent.mouseUp(document);
-    });
-    const rail = screen.getByRole("button", { name: "New chat" }).closest("[style]") as HTMLElement;
-    expect(rail.style.width).toBe("210px"); // jsdom row left = 0 → width = clientX
-    expect(localStorage.getItem("kvasir:chatRailW")).toBe("210");
-  });
-
-  it("restores a persisted rail width on mount", () => {
-    localStorage.setItem("kvasir:chatRailW", "200");
-    render(<ChatTab />);
-    const rail = screen.getByRole("button", { name: "New chat" }).closest("[style]") as HTMLElement;
-    expect(rail.style.width).toBe("200px");
-  });
-
-  it("clamps the rail width to its bounds", () => {
-    render(<ChatTab />);
-    const sep = screen.getByRole("separator", { name: "Resize chat list" });
-    act(() => {
-      fireEvent.mouseDown(sep, { clientX: 10 });
-      fireEvent.mouseMove(document, { clientX: 9999 });
-      fireEvent.mouseUp(document);
-    });
-    expect(localStorage.getItem("kvasir:chatRailW")).toBe("280"); // RAIL_MAX
-  });
-
-  it("resizes the rail with arrow keys and persists; ignores other keys", () => {
-    render(<ChatTab />);
-    const sep = screen.getByRole("separator", { name: "Resize chat list" });
-    act(() => fireEvent.keyDown(sep, { key: "ArrowRight" }));
-    expect(sep.getAttribute("aria-valuenow")).toBe("168"); // 152 default + 16
-    expect(localStorage.getItem("kvasir:chatRailW")).toBe("168");
-    act(() => fireEvent.keyDown(sep, { key: "ArrowLeft" }));
-    expect(localStorage.getItem("kvasir:chatRailW")).toBe("152");
-    act(() => fireEvent.keyDown(sep, { key: "a" }));
-    expect(localStorage.getItem("kvasir:chatRailW")).toBe("152");
-  });
-
   it("disables the composer/chips and fires no backend call while unpaired", () => {
     pairingStore.markUnpaired();
     const ask = vi.spyOn(chatStore, "send");
@@ -221,41 +178,6 @@ describe("ChatTab shell", () => {
     expect(document.querySelector(".kvasir-skel")).toBeNull(); // no endless shimmer
     expect(suggest).not.toHaveBeenCalled(); // no prefetch
     expect(ask).not.toHaveBeenCalled(); // trailing user turn NOT auto-resent
-  });
-
-  it("the rail starts a new chat, switches between chats, deletes one, and clears all", () => {
-    render(<ChatTab />);
-    expect(screen.getByText("No chats yet.")).toBeTruthy();
-
-    act(() => fireEvent.click(screen.getByRole("button", { name: "New chat" })));
-    expect(state.chatHistory.length).toBe(1);
-    expect(state.chatHistory[0].general).toBe(true);
-    expect(chatStore.active()?.key).toBe(state.chatHistory[0].key); // new chat opens
-
-    // a second selection chat — both live in the rail at once
-    openSession(mkSession("sel"));
-    expect(chatStore.active()?.key).toBe("sel");
-    // switch back to the general one via its rail entry
-    act(() => fireEvent.click(screen.getByText("This PR")));
-    expect(chatStore.active()?.general).toBe(true);
-
-    // delete the selection chat from the rail (it's not active → active is unchanged)
-    act(() => fireEvent.click(screen.getAllByLabelText("Delete this chat")[0])); // "sel" is first
-    expect(state.chatHistory.find((s) => s.key === "sel")).toBeUndefined();
-    expect(chatStore.active()?.general).toBe(true); // still on the general chat
-
-    act(() => fireEvent.click(screen.getByRole("button", { name: "Clear all" })));
-    expect(state.chatHistory).toEqual([]);
-    expect(screen.getByText(/Pick a chat/)).toBeTruthy();
-  });
-
-  it("deleting the active chat from the rail clears the active slot and the highlight", () => {
-    render(<ChatTab />);
-    openSession(mkSession("a"));
-    jumps = [];
-    act(() => fireEvent.click(screen.getAllByLabelText("Delete this chat")[0]));
-    expect(chatStore.active()).toBeNull();
-    expect(state.chatHistory.find((s) => s.key === "a")).toBeUndefined();
   });
 
   it("the scroll-to-bottom effect is a no-op when the thread ref never attaches", () => {
