@@ -4,7 +4,7 @@
 // until then they show a placeholder.
 import { ListTree, X } from "lucide-react";
 import { useEffect, useRef, useSyncExternalStore } from "react";
-import type { JSX, MouseEvent as ReactMouseEvent } from "react";
+import type { JSX, KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent } from "react";
 import { activeGuide } from "../guide";
 import { historyStore } from "../history";
 import { useDrag } from "../hooks/useDrag";
@@ -80,6 +80,70 @@ function GuideDeletedBanner(): JSX.Element | null {
   );
 }
 
+const SIDEBAR_MIN = 130;
+const SIDEBAR_MAX = 360;
+const CONTENT_MIN = 240;
+const DIVIDER_NUDGE: Record<string, number> = { ArrowLeft: -16, ArrowRight: 16 };
+
+// Apply a sidebar-width delta as a NORMAL separator: grow the sidebar and shrink the
+// content by the SAME amount, so the window width stays put (unlike the corner grip,
+// which extends the window). setRailWidth clamps, so we match the content shrink to
+// the clamped delta. Height is preserved. Module-scope (no closure state).
+function redistribute(deltaSidebar: number): void {
+  const startSidebar = tourStore.railWidth();
+  tourStore.setRailWidth(startSidebar + deltaSidebar);
+  const applied = tourStore.railWidth() - startSidebar;
+  const content = panelStore.size()?.w ?? 420;
+  panelStore.setSize({ w: Math.max(CONTENT_MIN, content - applied), h: panelStore.size()?.h ?? 320 });
+}
+
+function onDividerDown(event: ReactMouseEvent): void {
+  event.preventDefault();
+  const startX = event.clientX;
+  const startSidebar = tourStore.railWidth();
+  const move = (moved: MouseEvent): void => {
+    // Re-derive from the start width each move so the content tracks exactly.
+    const target = startSidebar + (moved.clientX - startX);
+    redistribute(target - tourStore.railWidth());
+  };
+  const up = (): void => {
+    document.removeEventListener("mousemove", move);
+    document.removeEventListener("mouseup", up);
+  };
+  document.addEventListener("mousemove", move);
+  document.addEventListener("mouseup", up);
+}
+
+function onDividerKey(event: ReactKeyboardEvent): void {
+  const delta = DIVIDER_NUDGE[event.key] ?? 0;
+  if (!delta) return;
+  event.preventDefault();
+  redistribute(delta);
+}
+
+// Bottom-left corner grip: drag down/up = whole-window height; drag left/right =
+// extend the window leftward by growing the SIDEBAR (content width stays). The
+// native bottom-right handle still does an ordinary width/height resize.
+function onCornerDown(event: ReactMouseEvent): void {
+  event.preventDefault();
+  event.stopPropagation();
+  const startX = event.clientX;
+  const startY = event.clientY;
+  const startSidebar = tourStore.railWidth();
+  const startHeight = panelStore.size()?.h ?? 320;
+  const contentW = panelStore.size()?.w ?? 420;
+  const move = (moved: MouseEvent): void => {
+    tourStore.setRailWidth(startSidebar + (startX - moved.clientX)); // drag left → wider sidebar
+    panelStore.setSize({ w: contentW, h: Math.max(320, startHeight + (moved.clientY - startY)) });
+  };
+  const up = (): void => {
+    document.removeEventListener("mousemove", move);
+    document.removeEventListener("mouseup", up);
+  };
+  document.addEventListener("mousemove", move);
+  document.addEventListener("mouseup", up);
+}
+
 // The panel mounts only while open, so the resize observer (a mount-only effect)
 // attaches to the live element. Keeping the hooks above an `isOpen` early-return
 // instead would run them once at boot — when the panel is closed and the ref is
@@ -107,28 +171,6 @@ function PanelWindow(): JSX.Element {
   });
   useResizePersist(panelRef, (size) => panelStore.setSize({ w: size.w - sidebarOffset, h: size.h }));
   useScrollLock(panelRef);
-  // Bottom-left corner grip: drag down/up = whole-window height; drag left/right =
-  // extend the window leftward by growing the SIDEBAR (content width stays). The
-  // native bottom-right handle still does an ordinary width/height resize.
-  const onCornerDown = (event: ReactMouseEvent): void => {
-    event.preventDefault();
-    event.stopPropagation();
-    const startX = event.clientX;
-    const startY = event.clientY;
-    const startSidebar = tourStore.railWidth();
-    const startHeight = panelStore.size()?.h ?? 320;
-    const contentW = panelStore.size()?.w ?? 420;
-    const move = (moved: MouseEvent): void => {
-      tourStore.setRailWidth(startSidebar + (startX - moved.clientX)); // drag left → wider sidebar
-      panelStore.setSize({ w: contentW, h: Math.max(320, startHeight + (moved.clientY - startY)) });
-    };
-    const up = (): void => {
-      document.removeEventListener("mousemove", move);
-      document.removeEventListener("mouseup", up);
-    };
-    document.addEventListener("mousemove", move);
-    document.addEventListener("mouseup", up);
-  };
   // Closing the panel ends the tour and clears the page highlight (the Walkthrough
   // tab no longer does this on tab-switch, so the highlight survives Settings/Chat).
   useEffect(() => () => tourStore.close(), []);
@@ -160,6 +202,24 @@ function PanelWindow(): JSX.Element {
       }}
     >
       {sidebarOpen && <PanelSidebar />}
+      {/* Always-visible separator between sidebar and content. Drag/arrows resize
+          the sidebar by redistributing width WITH the content (the window stays put). */}
+      {/* eslint-disable jsx-a11y/no-noninteractive-element-interactions, jsx-a11y/no-noninteractive-tabindex -- accessible window-splitter */}
+      {sidebarOpen && (
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize sidebar"
+          aria-valuenow={tourStore.railWidth()}
+          aria-valuemin={SIDEBAR_MIN}
+          aria-valuemax={SIDEBAR_MAX}
+          tabIndex={0}
+          className="w-[3px] shrink-0 cursor-col-resize bg-border transition-colors hover:bg-primary/60 focus-visible:bg-primary focus-visible:outline-none"
+          onMouseDown={onDividerDown}
+          onKeyDown={onDividerKey}
+        />
+      )}
+      {/* eslint-enable jsx-a11y/no-noninteractive-element-interactions, jsx-a11y/no-noninteractive-tabindex */}
       {/* The whole existing UI lives in a fixed-width column to the right of the
           sidebar, so opening the sidebar never moves the title bar, tabs or content. */}
       <div className="flex min-w-0 flex-1 flex-col">

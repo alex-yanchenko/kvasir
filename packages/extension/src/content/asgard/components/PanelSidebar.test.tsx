@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import type { WalkthroughSpec } from "@kvasir/runes/spec";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 vi.mock("../../muninn", () => ({ storeGet: vi.fn(), storeSet: vi.fn(), storeRemove: vi.fn() }));
@@ -42,20 +42,5 @@ describe("PanelSidebar", () => {
     render(<PanelSidebar />);
     expect(screen.getByText(/Nothing here yet/)).toBeTruthy();
     expect(screen.queryByTestId("outline")).toBeNull();
-  });
-
-  it("drag-resizes via the splitter and arrow keys, ignoring other keys", () => {
-    render(<PanelSidebar />);
-    const splitter = screen.getByLabelText("Resize sidebar");
-    const before = tourStore.railWidth();
-    fireEvent.mouseDown(splitter, { clientX: 100 });
-    fireEvent.mouseMove(document, { clientX: 150 }); // +50
-    fireEvent.mouseUp(document);
-    expect(tourStore.railWidth()).toBe(Math.min(360, before + 50));
-    const mid = tourStore.railWidth();
-    fireEvent.keyDown(splitter, { key: "Enter" }); // no nudge → unchanged
-    expect(tourStore.railWidth()).toBe(mid);
-    fireEvent.keyDown(splitter, { key: "ArrowLeft" }); // -16
-    expect(tourStore.railWidth()).toBe(Math.max(130, mid - 16));
   });
 });

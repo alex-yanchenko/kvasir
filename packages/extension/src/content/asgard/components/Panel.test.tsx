@@ -91,6 +91,44 @@ describe("Panel", () => {
     expect(setSize).toHaveBeenCalledWith({ w: 500, h: 480 }); // content width kept, taller
   });
 
+  it("the sidebar divider redistributes width (sidebar grows, content shrinks, window fixed)", () => {
+    state.panel.size = { w: 500, h: 400 };
+    tourStore.setOutlineOpen(true);
+    tourStore.setRailWidth(200); // deterministic start
+    render(<Panel />);
+    act(() => panelStore.open());
+    const setSize = vi.spyOn(panelStore, "setSize");
+    const divider = screen.getByLabelText("Resize sidebar");
+    fireEvent.mouseDown(divider, { clientX: 100 });
+    fireEvent.mouseMove(document, { clientX: 130 }); // +30 → sidebar 230, content 470
+    fireEvent.mouseUp(document);
+    expect(tourStore.railWidth()).toBe(230);
+    expect(setSize).toHaveBeenLastCalledWith({ w: 470, h: 400 }); // window width unchanged
+  });
+
+  it("the divider redistributes from defaults when the window was never resized", () => {
+    tourStore.setOutlineOpen(true);
+    tourStore.setRailWidth(200);
+    render(<Panel />); // size stays null (defaults: content 420, height 320)
+    act(() => panelStore.open());
+    const setSize = vi.spyOn(panelStore, "setSize");
+    fireEvent.keyDown(screen.getByLabelText("Resize sidebar"), { key: "ArrowRight" }); // +16
+    expect(setSize).toHaveBeenCalledWith({ w: 404, h: 320 }); // 420 − 16, default height
+  });
+
+  it("the divider arrow keys redistribute; a non-arrow key is ignored", () => {
+    state.panel.size = { w: 500, h: 400 };
+    tourStore.setOutlineOpen(true);
+    tourStore.setRailWidth(200);
+    render(<Panel />);
+    act(() => panelStore.open());
+    const divider = screen.getByLabelText("Resize sidebar");
+    fireEvent.keyDown(divider, { key: "Enter" }); // ignored
+    expect(tourStore.railWidth()).toBe(200);
+    fireEvent.keyDown(divider, { key: "ArrowRight" }); // +16
+    expect(tourStore.railWidth()).toBe(216);
+  });
+
   it("shows no corner grip when the sidebar is closed", () => {
     render(<Panel />);
     act(() => panelStore.open());
