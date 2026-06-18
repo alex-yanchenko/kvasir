@@ -204,12 +204,17 @@ export const chatsStore = {
 // child tab inherits it via the browser's sessionStorage copy. Content lives in the
 // tab bodies, which reuse the existing machines (tour/chat/launcher/pairing).
 
+// The left sidebar's open state — module-level (shared across tabs, like railWidth)
+// but persisted into the panel's sessionStorage blob so it survives a refresh.
+let sidebarOpen = false;
+
 const persistPanel = (): void => {
   try {
     sessionStorage.setItem(
       PANEL_STATE_KEY,
       JSON.stringify({
         open: state.panel.open,
+        sidebarOpen,
         tab: state.panel.tab,
         pos: state.panel.pos,
         size: state.panel.size,
@@ -234,17 +239,17 @@ const readPanelState = (): unknown => {
 export function hydratePanel(): void {
   const parsed = parsePanelState(readPanelState());
   state.panel.open = parsed.open;
+  sidebarOpen = parsed.sidebarOpen;
   if (parsed.tab && isPanelTab(parsed.tab)) state.panel.tab = parsed.tab;
   state.panel.pos = parsed.pos;
   state.panel.size = parsed.size;
 }
 
-// The global left sidebar's open state + reserved width — panel geometry, shared
-// across all tabs (its CONTENT swaps per tab, but the column itself is the panel's).
-// Lives here, not in tourStore, so the walkthrough's close()/regenerate can never
-// collapse a sidebar the user opened on the Chat/History tab. railWidth persists in
-// localStorage; sidebarOpen is per-session UI state.
-let sidebarOpen = false;
+// The sidebar's reserved width — module-level, shared across all tabs (its CONTENT
+// swaps per tab, but the column is the panel's). Lives here, not in tourStore, so the
+// walkthrough's close()/regenerate can never collapse a sidebar opened on another tab.
+// Width persists in localStorage (a global preference); the open state persists per-tab
+// in the panel's sessionStorage blob (see persistPanel/hydratePanel above).
 let railWidth = Number(localStorage.getItem("kvasirRailWidth")) || 190;
 
 export const panelStore = {
@@ -255,6 +260,7 @@ export const panelStore = {
   sidebarOpen: (): boolean => sidebarOpen,
   setSidebarOpen(value: boolean): void {
     sidebarOpen = value;
+    persistPanel();
     touch();
   },
   railWidth: (): number => railWidth,

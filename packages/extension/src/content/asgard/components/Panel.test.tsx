@@ -111,6 +111,25 @@ describe("Panel", () => {
     expect(setPos).toHaveBeenLastCalledWith({ left: 70, top: 50 }); // left edge out by 30, right edge fixed
   });
 
+  it("the corner grip spills into content once the sidebar hits its minimum", () => {
+    state.panel.size = { w: 500, h: 400 };
+    state.panel.pos = { left: 100, top: 50 };
+    panelStore.setSidebarOpen(true);
+    panelStore.setRailWidth(140); // only 10px above the 130 minimum
+    render(<Panel />);
+    act(() => panelStore.open());
+    const setSize = vi.spyOn(panelStore, "setSize");
+    const setPos = vi.spyOn(panelStore, "setPos");
+    const corner = screen.getByTestId("resize-corner");
+    fireEvent.mouseDown(corner, { clientX: 200, clientY: 200 });
+    // drag right 40: sidebar wants 100 → clamps to 130 (−10), the extra −30 spills to content
+    fireEvent.mouseMove(document, { clientX: 240, clientY: 200 });
+    fireEvent.mouseUp(document);
+    expect(panelStore.railWidth()).toBe(130); // sidebar bottomed out
+    expect(setSize).toHaveBeenLastCalledWith({ w: 470, h: 400 }); // content absorbed the 30 overflow
+    expect(setPos).toHaveBeenLastCalledWith({ left: 140, top: 50 }); // window shrank 40 from the left
+  });
+
   it("the sidebar divider redistributes width: sidebar grows, content shrinks, window fixed", () => {
     state.panel.size = { w: 500, h: 400 };
     panelStore.setSidebarOpen(true);

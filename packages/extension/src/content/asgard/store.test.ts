@@ -168,7 +168,8 @@ describe("panelStore", () => {
       value: new URL("https://github.com/acme/widget-api/pull/7/files"),
       writable: true,
     });
-    sessionStorage.clear();
+    storeModule.panelStore.setSidebarOpen(false); // reset the module-level open state (writes a blob)…
+    sessionStorage.clear(); // …then empty it so "nothing stored" cases start clean
     storeModule.state.panel = { open: false, tab: storeModule.PANEL_TABS.WALKTHROUGH, pos: null, size: null };
   });
 
@@ -190,13 +191,14 @@ describe("panelStore", () => {
     expect(storeModule.panelStore.tab()).toBe("settings");
   });
 
-  it("persists {open, tab, pos, size} per-tab to sessionStorage", () => {
+  it("persists {open, sidebarOpen, tab, pos, size} per-tab to sessionStorage", () => {
     storeModule.panelStore.open(storeModule.PANEL_TABS.HISTORY);
-    expect(persisted()).toEqual({ open: true, tab: "history", pos: null, size: null });
+    expect(persisted()).toEqual({ open: true, sidebarOpen: false, tab: "history", pos: null, size: null });
     storeModule.panelStore.setPos({ left: 12, top: 34 });
     storeModule.panelStore.setSize({ w: 500, h: 600 });
     expect(persisted()).toEqual({
       open: true,
+      sidebarOpen: false,
       tab: "history",
       pos: { left: 12, top: 34 },
       size: { w: 500, h: 600 },
@@ -204,10 +206,31 @@ describe("panelStore", () => {
     storeModule.panelStore.close();
     expect(persisted()).toEqual({
       open: false,
+      sidebarOpen: false,
       tab: "history",
       pos: { left: 12, top: 34 },
       size: { w: 500, h: 600 },
     });
+  });
+
+  it("persists the sidebar open state and hydrates it back", () => {
+    storeModule.panelStore.open();
+    storeModule.panelStore.setSidebarOpen(true);
+    expect(persisted()).toEqual({
+      open: true,
+      sidebarOpen: true,
+      tab: "walkthrough",
+      pos: null,
+      size: null,
+    });
+    // a fresh blob with the sidebar open is restored on hydrate
+    storeModule.panelStore.setSidebarOpen(false);
+    sessionStorage.setItem(
+      "kvasir:panel",
+      JSON.stringify({ open: true, sidebarOpen: true, tab: "walkthrough" }),
+    );
+    storeModule.hydratePanel();
+    expect(storeModule.panelStore.sidebarOpen()).toBe(true);
   });
 
   it("setPos / setSize persist but don't trigger a React re-render", () => {
