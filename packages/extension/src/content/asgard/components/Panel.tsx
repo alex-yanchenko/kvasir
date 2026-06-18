@@ -82,29 +82,54 @@ function GuideDeletedBanner(): JSX.Element | null {
 
 const SIDEBAR_MIN = 130;
 const SIDEBAR_MAX = 360;
-const CONTENT_MIN = 240;
+const DIVIDER_W = 3; // matches the separator's w-[3px]
+const CONTENT_MIN = 240; // the content column never shrinks below this
+const DEFAULT_CONTENT_W = 420; // matches the panel's w-[420px] default
+const DEFAULT_HEIGHT = 320; // matches min-h-[320px]
 const DIVIDER_NUDGE: Record<string, number> = { ArrowLeft: -16, ArrowRight: 16 };
 
-// Apply a sidebar-width delta as a NORMAL separator: grow the sidebar and shrink the
-// content by the SAME amount, so the window width stays put (unlike the corner grip,
-// which extends the window). setRailWidth clamps, so we match the content shrink to
-// the clamped delta. Height is preserved. Module-scope (no closure state).
-function redistribute(deltaSidebar: number): void {
-  const startSidebar = tourStore.railWidth();
-  tourStore.setRailWidth(startSidebar + deltaSidebar);
-  const applied = tourStore.railWidth() - startSidebar;
-  const content = panelStore.size()?.w ?? 420;
-  panelStore.setSize({ w: Math.max(CONTENT_MIN, content - applied), h: panelStore.size()?.h ?? 320 });
+// Geometry rule: panelStore.size.w is the CONTENT column width — NEVER the whole
+// window. The rendered window width is contentW + (open ? railWidth + DIVIDER_W : 0),
+// with the window's right edge as the anchor. Every interaction below keeps exactly
+// one invariant, so the content never jumps. (setRailWidth clamps the sidebar to
+// [SIDEBAR_MIN, SIDEBAR_MAX].) Reading the persisted size in one place keeps the
+// null-default branches to a single spot.
+function panelGeom(): { content: number; height: number; pos: { left: number; top: number } | null } {
+  const size = panelStore.size();
+  return {
+    content: size?.w ?? DEFAULT_CONTENT_W,
+    height: size?.h ?? DEFAULT_HEIGHT,
+    pos: panelStore.pos(),
+  };
 }
 
+// Opening/closing the sidebar grows/shrinks the window leftward (right edge fixed),
+// leaving the content width untouched — the sidebar appears OUTSIDE the content, never
+// shrinking it. A positioned window shifts its left edge by the sidebar chrome; an
+// unpositioned (bottom-right anchored) one moves leftward on its own.
+function toggleSidebar(): void {
+  const open = tourStore.outlineOpen();
+  const { pos } = panelGeom();
+  if (pos) {
+    const chrome = tourStore.railWidth() + DIVIDER_W;
+    panelStore.setPos({ left: open ? pos.left + chrome : pos.left - chrome, top: pos.top });
+  }
+  tourStore.setOutlineOpen(!open);
+}
+
+// The divider is a NORMAL split: it redistributes width between sidebar and content
+// while the window (both edges) stays put — sidebar grows, content shrinks, bounded by
+// the sidebar clamp AND the content minimum.
 function onDividerDown(event: ReactMouseEvent): void {
   event.preventDefault();
   const startX = event.clientX;
   const startSidebar = tourStore.railWidth();
+  const { content: startContent, height: startHeight } = panelGeom();
+  const maxByContent = startSidebar + (startContent - CONTENT_MIN);
   const move = (moved: MouseEvent): void => {
-    // Re-derive from the start width each move so the content tracks exactly.
-    const target = startSidebar + (moved.clientX - startX);
-    redistribute(target - tourStore.railWidth());
+    tourStore.setRailWidth(Math.min(startSidebar + (moved.clientX - startX), maxByContent));
+    const applied = tourStore.railWidth() - startSidebar;
+    panelStore.setSize({ w: startContent - applied, h: startHeight });
   };
   const up = (): void => {
     document.removeEventListener("mousemove", move);
@@ -118,23 +143,33 @@ function onDividerKey(event: ReactKeyboardEvent): void {
   const delta = DIVIDER_NUDGE[event.key] ?? 0;
   if (!delta) return;
   event.preventDefault();
-  redistribute(delta);
+  const startSidebar = tourStore.railWidth();
+  const { content: startContent, height: startHeight } = panelGeom();
+  tourStore.setRailWidth(startSidebar + delta);
+  const applied = tourStore.railWidth() - startSidebar;
+  panelStore.setSize({ w: startContent - applied, h: startHeight });
 }
 
-// Bottom-left corner grip: drag down/up = whole-window height; drag left/right =
-// extend the window leftward by growing the SIDEBAR (content width stays). The
-// native bottom-right handle still does an ordinary width/height resize.
+// Bottom-left corner grip: drag up/down = window height; drag left/right = grow the
+// WINDOW and the sidebar together (content width unchanged), extending leftward (right
+// edge fixed). The native bottom-right handle does an ordinary content resize.
 function onCornerDown(event: ReactMouseEvent): void {
   event.preventDefault();
   event.stopPropagation();
   const startX = event.clientX;
   const startY = event.clientY;
   const startSidebar = tourStore.railWidth();
-  const startHeight = panelStore.size()?.h ?? 320;
-  const contentW = panelStore.size()?.w ?? 420;
+  const { content: startContent, height: startHeight, pos: startPos } = panelGeom();
   const move = (moved: MouseEvent): void => {
     tourStore.setRailWidth(startSidebar + (startX - moved.clientX)); // drag left → wider sidebar
-    panelStore.setSize({ w: contentW, h: Math.max(320, startHeight + (moved.clientY - startY)) });
+    const applied = tourStore.railWidth() - startSidebar; // clamped delta
+    panelStore.setSize({
+      w: startContent,
+      h: Math.max(DEFAULT_HEIGHT, startHeight + (moved.clientY - startY)),
+    });
+    // Right edge fixed: a positioned panel shifts its left edge out by the growth; the
+    // default bottom-right-anchored panel grows leftward on its own.
+    if (startPos) panelStore.setPos({ left: startPos.left - applied, top: startPos.top });
   };
   const up = (): void => {
     document.removeEventListener("mousemove", move);
@@ -155,21 +190,17 @@ export function Panel(): JSX.Element | null {
 
 function PanelWindow(): JSX.Element {
   const panelRef = useRef<HTMLDivElement>(null);
-  // The global sidebar EXTENDS the panel to the LEFT rather than shrinking the
-  // content: rendered width = content width + sidebar width, and the left edge
-  // moves out by that width (right edge fixed → content stays put; the default
-  // right-anchored position grows leftward on its own). Open state + width are
-  // GLOBAL (shared across tabs) so switching tabs never resizes the panel — only
-  // toggling does. We persist the CONTENT geometry (observed width − offset;
-  // dragged left + offset) so toggling/resizing the sidebar never drifts it.
+  // The sidebar is the left COLUMN of the window; opening it grows the window leftward
+  // (right edge fixed) so the content never shrinks. size.w is the CONTENT-column width,
+  // so the rendered window is content + chrome (see panelGeom). Open state + width are
+  // global (shared across tabs), so switching tabs never resizes anything.
   const isReview = activeGuide().kind === "review";
   const sidebarOpen = tourStore.outlineOpen();
-  const sidebarOffset = sidebarOpen ? tourStore.railWidth() : 0;
-  const onHeadDown = useDrag(panelRef, {
-    ignore: "button",
-    onEnd: (p) => panelStore.setPos({ left: p.left + sidebarOffset, top: p.top }),
-  });
-  useResizePersist(panelRef, (size) => panelStore.setSize({ w: size.w - sidebarOffset, h: size.h }));
+  const chrome = sidebarOpen ? tourStore.railWidth() + DIVIDER_W : 0;
+  const onHeadDown = useDrag(panelRef, { ignore: "button", onEnd: (p) => panelStore.setPos(p) });
+  // The observer measures the whole window; back out the sidebar chrome so size.w stays
+  // the content width. No drift: opening the sidebar leaves the stored content the same.
+  useResizePersist(panelRef, (size) => panelStore.setSize({ w: size.w - chrome, h: size.h }));
   useScrollLock(panelRef);
   // Closing the panel ends the tour and clears the page highlight (the Walkthrough
   // tab no longer does this on tab-switch, so the highlight survives Settings/Chat).
@@ -196,14 +227,16 @@ function PanelWindow(): JSX.Element {
       className="kvasir-panel fixed bottom-5 right-5 z-[2147483002] flex max-h-[85vh] min-h-[320px] w-[420px] min-w-[340px] max-w-[92vw] resize overflow-hidden rounded-lg border border-border bg-background text-foreground"
       style={{
         boxShadow: "var(--elevation)",
-        ...(pos ? { left: pos.left - sidebarOffset, top: pos.top, right: "auto", bottom: "auto" } : null),
-        width: (size?.w ?? 420) + sidebarOffset,
-        ...(size ? { height: size.h } : null),
+        ...(pos ? { left: pos.left, top: pos.top, right: "auto", bottom: "auto" } : null),
+        width: (size?.w ?? DEFAULT_CONTENT_W) + chrome,
+        ...(size?.h ? { height: size.h } : null),
       }}
     >
+      {/* The sidebar is the left column; it sits OUTSIDE the content (the window grows
+          to fit it) so opening it never shrinks or moves the content column. */}
       {sidebarOpen && <PanelSidebar />}
-      {/* Always-visible separator between sidebar and content. Drag/arrows resize
-          the sidebar by redistributing width WITH the content (the window stays put). */}
+      {/* Always-visible separator. Drag/arrows redistribute width between the sidebar
+          and content while the window (both edges) stays put. */}
       {/* eslint-disable jsx-a11y/no-noninteractive-element-interactions, jsx-a11y/no-noninteractive-tabindex -- accessible window-splitter */}
       {sidebarOpen && (
         <div
@@ -220,8 +253,7 @@ function PanelWindow(): JSX.Element {
         />
       )}
       {/* eslint-enable jsx-a11y/no-noninteractive-element-interactions, jsx-a11y/no-noninteractive-tabindex */}
-      {/* The whole existing UI lives in a fixed-width column to the right of the
-          sidebar, so opening the sidebar never moves the title bar, tabs or content. */}
+      {/* Content column: title bar, banners, tabs — fixed at the content width. */}
       <div className="flex min-w-0 flex-1 flex-col">
         {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions -- title-bar drag handle: drag-to-move is a non-essential reposition with no ARIA role; the panel auto-positions and every function inside is a native, keyboard-operable control. */}
         <div className="flex cursor-move items-center gap-2 px-3 py-2" onMouseDown={onHeadDown}>
@@ -231,7 +263,7 @@ function PanelWindow(): JSX.Element {
             className={"-ml-1 h-7 w-7 shrink-0" + (sidebarOpen ? " text-primary" : "")}
             aria-label={sidebarOpen ? "Hide sidebar" : "Show sidebar"}
             data-kvasir-tip="Outline / navigation"
-            onClick={() => tourStore.setOutlineOpen(!sidebarOpen)}
+            onClick={toggleSidebar}
           >
             <ListTree />
           </Button>

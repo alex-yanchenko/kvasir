@@ -29,14 +29,11 @@ export function OutlineRail(): JSX.Element | null {
     position += 1;
   }
   return (
-    <div className="py-1" data-testid="outline">
-      <div className="px-3 py-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/70">
-        Outline
-      </div>
+    <div className="py-2" data-testid="outline">
       {groups.map((group, groupIndex) => (
-        <div key={groupIndex} className="mb-1">
+        <div key={groupIndex} className="mb-2">
           <div
-            className="whitespace-nowrap px-3 font-mono text-xs text-muted-foreground"
+            className="whitespace-nowrap px-3 py-1 font-mono text-[11px] text-muted-foreground/80"
             data-kvasir-tip={group.file}
           >
             {group.file}
@@ -48,15 +45,15 @@ export function OutlineRail(): JSX.Element | null {
                 <li key={item.index}>
                   <button
                     className={
-                      "flex min-w-full items-center gap-1.5 whitespace-nowrap px-2 py-1 text-left text-sm hover:bg-muted " +
-                      (isCurrent ? "font-medium text-primary" : "text-foreground")
+                      "flex min-w-full items-center gap-1.5 whitespace-nowrap py-1.5 pl-3 pr-3 text-left text-sm hover:bg-muted " +
+                      (isCurrent ? "font-medium text-primary" : "text-foreground/90")
                     }
                     aria-current={isCurrent ? "step" : undefined}
                     data-kvasir-tip={item.step.title}
                     onClick={() => tourStore.goto(item.index)}
                   >
-                    <span className="font-mono text-xs text-muted-foreground/50">
-                      {itemIndex === group.items.length - 1 ? "└─" : "├─"}
+                    <span className="select-none font-mono text-[11px] text-muted-foreground/40">
+                      {itemIndex === group.items.length - 1 ? "└" : "├"}
                     </span>
                     <span
                       className={

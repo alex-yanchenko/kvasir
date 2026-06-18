@@ -64,83 +64,88 @@ describe("Panel", () => {
     expect(screen.queryByTestId("sidebar")).toBeNull();
   });
 
-  it("the bottom-left corner grip resizes window height + sidebar width", () => {
-    tourStore.setOutlineOpen(true);
+  it("toggling on a positioned window shifts the left edge to keep the right edge fixed", () => {
+    state.panel.pos = { left: 300, top: 40 };
+    tourStore.setRailWidth(200); // chrome on open = 200 + DIVIDER_W(3) = 203
     render(<Panel />);
     act(() => panelStore.open());
-    const before = tourStore.railWidth();
+    const setPos = vi.spyOn(panelStore, "setPos");
+    fireEvent.click(screen.getByLabelText("Show sidebar")); // open → left out by 203
+    expect(setPos).toHaveBeenLastCalledWith({ left: 97, top: 40 });
+    expect(screen.getByTestId("sidebar")).toBeTruthy();
+    fireEvent.click(screen.getByLabelText("Hide sidebar")); // close → left pulled back by 203
+    expect(setPos).toHaveBeenLastCalledWith({ left: 300, top: 40 });
+  });
+
+  it("the bottom-left corner grip grows window height + sidebar; content width stays fixed", () => {
+    tourStore.setOutlineOpen(true);
+    tourStore.setRailWidth(200);
+    render(<Panel />);
+    act(() => panelStore.open());
     const setSize = vi.spyOn(panelStore, "setSize");
     const corner = screen.getByTestId("resize-corner");
     fireEvent.mouseDown(corner, { clientX: 200, clientY: 200 });
-    fireEvent.mouseMove(document, { clientX: 160, clientY: 260 }); // left 40 → +40 sidebar; down 60 → taller
+    fireEvent.mouseMove(document, { clientX: 160, clientY: 260 }); // left 40 → sidebar 240; down 60 → taller
     fireEvent.mouseUp(document);
-    expect(tourStore.railWidth()).toBe(Math.min(360, before + 40)); // sidebar grew
-    expect(setSize).toHaveBeenCalled(); // height persisted
+    expect(tourStore.railWidth()).toBe(240); // sidebar grew; window extends left to fit
+    expect(setSize).toHaveBeenLastCalledWith({ w: 420, h: 380 }); // content width fixed (default 420), taller
   });
 
-  it("the corner grip grows height + sidebar from an existing window size", () => {
+  it("the corner grip on a positioned window keeps content width and shifts the left edge out", () => {
     state.panel.size = { w: 500, h: 400 }; // exercise the size-set path (not the defaults)
+    state.panel.pos = { left: 100, top: 50 }; // positioned → setPos shifts the left edge
     tourStore.setOutlineOpen(true);
+    tourStore.setRailWidth(200);
     render(<Panel />);
     act(() => panelStore.open());
     const setSize = vi.spyOn(panelStore, "setSize");
+    const setPos = vi.spyOn(panelStore, "setPos");
     const corner = screen.getByTestId("resize-corner");
     fireEvent.mouseDown(corner, { clientX: 200, clientY: 200 });
-    fireEvent.mouseMove(document, { clientX: 200, clientY: 280 }); // down 80 → height 480
+    fireEvent.mouseMove(document, { clientX: 170, clientY: 280 }); // left 30 → sidebar 230; down 80
     fireEvent.mouseUp(document);
-    expect(setSize).toHaveBeenCalledWith({ w: 500, h: 480 }); // content width kept, taller
+    expect(tourStore.railWidth()).toBe(230); // sidebar grew by 30
+    expect(setSize).toHaveBeenLastCalledWith({ w: 500, h: 480 }); // content width fixed, 80 taller
+    expect(setPos).toHaveBeenLastCalledWith({ left: 70, top: 50 }); // left edge out by 30, right edge fixed
   });
 
-  it("the sidebar divider redistributes width (sidebar grows, content shrinks, window fixed)", () => {
+  it("the sidebar divider redistributes width: sidebar grows, content shrinks, window fixed", () => {
     state.panel.size = { w: 500, h: 400 };
     tourStore.setOutlineOpen(true);
     tourStore.setRailWidth(200); // deterministic start
     render(<Panel />);
     act(() => panelStore.open());
     const setSize = vi.spyOn(panelStore, "setSize");
+    const setPos = vi.spyOn(panelStore, "setPos");
     const divider = screen.getByLabelText("Resize sidebar");
     fireEvent.mouseDown(divider, { clientX: 100 });
-    fireEvent.mouseMove(document, { clientX: 130 }); // +30 → sidebar 230, content 470
+    fireEvent.mouseMove(document, { clientX: 130 }); // +30 → sidebar 230
     fireEvent.mouseUp(document);
-    expect(tourStore.railWidth()).toBe(230);
-    expect(setSize).toHaveBeenLastCalledWith({ w: 470, h: 400 }); // window width unchanged
+    expect(tourStore.railWidth()).toBe(230); // sidebar grew by 30
+    expect(setSize).toHaveBeenLastCalledWith({ w: 470, h: 400 }); // content shrank by 30; window 470+230+3 unchanged
+    expect(setPos).not.toHaveBeenCalled(); // window position untouched
   });
 
-  it("the divider redistributes from defaults when the window was never resized", () => {
-    tourStore.setOutlineOpen(true);
-    tourStore.setRailWidth(200);
-    render(<Panel />); // size stays null (defaults: content 420, height 320)
-    act(() => panelStore.open());
-    const setSize = vi.spyOn(panelStore, "setSize");
-    fireEvent.keyDown(screen.getByLabelText("Resize sidebar"), { key: "ArrowRight" }); // +16
-    expect(setSize).toHaveBeenCalledWith({ w: 404, h: 320 }); // 420 − 16, default height
-  });
-
-  it("the divider arrow keys redistribute; a non-arrow key is ignored", () => {
+  it("the divider arrow keys redistribute width; a non-arrow key is ignored", () => {
     state.panel.size = { w: 500, h: 400 };
     tourStore.setOutlineOpen(true);
     tourStore.setRailWidth(200);
     render(<Panel />);
     act(() => panelStore.open());
+    const setSize = vi.spyOn(panelStore, "setSize");
     const divider = screen.getByLabelText("Resize sidebar");
     fireEvent.keyDown(divider, { key: "Enter" }); // ignored
     expect(tourStore.railWidth()).toBe(200);
-    fireEvent.keyDown(divider, { key: "ArrowRight" }); // +16
+    expect(setSize).not.toHaveBeenCalled();
+    fireEvent.keyDown(divider, { key: "ArrowRight" }); // +16 → sidebar 216, content 484
     expect(tourStore.railWidth()).toBe(216);
+    expect(setSize).toHaveBeenLastCalledWith({ w: 484, h: 400 });
   });
 
   it("shows no corner grip when the sidebar is closed", () => {
     render(<Panel />);
     act(() => panelStore.open());
     expect(screen.queryByTestId("resize-corner")).toBeNull();
-  });
-
-  it("extends the panel by the rail width when the outline rail is open (content not shrunk)", () => {
-    tourStore.setOutlineOpen(true); // walkthrough tab is the default + not a review
-    render(<Panel />);
-    act(() => panelStore.open());
-    const dialog = screen.getByRole("dialog", { name: "Kvasir" });
-    expect(dialog.style.width).toBe(`${420 + tourStore.railWidth()}px`);
   });
 
   it("attaches the resize observer only once the panel opens (so size persists across refresh)", () => {

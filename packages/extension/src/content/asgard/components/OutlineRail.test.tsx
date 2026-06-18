@@ -50,8 +50,8 @@ describe("OutlineRail", () => {
     expect(dot(buttons[1]!)?.className).toContain("bg-primary"); // s2 current
     expect(dot(buttons[2]!)?.className).toContain("border"); // s3 upcoming (hollow)
     expect(buttons[1]!.getAttribute("aria-current")).toBe("step");
-    expect(buttons[0]!.textContent).toContain("├─"); // s1 not last in the f.ts group
-    expect(buttons[1]!.textContent).toContain("└─"); // s2 last in the f.ts group
+    expect(buttons[0]!.textContent).toContain("├"); // s1 not last in the f.ts group
+    expect(buttons[1]!.textContent).toContain("└"); // s2 last in the f.ts group
     fireEvent.click(buttons[2]!);
     expect(tourStore.stepIndex()).toBe(2); // jumped to s3
   });
