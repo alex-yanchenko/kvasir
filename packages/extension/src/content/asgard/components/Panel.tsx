@@ -4,7 +4,7 @@
 // until then they show a placeholder.
 import { ListTree, X } from "lucide-react";
 import { useEffect, useRef, useSyncExternalStore } from "react";
-import type { JSX } from "react";
+import type { JSX, MouseEvent as ReactMouseEvent } from "react";
 import { activeGuide } from "../guide";
 import { historyStore } from "../history";
 import { useDrag } from "../hooks/useDrag";
@@ -107,6 +107,28 @@ function PanelWindow(): JSX.Element {
   });
   useResizePersist(panelRef, (size) => panelStore.setSize({ w: size.w - sidebarOffset, h: size.h }));
   useScrollLock(panelRef);
+  // Bottom-left corner grip: drag down/up = whole-window height; drag left/right =
+  // extend the window leftward by growing the SIDEBAR (content width stays). The
+  // native bottom-right handle still does an ordinary width/height resize.
+  const onCornerDown = (event: ReactMouseEvent): void => {
+    event.preventDefault();
+    event.stopPropagation();
+    const startX = event.clientX;
+    const startY = event.clientY;
+    const startSidebar = tourStore.railWidth();
+    const startHeight = panelStore.size()?.h ?? 320;
+    const contentW = panelStore.size()?.w ?? 420;
+    const move = (moved: MouseEvent): void => {
+      tourStore.setRailWidth(startSidebar + (startX - moved.clientX)); // drag left → wider sidebar
+      panelStore.setSize({ w: contentW, h: Math.max(320, startHeight + (moved.clientY - startY)) });
+    };
+    const up = (): void => {
+      document.removeEventListener("mousemove", move);
+      document.removeEventListener("mouseup", up);
+    };
+    document.addEventListener("mousemove", move);
+    document.addEventListener("mouseup", up);
+  };
   // Closing the panel ends the tour and clears the page highlight (the Walkthrough
   // tab no longer does this on tab-switch, so the highlight survives Settings/Chat).
   useEffect(() => () => tourStore.close(), []);
@@ -209,6 +231,17 @@ function PanelWindow(): JSX.Element {
           </TabsContent>
         </Tabs>
       </div>
+      {/* Mouse-only resize grip (bottom-left corner): drags window height + sidebar
+          width. Keyboard users resize via the sidebar splitter's arrow keys + the
+          native bottom-right handle, so the grip is aria-hidden. */}
+      {sidebarOpen && (
+        <div
+          aria-hidden="true"
+          data-testid="resize-corner"
+          className="absolute bottom-0 left-0 z-20 size-3.5 cursor-nesw-resize"
+          onMouseDown={onCornerDown}
+        />
+      )}
     </div>
   );
 }

@@ -58,7 +58,9 @@ export const tourStore = {
   isVisited: (stepId: string): boolean => visited.has(stepId),
   railWidth: (): number => railWidth,
   setRailWidth(width: number): void {
-    railWidth = Math.round(width);
+    // Bounds mirror the sidebar splitter (PanelSidebar) so every caller — the
+    // divider AND the bottom-left window-resize corner — stays in range.
+    railWidth = Math.min(360, Math.max(130, Math.round(width)));
     localStorage.setItem("kvasirRailWidth", String(railWidth));
     touch();
   },
