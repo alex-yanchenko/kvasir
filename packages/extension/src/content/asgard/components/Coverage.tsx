@@ -14,7 +14,7 @@ export function Coverage({
   const [open, setOpen] = useState(false);
   if (!coverage || coverage.significant.length === 0) return null;
   const { significant, uncovered } = coverage;
-  const covered = significant.length - uncovered.length;
+  const covered = Math.max(0, significant.length - uncovered.length); // guard malformed server data
   const full = uncovered.length === 0;
   return (
     <div className="min-w-0">

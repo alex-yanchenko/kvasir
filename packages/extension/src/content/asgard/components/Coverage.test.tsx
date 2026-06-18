@@ -25,6 +25,8 @@ describe("Coverage", () => {
     const chip = screen.getByLabelText(LABEL) as HTMLButtonElement;
     expect(chip.textContent).toContain("2/2 key");
     expect(chip.disabled).toBe(true);
+    fireEvent.click(chip); // disabled → no expansion list appears
+    expect(screen.queryByRole("list")).toBeNull();
   });
 
   it("renders nothing when coverage is absent", () => {

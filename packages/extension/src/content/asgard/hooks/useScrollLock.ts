@@ -25,15 +25,15 @@ export function useScrollLock(targetRef: RefObject<HTMLElement | null>): void {
     const root = targetRef.current;
     if (!root) return;
     const onWheel = (event: WheelEvent): void => {
+      // Lock against the wheel's DOMINANT axis: cross-axis noise (a small deltaX on a
+      // mostly-vertical scroll, or vice-versa) must not leak a page scroll. Only let it
+      // through if an inner element can scroll that axis.
+      const horizontal = Math.abs(event.deltaX) > Math.abs(event.deltaY);
+      const axis = horizontal ? "x" : "y";
+      const delta = horizontal ? event.deltaX : event.deltaY;
       const start = event.target instanceof HTMLElement ? event.target : null;
       for (let node = start; node; node = node.parentElement) {
-        // Let it through if an inner scroller can move in an axis the wheel actually
-        // pushes (only a non-zero-delta axis counts), else swallow at the panel edge.
-        if (
-          (event.deltaY !== 0 && canScroll(node, "y", event.deltaY)) ||
-          (event.deltaX !== 0 && canScroll(node, "x", event.deltaX))
-        )
-          return;
+        if (canScroll(node, axis, delta)) return; // an inner scroller will consume it
         if (node === root) break; // reached the panel edge without finding room
       }
       event.preventDefault(); // nothing inside can scroll further → don't scroll the page

@@ -213,7 +213,7 @@ describe("panelStore", () => {
     });
   });
 
-  it("persists the sidebar open state and hydrates it back", () => {
+  it("round-trips the sidebar open state: setSidebarOpen persists, hydratePanel restores", () => {
     storeModule.panelStore.open();
     storeModule.panelStore.setSidebarOpen(true);
     expect(persisted()).toEqual({
@@ -223,12 +223,12 @@ describe("panelStore", () => {
       pos: null,
       size: null,
     });
-    // a fresh blob with the sidebar open is restored on hydrate
+    // Keep the blob persist actually produced, flip the in-memory state to false (as a
+    // fresh tab would start), then hydrate that real blob back — a true round-trip.
+    const saved = sessionStorage.getItem("kvasir:panel");
     storeModule.panelStore.setSidebarOpen(false);
-    sessionStorage.setItem(
-      "kvasir:panel",
-      JSON.stringify({ open: true, sidebarOpen: true, tab: "walkthrough" }),
-    );
+    expect(storeModule.panelStore.sidebarOpen()).toBe(false);
+    sessionStorage.setItem("kvasir:panel", saved ?? "");
     storeModule.hydratePanel();
     expect(storeModule.panelStore.sidebarOpen()).toBe(true);
   });

@@ -147,6 +147,16 @@ describe("HistoryTab", () => {
     expect(screen.getAllByText("No matches.")).toHaveLength(2);
   });
 
+  it("reads 'None in this filter.' (not 'None yet.') when a facet empties a kind that has entries", () => {
+    vi.mocked(historyStore.facet).mockReturnValue("stale"); // both sections show, only stale items
+    vi.mocked(historyStore.all).mockReturnValue([sum({ id: "p1", kind: "pr" })]); // entries exist…
+    vi.mocked(historyStore.prItems).mockReturnValue([]); // …but none are stale
+    vi.mocked(historyStore.codeItems).mockReturnValue([]);
+    render(<HistoryTab />);
+    expect(screen.getAllByText("None in this filter.")).toHaveLength(2);
+    expect(screen.queryByText("None yet.")).toBeNull();
+  });
+
   it("typing in the search box sets the query", () => {
     render(<HistoryTab />);
     fireEvent.change(screen.getByLabelText("Search history"), { target: { value: "auth" } });

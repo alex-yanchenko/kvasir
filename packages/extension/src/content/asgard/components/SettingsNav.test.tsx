@@ -25,6 +25,7 @@ describe("SettingsNav", () => {
     render(<SettingsNav />);
     fireEvent.click(screen.getByRole("button", { name: "Review" }));
     expect(scrollIntoView).toHaveBeenCalledWith({ behavior: "smooth", block: "start" });
+    expect(scrollIntoView).toHaveBeenCalledTimes(1);
     section.remove();
   });
 
@@ -53,8 +54,14 @@ describe("SettingsNav", () => {
 
   it("is a no-op when the root is neither a document nor a shadow root", () => {
     const fragment = document.createDocumentFragment();
+    const section = document.createElement("div");
+    section.setAttribute("data-settings-section", "appearance");
+    const scrollIntoView = vi.fn();
+    section.scrollIntoView = scrollIntoView;
+    fragment.append(section); // present, but the guard returns before querying
     render(<SettingsNav />, { container: fragment });
     const button = fragment.querySelector("button");
-    expect(() => fireEvent.click(button!)).not.toThrow();
+    fireEvent.click(button!);
+    expect(scrollIntoView).not.toHaveBeenCalled(); // the instanceof guard short-circuits
   });
 });

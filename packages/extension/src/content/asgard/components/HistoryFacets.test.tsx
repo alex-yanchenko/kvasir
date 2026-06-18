@@ -38,6 +38,7 @@ describe("HistoryFacets", () => {
   it("lists the facets with counts and marks the active one", () => {
     render(<HistoryFacets />);
     expect(screen.getByRole("button", { name: /All/ }).getAttribute("aria-current")).toBe("true");
+    expect(screen.getByRole("button", { name: /All/ }).textContent).toContain("3"); // total count
     expect(screen.getByRole("button", { name: /PR Walkthroughs/ }).textContent).toContain("2");
     expect(screen.getByRole("button", { name: /Code Walkthroughs/ }).textContent).toContain("1");
     expect(screen.getByRole("button", { name: /Needs sync/ }).textContent).toContain("1");
