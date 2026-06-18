@@ -28,8 +28,10 @@ jobs:
       - run: cd packages/mimir && bun test ./src/guideStore.sqlite.buntest.ts ./src/sessionStore.sqlite.buntest.ts
       - run: pnpm build
       - run: pnpm exec size-limit
-      - run: pnpm exec playwright install --with-deps chromium
-      # MV3 extension loading is flaky under bare --headless=new on headless Linux
-      # runners; xvfb-run gives Chromium a virtual display so the loaded extension
-      # reliably registers its service worker. (-a = auto-pick a free display.)
-      - run: xvfb-run -a pnpm exec playwright test
+
+  # The real-browser e2e is too slow for the per-PR gate (chromium install). It runs
+  # on push to main (post-merge) and nightly instead — see e2e.yml. `if` keeps it off
+  # pull_request events; the only other trigger here is push to main.
+  e2e:
+    if: github.event_name == 'push'
+    uses: ./.github/workflows/e2e.yml
