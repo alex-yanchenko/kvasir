@@ -189,16 +189,24 @@ describe("Panel", () => {
     expect(observed).toEqual([screen.getByRole("dialog", { name: "Kvasir" })]);
   });
 
+  // jsdom reports 0 for offsetWidth/Height; pin them so the observer math is testable.
+  const pinSize = (w: number, h: number): void => {
+    const dialog = screen.getByRole("dialog", { name: "Kvasir" });
+    Object.defineProperty(dialog, "offsetWidth", { value: w, configurable: true });
+    Object.defineProperty(dialog, "offsetHeight", { value: h, configurable: true });
+  };
+
   it("persists the panel size when the resize observer fires (debounced)", () => {
     vi.useFakeTimers();
     const setSize = vi.spyOn(panelStore, "setSize");
     render(<Panel />);
     act(() => panelStore.open());
+    pinSize(600, 400);
     act(() => roCallback?.());
     act(() => {
       vi.advanceTimersByTime(300);
     });
-    expect(setSize).toHaveBeenCalledWith({ w: 0, h: 0 }); // jsdom offsetWidth/Height = 0
+    expect(setSize).toHaveBeenCalledWith({ w: 600, h: 400 }); // sidebar closed → no chrome backed out
     expect(setSize).toHaveBeenCalledTimes(1);
     vi.useRealTimers();
   });
@@ -210,11 +218,28 @@ describe("Panel", () => {
     const setSize = vi.spyOn(panelStore, "setSize");
     render(<Panel />);
     act(() => panelStore.open());
+    pinSize(600, 400);
     act(() => roCallback?.());
     act(() => {
       vi.advanceTimersByTime(300);
     });
-    expect(setSize).toHaveBeenCalledWith({ w: -203, h: 0 }); // jsdom offsetWidth 0 minus the 203 chrome
+    expect(setSize).toHaveBeenCalledWith({ w: 397, h: 400 }); // 600 − 203 chrome
+    vi.useRealTimers();
+  });
+
+  it("floors the stored content at CONTENT_MIN so a narrow window can't go negative", () => {
+    vi.useFakeTimers();
+    panelStore.setSidebarOpen(true);
+    panelStore.setRailWidth(360); // chrome = 363 (sidebar at max), wider than the window min
+    const setSize = vi.spyOn(panelStore, "setSize");
+    render(<Panel />);
+    act(() => panelStore.open());
+    pinSize(380, 400); // 380 − 363 = 17, below the 240 floor
+    act(() => roCallback?.());
+    act(() => {
+      vi.advanceTimersByTime(300);
+    });
+    expect(setSize).toHaveBeenCalledWith({ w: 240, h: 400 }); // floored, not 17 (and never negative)
     vi.useRealTimers();
   });
 

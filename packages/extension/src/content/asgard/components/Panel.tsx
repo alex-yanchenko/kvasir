@@ -203,8 +203,12 @@ function PanelWindow(): JSX.Element {
   const chrome = sidebarOpen ? panelStore.railWidth() + DIVIDER_W : 0;
   const onHeadDown = useDrag(panelRef, { ignore: "button", onEnd: (p) => panelStore.setPos(p) });
   // The observer measures the whole window; back out the sidebar chrome so size.w stays
-  // the content width. No drift: opening the sidebar leaves the stored content the same.
-  useResizePersist(panelRef, (size) => panelStore.setSize({ w: size.w - chrome, h: size.h }));
+  // the content width, floored at CONTENT_MIN. No drift: opening the sidebar leaves the
+  // stored content the same. The floor stops a narrow drag (when the sidebar is wide)
+  // from storing a negative content width.
+  useResizePersist(panelRef, (size) =>
+    panelStore.setSize({ w: Math.max(CONTENT_MIN, size.w - chrome), h: size.h }),
+  );
   useScrollLock(panelRef);
   // Closing the panel ends the tour and clears the page highlight (the Walkthrough
   // tab no longer does this on tab-switch, so the highlight survives Settings/Chat).
@@ -228,11 +232,15 @@ function PanelWindow(): JSX.Element {
       ref={panelRef}
       role="dialog"
       aria-label="Kvasir"
-      className="kvasir-panel fixed bottom-5 right-5 z-[2147483002] flex max-h-[85vh] min-h-[320px] w-[420px] min-w-[340px] max-w-[92vw] resize overflow-hidden rounded-lg border border-border bg-background text-foreground"
+      className="kvasir-panel fixed bottom-5 right-5 z-[2147483002] flex max-h-[85vh] min-h-[320px] w-[420px] max-w-[92vw] resize overflow-hidden rounded-lg border border-border bg-background text-foreground"
       style={{
         boxShadow: "var(--elevation)",
         ...(pos ? { left: pos.left, top: pos.top, right: "auto", bottom: "auto" } : null),
-        width: (size?.w ?? DEFAULT_CONTENT_W) + chrome,
+        // Floor the content (self-heals any previously-stored negative width) and keep
+        // the window's min-width = chrome + content floor, so the right-edge resize can
+        // never drag content below CONTENT_MIN even when the sidebar is at full width.
+        width: Math.max(CONTENT_MIN, size?.w ?? DEFAULT_CONTENT_W) + chrome,
+        minWidth: chrome + CONTENT_MIN,
         ...(size?.h ? { height: size.h } : null),
       }}
     >
