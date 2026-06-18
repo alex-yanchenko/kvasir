@@ -149,7 +149,7 @@ function Rail({
   }
   return (
     <div
-      className="flex shrink-0 flex-col overflow-y-auto py-1"
+      className="flex shrink-0 flex-col overflow-auto py-1"
       style={{ width: `${width}px` }}
       data-testid="outline"
     >
@@ -158,7 +158,10 @@ function Rail({
       </div>
       {groups.map((group, groupIndex) => (
         <div key={groupIndex} className="mb-1">
-          <div className="truncate px-3 font-mono text-xs text-muted-foreground" data-kvasir-tip={group.file}>
+          <div
+            className="whitespace-nowrap px-3 font-mono text-xs text-muted-foreground"
+            data-kvasir-tip={group.file}
+          >
             {group.file}
           </div>
           <ul>
@@ -168,7 +171,7 @@ function Rail({
                 <li key={item.index}>
                   <button
                     className={
-                      "flex w-full items-center gap-1.5 px-2 py-1 text-left text-sm hover:bg-muted " +
+                      "flex min-w-full items-center gap-1.5 whitespace-nowrap px-2 py-1 text-left text-sm hover:bg-muted " +
                       (isCurrent ? "font-medium text-primary" : "text-foreground")
                     }
                     aria-current={isCurrent ? "step" : undefined}
@@ -184,7 +187,7 @@ function Rail({
                         dotClass(isCurrent, tourStore.isVisited(item.step.id))
                       }
                     />
-                    <span className="truncate">{item.step.title}</span>
+                    <span>{item.step.title}</span>
                   </button>
                 </li>
               );

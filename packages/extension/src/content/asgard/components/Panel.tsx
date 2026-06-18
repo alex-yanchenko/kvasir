@@ -90,19 +90,21 @@ export function Panel(): JSX.Element | null {
 
 function PanelWindow(): JSX.Element {
   const panelRef = useRef<HTMLDivElement>(null);
-  const onHeadDown = useDrag(panelRef, {
-    ignore: "button",
-    onEnd: (pos) => panelStore.setPos(pos),
-  });
-  // The outline rail EXTENDS the panel rather than shrinking the content: rendered
-  // width = content width + the rail's width (only while the rail shows), and we
-  // persist the CONTENT width (observed − offset) so opening/closing or resizing
-  // the rail never drifts the stored size.
+  // The outline rail EXTENDS the panel to the LEFT rather than shrinking the
+  // content: rendered width = content width + rail width, and the left edge moves
+  // out by the rail width (right edge fixed → the content stays in place; the
+  // default right-anchored position grows leftward on its own). We persist the
+  // CONTENT geometry (observed width − offset; dragged left + offset) so toggling
+  // or resizing the rail never drifts the stored values.
   const isReview = activeGuide().kind === "review";
   const railOffset =
     !isReview && panelStore.tab() === PANEL_TABS.WALKTHROUGH && tourStore.outlineOpen()
       ? tourStore.railWidth()
       : 0;
+  const onHeadDown = useDrag(panelRef, {
+    ignore: "button",
+    onEnd: (p) => panelStore.setPos({ left: p.left + railOffset, top: p.top }),
+  });
   useResizePersist(panelRef, (size) => panelStore.setSize({ w: size.w - railOffset, h: size.h }));
   useScrollLock(panelRef);
   // Closing the panel ends the tour and clears the page highlight (the Walkthrough
@@ -130,7 +132,7 @@ function PanelWindow(): JSX.Element {
       className="kvasir-panel fixed bottom-5 right-5 z-[2147483002] flex max-h-[85vh] min-h-[320px] w-[420px] min-w-[340px] max-w-[92vw] resize flex-col overflow-hidden rounded-lg border border-border bg-background text-foreground"
       style={{
         boxShadow: "var(--elevation)",
-        ...(pos ? { left: pos.left, top: pos.top, right: "auto", bottom: "auto" } : null),
+        ...(pos ? { left: pos.left - railOffset, top: pos.top, right: "auto", bottom: "auto" } : null),
         width: (size?.w ?? 420) + railOffset,
         ...(size ? { height: size.h } : null),
       }}
