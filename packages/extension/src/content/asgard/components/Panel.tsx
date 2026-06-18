@@ -105,8 +105,8 @@ function panelGeom(): { content: number; height: number; pos: { left: number; to
 
 // Opening/closing the sidebar grows/shrinks the window leftward (right edge fixed),
 // leaving the content width untouched — the sidebar appears OUTSIDE the content, never
-// shrinking it. A positioned window shifts its left edge by the sidebar chrome; an
-// unpositioned (bottom-right anchored) one moves leftward on its own.
+// shrinking it. A positioned window shifts its left edge by the sidebar chrome; a
+// default (bottom-right anchored) one moves leftward on its own.
 function toggleSidebar(): void {
   const open = tourStore.outlineOpen();
   const { pos } = panelGeom();
