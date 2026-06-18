@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import type { WalkthroughSpec } from "@kvasir/runes/spec";
-import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 vi.mock("../../../muninn", () => ({ storeGet: vi.fn(), storeSet: vi.fn(), storeRemove: vi.fn() }));
@@ -303,94 +303,17 @@ describe("WalkthroughTab", () => {
     expect(screen.getByLabelText("Copy build log").className).not.toContain("text-primary");
   });
 
-  const threeStepSpec = (generatedAt: string) => ({
-    version: 1 as const,
-    pr: { url: "u", owner: "a", repo: "b", number: 7 },
-    generatedAt,
-    steps: [
-      { id: "s1", title: "First step", body: "b1", file: "f.ts", anchor: "x1" },
-      { id: "s2", title: "Second step", body: "b2", file: "f.ts", anchor: "x2" },
-      { id: "s3", title: "Third step", body: "b3", file: "g.ts", anchor: "x3" },
-    ],
-  });
-
-  it("opens the outline rail, groups steps by file, and a step jumps WITHOUT closing the rail", () => {
-    state.spec = threeStepSpec("rail-jump");
-    render(<WalkthroughTab />);
-    fireEvent.click(screen.getByLabelText("Show outline"));
-    const outline = screen.getByTestId("outline");
-    expect(outline.querySelectorAll("ul").length).toBe(2); // f.ts (s1,s2) then g.ts (s3)
-    expect(outline.textContent).toContain("f.ts");
-    expect(outline.textContent).toContain("g.ts");
-    fireEvent.click(within(outline).getByRole("button", { name: /Third step/ }));
-    expect(tourStore.stepIndex()).toBe(2); // jumped
-    expect(screen.getByTestId("outline")).toBeTruthy(); // rail stays open (side menu)
-  });
-
-  it("marks rail dots visited / current / upcoming and connectors last vs not", () => {
-    state.spec = threeStepSpec("rail-dots"); // unique stamp → visited set resets on first goto
-    render(<WalkthroughTab />); // start() opens s1 (visited+current)
-    fireEvent.click(screen.getByLabelText("Next step")); // now s2 current, s1 visited, s3 upcoming
-    fireEvent.click(screen.getByLabelText("Show outline"));
-    const buttons = within(screen.getByTestId("outline")).getAllByRole("button");
-    const dot = (button: HTMLElement) => button.querySelector("span.rounded-full");
-    expect(dot(buttons[0]!)?.className).toContain("bg-muted-foreground"); // s1 visited
-    expect(dot(buttons[1]!)?.className).toContain("bg-primary"); // s2 current
-    expect(dot(buttons[2]!)?.className).toContain("border"); // s3 upcoming (hollow)
-    expect(buttons[1]!.getAttribute("aria-current")).toBe("step");
-    expect(buttons[0]!.textContent).toContain("├─"); // s1 is not last in the f.ts group
-    expect(buttons[1]!.textContent).toContain("└─"); // s2 is last in the f.ts group
-  });
-
-  it("drag-resizes the outline rail and persists the width", () => {
-    state.spec = mkSpec();
-    render(<WalkthroughTab />);
-    fireEvent.click(screen.getByLabelText("Show outline"));
-    const before = tourStore.railWidth();
-    const splitter = screen.getByLabelText("Resize outline");
-    fireEvent.mouseDown(splitter, { clientX: 100 });
-    fireEvent.mouseMove(document, { clientX: 140 }); // +40
-    fireEvent.mouseUp(document);
-    expect(tourStore.railWidth()).toBeGreaterThan(before);
-  });
-
-  it("arrow-key resizes the rail; a non-arrow key is ignored", () => {
-    state.spec = mkSpec();
-    render(<WalkthroughTab />);
-    fireEvent.click(screen.getByLabelText("Show outline"));
-    const splitter = screen.getByLabelText("Resize outline");
-    const before = tourStore.railWidth();
-    fireEvent.keyDown(splitter, { key: "Enter" }); // no nudge mapping → unchanged
-    expect(tourStore.railWidth()).toBe(before);
-    fireEvent.keyDown(splitter, { key: "ArrowRight" }); // +16
-    expect(tourStore.railWidth()).toBe(Math.min(320, before + 16));
-  });
-
-  it("keeps the outline open across an unmount/remount (tab switch)", () => {
-    state.spec = mkSpec();
-    const { unmount } = render(<WalkthroughTab />);
-    fireEvent.click(screen.getByLabelText("Show outline"));
-    expect(screen.getByTestId("outline")).toBeTruthy();
-    unmount();
-    render(<WalkthroughTab />);
-    expect(screen.getByTestId("outline")).toBeTruthy(); // module-level state persisted
-    expect(screen.getByLabelText("Hide outline")).toBeTruthy();
-  });
-
   it("shows no diagram toggle when the spec has no diagram", () => {
     state.spec = mkSpec();
     render(<WalkthroughTab />);
     expect(screen.queryByLabelText("Show diagram")).toBeNull();
   });
 
-  it("the diagram and the outline rail coexist (rail is not an overlay)", async () => {
+  it("the diagram toggle opens the diagram view", async () => {
     state.spec = { ...mkSpec(), diagram: "flowchart TD; A-->B" };
     render(<WalkthroughTab />);
-    fireEvent.click(screen.getByLabelText("Show outline"));
-    expect(screen.getByTestId("outline")).toBeTruthy();
     fireEvent.click(screen.getByLabelText("Show diagram"));
     expect(await screen.findByTestId("diagram")).toBeTruthy();
-    expect(screen.getByTestId("outline")).toBeTruthy(); // rail stays alongside the diagram
   });
 
   const COVERAGE_LABEL = "Walkthrough coverage of changed files";

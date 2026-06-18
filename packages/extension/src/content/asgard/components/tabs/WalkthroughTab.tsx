@@ -11,7 +11,6 @@ import {
   ChevronRight,
   Crosshair,
   FileText,
-  ListTree,
   Loader2,
   MessageSquare,
   MessageSquareMore,
@@ -20,7 +19,7 @@ import {
   Workflow,
 } from "lucide-react";
 import { useEffect, useState, useSyncExternalStore } from "react";
-import type { JSX, KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent } from "react";
+import type { JSX } from "react";
 import { bifrost } from "../../../bifrost";
 import { sanitizeSpecHtml } from "../../../sanitize";
 import { chatStore } from "../../chat";
@@ -117,84 +116,6 @@ function Coverage({
           ))}
         </ul>
       )}
-    </div>
-  );
-}
-
-// A step's status dot in the rail: current (accent), actually-visited (muted
-// fill), or upcoming (hollow ring). Visited replaces the old jump-trail's
-// "where have I been" — shown in place on the always-present rail.
-function dotClass(isCurrent: boolean, isVisited: boolean): string {
-  if (isCurrent) return "bg-primary";
-  if (isVisited) return "bg-muted-foreground";
-  return "border border-muted-foreground/50";
-}
-
-// Persistent outline rail: the whole flow as a tree — file headers with their
-// steps indented under connector lines, each carrying a status dot. Clicking a
-// step navigates WITHOUT closing the rail (it's a side menu, not an overlay), so
-// you keep the map in view. Width is persisted (tourStore.railWidth).
-function Rail({
-  spec,
-  current,
-  width,
-}: Readonly<{ spec: WalkthroughSpec; current: number; width: number }>): JSX.Element {
-  const groups: { file: string; items: { step: WalkthroughStep; index: number }[] }[] = [];
-  let position = 0;
-  for (const walkStep of spec.steps) {
-    const last = groups.at(-1);
-    if (last && last.file === walkStep.file) last.items.push({ step: walkStep, index: position });
-    else groups.push({ file: walkStep.file, items: [{ step: walkStep, index: position }] });
-    position += 1;
-  }
-  return (
-    <div
-      className="flex shrink-0 flex-col overflow-auto py-1"
-      style={{ width: `${width}px` }}
-      data-testid="outline"
-    >
-      <div className="px-3 py-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/70">
-        Outline
-      </div>
-      {groups.map((group, groupIndex) => (
-        <div key={groupIndex} className="mb-1">
-          <div
-            className="whitespace-nowrap px-3 font-mono text-xs text-muted-foreground"
-            data-kvasir-tip={group.file}
-          >
-            {group.file}
-          </div>
-          <ul>
-            {group.items.map((item, itemIndex) => {
-              const isCurrent = item.index === current;
-              return (
-                <li key={item.index}>
-                  <button
-                    className={
-                      "flex min-w-full items-center gap-1.5 whitespace-nowrap px-2 py-1 text-left text-sm hover:bg-muted " +
-                      (isCurrent ? "font-medium text-primary" : "text-foreground")
-                    }
-                    aria-current={isCurrent ? "step" : undefined}
-                    data-kvasir-tip={item.step.title}
-                    onClick={() => tourStore.goto(item.index)}
-                  >
-                    <span className="font-mono text-xs text-muted-foreground/50">
-                      {itemIndex === group.items.length - 1 ? "└─" : "├─"}
-                    </span>
-                    <span
-                      className={
-                        "size-1.5 shrink-0 rounded-full " +
-                        dotClass(isCurrent, tourStore.isVisited(item.step.id))
-                      }
-                    />
-                    <span>{item.step.title}</span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      ))}
     </div>
   );
 }
@@ -355,50 +276,6 @@ function StepTools({
   );
 }
 
-// Outline-rail width bounds + its drag/keyboard resize, mirroring the chat rail.
-// Live width is local state (zero re-render during drag); persisted via tourStore
-// on release. rowRef anchors the splitter's left edge for the width math.
-const RAIL_MIN = 130;
-const RAIL_MAX = 320;
-const RAIL_NUDGE: Record<string, number> = { ArrowLeft: -16, ArrowRight: 16 };
-const clampRail = (n: number): number => Math.min(RAIL_MAX, Math.max(RAIL_MIN, Math.round(n)));
-
-function useRailResize(): {
-  railW: number;
-  onResize: (event: ReactMouseEvent) => void;
-  onResizeKey: (event: ReactKeyboardEvent) => void;
-} {
-  const [railW, setRailW] = useState(() => clampRail(tourStore.railWidth()));
-  // Delta-based (start width + cursor delta) so no row geometry / nullable ref is needed.
-  const onResize = (event: ReactMouseEvent): void => {
-    event.preventDefault();
-    const startX = event.clientX;
-    const startW = railW;
-    const move = (moved: MouseEvent): void => setRailW(clampRail(startW + (moved.clientX - startX)));
-    const up = (): void => {
-      document.removeEventListener("mousemove", move);
-      document.removeEventListener("mouseup", up);
-      setRailW((w) => {
-        tourStore.setRailWidth(w);
-        return w;
-      });
-    };
-    document.addEventListener("mousemove", move);
-    document.addEventListener("mouseup", up);
-  };
-  const onResizeKey = (event: ReactKeyboardEvent): void => {
-    const delta = RAIL_NUDGE[event.key] ?? 0;
-    if (!delta) return;
-    event.preventDefault();
-    setRailW((w) => {
-      const next = clampRail(w + delta);
-      tourStore.setRailWidth(next);
-      return next;
-    });
-  };
-  return { railW, onResize, onResizeKey };
-}
-
 // Footer: the step counter (moved here from the header) above Back · dots · Next.
 // Split out so Steps stays under the cognitive-complexity bar.
 function Footer({ index, count }: Readonly<{ index: number; count: number }>): JSX.Element {
@@ -466,53 +343,17 @@ function Steps({ spec }: Readonly<{ spec: WalkthroughSpec }>): JSX.Element {
   }, []);
   useArrowKeyNav();
 
-  const { railW, onResize, onResizeKey } = useRailResize();
   if (!step) return <Empty />;
-  const outlineOpen = tourStore.outlineOpen();
   const diagramOpen = tourStore.diagramOpen();
   return (
     <div className="flex h-full flex-col">
-      {/* header: outline toggle (left, where the counter used to be) + utilities (right) */}
+      {/* header: low-frequency utilities (the outline toggle lives in the panel title bar) */}
       <div className="flex items-center gap-1 border-b border-border px-3 py-2">
-        <Button
-          variant="ghost"
-          size="icon"
-          className={"h-7 w-7" + (outlineOpen ? " text-primary" : "")}
-          aria-label={outlineOpen ? "Hide outline" : "Show outline"}
-          data-kvasir-tip="Outline — the whole flow; jump to any step"
-          onClick={() => tourStore.setOutlineOpen(!outlineOpen)}
-        >
-          <ListTree />
-        </Button>
         <StepTools spec={spec} step={step} index={index} onRegen={() => setDialog(true)} />
       </div>
 
-      {/* body: persistent outline rail (when open) + a drag/keyboard splitter, beside the content */}
-      <div className="flex min-h-0 flex-1">
-        {outlineOpen && (
-          <>
-            <Rail spec={spec} current={index} width={railW} />
-            {/* eslint-disable jsx-a11y/no-noninteractive-element-interactions, jsx-a11y/no-noninteractive-tabindex -- accessible window-splitter, same pattern as the chat rail */}
-            <div
-              role="separator"
-              aria-orientation="vertical"
-              aria-label="Resize outline"
-              aria-valuenow={railW}
-              aria-valuemin={RAIL_MIN}
-              aria-valuemax={RAIL_MAX}
-              tabIndex={0}
-              className="w-[5px] shrink-0 cursor-col-resize border-x border-border bg-transparent transition-colors hover:border-primary/40 hover:bg-primary/60 focus-visible:border-primary focus-visible:bg-primary/60 focus-visible:outline-none"
-              onMouseDown={onResize}
-              onKeyDown={onResizeKey}
-            />
-            {/* eslint-enable jsx-a11y/no-noninteractive-element-interactions, jsx-a11y/no-noninteractive-tabindex */}
-          </>
-        )}
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <Coverage coverage={spec.coverage} />
-          <MainView spec={spec} step={step} diagramOpen={diagramOpen} />
-        </div>
-      </div>
+      <Coverage coverage={spec.coverage} />
+      <MainView spec={spec} step={step} diagramOpen={diagramOpen} />
 
       <Footer index={index} count={count} />
       {dialog && <RegenDialog onClose={() => setDialog(false)} />}

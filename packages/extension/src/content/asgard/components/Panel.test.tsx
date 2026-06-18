@@ -54,6 +54,16 @@ describe("Panel", () => {
     expect(container.innerHTML).toBe("");
   });
 
+  it("toggles the global sidebar from the title bar", () => {
+    render(<Panel />);
+    act(() => panelStore.open());
+    expect(screen.queryByTestId("sidebar")).toBeNull();
+    fireEvent.click(screen.getByLabelText("Show sidebar"));
+    expect(screen.getByTestId("sidebar")).toBeTruthy();
+    fireEvent.click(screen.getByLabelText("Hide sidebar"));
+    expect(screen.queryByTestId("sidebar")).toBeNull();
+  });
+
   it("extends the panel by the rail width when the outline rail is open (content not shrunk)", () => {
     tourStore.setOutlineOpen(true); // walkthrough tab is the default + not a review
     render(<Panel />);

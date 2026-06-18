@@ -2,7 +2,7 @@
 // section as a tab. Geometry lives in panelStore; the tab bodies reuse the
 // existing machines. Tab bodies are filled in island by island (Phases 2–5);
 // until then they show a placeholder.
-import { X } from "lucide-react";
+import { ListTree, X } from "lucide-react";
 import { useEffect, useRef, useSyncExternalStore } from "react";
 import type { JSX } from "react";
 import { activeGuide } from "../guide";
@@ -18,6 +18,7 @@ import { tourStore } from "../tour";
 import { Button } from "../ui/button";
 import { KvasirMark } from "../ui/KvasirMark";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
+import { PanelSidebar } from "./PanelSidebar";
 import { ChatTab } from "./tabs/ChatTab";
 import { HistoryTab } from "./tabs/HistoryTab";
 import { ReviewTab } from "./tabs/ReviewTab";
@@ -90,22 +91,21 @@ export function Panel(): JSX.Element | null {
 
 function PanelWindow(): JSX.Element {
   const panelRef = useRef<HTMLDivElement>(null);
-  // The outline rail EXTENDS the panel to the LEFT rather than shrinking the
-  // content: rendered width = content width + rail width, and the left edge moves
-  // out by the rail width (right edge fixed → the content stays in place; the
-  // default right-anchored position grows leftward on its own). We persist the
-  // CONTENT geometry (observed width − offset; dragged left + offset) so toggling
-  // or resizing the rail never drifts the stored values.
+  // The global sidebar EXTENDS the panel to the LEFT rather than shrinking the
+  // content: rendered width = content width + sidebar width, and the left edge
+  // moves out by that width (right edge fixed → content stays put; the default
+  // right-anchored position grows leftward on its own). Open state + width are
+  // GLOBAL (shared across tabs) so switching tabs never resizes the panel — only
+  // toggling does. We persist the CONTENT geometry (observed width − offset;
+  // dragged left + offset) so toggling/resizing the sidebar never drifts it.
   const isReview = activeGuide().kind === "review";
-  const railOffset =
-    !isReview && panelStore.tab() === PANEL_TABS.WALKTHROUGH && tourStore.outlineOpen()
-      ? tourStore.railWidth()
-      : 0;
+  const sidebarOpen = tourStore.outlineOpen();
+  const sidebarOffset = sidebarOpen ? tourStore.railWidth() : 0;
   const onHeadDown = useDrag(panelRef, {
     ignore: "button",
-    onEnd: (p) => panelStore.setPos({ left: p.left + railOffset, top: p.top }),
+    onEnd: (p) => panelStore.setPos({ left: p.left + sidebarOffset, top: p.top }),
   });
-  useResizePersist(panelRef, (size) => panelStore.setSize({ w: size.w - railOffset, h: size.h }));
+  useResizePersist(panelRef, (size) => panelStore.setSize({ w: size.w - sidebarOffset, h: size.h }));
   useScrollLock(panelRef);
   // Closing the panel ends the tour and clears the page highlight (the Walkthrough
   // tab no longer does this on tab-switch, so the highlight survives Settings/Chat).
@@ -129,71 +129,86 @@ function PanelWindow(): JSX.Element {
       ref={panelRef}
       role="dialog"
       aria-label="Kvasir"
-      className="kvasir-panel fixed bottom-5 right-5 z-[2147483002] flex max-h-[85vh] min-h-[320px] w-[420px] min-w-[340px] max-w-[92vw] resize flex-col overflow-hidden rounded-lg border border-border bg-background text-foreground"
+      className="kvasir-panel fixed bottom-5 right-5 z-[2147483002] flex max-h-[85vh] min-h-[320px] w-[420px] min-w-[340px] max-w-[92vw] resize overflow-hidden rounded-lg border border-border bg-background text-foreground"
       style={{
         boxShadow: "var(--elevation)",
-        ...(pos ? { left: pos.left - railOffset, top: pos.top, right: "auto", bottom: "auto" } : null),
-        width: (size?.w ?? 420) + railOffset,
+        ...(pos ? { left: pos.left - sidebarOffset, top: pos.top, right: "auto", bottom: "auto" } : null),
+        width: (size?.w ?? 420) + sidebarOffset,
         ...(size ? { height: size.h } : null),
       }}
     >
-      {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions -- title-bar drag handle: drag-to-move is a non-essential reposition with no ARIA role; the panel auto-positions and every function inside is a native, keyboard-operable control. */}
-      <div className="flex cursor-move items-center gap-2 px-3 py-2" onMouseDown={onHeadDown}>
-        <KvasirMark className="size-4 shrink-0 text-primary" />
-        <span className="truncate text-[13px] font-semibold tracking-tight" title={title}>
-          {title}
-        </span>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="-mr-1 ml-auto h-7 w-7"
-          aria-label="Close panel"
-          onClick={() => panelStore.close()}
-        >
-          <X />
-        </Button>
-      </div>
-
-      <PairBanner />
-      <GuideDeletedBanner />
-
-      <Tabs
-        value={panelStore.tab()}
-        onValueChange={(v) => {
-          if (isPanelTab(v)) panelStore.setTab(v);
-        }}
-        className="flex min-h-0 flex-1 flex-col"
-      >
-        <div className="px-2 pt-1">
-          <TabsList className="justify-between">
-            {TAB_LABELS.map((t) => (
-              <TabsTrigger key={t.value} value={t.value} className="flex-1">
-                {t.value === PANEL_TABS.WALKTHROUGH && isReview ? "Review" : t.label}
-                {t.value === PANEL_TABS.HISTORY && staleHistory > 0 ? (
-                  <span
-                    aria-label={`${staleHistory} need sync`}
-                    className="ml-1 inline-flex min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground"
-                  >
-                    {staleHistory}
-                  </span>
-                ) : null}
-              </TabsTrigger>
-            ))}
-          </TabsList>
+      {sidebarOpen && <PanelSidebar />}
+      {/* The whole existing UI lives in a fixed-width column to the right of the
+          sidebar, so opening the sidebar never moves the title bar, tabs or content. */}
+      <div className="flex min-w-0 flex-1 flex-col">
+        {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions -- title-bar drag handle: drag-to-move is a non-essential reposition with no ARIA role; the panel auto-positions and every function inside is a native, keyboard-operable control. */}
+        <div className="flex cursor-move items-center gap-2 px-3 py-2" onMouseDown={onHeadDown}>
+          <Button
+            variant="ghost"
+            size="icon"
+            className={"-ml-1 h-7 w-7 shrink-0" + (sidebarOpen ? " text-primary" : "")}
+            aria-label={sidebarOpen ? "Hide sidebar" : "Show sidebar"}
+            data-kvasir-tip="Outline / navigation"
+            onClick={() => tourStore.setOutlineOpen(!sidebarOpen)}
+          >
+            <ListTree />
+          </Button>
+          <KvasirMark className="size-4 shrink-0 text-primary" />
+          <span className="truncate text-[13px] font-semibold tracking-tight" title={title}>
+            {title}
+          </span>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="-mr-1 ml-auto h-7 w-7"
+            aria-label="Close panel"
+            onClick={() => panelStore.close()}
+          >
+            <X />
+          </Button>
         </div>
-        <TabsContent value={PANEL_TABS.WALKTHROUGH} className="min-h-0">
-          {isReview ? <ReviewTab /> : <WalkthroughTab />}
-        </TabsContent>
-        <TabsContent value={PANEL_TABS.CHAT} className="min-h-0">
-          <ChatTab />
-        </TabsContent>
-        <TabsContent value={PANEL_TABS.HISTORY} className="min-h-0">
-          <HistoryTab />
-        </TabsContent>
-        <TabsContent value={PANEL_TABS.SETTINGS} className="overflow-y-auto">
-          <SettingsTab />
-        </TabsContent>
-      </Tabs>
+
+        <PairBanner />
+        <GuideDeletedBanner />
+
+        <Tabs
+          value={panelStore.tab()}
+          onValueChange={(v) => {
+            if (isPanelTab(v)) panelStore.setTab(v);
+          }}
+          className="flex min-h-0 flex-1 flex-col"
+        >
+          <div className="px-2 pt-1">
+            <TabsList className="justify-between">
+              {TAB_LABELS.map((t) => (
+                <TabsTrigger key={t.value} value={t.value} className="flex-1">
+                  {t.value === PANEL_TABS.WALKTHROUGH && isReview ? "Review" : t.label}
+                  {t.value === PANEL_TABS.HISTORY && staleHistory > 0 ? (
+                    <span
+                      aria-label={`${staleHistory} need sync`}
+                      className="ml-1 inline-flex min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground"
+                    >
+                      {staleHistory}
+                    </span>
+                  ) : null}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </div>
+          <TabsContent value={PANEL_TABS.WALKTHROUGH} className="min-h-0">
+            {isReview ? <ReviewTab /> : <WalkthroughTab />}
+          </TabsContent>
+          <TabsContent value={PANEL_TABS.CHAT} className="min-h-0">
+            <ChatTab />
+          </TabsContent>
+          <TabsContent value={PANEL_TABS.HISTORY} className="min-h-0">
+            <HistoryTab />
+          </TabsContent>
+          <TabsContent value={PANEL_TABS.SETTINGS} className="overflow-y-auto">
+            <SettingsTab />
+          </TabsContent>
+        </Tabs>
+      </div>
     </div>
   );
 }
