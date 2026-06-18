@@ -90,7 +90,7 @@ describe("Panel", () => {
     fireEvent.mouseUp(document);
     expect(panelStore.railWidth()).toBe(240); // sidebar grew; window extends left to fit
     expect(setSize).toHaveBeenLastCalledWith({ w: 420, h: 380 }); // content width fixed (default 420), taller
-    expect(setPos).not.toHaveBeenCalled(); // unpositioned (bottom-right anchored) → grows left on its own
+    expect(setPos).not.toHaveBeenCalled(); // no stored pos (bottom-right anchored) → grows left on its own
   });
 
   it("the corner grip on a positioned window keeps content width and shifts the left edge out", () => {
