@@ -17,26 +17,6 @@ function dotClass(isCurrent: boolean, isVisited: boolean): string {
   return "border border-muted-foreground/50";
 }
 
-// Key for the status dots — the same three styles dotClass produces.
-function Legend(): JSX.Element {
-  return (
-    <div className="flex shrink-0 items-center gap-2 text-[10px] text-muted-foreground/70">
-      <span className="flex items-center gap-1">
-        <span className="size-1.5 rounded-full bg-primary" />
-        now
-      </span>
-      <span className="flex items-center gap-1">
-        <span className="size-1.5 rounded-full bg-muted-foreground" />
-        seen
-      </span>
-      <span className="flex items-center gap-1">
-        <span className="size-1.5 rounded-full border border-muted-foreground/50" />
-        next
-      </span>
-    </div>
-  );
-}
-
 export function OutlineRail(): JSX.Element | null {
   const spec = launcherStore.spec();
   const current = tourStore.stepIndex();
@@ -49,21 +29,19 @@ export function OutlineRail(): JSX.Element | null {
     else groups.push({ file: walkStep.file, items: [{ step: walkStep, index: position }] });
     position += 1;
   }
+  const hasCoverage = (spec.coverage?.significant.length ?? 0) > 0;
   return (
     <div data-testid="outline">
-      {/* Tabs-aligned sub-row: coverage (left) + dot legend (right). It also offsets
-          the tree down so the list starts roughly inline with the step content. */}
-      <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2.5">
+      {/* Tabs-aligned spacer: holds the coverage chip when present and offsets the tree
+          down so the list starts roughly inline with the step content. Border only when
+          there's coverage, so a spec without it leaves a clean gap, not an empty bar. */}
+      <div className={"px-3 py-2.5" + (hasCoverage ? " border-b border-border" : "")}>
         <Coverage coverage={spec.coverage} />
-        <Legend />
       </div>
       <div className="py-2">
         {groups.map((group, groupIndex) => (
           <div key={groupIndex} className="mb-2">
-            <div
-              className="whitespace-nowrap px-3 py-1 font-mono text-[11px] text-muted-foreground/80"
-              data-kvasir-tip={group.file}
-            >
+            <div className="whitespace-nowrap px-3 py-1 font-mono text-[11px] text-muted-foreground/80">
               {group.file}
             </div>
             <ul>
@@ -77,7 +55,6 @@ export function OutlineRail(): JSX.Element | null {
                         (isCurrent ? "font-medium text-primary" : "text-foreground/90")
                       }
                       aria-current={isCurrent ? "step" : undefined}
-                      data-kvasir-tip={item.step.title}
                       onClick={() => tourStore.goto(item.index)}
                     >
                       <span className="select-none font-mono text-[11px] text-muted-foreground/40">
