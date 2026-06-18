@@ -8,6 +8,7 @@ vi.mock("../../history", () => ({
     all: vi.fn(),
     query: vi.fn(),
     setQuery: vi.fn(),
+    facet: vi.fn(),
     load: vi.fn(),
     prItems: vi.fn(),
     codeItems: vi.fn(),
@@ -38,6 +39,7 @@ const sum = (over: Partial<EntrySummary> = {}): EntrySummary => ({
 
 beforeEach(() => {
   vi.mocked(historyStore.query).mockReturnValue("");
+  vi.mocked(historyStore.facet).mockReturnValue("all");
   vi.mocked(historyStore.all).mockReturnValue([]);
   vi.mocked(historyStore.prItems).mockReturnValue([]);
   vi.mocked(historyStore.codeItems).mockReturnValue([]);
@@ -75,6 +77,20 @@ describe("HistoryTab", () => {
     fireEvent.click(screen.getByText("PR one"));
     expect(historyStore.open).toHaveBeenCalledWith(pr);
     expect(historyStore.open).toHaveBeenCalledTimes(1);
+  });
+
+  it("the active facet hides the section it excludes", () => {
+    vi.mocked(historyStore.all).mockReturnValue([sum({ id: "p1", kind: "pr" })]);
+    vi.mocked(historyStore.prItems).mockReturnValue([sum({ id: "p1", kind: "pr" })]);
+    vi.mocked(historyStore.facet).mockReturnValue("pr");
+    const { unmount } = render(<HistoryTab />);
+    expect(screen.getByText("PR Walkthroughs")).toBeTruthy();
+    expect(screen.queryByText("Code Walkthroughs")).toBeNull(); // hidden under "pr"
+    unmount();
+    vi.mocked(historyStore.facet).mockReturnValue("code");
+    render(<HistoryTab />);
+    expect(screen.queryByText("PR Walkthroughs")).toBeNull(); // hidden under "code"
+    expect(screen.getByText("Code Walkthroughs")).toBeTruthy();
   });
 
   it("shows the PR number and author on a PR Walkthrough row", () => {
@@ -129,6 +145,16 @@ describe("HistoryTab", () => {
     vi.mocked(historyStore.query).mockReturnValue("zzz");
     render(<HistoryTab />);
     expect(screen.getAllByText("No matches.")).toHaveLength(2);
+  });
+
+  it("reads 'None in this filter.' (not 'None yet.') when a facet empties a kind that has entries", () => {
+    vi.mocked(historyStore.facet).mockReturnValue("stale"); // both sections show, only stale items
+    vi.mocked(historyStore.all).mockReturnValue([sum({ id: "p1", kind: "pr" })]); // entries exist…
+    vi.mocked(historyStore.prItems).mockReturnValue([]); // …but none are stale
+    vi.mocked(historyStore.codeItems).mockReturnValue([]);
+    render(<HistoryTab />);
+    expect(screen.getAllByText("None in this filter.")).toHaveLength(2);
+    expect(screen.queryByText("None yet.")).toBeNull();
   });
 
   it("typing in the search box sets the query", () => {

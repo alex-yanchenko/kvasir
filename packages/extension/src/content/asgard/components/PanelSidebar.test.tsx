@@ -43,10 +43,17 @@ describe("PanelSidebar", () => {
     expect(screen.getByRole("button", { name: "New chat" })).toBeTruthy();
   });
 
-  it("shows a placeholder on tabs without sidebar content yet (history)", () => {
+  it("shows the history facets on the history tab", () => {
     state.panel.tab = PANEL_TABS.HISTORY;
     render(<PanelSidebar />);
-    expect(screen.getByText(/Nothing here yet/)).toBeTruthy();
+    expect(screen.getByTestId("history-facets")).toBeTruthy();
     expect(screen.queryByTestId("outline")).toBeNull();
+  });
+
+  it("shows the settings section nav on the settings tab", () => {
+    state.panel.tab = PANEL_TABS.SETTINGS;
+    render(<PanelSidebar />);
+    expect(screen.getByTestId("settings-nav")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Appearance" })).toBeTruthy();
   });
 });

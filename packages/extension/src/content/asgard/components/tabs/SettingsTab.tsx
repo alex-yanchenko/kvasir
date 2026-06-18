@@ -3,7 +3,7 @@
 // are unchanged.
 import { Check, Loader2 } from "lucide-react";
 import { useEffect, useState, useSyncExternalStore } from "react";
-import type { JSX } from "react";
+import type { JSX, ReactNode } from "react";
 import { wipeStoredData } from "../../debug";
 import { pairingStore } from "../../pairing";
 import { getSnapshot, settingsStore, subscribe } from "../../store";
@@ -46,6 +46,31 @@ function Segmented({
       </div>
       <p className="text-xs text-muted-foreground/75">{hint}</p>
     </div>
+  );
+}
+
+// The settings sections, in render order — shared with SettingsNav (the sidebar)
+// which jumps to each by its data-settings-section id.
+export const SETTINGS_SECTIONS = [
+  { id: "appearance", label: "Appearance" },
+  { id: "review", label: "Review" },
+  { id: "generation", label: "Generation" },
+  { id: "connection", label: "Connection" },
+  { id: "debug", label: "Debug" },
+] as const;
+
+// A titled group of settings that SettingsNav can jump to. scroll-mt keeps a little
+// headroom when SettingsNav scrolls one into view.
+function Section({
+  id,
+  title,
+  children,
+}: Readonly<{ id: string; title: string; children: ReactNode }>): JSX.Element {
+  return (
+    <section data-settings-section={id} className="flex scroll-mt-2 flex-col gap-4">
+      <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground/70">{title}</h3>
+      {children}
+    </section>
   );
 }
 
@@ -140,88 +165,97 @@ export function SettingsTab(): JSX.Element {
   useSyncExternalStore(subscribe, getSnapshot);
   return (
     <div className="flex flex-col gap-4 p-4">
-      <Segmented
-        label="Theme"
-        hint="Match the page, or force light/dark for the panel."
-        value={settingsStore.theme()}
-        options={[
-          { value: "auto", label: "Auto" },
-          { value: "light", label: "Light" },
-          { value: "dark", label: "Dark" },
-        ]}
-        onChange={(v) => settingsStore.setTheme(v)}
-      />
-      <Segmented
-        label="Highlight"
-        hint="How a step's lines are marked on the diff — a subtle tint, or GitHub's native line highlight."
-        value={settingsStore.hlStyle()}
-        options={[
-          { value: "tint", label: "Tint" },
-          { value: "github", label: "GitHub" },
-        ]}
-        onChange={(v) => settingsStore.setHlStyle(v)}
-      />
-      <Segmented
-        label="Step nav"
-        hint="On load = scroll the page to your saved step when a walkthrough opens; Instant = only when you pick a step."
-        value={settingsStore.reviewSync() ? "synced" : "instant"}
-        options={[
-          { value: "synced", label: "On load" },
-          { value: "instant", label: "Instant" },
-        ]}
-        onChange={(v) => settingsStore.setReviewSync(v === "synced")}
-      />
-      <Segmented
-        label="Review depth"
-        hint="Heavy reads the locally-cloned repo for correctness (falls back to Light if it isn't found); Light uses only the PR diff."
-        value={settingsStore.reviewMode()}
-        options={[
-          { value: "heavy", label: "Heavy" },
-          { value: "light", label: "Light" },
-        ]}
-        onChange={(v) => settingsStore.setReviewMode(v)}
-      />
-      {settingsStore.reviewMode() === "heavy" && (
-        <div className="flex flex-col gap-1">
-          <div className="flex items-center justify-between gap-3">
-            <span className="text-sm text-muted-foreground">Local repos root</span>
-            <input
-              type="text"
-              aria-label="Local repos root"
-              value={settingsStore.reviewReposRoot()}
-              onChange={(event) => settingsStore.setReviewReposRoot(event.target.value)}
-              className="h-7 w-40 rounded-lg border border-border bg-muted px-2 text-sm text-foreground"
-            />
+      <Section id="appearance" title="Appearance">
+        <Segmented
+          label="Theme"
+          hint="Match the page, or force light/dark for the panel."
+          value={settingsStore.theme()}
+          options={[
+            { value: "auto", label: "Auto" },
+            { value: "light", label: "Light" },
+            { value: "dark", label: "Dark" },
+          ]}
+          onChange={(v) => settingsStore.setTheme(v)}
+        />
+        <Segmented
+          label="Highlight"
+          hint="How a step's lines are marked on the diff — a subtle tint, or GitHub's native line highlight."
+          value={settingsStore.hlStyle()}
+          options={[
+            { value: "tint", label: "Tint" },
+            { value: "github", label: "GitHub" },
+          ]}
+          onChange={(v) => settingsStore.setHlStyle(v)}
+        />
+      </Section>
+      <Section id="review" title="Review">
+        <Segmented
+          label="Step nav"
+          hint="On load = scroll the page to your saved step when a walkthrough opens; Instant = only when you pick a step."
+          value={settingsStore.reviewSync() ? "synced" : "instant"}
+          options={[
+            { value: "synced", label: "On load" },
+            { value: "instant", label: "Instant" },
+          ]}
+          onChange={(v) => settingsStore.setReviewSync(v === "synced")}
+        />
+        <Segmented
+          label="Review depth"
+          hint="Heavy reads the locally-cloned repo for correctness (falls back to Light if it isn't found); Light uses only the PR diff."
+          value={settingsStore.reviewMode()}
+          options={[
+            { value: "heavy", label: "Heavy" },
+            { value: "light", label: "Light" },
+          ]}
+          onChange={(v) => settingsStore.setReviewMode(v)}
+        />
+        {settingsStore.reviewMode() === "heavy" && (
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-sm text-muted-foreground">Local repos root</span>
+              <input
+                type="text"
+                aria-label="Local repos root"
+                value={settingsStore.reviewReposRoot()}
+                onChange={(event) => settingsStore.setReviewReposRoot(event.target.value)}
+                className="h-7 w-40 rounded-lg border border-border bg-muted px-2 text-sm text-foreground"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground/75">
+              Where Heavy looks for the clone — it searches here for a repo whose name or remote matches the
+              PR.
+            </p>
           </div>
-          <p className="text-xs text-muted-foreground/75">
-            Where Heavy looks for the clone — it searches here for a repo whose name or remote matches the PR.
-          </p>
-        </div>
-      )}
-      <Segmented
-        label="Suggested questions"
-        hint="Preload three AI-suggested questions in each chat (costs a model call). Off by default."
-        value={settingsStore.preloadQuestions() ? "on" : "off"}
-        options={[
-          { value: "off", label: "Off" },
-          { value: "on", label: "On" },
-        ]}
-        onChange={(value) => settingsStore.setPreloadQuestions(value === "on")}
-      />
-      <Segmented
-        label="Flow diagram"
-        hint="Have the session author a flow diagram of the change (adds time to generation; the renderer loads only when you open one). Off by default."
-        value={settingsStore.generateDiagram() ? "on" : "off"}
-        options={[
-          { value: "off", label: "Off" },
-          { value: "on", label: "On" },
-        ]}
-        onChange={(value) => settingsStore.setGenerateDiagram(value === "on")}
-      />
-      <div className="border-t border-border pt-3">
+        )}
+      </Section>
+      <Section id="generation" title="Generation">
+        <Segmented
+          label="Suggested questions"
+          hint="Preload three AI-suggested questions in each chat (costs a model call). Off by default."
+          value={settingsStore.preloadQuestions() ? "on" : "off"}
+          options={[
+            { value: "off", label: "Off" },
+            { value: "on", label: "On" },
+          ]}
+          onChange={(value) => settingsStore.setPreloadQuestions(value === "on")}
+        />
+        <Segmented
+          label="Flow diagram"
+          hint="Have the session author a flow diagram of the change (adds time to generation; the renderer loads only when you open one). Off by default."
+          value={settingsStore.generateDiagram() ? "on" : "off"}
+          options={[
+            { value: "off", label: "Off" },
+            { value: "on", label: "On" },
+          ]}
+          onChange={(value) => settingsStore.setGenerateDiagram(value === "on")}
+        />
+      </Section>
+      {/* Connection and Debug carry their own headers, so they wrap in a plain
+          jump-target div rather than a titled Section (no duplicate heading). */}
+      <div data-settings-section="connection" className="scroll-mt-2 border-t border-border pt-3">
         <Connection />
       </div>
-      <div className="border-t border-border pt-3">
+      <div data-settings-section="debug" className="scroll-mt-2 border-t border-border pt-3">
         <Debug />
       </div>
     </div>

@@ -4,9 +4,7 @@
 // tour so switching tabs or closing the panel clears the highlight.
 import type { WalkthroughSpec, WalkthroughStep } from "@kvasir/runes/spec";
 import {
-  AlertTriangle,
   Check,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Crosshair,
@@ -20,7 +18,6 @@ import {
 } from "lucide-react";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import type { JSX } from "react";
-import { bifrost } from "../../../bifrost";
 import { sanitizeSpecHtml } from "../../../sanitize";
 import { chatStore } from "../../chat";
 import { fmtElapsed, launcherStore } from "../../launcher";
@@ -63,59 +60,6 @@ function Empty(): JSX.Element {
       >
         <Play /> Run review
       </Button>
-    </div>
-  );
-}
-
-// Coverage confidence: does the walkthrough explain the whole change? Stamped
-// server-side onto the spec at publish (PR walkthroughs only). Absent → render
-// nothing (a cross-repo review or a pre-coverage cached spec).
-function Coverage({
-  coverage,
-}: Readonly<{ coverage: { significant: string[]; uncovered: string[] } | undefined }>): JSX.Element | null {
-  const [open, setOpen] = useState(false);
-  if (!coverage || coverage.significant.length === 0) return null;
-  const { significant, uncovered } = coverage;
-  const covered = significant.length - uncovered.length;
-  const full = uncovered.length === 0;
-  return (
-    <div className="border-b border-border px-3 py-1.5 text-xs">
-      <button
-        className="flex w-full items-center gap-1.5 text-left"
-        aria-label="Walkthrough coverage of changed files"
-        data-kvasir-tip={
-          full ? "Every significant changed file has a step" : "Some changed files have no step"
-        }
-        disabled={full}
-        onClick={() => setOpen((value) => !value)}
-      >
-        {full ? (
-          <Check className="size-3.5 shrink-0 text-primary" />
-        ) : (
-          <AlertTriangle className="size-3.5 shrink-0 text-amber-500" />
-        )}
-        <span className="text-muted-foreground">
-          Explains {covered}/{significant.length} changed files
-        </span>
-        {!full && (
-          <ChevronDown className={"ml-auto size-3.5 transition-transform" + (open ? " rotate-180" : "")} />
-        )}
-      </button>
-      {open && !full && (
-        <ul className="mt-1.5 space-y-0.5">
-          {uncovered.map((path) => (
-            <li key={path}>
-              <button
-                className="block w-full truncate text-left font-mono text-muted-foreground hover:text-primary"
-                data-kvasir-tip="Jump to this uncovered file in the diff"
-                onClick={() => bifrost.send("jump:ref", { file: path, start: null, end: null })}
-              >
-                {path}
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
     </div>
   );
 }
@@ -276,54 +220,34 @@ function StepTools({
   );
 }
 
-// Footer: the step counter (moved here from the header) above Back · dots · Next.
-// Split out so Steps stays under the cognitive-complexity bar.
+// Footer: Back · step counter · Next on one row. The counter sits between the buttons
+// (it stays short at any step count); the outline sidebar handles jumping to a step.
 function Footer({ index, count }: Readonly<{ index: number; count: number }>): JSX.Element {
   const atFirst = index === 0;
   const atLast = index >= count - 1;
   return (
-    <div className="border-t border-border">
-      <div className="py-1 text-center text-xs text-muted-foreground">
+    <div className="flex items-center justify-between gap-2 border-t border-border px-3 py-2">
+      <Button
+        variant="ghost"
+        size="sm"
+        aria-label="Previous step"
+        disabled={atFirst}
+        onClick={() => tourStore.back()}
+      >
+        <ChevronLeft /> Back
+      </Button>
+      <span className="shrink-0 text-xs text-muted-foreground">
         Step <span className="font-medium text-primary">{index + 1}</span> / {count}
-      </div>
-      <div className="flex items-center gap-2 px-3 pb-2">
-        <span data-kvasir-tip={atFirst ? "First step" : undefined}>
-          <Button
-            variant="ghost"
-            size="sm"
-            aria-label="Previous step"
-            disabled={atFirst}
-            onClick={() => tourStore.back()}
-          >
-            <ChevronLeft /> Back
-          </Button>
-        </span>
-        <div className="mx-auto flex items-center gap-1.5">
-          {Array.from({ length: count }, (_unused, dotIndex) => (
-            <button
-              key={dotIndex}
-              aria-label={`Go to step ${dotIndex + 1}`}
-              data-kvasir-tip={`Step ${dotIndex + 1}`}
-              onClick={() => tourStore.goto(dotIndex)}
-              className={
-                "h-1.5 cursor-pointer rounded-full transition-all " +
-                (dotIndex === index ? "w-4 bg-primary" : "w-1.5 bg-border hover:bg-muted-foreground")
-              }
-            />
-          ))}
-        </div>
-        <span data-kvasir-tip={atLast ? "Last step" : undefined}>
-          <Button
-            variant="default"
-            size="sm"
-            aria-label="Next step"
-            disabled={atLast}
-            onClick={() => tourStore.next()}
-          >
-            Next <ChevronRight />
-          </Button>
-        </span>
-      </div>
+      </span>
+      <Button
+        variant="default"
+        size="sm"
+        aria-label="Next step"
+        disabled={atLast}
+        onClick={() => tourStore.next()}
+      >
+        Next <ChevronRight />
+      </Button>
     </div>
   );
 }
@@ -352,7 +276,6 @@ function Steps({ spec }: Readonly<{ spec: WalkthroughSpec }>): JSX.Element {
         <StepTools spec={spec} step={step} index={index} onRegen={() => setDialog(true)} />
       </div>
 
-      <Coverage coverage={spec.coverage} />
       <MainView spec={spec} step={step} diagramOpen={diagramOpen} />
 
       <Footer index={index} count={count} />

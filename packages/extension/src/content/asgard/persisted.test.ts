@@ -10,17 +10,36 @@ const review: Review = {
 };
 
 describe("parsePanelState", () => {
-  it("reads open + tab + geometry, dropping mismatches and non-records", () => {
+  it("reads open + sidebarOpen + tab + geometry, dropping mismatches and non-records", () => {
     expect(
-      parsePanelState({ open: true, tab: "history", pos: { left: 1, top: 2 }, size: { w: 3, h: 4 } }),
-    ).toEqual({ open: true, tab: "history", pos: { left: 1, top: 2 }, size: { w: 3, h: 4 } });
-    expect(parsePanelState({ open: "yes", tab: 5, pos: { left: "x" }, size: 9 })).toEqual({
+      parsePanelState({
+        open: true,
+        sidebarOpen: true,
+        tab: "history",
+        pos: { left: 1, top: 2 },
+        size: { w: 3, h: 4 },
+      }),
+    ).toEqual({
+      open: true,
+      sidebarOpen: true,
+      tab: "history",
+      pos: { left: 1, top: 2 },
+      size: { w: 3, h: 4 },
+    });
+    expect(parsePanelState({ open: "yes", sidebarOpen: "x", tab: 5, pos: { left: "x" }, size: 9 })).toEqual({
       open: false,
+      sidebarOpen: false,
       tab: null,
       pos: null,
       size: null,
     });
-    expect(parsePanelState(null)).toEqual({ open: false, tab: null, pos: null, size: null });
+    expect(parsePanelState(null)).toEqual({
+      open: false,
+      sidebarOpen: false,
+      tab: null,
+      pos: null,
+      size: null,
+    });
   });
 });
 

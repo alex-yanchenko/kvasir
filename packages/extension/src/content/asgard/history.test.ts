@@ -28,6 +28,7 @@ beforeEach(() => {
   sessionStorage.clear();
   state.history = null;
   state.historyQuery = "";
+  state.historyFacet = "all";
   state.seen = {};
   state.review = null;
   state.spec = null;
@@ -68,6 +69,38 @@ describe("historyStore filter, query, and kind split", () => {
   it("filtered() is empty and all() is null before the first load", () => {
     expect(historyStore.filtered()).toEqual([]);
     expect(historyStore.all()).toBeNull();
+  });
+});
+
+describe("historyStore facets", () => {
+  beforeEach(() => {
+    state.history = [
+      sum({ id: "p1", kind: "pr" }),
+      sum({ id: "c1", kind: "code" }),
+      sum({ id: "p2", kind: "pr", version: 5 }),
+    ];
+    state.seen = { p2: 2 }; // p2's backend version (5) moved past seen (2) → stale
+  });
+
+  it("defaults to 'all'; setFacet narrows filtered() by kind", () => {
+    expect(historyStore.facet()).toBe("all");
+    expect(historyStore.filtered().map((entry) => entry.id)).toEqual(["p1", "c1", "p2"]);
+    historyStore.setFacet("pr");
+    expect(historyStore.filtered().map((entry) => entry.id)).toEqual(["p1", "p2"]);
+    historyStore.setFacet("code");
+    expect(historyStore.filtered().map((entry) => entry.id)).toEqual(["c1"]);
+  });
+
+  it("the 'stale' facet keeps only entries whose backend version moved past seen", () => {
+    historyStore.setFacet("stale");
+    expect(historyStore.filtered().map((entry) => entry.id)).toEqual(["p2"]);
+  });
+
+  it("facetCounts come from the search-filtered list, independent of the active facet", () => {
+    historyStore.setFacet("pr"); // changing the facet must not change the counts
+    expect(historyStore.facetCounts()).toEqual({ all: 3, pr: 2, code: 1, stale: 1 });
+    historyStore.setQuery("no-such-entry"); // search narrows the base → counts drop
+    expect(historyStore.facetCounts()).toEqual({ all: 0, pr: 0, code: 0, stale: 0 });
   });
 });
 

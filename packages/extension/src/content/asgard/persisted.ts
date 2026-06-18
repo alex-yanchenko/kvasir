@@ -28,13 +28,15 @@ export function parseTourState(v: unknown): { step: number; pos: Pos | null; siz
  * dropping mismatches. The tab string is validated by the caller via isPanelTab. */
 export function parsePanelState(v: unknown): {
   open: boolean;
+  sidebarOpen: boolean;
   tab: string | null;
   pos: Pos | null;
   size: Size | null;
 } {
-  if (!isRecord(v)) return { open: false, tab: null, pos: null, size: null };
+  if (!isRecord(v)) return { open: false, sidebarOpen: false, tab: null, pos: null, size: null };
   return {
     open: v.open === true,
+    sidebarOpen: v.sidebarOpen === true,
     tab: typeof v.tab === "string" ? v.tab : null,
     pos: isPos(v.pos) ? v.pos : null,
     size: isSize(v.size) ? v.size : null,

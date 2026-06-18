@@ -151,9 +151,11 @@ function onDividerKey(event: ReactKeyboardEvent): void {
   panelStore.setSize({ w: startContent - applied, h: startHeight });
 }
 
-// Bottom-left corner grip: drag up/down = window height; drag left/right = grow the
-// WINDOW and the sidebar together (content width unchanged), extending leftward (right
-// edge fixed). The native bottom-right handle does an ordinary content resize.
+// Bottom-left corner grip: drag up/down = window height; drag left/right resizes the
+// WINDOW from its left edge (right edge fixed). The leftward growth fills the SIDEBAR
+// first (within its bounds); once the sidebar bottoms out (or tops out), the rest
+// spills into the CONTENT width. Dragging back refills the sidebar first, so content
+// returns to where it was on its own. The native bottom-right handle resizes content.
 function onCornerDown(event: ReactMouseEvent): void {
   event.preventDefault();
   event.stopPropagation();
@@ -162,15 +164,16 @@ function onCornerDown(event: ReactMouseEvent): void {
   const startSidebar = panelStore.railWidth();
   const { content: startContent, height: startHeight, pos: startPos } = panelGeom();
   const move = (moved: MouseEvent): void => {
-    panelStore.setRailWidth(startSidebar + (startX - moved.clientX)); // drag left → wider sidebar
-    const applied = panelStore.railWidth() - startSidebar; // clamped delta
-    panelStore.setSize({
-      w: startContent,
-      h: Math.max(DEFAULT_HEIGHT, startHeight + (moved.clientY - startY)),
-    });
-    // Right edge fixed: a positioned panel shifts its left edge out by the growth; the
-    // default bottom-right-anchored panel grows leftward on its own.
-    if (startPos) panelStore.setPos({ left: startPos.left - applied, top: startPos.top });
+    const leftGrowth = startX - moved.clientX; // drag left → wider window on the left
+    const desiredSidebar = startSidebar + leftGrowth;
+    panelStore.setRailWidth(desiredSidebar); // clamps to [SIDEBAR_MIN, SIDEBAR_MAX]
+    const spill = desiredSidebar - panelStore.railWidth(); // beyond the sidebar bounds → content
+    const content = Math.max(CONTENT_MIN, startContent + spill);
+    const grewLeft = panelStore.railWidth() - startSidebar + (content - startContent);
+    panelStore.setSize({ w: content, h: Math.max(DEFAULT_HEIGHT, startHeight + (moved.clientY - startY)) });
+    // Right edge fixed: a positioned panel shifts its left edge out by the total growth;
+    // the default bottom-right-anchored panel grows leftward on its own.
+    if (startPos) panelStore.setPos({ left: startPos.left - grewLeft, top: startPos.top });
   };
   const up = (): void => {
     document.removeEventListener("mousemove", move);
@@ -200,8 +203,12 @@ function PanelWindow(): JSX.Element {
   const chrome = sidebarOpen ? panelStore.railWidth() + DIVIDER_W : 0;
   const onHeadDown = useDrag(panelRef, { ignore: "button", onEnd: (p) => panelStore.setPos(p) });
   // The observer measures the whole window; back out the sidebar chrome so size.w stays
-  // the content width. No drift: opening the sidebar leaves the stored content the same.
-  useResizePersist(panelRef, (size) => panelStore.setSize({ w: size.w - chrome, h: size.h }));
+  // the content width, floored at CONTENT_MIN. No drift: opening the sidebar leaves the
+  // stored content the same. The floor stops a narrow drag (when the sidebar is wide)
+  // from storing a negative content width.
+  useResizePersist(panelRef, (size) =>
+    panelStore.setSize({ w: Math.max(CONTENT_MIN, size.w - chrome), h: size.h }),
+  );
   useScrollLock(panelRef);
   // Closing the panel ends the tour and clears the page highlight (the Walkthrough
   // tab no longer does this on tab-switch, so the highlight survives Settings/Chat).
@@ -225,11 +232,15 @@ function PanelWindow(): JSX.Element {
       ref={panelRef}
       role="dialog"
       aria-label="Kvasir"
-      className="kvasir-panel fixed bottom-5 right-5 z-[2147483002] flex max-h-[85vh] min-h-[320px] w-[420px] min-w-[340px] max-w-[92vw] resize overflow-hidden rounded-lg border border-border bg-background text-foreground"
+      className="kvasir-panel fixed bottom-5 right-5 z-[2147483002] flex max-h-[85vh] min-h-[320px] w-[420px] max-w-[92vw] resize overflow-hidden rounded-lg border border-border bg-background text-foreground"
       style={{
         boxShadow: "var(--elevation)",
         ...(pos ? { left: pos.left, top: pos.top, right: "auto", bottom: "auto" } : null),
-        width: (size?.w ?? DEFAULT_CONTENT_W) + chrome,
+        // Floor the content (self-heals any previously-stored negative width) and keep
+        // the window's min-width = chrome + content floor, so the right-edge resize can
+        // never drag content below CONTENT_MIN even when the sidebar is at full width.
+        width: Math.max(CONTENT_MIN, size?.w ?? DEFAULT_CONTENT_W) + chrome,
+        minWidth: chrome + CONTENT_MIN,
         ...(size?.h ? { height: size.h } : null),
       }}
     >

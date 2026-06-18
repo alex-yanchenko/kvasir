@@ -6,7 +6,9 @@
 import type { JSX } from "react";
 import { PANEL_TABS, panelStore, type PanelTab } from "../store";
 import { ChatList } from "./ChatList";
+import { HistoryFacets } from "./HistoryFacets";
 import { OutlineRail } from "./OutlineRail";
+import { SettingsNav } from "./SettingsNav";
 
 // The header label per tab — matches the section the sidebar is navigating.
 const SIDEBAR_LABELS: Record<PanelTab, string> = {
@@ -16,13 +18,14 @@ const SIDEBAR_LABELS: Record<PanelTab, string> = {
   [PANEL_TABS.SETTINGS]: "Settings",
 };
 
-// Per-tab content. Walkthrough → the outline; Chat → the chat list; History and
-// Settings get their own nav in later phases — until then, a quiet placeholder.
+// Per-tab content. Walkthrough → the outline; Chat → the chat list; History → facet
+// filters; Settings → section anchor nav.
 function SidebarContent(): JSX.Element {
   const tab = panelStore.tab();
   if (tab === PANEL_TABS.WALKTHROUGH) return <OutlineRail />;
   if (tab === PANEL_TABS.CHAT) return <ChatList />;
-  return <div className="p-3 text-xs text-muted-foreground/60">Nothing here yet.</div>;
+  if (tab === PANEL_TABS.HISTORY) return <HistoryFacets />;
+  return <SettingsNav />;
 }
 
 export function PanelSidebar(): JSX.Element {
