@@ -5,12 +5,15 @@
 import type { JSX } from "react";
 import { PANEL_TABS, panelStore } from "../store";
 import { tourStore } from "../tour";
+import { ChatList } from "./ChatList";
 import { OutlineRail } from "./OutlineRail";
 
-// Per-tab content. Walkthrough → the outline; the other tabs get their own nav in
-// later phases — until then, a quiet placeholder.
+// Per-tab content. Walkthrough → the outline; Chat → the chat list; History and
+// Settings get their own nav in later phases — until then, a quiet placeholder.
 function SidebarContent(): JSX.Element {
-  if (panelStore.tab() === PANEL_TABS.WALKTHROUGH) return <OutlineRail />;
+  const tab = panelStore.tab();
+  if (tab === PANEL_TABS.WALKTHROUGH) return <OutlineRail />;
+  if (tab === PANEL_TABS.CHAT) return <ChatList />;
   return <div className="p-3 text-xs text-muted-foreground/60">Nothing here yet.</div>;
 }
 

@@ -37,8 +37,14 @@ describe("PanelSidebar", () => {
     expect(screen.getByTestId("outline")).toBeTruthy();
   });
 
-  it("shows a placeholder on the other tabs", () => {
+  it("shows the chat list on the chat tab", () => {
     state.panel.tab = PANEL_TABS.CHAT;
+    render(<PanelSidebar />);
+    expect(screen.getByRole("button", { name: "New chat" })).toBeTruthy();
+  });
+
+  it("shows a placeholder on tabs without sidebar content yet (history)", () => {
+    state.panel.tab = PANEL_TABS.HISTORY;
     render(<PanelSidebar />);
     expect(screen.getByText(/Nothing here yet/)).toBeTruthy();
     expect(screen.queryByTestId("outline")).toBeNull();
