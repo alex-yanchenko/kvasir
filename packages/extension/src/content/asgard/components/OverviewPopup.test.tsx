@@ -8,26 +8,27 @@ afterEach(() => {
 });
 
 describe("OverviewPopup", () => {
-  it("renders the overview text and closes via the Close button", () => {
+  it("renders the overview as HTML (not literal tags) and closes via the Close button", () => {
     const onClose = vi.fn();
-    render(<OverviewPopup overview="Adds rate limiting at the gateway." onClose={onClose} />);
-    expect(screen.getByText("Adds rate limiting at the gateway.")).toBeTruthy();
-    fireEvent.click(screen.getByText("Close"));
+    const { container } = render(
+      <OverviewPopup overview="<p>Adds <code>rate limiting</code>.</p>" onClose={onClose} />,
+    );
+    // parsed to a real <code> element — would be absent if rendered as escaped text
+    expect(container.querySelector("code")?.textContent).toBe("rate limiting");
+    fireEvent.click(screen.getByRole("button", { name: "Close overview" }));
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it("closes on backdrop click but not on a click inside the card", () => {
+  it("closes on a click-away (no backdrop dim)", () => {
     const onClose = vi.fn();
-    const { container } = render(<OverviewPopup overview="x" onClose={onClose} />);
-    fireEvent.click(container.querySelector(".kvasir-dialog")!); // inside the card → stays open
-    expect(onClose).not.toHaveBeenCalled();
-    fireEvent.click(container.querySelector(".kvasir-dialog-back")!); // backdrop → closes
+    const { container } = render(<OverviewPopup overview="<p>x</p>" onClose={onClose} />);
+    fireEvent.click(container.querySelector(".fixed.inset-0")!); // transparent click-away
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
   it("Escape closes; other keys do not", () => {
     const onClose = vi.fn();
-    render(<OverviewPopup overview="x" onClose={onClose} />);
+    render(<OverviewPopup overview="<p>x</p>" onClose={onClose} />);
     fireEvent.keyDown(document, { key: "a" });
     expect(onClose).not.toHaveBeenCalled();
     fireEvent.keyDown(document, { key: "Escape" });

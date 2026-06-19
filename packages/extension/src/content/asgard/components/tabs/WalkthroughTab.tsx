@@ -277,7 +277,7 @@ function Steps({ spec }: Readonly<{ spec: WalkthroughSpec }>): JSX.Element {
   return (
     <div className="flex h-full flex-col">
       {/* header: low-frequency utilities (the outline toggle lives in the panel title bar) */}
-      <div className="flex items-center gap-1 border-b border-border px-3 py-2">
+      <div className="relative flex items-center gap-1 border-b border-border px-3 py-2">
         <StepTools
           spec={spec}
           step={step}
@@ -285,15 +285,15 @@ function Steps({ spec }: Readonly<{ spec: WalkthroughSpec }>): JSX.Element {
           onRegen={() => setDialog(true)}
           onOverview={(overview) => setOverviewText(overview)}
         />
+        {overviewText !== null && (
+          <OverviewPopup overview={overviewText} onClose={() => setOverviewText(null)} />
+        )}
       </div>
 
       <MainView spec={spec} step={step} diagramOpen={diagramOpen} />
 
       <Footer index={index} count={count} />
       {dialog && <RegenDialog onClose={() => setDialog(false)} />}
-      {overviewText !== null && (
-        <OverviewPopup overview={overviewText} onClose={() => setOverviewText(null)} />
-      )}
     </div>
   );
 }

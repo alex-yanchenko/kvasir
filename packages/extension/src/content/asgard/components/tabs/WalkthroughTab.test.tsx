@@ -301,11 +301,11 @@ describe("WalkthroughTab", () => {
   });
 
   it("opens the overview popup from the toolbar and closes it", () => {
-    state.spec = { ...mkSpec(), overview: "Adds rate limiting at the gateway." };
+    state.spec = { ...mkSpec(), overview: "<p>Adds rate limiting at the gateway.</p>" };
     render(<WalkthroughTab />);
     fireEvent.click(screen.getByRole("button", { name: "Overview" }));
     expect(screen.getByText("Adds rate limiting at the gateway.")).toBeTruthy();
-    fireEvent.click(screen.getByText("Close"));
+    fireEvent.click(screen.getByRole("button", { name: "Close overview" }));
     expect(screen.queryByText("Adds rate limiting at the gateway.")).toBeNull();
   });
 

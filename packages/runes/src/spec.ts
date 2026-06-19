@@ -55,9 +55,9 @@ export const WalkthroughSpecSchema = z.object({
   pr: PrRefSchema,
   /** Generated-at, for cache display. */
   generatedAt: z.string(),
-  /** 2-4 sentence plain-text summary of the whole PR. Shown in the extension's
-   * Overview popup and fed to chat as background so a fresh session understands the
-   * PR. Plain text, written for a human reader opening the PR cold. */
+  /** 2-4 sentence HTML summary of the whole PR (same markup as a step body). Shown in
+   * the extension's Overview popup and fed to chat as background so a fresh session
+   * understands the PR. Written for a human reader opening the PR cold. */
   overview: z.string().optional(),
   steps: z.array(WalkthroughStepSchema).min(1),
   /** Optional mermaid source for a flow diagram of the change, authored only when
