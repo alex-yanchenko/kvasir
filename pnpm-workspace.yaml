@@ -5,6 +5,9 @@ overrides:
   # uses 6.15.2; this lifts the dev-only 6.15.1 (Stryker's typed-rest-client) off the
   # advisory (qs.stringify DoS, GHSA fixed in 6.15.2).
   qs: ">=6.15.2"
+  # mermaid pulls dompurify <=3.4.10 (GHSA-cmwh-pvxp-8882: ALLOWED_ATTR pollution via
+  # setConfig); force the 3.4.11 patch until mermaid bumps its range past it.
+  dompurify: ">=3.4.11"
 allowBuilds:
   esbuild: true
   unrs-resolver: true

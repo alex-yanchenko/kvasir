@@ -120,6 +120,15 @@ export async function startBridge(overrides: Partial<BridgeState> = {}): Promise
       specs.set(prKey(spec.pr.url), spec);
     },
     close: () =>
-      new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve()))),
+      new Promise<void>((resolve, reject) => {
+        // Force open sockets shut before closing. This fixture tears down BEFORE the
+        // browser context, so the extension's service worker may still hold a keep-alive
+        // connection to this port — and server.close() waits for in-flight sockets to
+        // drain, which hangs past the test timeout on a slow CI runner (the "Tearing
+        // down bridge exceeded the test timeout" flake). closeAllConnections() drops them
+        // so close() returns immediately.
+        server.closeAllConnections();
+        server.close((error) => (error ? reject(error) : resolve()));
+      }),
   };
 }
