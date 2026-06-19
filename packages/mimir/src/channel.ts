@@ -31,7 +31,7 @@
  */
 
 import { randomBytes } from "node:crypto";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
 import { isWalkthroughSpec, prKey, type WalkthroughSpec } from "@kvasir/runes";
@@ -41,11 +41,10 @@ import { z } from "zod";
 
 import { createFetchHandler } from "./bridge";
 import { createAskBroker } from "./broker";
-import { buildLogFileName, composeBuildLog } from "./buildLog";
 import { getManifest, getHeadSha, type PrManifest } from "./diff";
 import { specToRecord } from "./guideStore";
 import { createSqliteGuideStore } from "./guideStore.sqlite";
-import { COVERAGE_MIN_ADDS, renderManifest, significantFiles } from "./manifest";
+import { COVERAGE_MIN_ADDS, prFileName, renderManifest, significantFiles } from "./manifest";
 import { createPairing } from "./pairing";
 import { preparePublish } from "./publish";
 import { slugify } from "./reviewBuild";
@@ -75,17 +74,10 @@ const KVASIR_DIR = path.join(homedir(), ".kvasir");
 mkdirSync(KVASIR_DIR, { recursive: true }); // bun:sqlite creates the file, not the dir
 const guides = createSqliteGuideStore(path.join(KVASIR_DIR, "kvasir.db"));
 
-// Per-PR "how it was built" logs (record_build_log writes them; the bridge serves
-// them to the panel's Copy-build-log button; any local session can read the file).
-const LOGS_DIR = path.join(KVASIR_DIR, "logs");
-mkdirSync(LOGS_DIR, { recursive: true });
-const getBuildLog = (pr: string): string | null => {
-  try {
-    return readFileSync(path.join(LOGS_DIR, buildLogFileName(pr)), "utf8");
-  } catch {
-    return null; // not recorded yet (or unreadable) — the panel shows "generate first"
-  }
-};
+// A diff-heavy PR's patches spill here when inlining them in start_walkthrough's
+// result would overflow the MCP token cap; the author Reads the file per covered file.
+const MANIFESTS_DIR = path.join(KVASIR_DIR, "manifests");
+mkdirSync(MANIFESTS_DIR, { recursive: true });
 
 // Specs are in-memory for fast /walkthrough render; rehydrate the PR ones from the
 // durable store on boot so a restart doesn't drop every PR walkthrough's render
@@ -141,7 +133,6 @@ Bun.serve({
     snapshot: (id) => broker.snapshot(id),
     pushEvent,
     getHeadSha,
-    getBuildLog,
     pairing,
   }),
 });
@@ -162,15 +153,16 @@ const server = new McpServer(
       "☐ Walkthrough text (overview, step body/detail, answers, suggestions) is a user-facing artifact: write normal, full prose. Brevity/compression modes (e.g. caveman) do NOT apply — treat it like code or commit messages. This also covers SCOPE: never reduce the number of steps, merge distinct changes into one step, or skip parts of the diff to be brief — completeness is not subject to brevity.",
       "",
       'BUILD / REGENERATE A WALKTHROUGH — on <channel source="kvasir" event_type="generate_walkthrough" pr=... mode=... since=...> (the user clicked Run/Regenerate; there is no id to answer — just publish):',
-      "☐ 1. Call start_walkthrough(pr). It returns the manifest (paths, GitHub anchors, per-file patches, head SHA), the PR description, and a curated discussion (general comments, review bodies, non-outdated inline comments — each tagged with author + whether it's a bot).",
+      "PROSE RULE (applies to every step you author below): write for a reader who has NEVER seen this codebase — assume they don't know the symbols, the architecture, or the earlier PRs. Start each step from a clean slate. TRANSLATE, don't transcribe: the first time a step names a code symbol (a function, type, a phase like 'Phase C', a flag), gloss what it does in plain words right alongside it — never let a bare identifier carry the meaning. One idea per sentence; lead with the INTENT (what the code now does and why it matters), then the mechanism. Do NOT compress by stacking clauses, nesting parentheses, or chaining identifiers — if a sentence only parses for someone who already holds the whole model in their head, it has failed. The danger is writing from the diff's vocabulary (the symbols you just read are the cheapest words in your head); resist it. Clarity outranks brevity here: spend the words.",
+      "DEPTH POLICY (governs speed vs context — apply throughout): author DIFF-FIRST. The patch plus its @@ hunk context is your default source — most steps can be written from it alone, and that is the fast path. Open a file ONLY to explain the change in its real context: to read the INTERFACE the change touches (the signature, types, or return/shape of a function it calls or that calls it) so you can describe how the change flows and confirm the PR makes sense, or to read the repo's _wiki/ notes on the feature. Read ONE HOP out — check the contract the change touches; do NOT trace a value five levels down the call graph. Do NOT read to 'get familiar', to confirm what the patch already shows, or to find line numbers. This is an EXPLAINER, not a code review — you are NOT auditing for bugs; if one surfaces, note it in the step or overview and move on. Keep targeted reads to a handful and bounded: light (diff-only) is the default, heavy is SELECTIVE, never read-everything (read-everything is what makes a big PR slow).",
+      "☐ 1. Call start_walkthrough(pr). It returns the manifest (paths, GitHub anchors, per-file patches, head SHA), the PR description, and a curated discussion (general comments, review bodies, non-outdated inline comments — each tagged with author + whether it's a bot). On a diff-heavy PR the per-file patches come as a sidecar file (its path is printed at the end of the result) instead of inline — Read that file for the files you cover.",
       "☐ 2. Understand the change, applying this weighting: CODE (the diff/patches) is the substance — base the walkthrough on it. DESCRIPTION is the author's intent/scope — use it to frame the overview and the WHY. DISCUSSION is supplementary — fold a comment into a step ONLY when it changes what a reviewer should know about the code (unresolved concern, constraint, rationale, a critical bug a human/AI reviewer flagged). Do NOT let comments dominate: the walkthrough explains the change, it is NOT a summary of the discussion, and most comments earn no mention. Flag a genuinely critical unresolved concern in the relevant step or the overview. Some discussion may already be resolved — treat it as context, not a to-do list.",
       "☐ 3. Size the walkthrough to the change — cover ALL of it. Budget steps from each file's additions/deletions in the manifest: a large PR (many files or hundreds of changed lines) needs MANY focused steps — roughly one per distinct logical change / significant function or file section — not a handful of sweeping ones. Prefer several small, tightly-scoped steps over a few broad ones. As a rough calibration, a ~1500-2000 line PR is usually well into the double digits of steps, not 5-10. Do NOT cap the count to save effort or tokens; under-covering is the most common failure.",
       "☐ 4. Author the spec (shape in the publish_walkthrough description): set overview = 2-4 plain-text sentences (what it does, approach/architecture, key risks) — NOT shown as a step; it's chat background so a fresh session still understands the PR.",
-      "☐ 5. For EACH step: set lines:{side:'R',start,end} to the exact added-line range the step is about — read the numbers straight from the @@ -a,b +c,d @@ hunk header (the new side starts at line c) and count down the '+' lines; do NOT open the source files just to find line numbers, the patch + highlight substrings are sufficient (opening files is the main thing that makes this slow). Keep the range tight; add 2-4 verbatim highlight substrings as a fallback; write body (concise summary) and a substantive detail where worthwhile; give 2-3 suggestion questions.",
-      '☐ 6. If mode="incremental": author steps for ONLY what changed since the `since` commit, and publish a spec containing ONLY those new steps (do NOT re-include earlier steps).',
+      "☐ 5. For EACH step: set lines:{side:'R',start,end} to the exact added-line range the step is about — read the numbers straight from the @@ -a,b +c,d @@ hunk header (the new side starts at line c) and count down the '+' lines; do NOT open the source files just to find line numbers, the patch + highlight substrings are sufficient (opening files is the main thing that makes this slow). Keep the range tight; add 2-4 verbatim highlight substrings as a fallback; write body (a plain-language summary a codebase newcomer understands on first read — apply the PROSE RULE above, do NOT chase concision into bare identifiers) and a substantive detail where worthwhile; give 2-3 suggestion questions.",
+      '☐ 6. If mode="incremental": the SUBJECT is the delta between two states — what changed since the `since` commit, relative to what was there before — NOT a fresh standalone description of the touched code. (a) Author steps for ONLY what changed since `since`, and publish a spec containing ONLY those new steps (do NOT re-include earlier steps). (b) Frame EVERY step as a before→after contrast: open with what the code did BEFORE this change, then what it does NOW, then why it moved. The reader has already seen the base walkthrough, so anchor them in the prior state and make the change itself the thing they read — do NOT bury the delta under a paragraph that re-explains the feature from scratch. Litmus test: if you cannot state what was there before, you are describing the end state, not the change. The clean-slate PROSE RULE still governs VOCABULARY (gloss every symbol in plain words); incremental only changes the FRAME — from "what this code is" to "what just changed, and why".',
       "☐ 7. Self-check coverage BEFORE publishing: start_walkthrough printed a 'COVER each of these files' list — make sure every file on it has at least one step (that is exactly what publish_walkthrough's coverage check enforces, so covering them up front means a single publish, no re-author round-trip). Tests/generated files are already excluded from that list; you may add a test step but are not required to.",
       "☐ 8. Call publish_walkthrough(spec). The Chrome extension renders it on the PR page.",
-      "☐ 9. Call record_build_log(pr, depth, rationale) — depth = what you actually did ('heavy'/'light', 'light' if heavy fell back); rationale = a short note on how you built it (heavy: which files/callers/types you read + correctness concerns; light: diff-only). This is the shareable build log; it's also saved to ~/.kvasir/logs so any session can read it when the user asks how a walkthrough was built.",
       "",
       'ANSWER A CODE QUESTION — on <channel source="kvasir" event_type="code_question" id=...> (the user selected code and asked):',
       "☐ 1. Call progress_note(id, note) before anything slow (reading a file, running a command).",
@@ -197,7 +189,7 @@ server.registerTool(
   "start_walkthrough",
   {
     description:
-      "Fetch a PR's changed-files manifest (via gh) so you can author a walkthrough. Returns paths, diff anchors, per-file patches, title, head SHA, the PR description, and a curated discussion (general/review/inline comments, non-outdated, author + bot flag). The code is the substance; description = intent; discussion = supplementary context (see instructions for weighting + untrusted-data handling).",
+      "Fetch a PR's changed-files manifest (via gh) so you can author a walkthrough. Returns paths, diff anchors, per-file patches, title, head SHA, the PR description, and a curated discussion (general/review/inline comments, non-outdated, author + bot flag). On a diff-heavy PR the per-file patches are written to a sidecar file (its path is in the result) rather than inlined, to stay under the size cap — Read that file for the files you cover. The code is the substance; description = intent; discussion = supplementary context (see instructions for weighting + untrusted-data handling).",
     inputSchema: { pr: z.string().describe("GitHub PR url") },
   },
   async ({ pr }) => {
@@ -206,19 +198,32 @@ server.registerTool(
     // Surface the coverage contract UP FRONT so the spec covers it on the first
     // publish — avoids the nudge -> re-author -> re-publish round-trip.
     const mustCover = significantFiles(manifest);
-    const coverList = mustCover.map((path) => `  - ${path}`).join("\n");
+    // Surface each file's added-line count next to it so step depth scales with the
+    // change — a big file earns more steps (counters the "one sentence per 100 lines"
+    // failure) without the author re-deriving size from the manifest JSON.
+    const addsByPath = new Map(manifest.files.map((file) => [file.path, file.additions]));
+    const coverList = mustCover.map((path) => `  - ${path} (+${addsByPath.get(path) ?? 0})`).join("\n");
     const coverage =
       mustCover.length > 0
-        ? `COVER each of these files with at least one step (≥${COVERAGE_MIN_ADDS} added lines; tests/generated already excluded) so the first publish passes the coverage check:\n${coverList}\n\n`
+        ? `COVER each of these files with at least one step (≥${COVERAGE_MIN_ADDS} added lines; tests/generated already excluded) so the first publish passes the coverage check — give bigger files (higher +count) proportionally more steps:\n${coverList}\n\n`
         : "";
     // Collapse whitespace in the (PR-author-controlled) title so it can't inject
     // newlines into this header; the untrusted prose is fenced by renderManifest.
     const title = manifest.title.replaceAll(/\s+/g, " ");
+    // On a diff-heavy PR renderManifest spills the patch bodies to a sidecar so the
+    // result stays under the MCP token cap; write it and point the author at the path.
+    const rendered = renderManifest(manifest);
+    let body = rendered.inline;
+    if (rendered.sidecar !== undefined) {
+      const sidecarPath = path.join(MANIFESTS_DIR, prFileName(pr));
+      writeFileSync(sidecarPath, rendered.sidecar);
+      body += `\n\nSidecar file (full per-file patches): ${sidecarPath}`;
+    }
     return text(
       `Manifest for ${manifest.owner}/${manifest.repo}#${manifest.number} — "${title}" @ ${manifest.headSha}\n\n` +
         `Author a walkthrough spec from this, then call publish_walkthrough.\n\n` +
         coverage +
-        renderManifest(manifest),
+        body,
     );
   },
 );
@@ -257,28 +262,6 @@ server.registerTool(
     publishNudges.delete(outcome.key); // published — reset for the next regenerate
     console.error(`[kvasir] published ${outcome.key} (${outcome.spec.steps.length} steps)`);
     return text(outcome.message);
-  },
-);
-
-server.registerTool(
-  "record_build_log",
-  {
-    description:
-      "Record how you built this walkthrough so it can be shared for a quality review. Call after publish_walkthrough. pr = the PR url; depth = what you ACTUALLY did ('heavy' or 'light'; use 'light' if heavy fell back to the diff); rationale = a short markdown note — for heavy, which files/callers/types you read and any correctness concerns; for light, that it was diff-only.",
-    inputSchema: { pr: z.string(), depth: z.string(), rationale: z.string() },
-  },
-  ({ pr, depth, rationale }) => {
-    const key = prKey(pr);
-    const log = composeBuildLog({
-      pr,
-      depth,
-      rationale,
-      manifest: manifests.get(key) ?? null,
-      spec: specs.get(key) ?? null,
-      now: new Date().toISOString(),
-    });
-    writeFileSync(path.join(LOGS_DIR, buildLogFileName(pr)), log);
-    return text("Build log recorded.");
   },
 );
 

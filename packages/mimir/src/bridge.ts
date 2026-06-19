@@ -25,8 +25,6 @@ export interface BridgeDeps {
   /** Fire-and-forget event push into the session (no pending answer). */
   pushEvent(content: string, meta: Record<string, string>): Promise<void>;
   getHeadSha(pr: string): Promise<string>;
-  /** The stored "how it was built" log for a PR (markdown), or null if none yet. */
-  getBuildLog(pr: string): string | null;
   pairing: Pairing;
 }
 
@@ -135,13 +133,6 @@ function handleWalkthrough({ request, url, deps }: Context): Response {
   return spec ? json(request, spec) : json(request, { status: "absent" });
 }
 
-function handleBuildLog({ request, url, deps }: Context): Response {
-  const pr = prOrNull(url.searchParams.get("pr"));
-  if (!pr) return json(request, { error: "bad or missing pr" }, 400);
-  const log = deps.getBuildLog(pr);
-  return log ? json(request, { log }) : json(request, { status: "absent" });
-}
-
 async function handleHead({ request, url, deps }: Context): Promise<Response> {
   const pr = prOrNull(url.searchParams.get("pr"));
   if (!pr) return json(request, { error: "bad or missing pr" }, 400);
@@ -172,18 +163,15 @@ async function handleGenerate({ request, deps }: Context): Promise<Response> {
     mode === "incremental"
       ? `The user asked for an INCREMENTAL update of the walkthrough for ${pr}. Fetch ONLY what changed since commit ${since} (the previously-reviewed head) and author steps for ONLY those new/changed lines. Call publish_walkthrough with a spec whose steps array contains ONLY those new steps — do NOT re-include the earlier steps. Keep it minimal (fewer steps = less data to send and a faster update).`
       : `The user asked to build a fresh walkthrough for ${pr}. Call start_walkthrough, author the spec, and call publish_walkthrough.`;
-  // Heavy review augments the baseline checklist with a local-repo pass so the
-  // walkthrough reasons about correctness against code OUTSIDE the diff (callers,
-  // called definitions, types) — the diff-only flow is blind to that. Line numbers
-  // still come from the patch; the worktree is for reading context, not numbering.
-  const heavyProtocol = ` HEAVY REVIEW — read the local repo for correctness, not just the diff: after start_walkthrough returns the head SHA, locate the PR's local clone (owner/repo from the manifest) under ${reposRoot} (a directory whose git remote or name matches the repo). If you find it: \`git -C <repo> fetch\` the head SHA, add a throwaway worktree at that SHA under ~/.kvasir/worktrees/<repo>-<sha> (\`git -C <repo> worktree add\`), and read the surrounding code there — definitions of called functions/types, callers of any changed signature, and relevant tests — so each step's body/detail reflects whether the change is actually correct (flag real bugs, broken callers, or type mismatches you find; do not invent concerns). Still take line numbers from the patch — do NOT open files just to find numbers. Remove the worktree (\`git -C <repo> worktree remove\`) when done. If you do NOT find the repo under ${reposRoot}, author from the diff manifest alone (light mode) and say so plainly in the overview.`;
-  // After publishing, record the shareable build log: depth = what you ACTUALLY did
-  // ("light" if heavy fell back), rationale = a short note on how you built it.
-  const buildLogStep = ` Finally, call record_build_log(pr, depth, rationale) — depth is what you actually did ("heavy" or "light"; use "light" if heavy fell back to the diff), and rationale is a short markdown note on how you built it (for heavy: which files/callers/types you read and any correctness concerns; for light: that it was diff-only).`;
+  // Heavy augments the baseline with a local-repo pass for CONTEXT and FLOW — what
+  // the feature is (the wiki) and how the change moves through it — NOT a correctness
+  // audit. Read one hop to the contracts the change touches, not the whole call tree.
+  // Line numbers still come from the patch; the worktree is for reading context.
+  const heavyProtocol = ` HEAVY PASS — read the local repo for CONTEXT and FLOW, not to audit correctness: after start_walkthrough returns the head SHA, locate the PR's local clone (owner/repo from the manifest) under ${reposRoot} (a directory whose git remote or name matches the repo). If you find it: \`git -C <repo> fetch\` the head SHA and add a throwaway worktree at that SHA under ~/.kvasir/worktrees/<repo>-<sha> (\`git -C <repo> worktree add\`). There, do two things. (1) CONTEXT: if the repo has a _wiki/ (or docs/), read the notes relevant to the changed area — domain model, prior decisions, gotchas — so the walkthrough explains what the FEATURE is and how this change fits it, not just what the diff shows. (2) FLOW + COHERENCE: read ONE HOP out from the change — the signatures, types, and return/shape contracts of what it calls or what calls it — enough to explain how the change flows and to confirm the PR makes sense. Do NOT trace a value five levels down the call graph; check the interface the change touches, not the entire flow of every parameter. This is an EXPLAINER, not a code review: if you happen on a real bug or broken contract, note it in the relevant step or the overview, but finding bugs is NOT the goal. Still take line numbers from the patch — do NOT open files just to find numbers. Remove the worktree (\`git -C <repo> worktree remove\`) when done. If you do NOT find the repo under ${reposRoot}, author from the diff manifest alone (light mode) and say so plainly in the overview.`;
   // Authored into the spec's `diagram` field; the extension lazy-loads mermaid to render it.
   const diagramStep = ` Also set the spec's \`diagram\` field to mermaid source (a \`flowchart\` or \`sequenceDiagram\`) capturing how the change's pieces connect — entry points and the calls/data flow between the changed files, plus key branches. Keep it to the essential flow (roughly 5-15 nodes) with plain node labels, and make sure it parses as valid mermaid.`;
   const reviewBody = depth === "heavy" ? baseInstruction + heavyProtocol : baseInstruction;
-  const content = reviewBody + (wantsDiagram ? diagramStep : "") + buildLogStep;
+  const content = reviewBody + (wantsDiagram ? diagramStep : "");
   await deps.pushEvent(content, {
     event_type: "generate_walkthrough",
     pr,
@@ -330,7 +318,6 @@ async function handleSuggest({ request, deps }: Context): Promise<Response> {
 const ROUTES: Record<string, (context: Context) => Response | Promise<Response>> = {
   "GET /walkthrough": handleWalkthrough,
   "GET /head": handleHead,
-  "GET /buildlog": handleBuildLog,
   "POST /generate": handleGenerate,
   "POST /ask": handleAsk,
   "GET /poll": handlePoll,

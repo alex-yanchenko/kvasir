@@ -28,10 +28,29 @@ line of the region>" }`. `to` is optional (single line). The builder greps
   - Escape hatch: `{ "lines": { "start": N, "end": M } }` if you genuinely have
     exact numbers, but the snippet form is preferred — it can't be wrong.
 - `title` — short step title.
-- `body` — CONCISE summary (1-3 sentences), shown by default.
+- `body` — a short summary (1-3 sentences) shown by default. Short ≠ dense: see
+  **Writing the prose** below.
 - `detail` — the in-depth part shown on "Show details": edge cases, rationale,
   gotchas, how it connects to other steps. Author it whenever there's depth.
 - `highlight?` / `suggestions?` — optional.
+
+### Writing the prose
+
+Write every step for a reader who has **never seen this codebase** — assume they
+don't know the symbols, the architecture, or the earlier PRs. Start each step from
+a clean slate.
+
+- **Translate, don't transcribe.** The first time a step names a code symbol (a
+  function, type, phase, flag), gloss what it does in plain words right alongside
+  it. Never let a bare identifier carry the meaning.
+- **One idea per sentence.** Don't compress by stacking clauses, nesting
+  parentheses, or chaining identifiers. If a sentence only parses for someone
+  who already holds the whole model in their head, it has failed.
+- **Lead with intent, then mechanism** — what the code now does and why it
+  matters, before the how.
+- The trap is writing from the diff's vocabulary: the symbols you just read are
+  the cheapest words in your head. Resist it. Clarity outranks brevity here —
+  spend the words.
 
 Write it to a temp file, e.g. `/tmp/kvasir-draft.json`:
 

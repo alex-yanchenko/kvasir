@@ -170,27 +170,6 @@ export const launcherStore = {
     pollForSpec(pr, previousSig);
   },
 
-  /** Fetch this PR's build log and copy it to the clipboard so the user can paste
-   * it for a quality review. Returns the outcome so the panel can flash feedback. */
-  async copyBuildLog(): Promise<"ok" | "absent" | "error"> {
-    const pr = prUrl();
-    if (!pr) return "error";
-    const r = noteAuth(await api(`/buildlog?pr=${encodeURIComponent(pr)}`));
-    if (!r.ok) return "error";
-    const log =
-      r.data && typeof r.data === "object" && "log" in r.data && typeof r.data.log === "string"
-        ? r.data.log
-        : null;
-    if (!log) return "absent";
-    if (!navigator.clipboard) return "error";
-    try {
-      await navigator.clipboard.writeText(log);
-      return "ok";
-    } catch {
-      return "error";
-    }
-  },
-
   /** Stop watching — generation keeps running in the session; reopen later. */
   dismissGen(): void {
     const pr = prUrl();
