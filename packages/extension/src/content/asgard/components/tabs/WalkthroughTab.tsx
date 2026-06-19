@@ -4,11 +4,9 @@
 // tour so switching tabs or closing the panel clears the highlight.
 import type { WalkthroughSpec, WalkthroughStep } from "@kvasir/runes/spec";
 import {
-  Check,
   ChevronLeft,
   ChevronRight,
   Crosshair,
-  FileText,
   Loader2,
   MessageSquare,
   MessageSquareMore,
@@ -153,7 +151,6 @@ function StepTools({
   index: number;
   onRegen: () => void;
 }>): JSX.Element {
-  const [copiedLog, setCopiedLog] = useState(false);
   const diagramOpen = tourStore.diagramOpen();
   const stepChat = chatStore.stepChat(step.id);
   const newCommits = launcherStore.newCommits();
@@ -194,16 +191,6 @@ function StepTools({
         onClick={() => tourStore.goto(index)}
       >
         <Crosshair />
-      </Button>
-      <Button
-        variant="ghost"
-        size="icon"
-        className={"h-7 w-7" + (copiedLog ? " text-primary" : "")}
-        aria-label="Copy build log"
-        data-kvasir-tip="Copy how this was built — paste to Claude to review"
-        onClick={() => void launcherStore.copyBuildLog().then((result) => setCopiedLog(result === "ok"))}
-      >
-        {copiedLog ? <Check /> : <FileText />}
       </Button>
       <Button
         variant="ghost"
