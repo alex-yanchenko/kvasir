@@ -48,6 +48,17 @@ export function preparePublish(rawSpec: unknown, state: PublishState): PublishOu
     };
   }
 
+  // Overview gate (hard): every PR walkthrough opens with a plain-text summary so the
+  // reader gets the "what is this" without reading the PR description. The schema keeps
+  // it optional (the manual `kvasir build` path produces specs without one); this gate
+  // only applies on the publish_walkthrough path.
+  if (!spec.overview?.trim()) {
+    return {
+      kind: "invalid",
+      message: `spec failed validation — set overview to a 2-4 sentence plain-text summary of the PR (it's shown in the panel's Overview and fed to chat as context).`,
+    };
+  }
+
   // Coverage + on-target gate (bounded): nudge ONCE if a significant file has no step
   // OR a step's lines miss their file's changed hunks, then accept regardless — so a
   // genuinely step-less file (or imperfect line precision) can't loop generation.

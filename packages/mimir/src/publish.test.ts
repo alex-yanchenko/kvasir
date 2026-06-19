@@ -9,6 +9,7 @@ const spec = (steps: StepSpec[] = [{ file: "src/a.ts" }]) => ({
   version: 1,
   pr: { url: "https://github.com/acme/widget/pull/1", owner: "acme", repo: "widget", number: 1 },
   generatedAt: "2026-01-01T00:00:00.000Z", // overwritten on publish
+  overview: "Adds a thing.",
   steps: steps.map((s, i) => ({
     id: `s${i}`,
     title: "t",
@@ -158,6 +159,20 @@ describe("preparePublish", () => {
     expect(outcome.kind).toBe("invalid");
     const message = outcome.kind === "invalid" ? outcome.message : "";
     expect(message).toContain("Steps with no lines: s0");
+  });
+
+  it("rejects a spec with no overview", () => {
+    const base = spec();
+    const noOverview = {
+      version: base.version,
+      pr: base.pr,
+      generatedAt: base.generatedAt,
+      steps: base.steps,
+    };
+    const outcome = preparePublish(noOverview, state());
+    expect(outcome.kind).toBe("invalid");
+    const message = outcome.kind === "invalid" ? outcome.message : "";
+    expect(message).toContain("set overview");
   });
 
   it("nudges when a step's lines fall outside the file's changed hunks", () => {

@@ -483,7 +483,7 @@ describe("stepsOffTarget", () => {
   it("skips a step with no lines and a step on a patch-less file", () => {
     expect(
       stepsOffTarget(m, [
-        { id: "nolines", file: "src/a.ts" },
+        { id: "noLines", file: "src/a.ts" },
         { id: "binary", file: "img.png", lines: { side: "R", start: 1, end: 1 } },
       ]),
     ).toEqual([]);

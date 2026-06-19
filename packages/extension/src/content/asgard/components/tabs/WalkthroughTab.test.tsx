@@ -299,4 +299,19 @@ describe("WalkthroughTab", () => {
     render(<WalkthroughTab />);
     expect(screen.queryByRole("button", { name: "Show details" })).toBeNull();
   });
+
+  it("opens the overview popup from the toolbar and closes it", () => {
+    state.spec = { ...mkSpec(), overview: "Adds rate limiting at the gateway." };
+    render(<WalkthroughTab />);
+    fireEvent.click(screen.getByRole("button", { name: "Overview" }));
+    expect(screen.getByText("Adds rate limiting at the gateway.")).toBeTruthy();
+    fireEvent.click(screen.getByText("Close"));
+    expect(screen.queryByText("Adds rate limiting at the gateway.")).toBeNull();
+  });
+
+  it("shows no overview button when the spec has no overview", () => {
+    state.spec = mkSpec();
+    render(<WalkthroughTab />);
+    expect(screen.queryByRole("button", { name: "Overview" })).toBeNull();
+  });
 });

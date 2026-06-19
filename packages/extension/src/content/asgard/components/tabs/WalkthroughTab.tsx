@@ -7,6 +7,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Crosshair,
+  FileText,
   Loader2,
   MessageSquare,
   MessageSquareMore,
@@ -24,6 +25,7 @@ import { getSnapshot, PANEL_TABS, panelStore, subscribe } from "../../store";
 import { tourStore } from "../../tour";
 import { Button } from "../../ui/button";
 import { Diagram } from "../Diagram";
+import { OverviewPopup } from "../OverviewPopup";
 import { RegenDialog } from "../RegenDialog";
 
 function Generating(): JSX.Element {
@@ -145,17 +147,32 @@ function StepTools({
   step,
   index,
   onRegen,
+  onOverview,
 }: Readonly<{
   spec: WalkthroughSpec;
   step: WalkthroughStep;
   index: number;
   onRegen: () => void;
+  onOverview: (overview: string) => void;
 }>): JSX.Element {
   const diagramOpen = tourStore.diagramOpen();
   const stepChat = chatStore.stepChat(step.id);
   const newCommits = launcherStore.newCommits();
+  const overview = spec.overview;
   return (
     <div className="ml-auto flex items-center gap-1">
+      {overview && (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7"
+          aria-label="Overview"
+          data-kvasir-tip="What this change is about"
+          onClick={() => onOverview(overview)}
+        >
+          <FileText />
+        </Button>
+      )}
       {spec.diagram && (
         <Button
           variant="ghost"
@@ -241,6 +258,7 @@ function Footer({ index, count }: Readonly<{ index: number; count: number }>): J
 
 function Steps({ spec }: Readonly<{ spec: WalkthroughSpec }>): JSX.Element {
   const [dialog, setDialog] = useState(false);
+  const [overviewText, setOverviewText] = useState<string | null>(null);
   const step = tourStore.step();
   const index = tourStore.stepIndex();
   const count = tourStore.stepCount();
@@ -260,13 +278,22 @@ function Steps({ spec }: Readonly<{ spec: WalkthroughSpec }>): JSX.Element {
     <div className="flex h-full flex-col">
       {/* header: low-frequency utilities (the outline toggle lives in the panel title bar) */}
       <div className="flex items-center gap-1 border-b border-border px-3 py-2">
-        <StepTools spec={spec} step={step} index={index} onRegen={() => setDialog(true)} />
+        <StepTools
+          spec={spec}
+          step={step}
+          index={index}
+          onRegen={() => setDialog(true)}
+          onOverview={(overview) => setOverviewText(overview)}
+        />
       </div>
 
       <MainView spec={spec} step={step} diagramOpen={diagramOpen} />
 
       <Footer index={index} count={count} />
       {dialog && <RegenDialog onClose={() => setDialog(false)} />}
+      {overviewText !== null && (
+        <OverviewPopup overview={overviewText} onClose={() => setOverviewText(null)} />
+      )}
     </div>
   );
 }
