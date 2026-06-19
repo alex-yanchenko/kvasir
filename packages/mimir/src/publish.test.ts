@@ -4,7 +4,8 @@ import { preparePublish, type PublishState } from "./publish";
 
 const NOW = "2026-06-04T12:00:00.000Z";
 
-const spec = (steps: { file: string }[] = [{ file: "src/a.ts" }]) => ({
+type StepSpec = { file: string; lines?: { side: "R" | "L"; start: number; end: number } };
+const spec = (steps: StepSpec[] = [{ file: "src/a.ts" }]) => ({
   version: 1,
   pr: { url: "https://github.com/acme/widget/pull/1", owner: "acme", repo: "widget", number: 1 },
   generatedAt: "2026-01-01T00:00:00.000Z", // overwritten on publish
@@ -14,10 +15,11 @@ const spec = (steps: { file: string }[] = [{ file: "src/a.ts" }]) => ({
     body: "<p>b</p>",
     file: s.file,
     anchor: `diff-${i}`,
+    lines: s.lines ?? { side: "R", start: 1, end: 1 },
   })),
 });
 
-const manifestWith = (files: { path: string; additions: number }[]): PrManifest => ({
+const manifestWith = (files: { path: string; additions: number; patch?: string }[]): PrManifest => ({
   owner: "acme",
   repo: "widget",
   number: 1,
@@ -32,6 +34,7 @@ const manifestWith = (files: { path: string; additions: number }[]): PrManifest 
     status: "modified",
     additions: f.additions,
     deletions: 0,
+    ...(f.patch !== undefined ? { patch: f.patch } : {}),
   })),
 });
 
@@ -74,7 +77,7 @@ describe("preparePublish", () => {
     const outcome = preparePublish(spec([{ file: "src/other.ts" }]), state({ manifests }));
     expect(outcome.kind).toBe("nudge");
     const message = outcome.kind === "nudge" ? outcome.message : "";
-    expect(message).toContain("NOT published — coverage check");
+    expect(message).toContain("NOT published — fix these");
     expect(message).toContain("  - src/big.ts");
   });
 
@@ -143,6 +146,39 @@ describe("preparePublish", () => {
 
   it("accepts a JSON-stringified spec (the over-the-wire form)", () => {
     const outcome = preparePublish(JSON.stringify(spec()), state());
+    expect(outcome.kind).toBe("published");
+  });
+
+  it("rejects (hard) a step with no lines — it would open to nothing", () => {
+    const noLines = {
+      ...spec(),
+      steps: [{ id: "s0", title: "t", body: "<p>b</p>", file: "src/a.ts", anchor: "diff-0" }],
+    };
+    const outcome = preparePublish(noLines, state());
+    expect(outcome.kind).toBe("invalid");
+    const message = outcome.kind === "invalid" ? outcome.message : "";
+    expect(message).toContain("Steps with no lines: s0");
+  });
+
+  it("nudges when a step's lines fall outside the file's changed hunks", () => {
+    const manifests = new Map([
+      [KEY, manifestWith([{ path: "src/a.ts", additions: 80, patch: "@@ -0,0 +1,2 @@\n+a\n+b" }])],
+    ]);
+    const outcome = preparePublish(
+      spec([{ file: "src/a.ts", lines: { side: "R", start: 50, end: 60 } }]),
+      state({ manifests }),
+    );
+    expect(outcome.kind).toBe("nudge");
+    const message = outcome.kind === "nudge" ? outcome.message : "";
+    expect(message).toContain("fall outside their file's changed hunks");
+    expect(message).toContain("  - s0 (src/a.ts)");
+  });
+
+  it("publishes when a step's lines fall inside the changed hunk", () => {
+    const manifests = new Map([
+      [KEY, manifestWith([{ path: "src/a.ts", additions: 80, patch: "@@ -0,0 +1,3 @@\n+a\n+b\n+c" }])],
+    ]);
+    const outcome = preparePublish(spec(), state({ manifests })); // default lines R 1-1 ⊆ R 1-3
     expect(outcome.kind).toBe("published");
   });
 });
