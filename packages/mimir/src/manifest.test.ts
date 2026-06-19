@@ -354,6 +354,7 @@ describe("renderManifest", () => {
     expect(inline).toContain('"patchAvailable": true');
     expect(inline).not.toContain('"patch"');
     expect(inline).not.toContain(huge);
+    expect(inline).toContain("Per-file patch bodies are omitted"); // pointer to the sidecar
     // sidecar carries the full patch under a per-file header
     expect(sidecar).toContain("===== src/big.ts (+100/-2) anchor=diff-0 =====");
     expect(sidecar).toContain(huge);
@@ -399,6 +400,17 @@ describe("renderManifest", () => {
     );
     expect(inline.length).toBe(RENDER_INLINE_BUDGET);
     expect(sidecar).toBeUndefined();
+  });
+
+  it("spills when the render is one char over the budget (boundary is strict ≤)", () => {
+    const baseLen = renderManifest(
+      mkManifest([{ path: "src/a.ts", anchor: "diff-0", additions: 1, patch: "" }]),
+    ).inline.length;
+    const pad = "x".repeat(RENDER_INLINE_BUDGET - baseLen + 1); // one over → must spill
+    const { sidecar } = renderManifest(
+      mkManifest([{ path: "src/a.ts", anchor: "diff-0", additions: 1, patch: pad }]),
+    );
+    expect(sidecar).toBeDefined();
   });
 });
 

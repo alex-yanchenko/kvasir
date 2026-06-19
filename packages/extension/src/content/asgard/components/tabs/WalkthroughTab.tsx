@@ -137,7 +137,7 @@ function useArrowKeyNav(): void {
   }, []);
 }
 
-// The header utility cluster (outline/diagram toggles, ask, re-scroll, copy log,
+// The header utility cluster (outline/diagram toggles, ask, re-scroll,
 // regenerate). Split out of Steps so that component stays under the
 // cognitive-complexity bar; reads its own toggle/chat/commit state from the stores.
 function StepTools({

@@ -253,7 +253,7 @@ describe("/generate", () => {
     await call("/generate", { method: "POST", body: { pr: PR, depth: "light" } });
     const [content, meta] = deps.pushEvent.mock.lastCall!;
     expect(content).toContain("fresh walkthrough");
-    expect(content).not.toContain("HEAVY REVIEW");
+    expect(content).not.toContain("HEAVY PASS");
     expect(meta.depth).toBe("light");
   });
 

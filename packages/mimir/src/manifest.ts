@@ -292,7 +292,7 @@ export function renderManifest(manifest: PrManifest): RenderedManifest {
   };
   const pointer =
     "\n\nPer-file patch bodies are omitted above to keep this result under the size limit. " +
-    "The full patches are in the sidecar file named below — Read it for the files you cover.";
+    "The full patches are in a sidecar file whose path is printed at the end of this result — Read it for the files you cover.";
   return {
     inline: JSON.stringify(lean, null, 2) + pointer + fence,
     sidecar: renderPatchSidecar(structural.files),
