@@ -189,11 +189,27 @@ describe("preparePublish", () => {
     expect(message).toContain("  - s0 (src/a.ts)");
   });
 
-  it("publishes when a step's lines fall inside the changed hunk", () => {
+  it("publishes when a step's lines sit at the edge of the changed hunk", () => {
     const manifests = new Map([
       [KEY, manifestWith([{ path: "src/a.ts", additions: 80, patch: "@@ -0,0 +1,3 @@\n+a\n+b\n+c" }])],
     ]);
-    const outcome = preparePublish(spec(), state({ manifests })); // default lines R 1-1 ⊆ R 1-3
+    // hunk is R 1-3; the step sits on the last changed line — must count as on-target
+    const outcome = preparePublish(
+      spec([{ file: "src/a.ts", lines: { side: "R", start: 3, end: 3 } }]),
+      state({ manifests }),
+    );
+    expect(outcome.kind).toBe("published");
+  });
+
+  it("publishes once the nudge budget is spent for off-target lines", () => {
+    const manifests = new Map([
+      [KEY, manifestWith([{ path: "src/a.ts", additions: 80, patch: "@@ -0,0 +1,2 @@\n+a\n+b" }])],
+    ]);
+    const nudges = new Map([[KEY, 1]]); // budget already spent → publishes despite off-target
+    const outcome = preparePublish(
+      spec([{ file: "src/a.ts", lines: { side: "R", start: 50, end: 60 } }]),
+      state({ manifests, nudges }),
+    );
     expect(outcome.kind).toBe("published");
   });
 });

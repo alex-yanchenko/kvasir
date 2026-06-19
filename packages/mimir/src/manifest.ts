@@ -191,13 +191,19 @@ export function significantFiles(manifest: PrManifest): string[] {
     .map((f) => f.path);
 }
 
+/** Lenient path match: exact, or one is a boundary-suffix of the other — a step's
+ * `file` may be a short or long variant of the manifest path. Shared by the coverage
+ * and line-target checks so a path variant resolves the same way in both. */
+export function pathsMatch(a: string, b: string): boolean {
+  return a === b || a.endsWith("/" + b) || b.endsWith("/" + a);
+}
+
 /** Significant files (above) that have no step covering them. Path match is lenient
  * at the boundary so a step's `file` can be a short or long variant. The publish-time
  * backstop for when the author skimmed the up-front list. */
 export function uncoveredFiles(manifest: PrManifest, stepFiles: string[]): string[] {
   const covered = stepFiles.filter(Boolean);
-  const isCovered = (path: string): boolean =>
-    covered.some((c) => c === path || c.endsWith("/" + path) || path.endsWith("/" + c));
+  const isCovered = (path: string): boolean => covered.some((c) => pathsMatch(c, path));
   return significantFiles(manifest).filter((path) => !isCovered(path));
 }
 
@@ -209,8 +215,8 @@ export interface HunkRange {
 }
 
 // Unified-diff hunk header: @@ -oldStart,oldCount +newStart,newCount @@ (counts
-// optional — absent means 1). The new side ("R") covers added/context rows, the old
-// side ("L") covers removed/context rows. A step's lines must land in one of these.
+// optional — absent means 1). "R" (new side) spans the line numbers on the new file;
+// "L" (old side) spans the old file. A step's lines must fall within one of these.
 const HUNK_HEADER = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/gm;
 
 /** The line spans a file's patch touches, from its @@ headers — one "L" + one "R"
@@ -237,12 +243,11 @@ export function stepsOffTarget(
   manifest: PrManifest,
   steps: readonly Pick<WalkthroughStep, "id" | "file" | "lines">[],
 ): { id: string; file: string }[] {
-  const patchByPath = new Map(manifest.files.map((file) => [file.path, file.patch]));
   const off: { id: string; file: string }[] = [];
   for (const step of steps) {
     const lines = step.lines;
     if (!lines) continue;
-    const patch = patchByPath.get(step.file);
+    const patch = manifest.files.find((file) => pathsMatch(file.path, step.file))?.patch;
     if (patch === undefined) continue;
     const onTarget = changedLineRanges(patch).some(
       (range) => range.side === lines.side && range.start <= lines.end && lines.start <= range.end,

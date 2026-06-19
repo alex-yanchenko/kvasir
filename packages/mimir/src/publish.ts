@@ -76,22 +76,21 @@ export function preparePublish(rawSpec: unknown, state: PublishState): PublishOu
     if (uncovered.length > 0) {
       sections.push(
         `These changed files have ≥${COVERAGE_MIN_ADDS} added lines but no step:\n` +
-          uncovered.map((path) => `  - ${path}`).join("\n"),
+          uncovered.map((path) => `  - ${path}`).join("\n") +
+          `\n(If a listed file genuinely needs no step — generated/config/trivial — call publish_walkthrough again unchanged to proceed.)`,
       );
     }
     if (offTarget.length > 0) {
       sections.push(
         `These steps' lines fall outside their file's changed hunks (re-read the @@ -a,b +c,d @@ headers and set lines inside a changed hunk):\n` +
-          offTarget.map((step) => `  - ${step.id} (${step.file})`).join("\n"),
+          offTarget.map((step) => `  - ${step.id} (${step.file})`).join("\n") +
+          `\n(If a step's lines are already as precise as the patch allows, call publish_walkthrough again unchanged to proceed.)`,
       );
     }
     return {
       kind: "nudge",
       key,
-      message:
-        `NOT published — fix these, then call publish_walkthrough again:\n\n` +
-        sections.join("\n\n") +
-        `\n\nIf a listed FILE genuinely needs no step (generated/config/trivial), call publish_walkthrough again unchanged to proceed.`,
+      message: `NOT published — fix these, then call publish_walkthrough again:\n\n` + sections.join("\n\n"),
     };
   }
 

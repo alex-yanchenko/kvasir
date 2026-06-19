@@ -5,6 +5,7 @@ import {
   buildManifest,
   changedLineRanges,
   COVERAGE_MIN_ADDS,
+  pathsMatch,
   prFileName,
   renderManifest,
   RENDER_INLINE_BUDGET,
@@ -453,6 +454,7 @@ describe("changedLineRanges", () => {
 
   it("is empty for a patch-less (binary/huge) file", () => {
     expect(changedLineRanges(undefined)).toEqual([]);
+    expect(changedLineRanges("")).toEqual([]);
   });
 });
 
@@ -487,5 +489,20 @@ describe("stepsOffTarget", () => {
         { id: "binary", file: "img.png", lines: { side: "R", start: 1, end: 1 } },
       ]),
     ).toEqual([]);
+  });
+
+  it("skips a step whose file is not in the manifest", () => {
+    expect(
+      stepsOffTarget(m, [{ id: "ghost", file: "src/missing.ts", lines: { side: "R", start: 1, end: 1 } }]),
+    ).toEqual([]);
+  });
+});
+
+describe("pathsMatch", () => {
+  it("matches exact and boundary-suffix variants, rejects unrelated paths", () => {
+    expect(pathsMatch("src/a.ts", "src/a.ts")).toBe(true); // exact
+    expect(pathsMatch("src/a.ts", "a.ts")).toBe(true); // manifest long, step short
+    expect(pathsMatch("a.ts", "src/a.ts")).toBe(true); // manifest short, step long
+    expect(pathsMatch("src/a.ts", "src/b.ts")).toBe(false); // unrelated
   });
 });

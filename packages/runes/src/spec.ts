@@ -21,12 +21,14 @@ export const PrRefSchema = z.object({
   headSha: z.string().optional(),
 });
 
-export const StepLinesSchema = z.object({
-  /** "R" = the new/right side of the diff (added lines), "L" = old/left side. */
-  side: z.enum(["R", "L"]),
-  start: z.number().int().positive(),
-  end: z.number().int().positive(),
-});
+export const StepLinesSchema = z
+  .object({
+    /** "R" = the new/right side of the diff (added lines), "L" = old/left side. */
+    side: z.enum(["R", "L"]),
+    start: z.number().int().positive(),
+    end: z.number().int().positive(),
+  })
+  .refine(({ start, end }) => start <= end, { message: "start must be <= end" });
 
 export const WalkthroughStepSchema = z.object({
   /** Stable id, e.g. "controller-roles". Used by the extension for state. */
@@ -53,8 +55,9 @@ export const WalkthroughSpecSchema = z.object({
   pr: PrRefSchema,
   /** Generated-at, for cache display. */
   generatedAt: z.string(),
-  /** 2-4 sentence plain-text summary of the whole PR. Not rendered as a step —
-   * stored and fed to chat as background so a fresh session understands the PR. */
+  /** 2-4 sentence plain-text summary of the whole PR. Shown in the extension's
+   * Overview popup and fed to chat as background so a fresh session understands the
+   * PR. Plain text, written for a human reader opening the PR cold. */
   overview: z.string().optional(),
   steps: z.array(WalkthroughStepSchema).min(1),
   /** Optional mermaid source for a flow diagram of the change, authored only when
