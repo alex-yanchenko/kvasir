@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { createAskBroker, DONE_TTL_MS } from "./broker";
+import { createAskBroker, DONE_TTL_MS, MAX_LIVE_QUESTIONS } from "./broker";
 
 let pushed: Array<{ content: string; meta: Record<string, string> }>;
 const pushEvent = async (content: string, meta: Record<string, string>): Promise<void> => {
@@ -30,7 +30,7 @@ describe("open + streaming", () => {
     expect(broker.chunk(id, "after newline")).toBe(true);
     expect(broker.snapshot(id)).toEqual({
       notes: ["reading diff.ts"],
-      text: "First block.\n\n- a\n- b\n\ntail\nafter newline",
+      text: "First block.\n\n- a\n- b\n\ntail\n\nafter newline",
       done: false,
       timedOut: false,
     });
@@ -96,6 +96,26 @@ describe("open + streaming", () => {
     expect(broker.snapshot(id)).not.toBeNull();
     vi.advanceTimersByTime(1);
     expect(broker.snapshot(id)).toBeNull();
+  });
+
+  it("swallows a pushEvent rejection so a closed channel can't crash the process", async () => {
+    const broker = createAskBroker({
+      timeoutMs: 1000,
+      pushEvent: () => Promise.reject(new Error("transport closed")),
+    });
+    const id = broker.open("code_question", "q", {});
+    await Promise.resolve(); // let the fire-and-forget IIFE's catch run
+    await Promise.resolve();
+    expect(broker.snapshot(id)).not.toBeNull(); // open still succeeded; no unhandled rejection
+  });
+
+  it("caps tracked questions, evicting the oldest once the limit is reached", () => {
+    const broker = mkBroker();
+    const first = broker.open("code_question", "q", {});
+    for (let i = 1; i < MAX_LIVE_QUESTIONS; i++) broker.open("code_question", "q", {});
+    expect(broker.snapshot(first)).not.toBeNull(); // exactly at the cap — first still tracked
+    broker.open("code_question", "q", {}); // one past the cap → evicts the oldest
+    expect(broker.snapshot(first)).toBeNull();
   });
 });
 

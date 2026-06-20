@@ -19,6 +19,12 @@ interface QuestionState extends QuestionSnapshot {
 /** How long a finished question stays pollable before it is dropped. */
 export const DONE_TTL_MS = 60_000;
 
+/** Backpressure cap on concurrently-tracked questions. The bridge gate already
+ * limits callers to the local paired extension, so this just stops a runaway/buggy
+ * client from piling up unbounded timers + session events: at the cap, opening a new
+ * question evicts the oldest. */
+export const MAX_LIVE_QUESTIONS = 64;
+
 export interface AskBroker {
   /** Register a streamed question, push it to the session, return its id. */
   open(eventType: string, content: string, meta: Record<string, string>): string;
@@ -56,6 +62,16 @@ export function createAskBroker(options: {
 
   const broker: AskBroker = {
     open(eventType, content, meta) {
+      // Evict the oldest tracked question at the cap (Map iterates in insertion
+      // order) so timers + state can't grow without bound under a runaway client.
+      // size >= cap > 0, so the loop runs exactly once on the oldest entry.
+      if (questions.size >= MAX_LIVE_QUESTIONS) {
+        for (const [oldestId, oldest] of questions) {
+          clearTimeout(oldest.timer);
+          questions.delete(oldestId);
+          break;
+        }
+      }
       const id = `q${nextId++}-${Date.now().toString(36)}`;
       const q: QuestionState = {
         notes: [],
@@ -65,7 +81,16 @@ export function createAskBroker(options: {
         timer: setTimeout(() => close(id, q, true), options.timeoutMs),
       };
       questions.set(id, q);
-      void options.pushEvent(content, { ...meta, event_type: eventType, id });
+      // Fire-and-forget with a catch: pushEvent rejects if the channel transport is
+      // closed; a bare void would surface that as an unhandled rejection. The
+      // question still times out on its own if the event never reached the session.
+      void (async () => {
+        try {
+          await options.pushEvent(content, { ...meta, event_type: eventType, id });
+        } catch {
+          /* channel push failed (transport closed) — question will time out */
+        }
+      })();
       return id;
     },
 
@@ -86,9 +111,11 @@ export function createAskBroker(options: {
     chunk(id, text) {
       const q = get(id);
       if (!q || q.done) return false;
-      // Chunks are whole markdown blocks (per the prompt protocol) — join them
-      // with a blank line so paragraphs/lists/fences don't fuse into one blob.
-      q.text += q.text && !q.text.endsWith("\n") ? `\n\n${text}` : text;
+      // Chunks are whole markdown blocks (per the prompt protocol) — separate them
+      // with exactly one blank line so paragraphs/lists/fences don't fuse. Strip any
+      // trailing newlines on the accumulated text first, so a block that already
+      // ends in "\n" still gets the gap (the old endsWith check fused those).
+      q.text = q.text ? `${q.text.replace(/\n+$/, "")}\n\n${text}` : text;
       return true;
     },
 

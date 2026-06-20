@@ -87,6 +87,20 @@ export function createPairing(deps: PairingDeps): Pairing {
     return pending;
   };
 
+  // Fire-and-forget push with a catch: pushEvent rejects if the channel transport is
+  // closed, and a bare `void` would surface that as an unhandled rejection — exactly
+  // when the channel is unhealthy (e.g. the extension retrying /pair). The pairing
+  // still expires on its own if the event never reached the session.
+  const notify = (content: string, meta: Record<string, string>): void => {
+    void (async () => {
+      try {
+        await deps.pushEvent(content, meta);
+      } catch {
+        /* channel push failed (transport closed) */
+      }
+    })();
+  };
+
   return {
     request(name) {
       // `name` is attacker-controllable display text and is interpolated into the
@@ -97,7 +111,7 @@ export function createPairing(deps: PairingDeps): Pairing {
       if (livePending()) {
         // a second request while one is pending is exactly the confusion race —
         // refuse it and make it loud in the session
-        void deps.pushEvent(
+        notify(
           `A SECOND pairing request ("${safeName}") arrived while one is already pending — denied. If you did not expect two requests, something else on this machine is probing the bridge.`,
           { event_type: "pairing_denied" },
         );
@@ -111,7 +125,7 @@ export function createPairing(deps: PairingDeps): Pairing {
         approved: false,
         token: null,
       };
-      void deps.pushEvent(
+      notify(
         `Pairing request from "${safeName}" — code ${pending.code}. Confirm with the user via the AskUserQuestion tool (options "Approve" / "Decline", with this code in the question) and call approve_pairing only if they Approve. If you did not initiate this, ignore it and let it expire.`,
         { event_type: "pairing_request", code: pending.code },
       );
