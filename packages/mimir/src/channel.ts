@@ -27,9 +27,11 @@
  */
 
 import { randomBytes } from "node:crypto";
+import { homedir } from "node:os";
+import path from "node:path";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { prKey, type Review, type WalkthroughSpec } from "@prw/runes";
+import { prKey, type WalkthroughSpec } from "@prw/runes";
 import { z } from "zod";
 
 import { createFetchHandler } from "./bridge";
@@ -37,6 +39,8 @@ import { createAskBroker } from "./broker";
 import { getManifest, getHeadSha, type PrManifest } from "./diff";
 import { createPairing } from "./pairing";
 import { preparePublish } from "./publish";
+import { slugify } from "./reviewBuild";
+import { createFileReviewStore } from "./reviewStore";
 
 const PORT = Number(process.env.PR_WALKTHROUGH_PORT) || 8799;
 const ASK_TIMEOUT_MS = Number(process.env.ASK_TIMEOUT_MS) || 120_000;
@@ -56,8 +60,8 @@ class InvalidSpecError extends Error {
  * drops them and you'd re-run start_walkthrough. (TODO: optional disk cache.) */
 const specs = new Map<string, WalkthroughSpec>();
 
-/** Pushed cross-repo reviews, keyed by review id. In-memory like specs. */
-const reviews = new Map<string, Review>();
+/** Pushed cross-repo reviews — durable on disk so a restart doesn't drop them. */
+const reviews = createFileReviewStore(path.join(homedir(), ".kvasir", "reviews"));
 
 /** Last manifest per PR (from start_walkthrough) — lets publish_walkthrough check
  * that the spec actually covers the changed files. */
@@ -92,7 +96,7 @@ Bun.serve({
   fetch: createFetchHandler({
     specs,
     reviews,
-    mintReviewId: () => randomBytes(6).toString("hex"),
+    mintReviewId: (title) => `${slugify(title)}-${randomBytes(3).toString("hex")}`,
     // arrow-wrapped (not bare method refs) — the broker methods are closures with no
     // `this`, but passing them bare trips unbound-method; the wrappers keep them call-safe.
     open: (eventType, content, meta) => broker.open(eventType, content, meta),
