@@ -155,9 +155,17 @@ describe("reviewStore.load", () => {
     expect(reviewStore.stepIndex()).toBe(0);
     expect(reviewStore.step()).toEqual(mkReview().steps[0]);
     expect(state.panel.open).toBe(true);
+    expect(state.panel.tab).toBe("walkthrough"); // a direct ?prw open shows the review
     expect(api).toHaveBeenCalledWith("/review?id=rev-1");
     expect(storeSet).toHaveBeenCalledWith("prw:review:rev-1", { step: 0, review: mkReview() });
     expect(storeSet).toHaveBeenCalledTimes(1);
+  });
+
+  it("opening via a History jump keeps the panel on the History tab", async () => {
+    sessionStorage.setItem("prw:history-nav", "1");
+    await loadOk();
+    expect(state.panel.open).toBe(true);
+    expect(state.panel.tab).toBe("history");
   });
 
   it("restores a saved step and clamps a stale one past the end", async () => {

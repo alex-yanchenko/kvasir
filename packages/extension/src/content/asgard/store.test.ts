@@ -140,6 +140,7 @@ describe("panelStore", () => {
     });
     setSpy = vi.fn();
     vi.stubGlobal("chrome", { storage: { local: { set: setSpy } } });
+    sessionStorage.clear();
     storeModule.state.panel = { open: false, tab: storeModule.PANEL_TABS.WALKTHROUGH, pos: null, size: null };
   });
   afterEach(() => {
@@ -160,6 +161,17 @@ describe("panelStore", () => {
   it("setTab switches the active tab", () => {
     storeModule.panelStore.setTab(storeModule.PANEL_TABS.SETTINGS);
     expect(storeModule.panelStore.tab()).toBe("settings");
+  });
+
+  it("staying on History keeps the History-nav marker; switching away or closing clears it", () => {
+    sessionStorage.setItem("prw:history-nav", "1");
+    storeModule.panelStore.setTab(storeModule.PANEL_TABS.HISTORY);
+    expect(sessionStorage.getItem("prw:history-nav")).toBe("1");
+    storeModule.panelStore.setTab(storeModule.PANEL_TABS.CHAT);
+    expect(sessionStorage.getItem("prw:history-nav")).toBeNull();
+    sessionStorage.setItem("prw:history-nav", "1");
+    storeModule.panelStore.close();
+    expect(sessionStorage.getItem("prw:history-nav")).toBeNull();
   });
 
   it("setPos / setSize update geometry and persist globally (one key, not per-PR)", () => {

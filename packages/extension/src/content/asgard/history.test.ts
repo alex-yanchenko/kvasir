@@ -25,6 +25,7 @@ const sum = (over: Partial<EntrySummary> = {}): EntrySummary => ({
 });
 
 beforeEach(() => {
+  sessionStorage.clear();
   state.history = null;
   state.historyQuery = "";
   state.seen = {};
@@ -106,6 +107,7 @@ describe("historyStore.open", () => {
     expect(state.seen).toEqual({ a: 3 });
     expect(storeSet).toHaveBeenCalledWith(SEEN_KEY, { a: 3 });
     expect(assign).toHaveBeenCalledWith("https://github.com/acme/web/blob/main/a.ts?prw=a");
+    expect(sessionStorage.getItem("prw:history-nav")).toBe("1"); // keep the panel on History after the jump
   });
 });
 

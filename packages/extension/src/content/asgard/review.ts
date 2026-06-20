@@ -7,7 +7,7 @@
 // stored step, because that navigation is a full page load that re-runs boot.
 import { isReview, type Review, type ReviewStep, stepBlobUrl } from "@prw/runes/review";
 import { api } from "../api";
-import { reviewIdFromUrl, reviewKey, reviewSessionKey } from "../keys";
+import { historyNavActive, reviewIdFromUrl, reviewKey, reviewSessionKey } from "../keys";
 import { storeGet, storeSet } from "../muninn";
 import { chatStore } from "./chat";
 import { stripHtml } from "./lib/strip";
@@ -31,7 +31,9 @@ const writeSession = (id: string, step: number, review: Review): void => {
 const applyReview = (review: Review): void => {
   state.review = review;
   state.reviewStep = clamp(state.reviewStep, review.steps.length);
-  panelStore.open(PANEL_TABS.WALKTHROUGH);
+  // Arriving via a History jump keeps the panel on History (so the next pick is one
+  // click away); a direct ?prw open shows the review on the Walkthrough tab.
+  panelStore.open(historyNavActive() ? PANEL_TABS.HISTORY : PANEL_TABS.WALKTHROUGH);
 };
 
 /** "/owner/repo" prefix of a blob pathname — same value ⇒ same repo (GitHub will

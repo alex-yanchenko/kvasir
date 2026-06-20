@@ -3,9 +3,9 @@
 // GitHub is a SPA, so PR navigation never re-runs the content script.
 import { launcherStore } from "../asgard/launcher";
 import { isChatSessionArray, parsePanelGeometry, parseTourState } from "../asgard/persisted";
-import { state, touch } from "../asgard/store";
+import { PANEL_TABS, state, touch } from "../asgard/store";
 import { bifrost } from "../bifrost";
-import { chatsKey, PANEL_GEOM_KEY, prUrl, tourKey } from "../keys";
+import { chatsKey, historyNavActive, PANEL_GEOM_KEY, prUrl, tourKey } from "../keys";
 import { storeGet } from "../muninn";
 
 /** Per-PR state restore (survives refresh and browser restart). */
@@ -23,6 +23,12 @@ export async function loadPersisted(): Promise<void> {
   const { pos, size } = parsePanelGeometry(await storeGet(PANEL_GEOM_KEY));
   state.panel.pos = pos;
   state.panel.size = size;
+  // Landed via a History jump: keep the panel open on History so the next review is
+  // one click away (review.ts then won't switch it to the Walkthrough tab).
+  if (historyNavActive()) {
+    state.panel.open = true;
+    state.panel.tab = PANEL_TABS.HISTORY;
+  }
   touch();
 }
 
