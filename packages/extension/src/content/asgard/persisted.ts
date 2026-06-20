@@ -24,17 +24,21 @@ export function parseTourState(v: unknown): { step: number; pos: Pos | null; siz
   };
 }
 
-/** Restore persisted panel geometry (pos + size), dropping mismatches. */
-export function parsePanelGeometry(v: unknown): { pos: Pos | null; size: Size | null } {
-  if (!isRecord(v)) return { pos: null, size: null };
-  return { pos: isPos(v.pos) ? v.pos : null, size: isSize(v.size) ? v.size : null };
-}
-
-/** Restore the persisted panel open-state + active tab (the tab is validated by the
- * caller via isPanelTab). Lets the panel stay open on the same tab across navigation. */
-export function parsePanelPersisted(v: unknown): { open: boolean; tab: string | null } {
-  if (!isRecord(v)) return { open: false, tab: null };
-  return { open: v.open === true, tab: typeof v.tab === "string" ? v.tab : null };
+/** Restore the per-tab panel state (open + tab + geometry) from sessionStorage,
+ * dropping mismatches. The tab string is validated by the caller via isPanelTab. */
+export function parsePanelState(v: unknown): {
+  open: boolean;
+  tab: string | null;
+  pos: Pos | null;
+  size: Size | null;
+} {
+  if (!isRecord(v)) return { open: false, tab: null, pos: null, size: null };
+  return {
+    open: v.open === true,
+    tab: typeof v.tab === "string" ? v.tab : null,
+    pos: isPos(v.pos) ? v.pos : null,
+    size: isSize(v.size) ? v.size : null,
+  };
 }
 
 /** The cached review walk (content + step), so a fresh page renders the panel

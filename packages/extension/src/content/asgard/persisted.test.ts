@@ -1,6 +1,6 @@
 import type { Review } from "@prw/runes/review";
 import { describe, it, expect } from "vitest";
-import { parsePanelPersisted, parseReviewCache } from "./persisted";
+import { parsePanelState, parseReviewCache } from "./persisted";
 
 const review: Review = {
   version: 1,
@@ -9,11 +9,18 @@ const review: Review = {
   steps: [{ id: "a", title: "Guard", body: "b", repo: { owner: "acme", name: "web" }, file: "src/a.ts" }],
 };
 
-describe("parsePanelPersisted", () => {
-  it("reads open + tab, dropping mismatches and non-records", () => {
-    expect(parsePanelPersisted({ open: true, tab: "history" })).toEqual({ open: true, tab: "history" });
-    expect(parsePanelPersisted({ open: "yes", tab: 5 })).toEqual({ open: false, tab: null });
-    expect(parsePanelPersisted(null)).toEqual({ open: false, tab: null });
+describe("parsePanelState", () => {
+  it("reads open + tab + geometry, dropping mismatches and non-records", () => {
+    expect(
+      parsePanelState({ open: true, tab: "history", pos: { left: 1, top: 2 }, size: { w: 3, h: 4 } }),
+    ).toEqual({ open: true, tab: "history", pos: { left: 1, top: 2 }, size: { w: 3, h: 4 } });
+    expect(parsePanelState({ open: "yes", tab: 5, pos: { left: "x" }, size: 9 })).toEqual({
+      open: false,
+      tab: null,
+      pos: null,
+      size: null,
+    });
+    expect(parsePanelState(null)).toEqual({ open: false, tab: null, pos: null, size: null });
   });
 });
 

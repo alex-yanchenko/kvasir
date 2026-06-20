@@ -7,21 +7,21 @@
 // stored step, because that navigation is a full page load that re-runs boot.
 import { isReview, type Review, type ReviewStep, stepBlobUrl } from "@prw/runes/review";
 import { api } from "../api";
-import { historyNavActive, reviewIdFromUrl, reviewKey, reviewSessionKey } from "../keys";
+import { reviewIdFromUrl, reviewKey, reviewSessionKey } from "../keys";
 import { storeGet, storeSet } from "../muninn";
 import { chatStore } from "./chat";
 import { stripHtml } from "./lib/strip";
-import { parsePanelGeometry, parseReviewCache } from "./persisted";
+import { parseReviewCache } from "./persisted";
 import { panelStore, PANEL_TABS, settingsStore, state, touch } from "./store";
 
 const clamp = (index: number, length: number): number => Math.min(Math.max(index, 0), length - 1);
 
-/** Snapshot the destination to sessionStorage (sync, survives the same-origin nav)
- * so the next page hydrates the panel on its first paint. */
+/** Snapshot the destination review (content + step) to sessionStorage (sync,
+ * survives the same-origin nav) so the next page renders it on first paint. Panel
+ * geometry is NOT here — it lives in the per-tab panel state (store.hydratePanel). */
 const writeSession = (id: string, step: number, review: Review): void => {
   try {
-    const snapshot = { step, review, pos: state.panel.pos, size: state.panel.size };
-    sessionStorage.setItem(reviewSessionKey(id), JSON.stringify(snapshot));
+    sessionStorage.setItem(reviewSessionKey(id), JSON.stringify({ step, review }));
   } catch {
     // sessionStorage unavailable — the async chrome.storage cache still covers it
   }
@@ -31,9 +31,9 @@ const writeSession = (id: string, step: number, review: Review): void => {
 const applyReview = (review: Review): void => {
   state.review = review;
   state.reviewStep = clamp(state.reviewStep, review.steps.length);
-  // Arriving via a History jump keeps the panel on History (so the next pick is one
-  // click away); a direct ?prw open shows the review on the Walkthrough tab.
-  panelStore.open(historyNavActive() ? PANEL_TABS.HISTORY : PANEL_TABS.WALKTHROUGH);
+  // A History jump leaves the hydrated tab on History (so the next pick is one click
+  // away); a direct ?prw open shows the review on the Walkthrough tab.
+  panelStore.open(state.panel.tab === PANEL_TABS.HISTORY ? PANEL_TABS.HISTORY : PANEL_TABS.WALKTHROUGH);
 };
 
 /** "/owner/repo" prefix of a blob pathname — same value ⇒ same repo (GitHub will
@@ -86,13 +86,13 @@ export const reviewStore = {
     }
     const { step, review } = parseReviewCache(parsed);
     if (!review) return;
-    const { pos, size } = parsePanelGeometry(parsed);
+    // Panel geometry comes from the per-tab panel state (store.hydratePanel, run
+    // first in boot); here we only restore the review content + open it. Keep the
+    // hydrated tab when it's History (a History jump), else show the review.
     state.review = review;
     state.reviewStep = clamp(step, review.steps.length);
     state.panel.open = true;
-    state.panel.tab = PANEL_TABS.WALKTHROUGH;
-    state.panel.pos = pos;
-    state.panel.size = size;
+    if (state.panel.tab !== PANEL_TABS.HISTORY) state.panel.tab = PANEL_TABS.WALKTHROUGH;
   },
   steps: (): ReviewStep[] => state.review?.steps ?? [],
   stepIndex: (): number => state.reviewStep,

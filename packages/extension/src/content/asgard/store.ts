@@ -10,8 +10,9 @@ import type { EntrySummary } from "@prw/runes/history";
 import type { Review } from "@prw/runes/review";
 import type { WalkthroughSpec, WalkthroughStep } from "@prw/runes/spec";
 import { bifrost } from "../bifrost";
-import { chatsKey, clearHistoryNav, PANEL_GEOM_KEY, prUrl } from "../keys";
+import { chatsKey, PANEL_STATE_KEY, prUrl } from "../keys";
 import { storeSet } from "../muninn";
+import { parsePanelState } from "./persisted";
 import type { ChatSession } from "./types";
 
 export interface TourState {
@@ -151,16 +152,45 @@ export const chatsStore = {
 
 // ── panel slice ──────────────────────────────────────────────────────────────
 // The one consolidated panel: open/closed, which tab, and its movable/resizable
-// geometry (persisted per-PR). Content lives in the tab bodies, which reuse the
-// existing machines (tour/chat/launcher/pairing).
+// geometry. The whole state is persisted PER-TAB in sessionStorage (PANEL_STATE_KEY)
+// so it survives refresh + same-tab navigation, stays independent across tabs, and a
+// child tab inherits it via the browser's sessionStorage copy. Content lives in the
+// tab bodies, which reuse the existing machines (tour/chat/launcher/pairing).
 
-const persistPanel = (): void =>
-  storeSet(PANEL_GEOM_KEY, {
-    pos: state.panel.pos,
-    size: state.panel.size,
-    open: state.panel.open,
-    tab: state.panel.tab,
-  });
+const persistPanel = (): void => {
+  try {
+    sessionStorage.setItem(
+      PANEL_STATE_KEY,
+      JSON.stringify({
+        open: state.panel.open,
+        tab: state.panel.tab,
+        pos: state.panel.pos,
+        size: state.panel.size,
+      }),
+    );
+  } catch {
+    /* sessionStorage unavailable — geometry/open just won't persist this session */
+  }
+};
+
+const readPanelState = (): unknown => {
+  try {
+    const raw = sessionStorage.getItem(PANEL_STATE_KEY);
+    return raw === null ? null : JSON.parse(raw);
+  } catch {
+    return null;
+  }
+};
+
+/** Restore the panel's per-tab state at boot — SYNCHRONOUS so the first paint is
+ * already correct (no async flash) and review-mode sees the hydrated tab. */
+export function hydratePanel(): void {
+  const parsed = parsePanelState(readPanelState());
+  state.panel.open = parsed.open;
+  if (parsed.tab && isPanelTab(parsed.tab)) state.panel.tab = parsed.tab;
+  state.panel.pos = parsed.pos;
+  state.panel.size = parsed.size;
+}
 
 export const panelStore = {
   isOpen: (): boolean => state.panel.open,
@@ -172,18 +202,16 @@ export const panelStore = {
   open(tab?: PanelTab): void {
     state.panel.open = true;
     if (tab) state.panel.tab = tab;
-    persistPanel(); // remember open + tab so navigation keeps the window
+    persistPanel(); // remember open + tab per-tab so navigation/refresh keeps the window
     touch();
   },
   close(): void {
     state.panel.open = false;
-    clearHistoryNav(); // closing ends a History-browsing run
     persistPanel();
     touch();
   },
   setTab(tab: PanelTab): void {
     state.panel.tab = tab;
-    if (tab !== PANEL_TABS.HISTORY) clearHistoryNav(); // switching away ends the run
     persistPanel();
     touch();
   },
