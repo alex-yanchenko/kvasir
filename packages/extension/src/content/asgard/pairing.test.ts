@@ -77,6 +77,22 @@ describe("pairingStore", () => {
     expect(vi.mocked(api)).not.toHaveBeenCalled(); // no token → no /auth round-trip
   });
 
+  it("refresh keeps a valid token on a transient bridge failure (not a 401) — no forced re-pair", async () => {
+    vi.mocked(storeGet).mockResolvedValue("tok");
+    vi.mocked(api).mockResolvedValue({ ok: false, error: "no response" }); // SW cold-start / bridge unreachable
+    await pairingStore.refresh();
+    expect(vi.mocked(storeRemove)).not.toHaveBeenCalled();
+    expect(pairingStore.state()).toEqual({ phase: "paired" });
+  });
+
+  it("recheck keeps a valid token on a transient failure (not a 401) — no forced re-pair", async () => {
+    vi.mocked(storeGet).mockResolvedValue("tok");
+    vi.mocked(api).mockResolvedValue({ ok: false, error: "no response" });
+    await pairingStore.recheck();
+    expect(vi.mocked(storeRemove)).not.toHaveBeenCalled();
+    expect(pairingStore.state()).toEqual({ phase: "paired" });
+  });
+
   it("recheck won't interrupt an in-flight pairing (waiting)", async () => {
     vi.mocked(api).mockImplementation(async (path: string) =>
       path === "/pair"
