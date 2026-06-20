@@ -1,0 +1,12 @@
+<svg width="512" height="512" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Kvasir">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#e8703f"/>
+      <stop offset="1" stop-color="#cf4f23"/>
+    </linearGradient>
+  </defs>
+  <!-- Kenaz rune (torch of knowledge) reading as a code chevron, white on the accent -->
+  <rect x="4" y="4" width="120" height="120" rx="28" fill="url(#bg)"/>
+  <path d="M84 30 L46 64 L84 98" fill="none" stroke="#ffffff" stroke-width="14"
+        stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

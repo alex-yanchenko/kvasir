@@ -5,7 +5,9 @@
   "description": "Kvasir — Claude-authored interactive code walkthroughs on GitHub, with select-code Q&A via a local channel.",
   "permissions": ["storage"],
   "host_permissions": ["http://localhost:8799/*"],
-  "background": { "service_worker": "dist/huginn.js" },
+  "background": {
+    "service_worker": "dist/huginn.js"
+  },
   "content_scripts": [
     {
       "matches": ["https://github.com/*/*/pull/*", "https://github.com/*/*/blob/*"],
@@ -13,5 +15,20 @@
       "css": ["dist/midgard.css"],
       "run_at": "document_idle"
     }
-  ]
+  ],
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "action": {
+    "default_title": "Kvasir",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
+    }
+  }
 }
