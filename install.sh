@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# PR-Walkthrough installer — makes the repo's skills available to every Claude
+# Kvasir installer — makes the repo's skills available to every Claude
 # Code session and gets the extension ready to load.
 #
 #   ./install.sh          copy skills into ~/.claude/skills (re-run to re-sync)
@@ -19,7 +19,7 @@ say() { printf '  %s\n' "$*"; }
 ok()  { printf '  \033[32m✓\033[0m %s\n' "$*"; }
 warn() { printf '  \033[33m!\033[0m %s\n' "$*"; }
 
-echo "PR-Walkthrough install"
+echo "Kvasir install"
 
 # 1. Prereq doctor — warn, don't fail; the user may install later.
 echo "Prerequisites:"
@@ -51,19 +51,26 @@ if command -v pnpm >/dev/null 2>&1; then
     && ok "built → packages/extension/dist" || warn "build failed — run 'pnpm build' manually"
 fi
 
-# 4. Install the prw-build-review CLI on PATH so /push-review can drive the
-# deterministic builder from any session without knowing this repo's path.
+# 4. Install the `kvasir` CLI on PATH: `kvasir` launches the channel; `kvasir build
+# <draft>` drives the deterministic walkthrough builder from any session.
 echo "CLI:"
 BIN_DIR="$HOME/.local/bin"
 mkdir -p "$BIN_DIR"
-cat > "$BIN_DIR/prw-build-review" <<WRAP
+cat > "$BIN_DIR/kvasir" <<WRAP
 #!/usr/bin/env bash
-exec bun run "$REPO_DIR/packages/mimir/scripts/buildReview.ts" "\$@"
+# Kvasir CLI. \`kvasir\` (or \`kvasir run\`) launches Claude with the channel;
+# \`kvasir build <draft.json>\` builds + pushes a walkthrough.
+REPO="$REPO_DIR"
+case "\${1:-run}" in
+  build) shift; exec bun run "\$REPO/packages/mimir/scripts/buildReview.ts" "\$@" ;;
+  run|"") exec claude --dangerously-load-development-channels server:kvasir ;;
+  *) printf 'usage: kvasir [run] | kvasir build <draft.json>\n' >&2; exit 1 ;;
+esac
 WRAP
-chmod +x "$BIN_DIR/prw-build-review"
+chmod +x "$BIN_DIR/kvasir"
 case ":$PATH:" in
-  *":$BIN_DIR:"*) ok "installed prw-build-review → $BIN_DIR" ;;
-  *) warn "installed prw-build-review → $BIN_DIR (add it to PATH: export PATH=\"\$HOME/.local/bin:\$PATH\")" ;;
+  *":$BIN_DIR:"*) ok "installed kvasir → $BIN_DIR" ;;
+  *) warn "installed kvasir → $BIN_DIR (add it to PATH: export PATH=\"\$HOME/.local/bin:\$PATH\")" ;;
 esac
 
 # 5. Next steps the script deliberately does NOT automate.
@@ -74,13 +81,16 @@ Done. To finish setup:
   1. Load the extension (once): chrome://extensions → Developer mode →
      Load unpacked → $REPO_DIR/packages/extension
 
-  2. Run the mailbox daemon (one instance serves every session):
-     claude-pr-walkthrough
+  2. Register the channel in your project .mcp.json under the key "kvasir",
+     pointing at $REPO_DIR/packages/mimir/src/channel.ts.
 
-  3. Skip the push permission prompt — add this to ~/.claude/settings.json
+  3. Run the channel (one instance serves every session):
+     kvasir
+
+  4. Skip the push permission prompt — add this to ~/.claude/settings.json
      under "permissions" → "allow" (not auto-edited here to avoid clobbering it):
 
        "Bash(curl:*localhost:8799*)"
 
-Push a review from any session with the /push-review skill.
+Push a walkthrough from any session with the /kvasir skill.
 EOF

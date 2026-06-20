@@ -106,7 +106,7 @@ export const pairingStore = {
 
   /** Ask the bridge to pair, show the code, poll the claim until the token lands. */
   async pair(): Promise<void> {
-    const r = await api("/pair", "POST", { name: "PR Walkthrough Chrome extension" });
+    const r = await api("/pair", "POST", { name: "Kvasir Chrome extension" });
     if (state.phase === "paired") return; // a concurrent refresh() resolved while the POST was in flight
     const request = r.ok ? requestIdOf(r.data) : null;
     if (!request) {

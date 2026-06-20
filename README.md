@@ -1,17 +1,53 @@
-# PR Walkthrough
+# Kvasir
 
-Turn a GitHub PR into an interactive, in-browser walkthrough — a guided tour that
-scrolls the diff, highlights the lines that matter, and explains each one — plus
-a "select code and ask" modal for on-the-spot questions. The smart content is
-generated once by Claude and cached; the browser just renders it.
+Kvasir turns code into an interactive, in-browser **walkthrough** on GitHub — a
+guided tour that scrolls the diff (or jumps across files and repos), highlights
+the lines that matter, and explains each one — plus a "select code and ask"
+modal for on-the-spot questions. The smart content is authored once by your
+Claude session and cached; the browser just renders it. Works on PR diffs **and**
+plain file/`blob` pages, across one or many repos.
 
 This started as a live demo (Claude driving a browser via the automation
 extension) and was rebuilt into something stable, cheap, and credential-free.
 
-## Layout
+## Why "Kvasir"
 
-A pnpm-workspaces monorepo. The parts carry Norse names, used consistently in
-code and docs:
+In Norse myth, **Kvasir** was the wisest of beings — he wandered the world
+sharing knowledge and answering any question put to him. That is exactly what
+this does: wisdom from your running Claude session, carried out to wherever
+you're reading code, explaining it and answering questions _in place_.
+
+The internals keep the same Norse world — Asgard, Midgard, Bifrost, Heimdall,
+the ravens Huginn & Muninn, Mimir, the Runes (see [Components](#components)).
+Kvasir is the wandering wisdom that sits **above** those realms and is the only
+name you, the user, ever type. Fittingly, Kvasir draws from **Mimir**, the well
+of wisdom — here, the local channel your Claude session answers through.
+
+## Two flows
+
+Both produce the same artifact — a stepped walkthrough rendered in Kvasir's
+panel — and differ only in where the steps come from:
+
+1. **PR tour (in-session).** In your Claude session: _"Build a walkthrough for
+   `<PR url>`."_ Claude reads the diff via `gh`, authors a spec, and publishes it.
+   Open the PR's **Files** tab and the panel renders the tour. Generated once per
+   commit and cached — reopening costs nothing.
+
+2. **Push / capture (from any chat).** After you've explained some code — often
+   across several repos — run the **`/kvasir`** skill. It drafts the steps, the
+   `kvasir build` builder resolves the verifiable parts (repo, commit sha, file
+   existence, exact line numbers) and pushes, and you get a link. Opening it
+   renders the same panel. Not tied to a single PR — spans repos and works on
+   plain file pages.
+
+On any open walkthrough: **select code → Ask** → your Claude session answers in
+place, through the same channel.
+
+## Components
+
+A pnpm-workspaces monorepo. **Kvasir** is the umbrella (the product, the
+`/kvasir` skill, the `kvasir` CLI, the channel on `:8799`). Beneath it, the parts
+carry Norse names, used consistently in code and docs:
 
 | Name         | Is                                                                                                             | Why                                                                    |
 | ------------ | -------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
@@ -27,6 +63,10 @@ code and docs:
 One sentence holds the system: _Asgard never touches the page; a question
 crosses the Bifrost; Huginn carries it to Mimir; Muninn remembers; Heimdall
 watches the URL; all realms share the Runes._
+
+> The `@prw/*` package scope, `prw:` storage keys, and the `?prw=` link param are
+> an internal prefix kept for compatibility (it predates the Kvasir name) — not
+> user-facing.
 
 ```
 pr-walkthrough/
@@ -45,17 +85,17 @@ The two sides are decoupled by a single contract: the **walkthrough spec** (see
 `packages/runes/src/spec.ts`). Mimir produces and serves specs; the extension
 consumes them. Either side can change independently.
 
-> Setup note: register the channel in a local `.mcp.json` pointing at
-> `packages/mimir/src/channel.ts` (this file is gitignored — it holds a
-> machine-specific absolute path).
+> Setup note: register the channel in a local `.mcp.json` under the key
+> **`kvasir`**, pointing at `packages/mimir/src/channel.ts` (this file is
+> gitignored — it holds a machine-specific absolute path).
 
-## How it fits together
+## How it works
 
 ```
   You (chat)                Claude Code session                 Chrome
   ──────────                ───────────────────                 ──────
-  "review PR &      ─────▶  start_walkthrough(pr)  ──gh──▶  GitHub (PR diff)
-   walk me through"         author spec
+  "build a walkthrough  ─▶  start_walkthrough(pr)  ──gh──▶  GitHub (PR diff)
+   for <PR>"                author spec
                             publish_walkthrough(spec) ──▶  server cache
                                                               │
   open the PR  ─────────────────────────────────────────────▶ extension
@@ -64,6 +104,9 @@ consumes them. Either side can change independently.
 
   select code → "Ask"  ──▶  POST /ask  ──▶  channel event  ──▶  you answer
                             answer_question(id) ──▶ back to the modal
+
+  /kvasir (any chat)   ──▶  kvasir build → POST /push  ──▶  server cache
+                            prints a ?prw= link → open it → same panel
 ```
 
 ## Why this shape
@@ -77,19 +120,21 @@ consumes them. Either side can change independently.
 
 ## Quick start
 
-1. **Server** — see `packages/mimir/README.md`. Install deps, register it in `.mcp.json`,
-   then launch Claude Code with the channel:
-   `claude --dangerously-load-development-channels server:pr-walkthrough`
-   (manually-configured MCP servers are tagged `server:`, not `plugin:`; the dev
-   flag takes the entry directly and replaces `--channels` for non-allowlisted
-   local channels). The HTTP bridge comes up on `http://localhost:8799`.
-2. **Extension** — see `extension/README.md`. Build it once with `pnpm build`
-   (the manifest points at `dist/`), then load `packages/extension/` unpacked in
-   `chrome://extensions`. Use `pnpm --filter @prw/extension dev` to rebuild on save.
-3. In your Claude session: _"Build a walkthrough for <PR url>."_ Claude calls
-   `start_walkthrough`, authors the spec, and calls `publish_walkthrough`.
-4. Open the PR's **Files** tab. Click the **▶ Walkthrough** button (bottom-left).
-   Select any code and click **Ask about this** to ask questions.
+`./install.sh` installs the `/kvasir` skill globally, builds the extension, and
+puts a **`kvasir`** command on your PATH. Then:
+
+1. **Channel** — register it in your project `.mcp.json` under the key `kvasir`,
+   pointing at `packages/mimir/src/channel.ts` (see `packages/mimir/README.md`),
+   then run it:
+   `kvasir` — which launches `claude --dangerously-load-development-channels server:kvasir`.
+   The HTTP bridge comes up on `http://localhost:8799`.
+2. **Extension** — load `packages/extension/` unpacked in `chrome://extensions`
+   (Developer mode → Load unpacked). `pnpm --filter @prw/extension dev` rebuilds
+   on save.
+3. **PR tour:** in your Claude session, _"Build a walkthrough for `<PR url>`,"_
+   then open the PR's **Files** tab and click the **▶ Kvasir** button.
+   **Push from any chat:** run **`/kvasir`** and open the link it prints.
+4. On any walkthrough, select code and click **Ask about this** to ask questions.
 
 ## Develop
 

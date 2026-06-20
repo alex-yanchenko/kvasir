@@ -81,15 +81,13 @@ function PanelWindow(): JSX.Element {
   // Review-mode (a pushed cross-repo review opened via ?prw) swaps the walkthrough
   // tab for the review tab; everything else (chat, settings) is unchanged.
   const isReview = activeGuide().kind === "review";
-  const title = isReview
-    ? reviewStore.title() || "PR Walkthrough"
-    : (launcherStore.spec()?.pr?.title ?? "PR Walkthrough");
+  const title = isReview ? reviewStore.title() || "Kvasir" : (launcherStore.spec()?.pr?.title ?? "Kvasir");
 
   return (
     <div
       ref={panelRef}
       role="dialog"
-      aria-label="PR Walkthrough"
+      aria-label="Kvasir"
       className="prw-panel fixed bottom-5 right-5 z-[2147483002] flex max-h-[85vh] min-h-[320px] w-[420px] min-w-[340px] max-w-[92vw] resize flex-col overflow-hidden rounded-lg border border-border bg-background text-foreground"
       style={{
         boxShadow: "var(--elevation)",

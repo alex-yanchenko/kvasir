@@ -1,4 +1,4 @@
-# pr-walkthrough server
+# Kvasir channel + bridge (`mimir`)
 
 A Claude Code **channel** (stdio MCP server with the experimental
 `claude/channel` capability) plus a small **localhost HTTP bridge**. Modeled on
@@ -18,7 +18,7 @@ the `example-watcher` / `example-watcher` channels.
   - `POST /suggest` `{pr,file,selection}` → 3–4 suggested questions
 
 Browser questions are pushed into your session as
-`<channel source="pr-walkthrough" event_type="code_question|suggest_questions" ...>`
+`<channel source="kvasir" event_type="code_question|suggest_questions" ...>`
 events; you answer and call `answer_question` to send the reply back.
 
 ## Requirements
@@ -31,7 +31,7 @@ events; you answer and call `answer_question` to send the reply back.
 ## Setup
 
 ```sh
-cd server
+cd packages/mimir
 bun install
 ```
 
@@ -44,7 +44,7 @@ marketplace plugins). During the research preview, a channel that isn't on the
 Anthropic allowlist needs the dev flag to load locally:
 
 ```sh
-claude --dangerously-load-development-channels server:pr-walkthrough
+claude --dangerously-load-development-channels server:kvasir
 ```
 
 Note: the dev flag takes the tagged entry itself (it replaces `--channels` for
@@ -58,9 +58,9 @@ The `.mcp.json` entry:
 ```json
 {
   "mcpServers": {
-    "pr-walkthrough": {
+    "kvasir": {
       "command": "bun",
-      "args": ["run", "<abs-path>/pr-walkthrough/server/src/channel.ts"]
+      "args": ["run", "<abs-path>/pr-walkthrough/packages/mimir/src/channel.ts"]
     }
   }
 }

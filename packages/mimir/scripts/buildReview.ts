@@ -7,7 +7,7 @@
  * instead of 404-ing a blob link later. IO only; the pure logic is in
  * src/review-build.ts.
  *
- *   prw-build-review <draft.json>   →  prints the ?prw= link on success
+ *   kvasir build <draft.json>   →  prints the ?prw= link on success
  */
 import { homedir } from "node:os";
 import path from "node:path";
@@ -49,7 +49,7 @@ const PushResponse = z.object({ id: z.string(), url: z.string() });
 
 async function main(): Promise<void> {
   const draftPath = process.argv[2];
-  if (!draftPath) throw new ReviewBuildError("usage: prw-build-review <draft.json>");
+  if (!draftPath) throw new ReviewBuildError("usage: kvasir build <draft.json>");
   const raw: unknown = JSON.parse(await Bun.file(draftPath).text());
   const draft = DraftSchema.parse(raw); // throws a ZodError naming the bad field
 
@@ -71,7 +71,7 @@ async function main(): Promise<void> {
     });
   } catch (error) {
     throw new ReviewBuildError(
-      `cannot reach the mailbox on :${PORT} — is claude-pr-walkthrough running? (${String(error)})`,
+      `cannot reach the mailbox on :${PORT} — is the kvasir channel running? (${String(error)})`,
     );
   }
   const text = await response.text();

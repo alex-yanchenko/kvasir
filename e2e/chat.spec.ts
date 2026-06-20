@@ -15,7 +15,7 @@ test.describe("chat flow", () => {
     );
     await page.goto(PR_URL);
 
-    await page.getByRole("button", { name: "Open PR Walkthrough" }).click();
+    await page.getByRole("button", { name: "Open Kvasir" }).click();
     await page.getByRole("tab", { name: "Chat" }).click();
     await page.getByRole("button", { name: "New chat" }).click();
 

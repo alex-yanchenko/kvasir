@@ -1,18 +1,18 @@
 ---
-name: push-review
-description: Push the current AI research/explanation into the PR-Walkthrough browser extension as a clickable, multi-repo code walkthrough. Use when the user says "push this to the extension", "send this review to the browser", "open this in pr-walkthrough", or after explaining code across one or more repos and wanting to walk it visually in GitHub. Works from ANY Claude Code session — it just needs the local PR-Walkthrough channel running on :8799.
+name: kvasir
+description: Turn the code you've just explained into a Kvasir walkthrough — a clickable, multi-repo tour rendered on GitHub — and push it. Use when the user says "make a walkthrough", "push this to the browser", "show this in Kvasir", "walk me through this on GitHub", or after explaining code across one or more repos and wanting to walk it visually. Works from ANY Claude Code session — it just needs the local Kvasir channel running on :8799.
 ---
 
-# Push a review to the extension
+# Push a walkthrough to Kvasir
 
-Turn the explanation you just produced into a **review** and push it. You supply
-the judgment (which files, which code, the prose); a deterministic builder
-(`prw-build-review`) resolves the verifiable parts — repo, commit sha, file
-existence, exact line numbers — and pushes. **You never write line numbers,
-URLs, or the final JSON**, so a wrong path or guessed line can't 404 a link.
+Turn the explanation you just produced into a **walkthrough** and push it. You
+supply the judgment (which files, which code, the prose); a deterministic builder
+(`kvasir build`) resolves the verifiable parts — repo, commit sha, file existence,
+exact line numbers — and pushes. **You never write line numbers, URLs, or the
+final JSON**, so a wrong path or guessed line can't 404 a link.
 
 The mailbox is one shared local server (`localhost:8799`) owned by whichever
-session runs `claude-pr-walkthrough`; ANY session can push to it.
+session runs `kvasir`; ANY session can push to it.
 
 ## 1. Write a draft
 
@@ -33,7 +33,7 @@ line of the region>" }`. `to` is optional (single line). The builder greps
   gotchas, how it connects to other steps. Author it whenever there's depth.
 - `highlight?` / `suggestions?` — optional.
 
-Write it to a temp file, e.g. `/tmp/prw-draft.json`:
+Write it to a temp file, e.g. `/tmp/kvasir-draft.json`:
 
 ```json
 {
@@ -65,19 +65,19 @@ Steps may span repos freely — that's the point for full-stack explanations.
 ## 2. Build + push
 
 ```bash
-prw-build-review /tmp/prw-draft.json
+kvasir build /tmp/kvasir-draft.json
 ```
 
 It resolves owner/name + head sha (`git`), verifies each file exists at that sha,
 greps your locator snippets for the real line range, validates the shape, pushes
-to the mailbox, and prints the **link**. (If `prw-build-review` isn't on PATH, run
-it directly: `bun run <pr-walkthrough>/packages/mimir/scripts/buildReview.ts /tmp/prw-draft.json`.)
+to the mailbox, and prints the **link**. (If `kvasir` isn't on PATH, run the
+builder directly: `bun run <kvasir-repo>/packages/mimir/scripts/buildReview.ts /tmp/kvasir-draft.json`.)
 
 ## 3. Hand the user the link
 
 Print the URL it output. The user opens it; the extension reads `?prw=<id>`, pulls
-the review, and walks the steps — jumping across repos/files, GitHub highlighting
-each line range, with body + "Show details" per step.
+the walkthrough, and walks the steps — jumping across repos/files, GitHub
+highlighting each line range, with body + "Show details" per step.
 
 ## If it fails (the builder tells you exactly which)
 
@@ -85,5 +85,5 @@ each line range, with body + "Show details" per step.
   real file (`git -C <repoDir> ls-files | grep ...`) and fix `file`.
 - **`locator.from not found`** → the snippet isn't in that file verbatim. Re-read
   the file and quote a real line.
-- **`cannot reach the mailbox on :8799`** → the daemon isn't running. Tell the
-  user to start `claude-pr-walkthrough`.
+- **`cannot reach the mailbox on :8799`** → the channel isn't running. Tell the
+  user to start it with `kvasir`.
