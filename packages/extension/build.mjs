@@ -78,10 +78,11 @@ const ctx = await context({
   // Imported stylesheets become strings for shadow-root injection; midgard.css is
   // never imported (the manifest loads the copied file into the light DOM).
   loader: { ".css": "text" },
-  // With React in the bundle, ship minified + an external sourcemap: the parse
-  // cost lands on every PR page, and devtools stays debuggable via the map.
+  // Ship minified. The external sourcemap (~2.6 MB) is dev-only — emitted under
+  // --watch so devtools stays debuggable, but kept out of the one-shot/packaged
+  // build so it doesn't bloat the published bundle.
   minify: true,
-  sourcemap: true,
+  sourcemap: watch,
   logLevel: "info",
   plugins: [compileTailwind, copyAssets],
 });
