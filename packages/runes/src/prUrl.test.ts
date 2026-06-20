@@ -44,4 +44,12 @@ describe("PR_URL_RE", () => {
     expect(PR_URL_RE.test("https://evil.com/a/b/pull/1")).toBe(false);
     expect(PR_URL_RE.test("http://github.com/a/b/pull/1")).toBe(false);
   });
+
+  it("rejects '.'/'..' owner or repo segments (agrees with parsePrUrl, no parse-throw downstream)", () => {
+    expect(PR_URL_RE.test("https://github.com/../b/pull/1")).toBe(false);
+    expect(PR_URL_RE.test("https://github.com/a/../pull/1")).toBe(false);
+    expect(PR_URL_RE.test("https://github.com/./b/pull/1")).toBe(false);
+    // a leading-dot repo like ".github" is still valid (only exact '.'/'..' are out)
+    expect(PR_URL_RE.test("https://github.com/acme/.github/pull/1")).toBe(true);
+  });
 });

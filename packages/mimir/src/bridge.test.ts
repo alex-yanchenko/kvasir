@@ -186,6 +186,10 @@ describe("/walkthrough + /head", () => {
     deps.specs.set(prKey(PR), mkSpec());
     expect(await (await call(`/walkthrough?pr=${encodeURIComponent(PR)}`)).json()).toEqual(mkSpec());
     expect((await call("/walkthrough?pr=not-a-pr")).status).toBe(400);
+    // A "../" PR URL is rejected by prOrNull (400), not passed through to prKey
+    // where it would throw and 500 — the two validators agree.
+    const dotted = encodeURIComponent("https://github.com/../x/pull/1");
+    expect((await call(`/walkthrough?pr=${dotted}`)).status).toBe(400);
   });
 
   it("/head returns the sha, 400 on a bad pr, 502 when gh fails", async () => {
