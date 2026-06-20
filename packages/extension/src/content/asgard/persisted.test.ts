@@ -1,6 +1,6 @@
 import type { Review } from "@prw/runes/review";
 import { describe, it, expect } from "vitest";
-import { parseReviewCache } from "./persisted";
+import { parsePanelPersisted, parseReviewCache } from "./persisted";
 
 const review: Review = {
   version: 1,
@@ -8,6 +8,14 @@ const review: Review = {
   title: "Auth flow",
   steps: [{ id: "a", title: "Guard", body: "b", repo: { owner: "acme", name: "web" }, file: "src/a.ts" }],
 };
+
+describe("parsePanelPersisted", () => {
+  it("reads open + tab, dropping mismatches and non-records", () => {
+    expect(parsePanelPersisted({ open: true, tab: "history" })).toEqual({ open: true, tab: "history" });
+    expect(parsePanelPersisted({ open: "yes", tab: 5 })).toEqual({ open: false, tab: null });
+    expect(parsePanelPersisted(null)).toEqual({ open: false, tab: null });
+  });
+});
 
 describe("parseReviewCache", () => {
   it("returns the step + review from a valid cache object", () => {

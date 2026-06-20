@@ -73,6 +73,24 @@ describe("loadPersisted", () => {
     expect(state.tourState).toEqual({ step: 0, pos: null, size: null });
   });
 
+  it("restores the persisted open-state + tab so the panel survives navigation", async () => {
+    vi.mocked(storeGet).mockImplementation(async (key: string) =>
+      key === "prw:panel" ? { pos: null, size: null, open: true, tab: "history" } : null,
+    );
+    await loadPersisted();
+    expect(state.panel.open).toBe(true);
+    expect(state.panel.tab).toBe("history");
+  });
+
+  it("ignores an unknown persisted tab, keeping the current one", async () => {
+    state.panel.tab = "chat";
+    vi.mocked(storeGet).mockImplementation(async (key: string) =>
+      key === "prw:panel" ? { open: true, tab: "bogus" } : null,
+    );
+    await loadPersisted();
+    expect(state.panel.tab).toBe("chat"); // bogus tab dropped
+  });
+
   it("reopens the panel on the History tab after a History jump (marker set)", async () => {
     sessionStorage.setItem("prw:history-nav", "1");
     await loadPersisted();
@@ -124,7 +142,7 @@ describe("watchUrl", () => {
     expect(refresh).toHaveBeenCalledTimes(2);
     expect(state.chatHistory).toEqual([]);
     expect(state.tourState).toEqual({ step: 0, pos: null, size: null });
-    expect(state.panel).toEqual({ open: false, tab: "chat", pos: null, size: null }); // closed, geometry cleared
+    expect(state.panel).toEqual({ open: true, tab: "chat", pos: null, size: null }); // kept open (loadPersisted then restores the persisted open/tab); geometry cleared
     expect(state.spec).toBeNull();
     expect(vi.mocked(storeGet)).toHaveBeenCalledWith(`prw:chats:${OTHER}`);
   });

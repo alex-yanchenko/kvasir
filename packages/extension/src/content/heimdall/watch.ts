@@ -2,8 +2,13 @@
 // state (chats, tour), pushes the theme across the Bifrost, and polls the URL:
 // GitHub is a SPA, so PR navigation never re-runs the content script.
 import { launcherStore } from "../asgard/launcher";
-import { isChatSessionArray, parsePanelGeometry, parseTourState } from "../asgard/persisted";
-import { PANEL_TABS, state, touch } from "../asgard/store";
+import {
+  isChatSessionArray,
+  parsePanelGeometry,
+  parsePanelPersisted,
+  parseTourState,
+} from "../asgard/persisted";
+import { isPanelTab, PANEL_TABS, state, touch } from "../asgard/store";
 import { bifrost } from "../bifrost";
 import { chatsKey, historyNavActive, PANEL_GEOM_KEY, prUrl, tourKey } from "../keys";
 import { storeGet } from "../muninn";
@@ -20,10 +25,16 @@ export async function loadPersisted(): Promise<void> {
   }
   // Panel geometry is global — restored on every page, including review/blob pages
   // with no PR url (which otherwise snap the panel to default on each nav).
-  const { pos, size } = parsePanelGeometry(await storeGet(PANEL_GEOM_KEY));
+  const storedPanel = await storeGet(PANEL_GEOM_KEY);
+  const { pos, size } = parsePanelGeometry(storedPanel);
   state.panel.pos = pos;
   state.panel.size = size;
-  // Landed via a History jump: keep the panel open on History so the next review is
+  // Restore open + tab so the panel survives navigation as a persistent window
+  // (the user asked to keep it open while moving between pages).
+  const { open, tab } = parsePanelPersisted(storedPanel);
+  state.panel.open = open;
+  if (tab && isPanelTab(tab)) state.panel.tab = tab;
+  // Landed via a History jump: force the panel open on History so the next review is
   // one click away (review.ts then won't switch it to the Walkthrough tab).
   if (historyNavActive()) {
     state.panel.open = true;
@@ -55,7 +66,7 @@ export function watchUrl(intervalMs = 1500): () => void {
       state.chatHistory = [];
       touch(); // React drops the panel content with the old PR's state
       state.tourState = { step: 0, pos: null, size: null };
-      state.panel = { open: false, tab: state.panel.tab, pos: null, size: null };
+      state.panel = { open: state.panel.open, tab: state.panel.tab, pos: null, size: null };
       state.spec = null;
       launcherStore.resetForPr();
       void loadPersisted();

@@ -30,6 +30,13 @@ export function parsePanelGeometry(v: unknown): { pos: Pos | null; size: Size | 
   return { pos: isPos(v.pos) ? v.pos : null, size: isSize(v.size) ? v.size : null };
 }
 
+/** Restore the persisted panel open-state + active tab (the tab is validated by the
+ * caller via isPanelTab). Lets the panel stay open on the same tab across navigation. */
+export function parsePanelPersisted(v: unknown): { open: boolean; tab: string | null } {
+  if (!isRecord(v)) return { open: false, tab: null };
+  return { open: v.open === true, tab: typeof v.tab === "string" ? v.tab : null };
+}
+
 /** The cached review walk (content + step), so a fresh page renders the panel
  * instantly from storage instead of waiting on the mailbox fetch. */
 export function parseReviewCache(v: unknown): { step: number; review: Review | null } {
