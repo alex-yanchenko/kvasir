@@ -143,18 +143,26 @@ export function connectGrip(bifrost: Bifrost): void {
     picking = true;
     if (grip) grip.style.display = "none";
     highlightRows([startRow]);
-    const move = (event: MouseEvent) => {
+    // Function declarations (hoisted) so the three handlers can reference each
+    // other for teardown regardless of order.
+    function move(event: MouseEvent): void {
       event.preventDefault();
       // Resolve the row at the cursor's Y and select the DOM range between it and
       // the start row — order-based, so deleted/added/mixed spans all work.
       const row = rowAtY(bands, event.clientY, startRow);
       if (row && container.contains(row)) highlightRows(rowsBetween(container, startRow, row));
-    };
-    const up = (event: MouseEvent) => {
+    }
+    // Finalize the drag. clientY is null when ended by a focus loss (blur) rather
+    // than a real mouseup: releasing the button outside the document — over browser
+    // chrome, another window, or devtools — never fires mouseup, which would
+    // otherwise leave move/up attached, `picking` stuck true, and kvasir-noselect
+    // stuck on <body> (page-wide selection disabled) until a reload.
+    function finish(clientY: number | null): void {
       document.removeEventListener("mousemove", move);
       document.removeEventListener("mouseup", up);
+      globalThis.removeEventListener("blur", onBlur);
       document.body.classList.remove("kvasir-noselect");
-      let endRow = rowAtY(bands, event.clientY, startRow);
+      let endRow = clientY === null ? startRow : rowAtY(bands, clientY, startRow);
       if (!endRow || !container.contains(endRow)) endRow = startRow;
       const rows = rowsBetween(container, startRow, endRow);
       picking = false;
@@ -163,9 +171,16 @@ export function connectGrip(bifrost: Bifrost): void {
       const p = payloadFor(sel);
       if (p) bifrost.report("selection:completed", p);
       showAskButton(rows); // chat icon to ask
-    };
+    }
+    function up(event: MouseEvent): void {
+      finish(event.clientY);
+    }
+    function onBlur(): void {
+      finish(null);
+    }
     document.addEventListener("mousemove", move);
     document.addEventListener("mouseup", up);
+    globalThis.addEventListener("blur", onBlur);
   }
 
   document.addEventListener("mouseover", (event) => {
