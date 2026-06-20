@@ -48,8 +48,11 @@ const CREATE_TABLE = `
     deleted_at   INTEGER
   ) STRICT;
 `;
+// Indexes the one multi-row read: SELECT ... WHERE deleted_at IS NULL ORDER BY
+// updated_at DESC. Leads with updated_at (no kind — nothing filters by kind), so the
+// index can satisfy the ORDER BY, not just the partial deleted_at filter.
 const CREATE_INDEX =
-  "CREATE INDEX IF NOT EXISTS idx_entries_live ON entries(kind, updated_at) WHERE deleted_at IS NULL;";
+  "CREATE INDEX IF NOT EXISTS idx_entries_live ON entries(updated_at) WHERE deleted_at IS NULL;";
 
 /** Only string elements survive — defends the row->summary read against a payload
  * a different writer might have shaped wrong, without a cast. */
@@ -60,8 +63,10 @@ const asStringArray = (value: unknown): string[] =>
  * even rows stored before the author column show "#123" without a re-publish. */
 const prNumberFromId = (kind: EntryKind, id: string): number | undefined => {
   if (kind !== "pr") return undefined;
-  const parsed = Number(id.slice(id.lastIndexOf("#") + 1));
-  return Number.isFinite(parsed) ? parsed : undefined;
+  const suffix = id.slice(id.lastIndexOf("#") + 1);
+  // Require digits — an id with an empty/non-numeric suffix (e.g. "owner/repo#")
+  // must read as absent, not Number("")===0 surfacing a "#0" badge.
+  return /^\d+$/.test(suffix) ? Number(suffix) : undefined;
 };
 
 const rowToSummary = (row: EntryRow): EntrySummary => {

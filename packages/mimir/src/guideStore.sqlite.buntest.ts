@@ -154,6 +154,20 @@ describe("createSqliteGuideStore (file-backed durability)", () => {
     expect(createSqliteGuideStore(dbPath, clock()).list()).toEqual([]);
   });
 
+  it("reads prNumber as absent for a pr id with no numeric suffix (hand-edited/older row)", () => {
+    const dbPath = path.join(directory, "kvasir.db");
+    createSqliteGuideStore(dbPath, clock()); // create the table
+    const db = new Database(dbPath);
+    db.run(
+      `INSERT INTO entries (id, kind, title, source, steps, url, repos, payload, version, content_hash, generated_at, author, created_at, updated_at, deleted_at)
+       VALUES ('acme/web#', 'pr', 't', NULL, 1, 'https://github.com/acme/web/pull', '["acme/web"]', '{}', 1, 'h', NULL, NULL, 1, 1, NULL)`,
+    );
+    db.close();
+    const entry = createSqliteGuideStore(dbPath, clock()).list()[0];
+    expect(entry?.kind).toBe("pr");
+    expect(entry?.prNumber).toBeUndefined();
+  });
+
   it("migrates a db created before the author column existed", () => {
     const dbPath = path.join(directory, "kvasir.db");
     const old = new Database(dbPath, { create: true });
