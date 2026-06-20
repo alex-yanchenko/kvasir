@@ -40,3 +40,6 @@ export const reviewKey = (id: string): string => `prw:review:${id}`;
  * same-origin navigation, so the next page can hydrate the panel (review + step +
  * geometry) on its first paint — no async pop-in/blink. */
 export const reviewSessionKey = (id: string): string => `prw:session:${id}`;
+
+/** Cache key for the review history list (GET /reviews) — for instant paint. */
+export const REVIEWS_KEY = "prw:reviews";

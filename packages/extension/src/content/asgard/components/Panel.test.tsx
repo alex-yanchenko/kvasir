@@ -53,7 +53,12 @@ describe("Panel", () => {
     act(() => panelStore.open());
     expect(screen.getByRole("dialog", { name: "Kvasir" })).toBeTruthy();
     expect(screen.getByText(/No walkthrough yet/)).toBeTruthy(); // walkthrough tab, no spec
-    expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual(["Walkthrough", "Chat", "Settings"]);
+    expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual([
+      "Walkthrough",
+      "Chat",
+      "Reviews",
+      "Settings",
+    ]);
 
     // Radix Tabs (automatic activation) selects on focus — deterministic in jsdom
     act(() => screen.getByRole("tab", { name: "Settings" }).focus());
@@ -96,7 +101,12 @@ describe("Panel", () => {
     };
     render(<Panel />);
     act(() => panelStore.open());
-    expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual(["Review", "Chat", "Settings"]);
+    expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual([
+      "Review",
+      "Chat",
+      "Reviews",
+      "Settings",
+    ]);
     expect(screen.getByText("Auth flow")).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Guard" })).toBeTruthy();
   });

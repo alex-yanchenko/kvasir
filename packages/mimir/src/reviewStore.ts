@@ -5,18 +5,7 @@
 // channel.ts wires the file-backed one.
 import { mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { type Review, ReviewSchema } from "@prw/runes";
-
-/** A lightweight history row — enough to tell reviews apart by their term (title)
- * and origin without shipping every step. */
-export interface ReviewSummary {
-  id: string;
-  title: string;
-  source?: string;
-  generatedAt?: string;
-  steps: number;
-  repos: string[];
-}
+import { type Review, type ReviewSummary, ReviewSchema, stepBlobUrl } from "@prw/runes";
 
 export interface ReviewStore {
   get(id: string): Review | null;
@@ -32,6 +21,7 @@ export function toReviewSummary(review: Review): ReviewSummary {
     title: review.title,
     steps: review.steps.length,
     repos,
+    url: stepBlobUrl(review.steps[0]!, review.id),
     // omit (not set to undefined) when absent — exactOptionalPropertyTypes + ?:
     ...(review.source === undefined ? {} : { source: review.source }),
     ...(review.generatedAt === undefined ? {} : { generatedAt: review.generatedAt }),
