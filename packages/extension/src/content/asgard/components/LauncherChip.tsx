@@ -1,11 +1,12 @@
 // The single launcher chip (bottom-right) — the one entry point to the panel.
 // Replaces the scattered launcher block; shows the generating timer inline.
-import { BookOpen, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import type { JSX } from "react";
 import { fmtElapsed, launcherStore } from "../launcher";
 import { getSnapshot, panelStore, subscribe } from "../store";
 import { Button } from "../ui/button";
+import { KvasirMark } from "../ui/KvasirMark";
 
 function Elapsed({ startAt }: Readonly<{ startAt: number }>): JSX.Element {
   const [, setTick] = useState(0);
@@ -28,7 +29,7 @@ export function LauncherChip(): JSX.Element | null {
       onClick={() => panelStore.open()}
       aria-label="Open Kvasir"
     >
-      {generating ? <Loader2 className="animate-spin" /> : <BookOpen />}
+      {generating ? <Loader2 className="animate-spin" /> : <KvasirMark className="size-4" />}
       {generating ? (
         <>
           Generating… <Elapsed startAt={launcherStore.genStartAt()} />
