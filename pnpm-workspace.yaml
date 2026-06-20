@@ -1,5 +1,10 @@
 packages:
   - "packages/*"
+overrides:
+  # Force the patched qs everywhere. The runtime path (MCP sdk -> express) already
+  # uses 6.15.2; this lifts the dev-only 6.15.1 (Stryker's typed-rest-client) off the
+  # advisory (qs.stringify DoS, GHSA fixed in 6.15.2).
+  qs: ">=6.15.2"
 allowBuilds:
   esbuild: true
   unrs-resolver: true
