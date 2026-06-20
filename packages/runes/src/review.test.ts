@@ -19,6 +19,20 @@ describe("isReview", () => {
     expect(isReview("nope")).toBe(false);
   });
 
+  it("rejects owner/name/ref/file that would path-traverse out of the repo", () => {
+    const step0 = valid.steps[0];
+    expect(isReview({ ...valid, steps: [{ ...step0, repo: { owner: "..", name: "web" } }] })).toBe(false);
+    expect(isReview({ ...valid, steps: [{ ...step0, repo: { owner: "a/../evil", name: "web" } }] })).toBe(
+      false,
+    );
+    expect(isReview({ ...valid, steps: [{ ...step0, ref: "main/../../../evil/repo/blob/main" }] })).toBe(
+      false,
+    );
+    expect(isReview({ ...valid, steps: [{ ...step0, file: "../../../etc/passwd" }] })).toBe(false);
+    // Legit branch refs and bracketed paths still pass.
+    expect(isReview({ ...valid, steps: [{ ...step0, ref: "feature/x", file: "pages/[id].ts" }] })).toBe(true);
+  });
+
   it("rejects non-integer, non-positive, or inverted line ranges", () => {
     const withLines = (lines: unknown) => ({ ...valid, steps: [{ ...valid.steps[0], lines }] });
     expect(isReview(withLines({ start: 1.5, end: 3 }))).toBe(false);

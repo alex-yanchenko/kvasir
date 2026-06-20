@@ -11,9 +11,23 @@
  */
 import { z } from "zod";
 
+// owner/name interpolate raw into the github.com blob URL, so constrain them to
+// GitHub's charset and reject "."/".." — otherwise a value like "a/../../evil" or
+// ".." would path-traverse the URL to a DIFFERENT repo (a cross-repo phishing
+// redirect). Mirrors the guard parsePrUrl already applies to PR URLs.
+const ghName = z
+  .string()
+  .regex(/^[\w.-]+$/, "invalid GitHub owner/name")
+  .refine((s) => s !== "." && s !== "..", "owner/name must not be '.' or '..'");
+
+/** No "." / ".." / empty path segment — blocks "../" traversal out of the repo
+ * when a ref or file is interpolated into the blob URL. */
+const noTraversal = (value: string): boolean =>
+  !value.split("/").some((segment) => [".", "..", ""].includes(segment));
+
 export const RepoRefSchema = z.object({
-  owner: z.string(),
-  name: z.string(),
+  owner: ghName,
+  name: ghName,
 });
 
 export const ReviewLinesSchema = z
@@ -34,9 +48,13 @@ export const ReviewStepSchema = z.object({
   /** The repo this step's code lives in (steps may span repos). */
   repo: RepoRefSchema,
   /** Branch or commit sha to pin the blob link; absent → repo default branch. */
-  ref: z.string().optional(),
+  ref: z
+    .string()
+    .regex(/^\w[\w./-]*$/, "invalid ref")
+    .refine(noTraversal, "ref must not traverse")
+    .optional(),
   /** Repo-relative file path, e.g. "src/auth/guard.ts". */
-  file: z.string(),
+  file: z.string().refine(noTraversal, "file must not contain '.'/'..' path segments"),
   /** New-side line range to highlight (GitHub `#L<start>-L<end>`). */
   lines: ReviewLinesSchema.optional(),
   /** Fallback highlight substrings if line ids aren't available. */
