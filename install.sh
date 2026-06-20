@@ -3,8 +3,10 @@
 # session, wires the channel into this repo's .mcp.json, installs the `kvasir`
 # CLI, and gets the extension ready to load.
 #
-#   ./install.sh          copy skills into ~/.claude/skills (re-run to re-sync)
-#   ./install.sh --link   symlink instead (live-edit during development)
+#   ./install.sh                copy skills into ~/.claude/skills (re-run to re-sync)
+#   ./install.sh --link         symlink the skills instead (live-edit during dev)
+#   ./install.sh --allow-push   also add the Bash(kvasir:*) permission so /kvasir
+#                               never prompts (widens agent allow-rules — opt-in)
 #
 # Copy is the default to match the "self-contained ~/.claude, no symlinks" config
 # convention; --link is for when you're actively editing the skills here.
@@ -13,12 +15,20 @@ set -euo pipefail
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SKILLS_SRC="$REPO_DIR/.claude/skills"
 SKILLS_DEST="$HOME/.claude/skills"
-LINK=0
-[[ "${1:-}" == "--link" ]] && LINK=1
 
 say() { printf '  %s\n' "$*"; }
 ok()  { printf '  \033[32m✓\033[0m %s\n' "$*"; }
 warn() { printf '  \033[33m!\033[0m %s\n' "$*"; }
+
+LINK=0
+ALLOW_PUSH=0
+for arg in "$@"; do
+  case "$arg" in
+    --link) LINK=1 ;;
+    --allow-push) ALLOW_PUSH=1 ;;
+    *) warn "ignoring unknown flag: $arg" ;;
+  esac
+done
 
 echo "Kvasir install"
 
@@ -54,8 +64,8 @@ if command -v pnpm >/dev/null 2>&1; then
 fi
 
 # 4. Install the `kvasir` CLI on PATH. `kvasir` launches the channel (from the
-# repo dir, so the repo's .mcp.json is always found regardless of where you run
-# it); `kvasir build <draft>` drives the deterministic builder from any session.
+# repo dir, so the repo's .mcp.json is always found) after freeing the single-owner
+# :8799 bridge; `kvasir build <draft>` drives the deterministic builder.
 echo "CLI:"
 BIN_DIR="$HOME/.local/bin"
 mkdir -p "$BIN_DIR"
@@ -99,23 +109,32 @@ else
   warn "python3 missing — add a \"kvasir\" entry to $REPO_DIR/.mcp.json pointing at packages/mimir/src/channel.ts"
 fi
 
-# 6. The remaining steps. The permission line is PRINTED, not auto-added: an
-# installer silently widening the agent's allow-rules is exactly what you'd want
-# to eyeball, so you add it yourself (one line, optional — skips a prompt per push).
+# 6. Permission for the push builder. Auto-added only with --allow-push — it widens
+# the agent's allow-rules globally, so it's opt-in, never the silent default.
+echo "Permission:"
+if [[ "$ALLOW_PUSH" == 1 ]] && command -v python3 >/dev/null 2>&1; then
+  case "$(python3 "$REPO_DIR/.claude/scripts/write-permission.py")" in
+    added)   ok "added 'Bash(kvasir:*)' to ~/.claude/settings.json (backup written alongside)" ;;
+    present) ok "'Bash(kvasir:*)' already allowed" ;;
+    *)       warn "settings.json missing/invalid — add \"Bash(kvasir:*)\" under permissions.allow yourself" ;;
+  esac
+elif [[ "$ALLOW_PUSH" == 1 ]]; then
+  warn "python3 missing — add \"Bash(kvasir:*)\" under permissions.allow in ~/.claude/settings.json"
+else
+  say "to auto-skip the per-push prompt, re-run with:  ./install.sh --allow-push"
+  say "(or add \"Bash(kvasir:*)\" under permissions.allow in ~/.claude/settings.json)"
+fi
+
+# 7. The two steps that genuinely can't be automated.
 cat <<EOF
 
-Done. To finish:
+Done. Two manual steps remain:
 
   1. Load the extension (once): chrome://extensions -> Developer mode ->
      Load unpacked -> $REPO_DIR/packages/extension
 
   2. Run the channel (one instance serves every session):
      kvasir
-
-  3. (Optional) Skip the push prompt — add under "permissions" -> "allow" in
-     ~/.claude/settings.json:
-
-       "Bash(kvasir:*)"
 
 Then: ask "build a walkthrough for <PR url>" in that session and open the PR's
 Files tab, or run /kvasir from any session to push a walkthrough. Pair once via
