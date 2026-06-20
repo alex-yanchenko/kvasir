@@ -64,6 +64,9 @@ export const state: {
   history: EntrySummary[] | null;
   historyQuery: string;
   seen: Record<string, number>;
+  /** True when the walkthrough/review this tab was viewing got deleted (here or in
+   * another tab) — drives the "This walkthrough was deleted" notice. */
+  guideDeleted: boolean;
   panel: PanelState;
 } = {
   spec: null,
@@ -79,6 +82,7 @@ export const state: {
   history: null,
   historyQuery: "",
   seen: {},
+  guideDeleted: false,
   panel: { open: false, tab: PANEL_TABS.WALKTHROUGH, pos: null, size: null },
 };
 
@@ -207,12 +211,21 @@ export const panelStore = {
   },
   close(): void {
     state.panel.open = false;
+    state.guideDeleted = false; // dismiss any lingering "deleted" notice on close
     persistPanel();
     touch();
   },
   setTab(tab: PanelTab): void {
     state.panel.tab = tab;
     persistPanel();
+    touch();
+  },
+
+  /** The "this walkthrough was deleted" notice shows only while nothing is loaded to
+   * replace it — so generating/opening a fresh walkthrough auto-hides it. */
+  guideDeleted: (): boolean => state.guideDeleted && state.review === null && state.spec === null,
+  dismissGuideDeleted(): void {
+    state.guideDeleted = false;
     touch();
   },
   setPos(pos: { left: number; top: number }): void {

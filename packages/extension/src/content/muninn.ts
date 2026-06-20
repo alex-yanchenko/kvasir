@@ -33,3 +33,27 @@ export const storeRemove = (k: string): void => {
     }
   })();
 };
+
+// chrome.storage.onChanged fires in EVERY tab/context when local storage changes —
+// the built-in cross-tab signal. onStored watches one key and hands the handler its
+// new value (undefined when the key was removed). Returns an unsubscribe fn.
+type StorageChange = { newValue?: unknown };
+type StorageListener = (changes: Record<string, StorageChange>, area: string) => void;
+const NOOP = (): void => {};
+export const onStored = (key: string, handler: (value: unknown) => void): (() => void) => {
+  const listener: StorageListener = (changes, area) => {
+    if (area === "local" && key in changes) handler(changes[key]?.newValue);
+  };
+  try {
+    chrome.storage?.onChanged?.addListener(listener);
+  } catch {
+    return NOOP; // orphaned context — nothing to unsubscribe
+  }
+  return () => {
+    try {
+      chrome.storage?.onChanged?.removeListener(listener);
+    } catch {
+      /* context gone */
+    }
+  };
+};

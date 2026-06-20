@@ -6,15 +6,17 @@ import { createRoot } from "react-dom/client";
 import { App } from "../asgard/App";
 import asgardCss from "../asgard/asgard.compiled.css";
 import { connectChat } from "../asgard/chat";
+import { historyStore } from "../asgard/history";
 import { launcherStore } from "../asgard/launcher";
 import { pairingStore } from "../asgard/pairing";
 import { reviewStore } from "../asgard/review";
 import { hydratePanel } from "../asgard/store";
 import { bifrost } from "../bifrost";
-import { prUrl, reviewIdFromUrl } from "../keys";
+import { HISTORY_KEY, prUrl, reviewIdFromUrl } from "../keys";
 import { connectMidgard } from "../midgard/connect";
 import { connectGrip } from "../midgard/grip";
 import { initTooltips } from "../midgard/tooltip";
+import { onStored } from "../muninn";
 import { shieldHotkeys } from "./shield";
 import { applyTheme, loadPersisted, watchUrl } from "./watch";
 // Compiled Tailwind + legacy panel CSS (build.mjs produces this from tailwind.css).
@@ -44,6 +46,9 @@ export function boot(): void {
   if (reviewId) void reviewStore.load(reviewId);
   else void launcherStore.refresh();
   watchUrl();
+  // Cross-tab: when another tab deletes a walkthrough it rewrites HISTORY_KEY; adopt
+  // the new list here and drop this tab's open walkthrough if it was the deleted one.
+  onStored(HISTORY_KEY, (value) => historyStore.observeExternal(value));
 
   // Review-mode: synchronously hydrate from the sessionStorage snapshot the prior
   // page wrote, so the panel's first paint is already complete (no async blink).

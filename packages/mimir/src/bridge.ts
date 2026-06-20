@@ -105,9 +105,12 @@ function handleHistory({ request, deps }: Context): Response {
 function handleDeleteEntry({ request, url, deps }: Context): Response {
   const id = truncate(url.searchParams.get("id"), 100);
   if (!id) return json(request, { error: "need an id" }, 400);
-  return deps.guides.softDelete(id)
-    ? json(request, { ok: true })
-    : json(request, { error: "unknown entry id" }, 404);
+  if (!deps.guides.softDelete(id)) return json(request, { error: "unknown entry id" }, 404);
+  // A pr entry's id IS its prKey, which keys the in-memory specs map that
+  // GET /walkthrough serves from — evict it too so a deleted PR walkthrough stops
+  // rendering immediately (no-op for a code entry, whose id is a slug).
+  deps.specs.delete(id);
+  return json(request, { ok: true });
 }
 
 // ── token-gated routes ───────────────────────────────────────────────────────

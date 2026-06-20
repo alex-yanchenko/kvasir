@@ -6,9 +6,10 @@
 // version the FE last opened/synced, so an entry whose backend version moved past
 // `seen` is flagged for re-sync (and counted into the tab badge).
 import { type EntrySummary, isEntrySummaryList } from "@prw/runes/history";
+import { prKey } from "@prw/runes/prUrl";
 import { api } from "../api";
-import { HISTORY_KEY, SEEN_KEY } from "../keys";
-import { storeGet, storeSet } from "../muninn";
+import { HISTORY_KEY, reviewKey, SEEN_KEY, specKey } from "../keys";
+import { storeGet, storeRemove, storeSet } from "../muninn";
 import { state, touch } from "./store";
 
 /** Drift of one entry vs what the FE last caught up to. */
@@ -36,6 +37,28 @@ const writeSeen = (next: Record<string, number>): void => {
 
 const matchesTerm = (entry: EntrySummary, term: string): boolean =>
   `${entry.title} ${entry.source ?? ""} ${entry.repos.join(" ")}`.toLowerCase().includes(term);
+
+/** Drop an entry's per-tab/global render cache so a deleted walkthrough can't be
+ * resurrected from cache on refresh/reopen (code → its review cache; pr → its spec
+ * cache, keyed by the PR url the entry opens to, minus the `/files` suffix). */
+const clearEntryCache = (entry: EntrySummary): void => {
+  if (entry.kind === "code") storeRemove(reviewKey(entry.id));
+  else storeRemove(specKey(entry.url.replace(/\/files$/, "")));
+};
+
+/** If the walkthrough THIS tab is viewing is no longer in the live list, it was
+ * deleted (here or in another tab) — clear it and raise the "deleted" notice. */
+const invalidateActiveGuide = (live: readonly EntrySummary[]): void => {
+  const liveIds = new Set(live.map((entry) => entry.id));
+  if (state.review && !liveIds.has(state.review.id ?? "")) {
+    state.review = null;
+    state.guideDeleted = true;
+  }
+  if (state.spec && !liveIds.has(prKey(state.spec.pr.url))) {
+    state.spec = null;
+    state.guideDeleted = true;
+  }
+};
 
 export const historyStore = {
   /** The loaded list, or null before the first load completes. */
@@ -95,14 +118,29 @@ export const historyStore = {
     globalThis.location.assign(entry.url);
   },
 
-  /** Soft-delete on the backend, then drop it from the list + caches. */
+  /** Soft-delete on the backend, then drop it from the list + every cache, and
+   * clear it if it's the walkthrough this tab is viewing. Other tabs react via the
+   * HISTORY_KEY storage change (observeExternal). */
   async remove(id: string): Promise<void> {
+    const entry = (state.history ?? []).find((row) => row.id === id);
     const response = await api(`/entry?id=${encodeURIComponent(id)}`, "DELETE");
     if (!response.ok) return;
-    state.history = (state.history ?? []).filter((entry) => entry.id !== id);
+    state.history = (state.history ?? []).filter((row) => row.id !== id);
     storeSet(HISTORY_KEY, state.history);
+    if (entry) clearEntryCache(entry);
     const next = Object.fromEntries(Object.entries(state.seen).filter(([key]) => key !== id));
     writeSeen(next);
+    invalidateActiveGuide(state.history);
+    touch();
+  },
+
+  /** React to a cross-tab history change (chrome.storage.onChanged on HISTORY_KEY):
+   * adopt the new list and drop the walkthrough this tab was viewing if it's gone. */
+  observeExternal(rawList: unknown): void {
+    const list = entriesFromCache(rawList);
+    if (!list) return;
+    state.history = list;
+    invalidateActiveGuide(list);
     touch();
   },
 

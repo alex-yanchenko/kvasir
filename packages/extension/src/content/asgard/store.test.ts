@@ -230,4 +230,34 @@ describe("panelStore", () => {
     expect(() => storeModule.hydratePanel()).not.toThrow(); // read catch
     vi.unstubAllGlobals();
   });
+
+  it("guideDeleted shows only while nothing is loaded; dismiss + close clear the flag", () => {
+    storeModule.state.review = null;
+    storeModule.state.spec = null;
+    storeModule.state.guideDeleted = false;
+    expect(storeModule.panelStore.guideDeleted()).toBe(false); // flag off
+    storeModule.state.guideDeleted = true;
+    expect(storeModule.panelStore.guideDeleted()).toBe(true);
+    storeModule.state.spec = {
+      version: 1,
+      pr: { url: "u", owner: "a", repo: "b", number: 1 },
+      generatedAt: "t",
+      steps: [],
+    };
+    expect(storeModule.panelStore.guideDeleted()).toBe(false); // a loaded spec hides it
+    storeModule.state.spec = null;
+    storeModule.state.review = {
+      version: 1,
+      id: "r",
+      title: "t",
+      steps: [{ id: "s", title: "s", body: "b", repo: { owner: "a", name: "b" }, file: "f.ts" }],
+    };
+    expect(storeModule.panelStore.guideDeleted()).toBe(false); // a loaded review hides it too
+    storeModule.state.review = null;
+    storeModule.panelStore.dismissGuideDeleted();
+    expect(storeModule.state.guideDeleted).toBe(false);
+    storeModule.state.guideDeleted = true;
+    storeModule.panelStore.close();
+    expect(storeModule.state.guideDeleted).toBe(false); // close clears it
+  });
 });
