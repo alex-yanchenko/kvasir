@@ -169,23 +169,34 @@ export function buildDiscussion(
 
 // Coverage gate: a changed file with at least this many added lines is expected
 // to earn at least one walkthrough step. Generated/lockfile/vendored paths are
-// exempt — they bulk up additions but aren't review material.
+// exempt — they bulk up additions but aren't review material. Test files are exempt
+// too: a walkthrough explains the CHANGE; tests validate it (the author may still
+// add a test step, but isn't required to — and requiring it forced a re-publish).
 export const COVERAGE_MIN_ADDS = 30;
-const SKIP_COVERAGE =
+const GENERATED_PATH =
   /(?:^|\/)(?:package-lock\.json|yarn\.lock|pnpm-lock\.yaml|composer\.lock|Cargo\.lock|go\.sum)$|\.min\.(?:js|css)$|\.snap$|(?:^|\/)(?:dist|build|vendor|node_modules|__generated__)\//i;
+const TEST_PATH = /\.(?:spec|test|unit)\.[jt]sx?$|\.e2e-spec\.[jt]sx?$|(?:^|\/)(?:tests?|__tests__|e2e)\//i;
+/** A changed file the coverage gate ignores — generated/vendored noise or a test
+ * file (tests validate the change; the walkthrough explains the change itself). */
+const isExemptFromCoverage = (path: string): boolean => GENERATED_PATH.test(path) || TEST_PATH.test(path);
 
-/** Changed files that look like real review material (≥ COVERAGE_MIN_ADDS added
- * lines, not removed, not generated) but have no step covering them. Path match
- * is lenient at the boundary so a step's `file` can be a short or long variant.
- * Used to nudge the author once before publishing a walkthrough that skims a PR. */
+/** Changed files a walkthrough is expected to cover: ≥ COVERAGE_MIN_ADDS added
+ * lines, not removed, not generated/test. start_walkthrough surfaces this list
+ * UP FRONT so the author covers them on the first publish (no nudge round-trip). */
+export function significantFiles(manifest: PrManifest): string[] {
+  return manifest.files
+    .filter((f) => f.status !== "removed" && f.additions >= COVERAGE_MIN_ADDS && !isExemptFromCoverage(f.path))
+    .map((f) => f.path);
+}
+
+/** Significant files (above) that have no step covering them. Path match is lenient
+ * at the boundary so a step's `file` can be a short or long variant. The publish-time
+ * backstop for when the author skimmed the up-front list. */
 export function uncoveredFiles(manifest: PrManifest, stepFiles: string[]): string[] {
   const covered = stepFiles.filter(Boolean);
   const isCovered = (path: string): boolean =>
     covered.some((c) => c === path || c.endsWith("/" + path) || path.endsWith("/" + c));
-  return manifest.files
-    .filter((f) => f.status !== "removed" && f.additions >= COVERAGE_MIN_ADDS && !SKIP_COVERAGE.test(f.path))
-    .map((f) => f.path)
-    .filter((p) => !isCovered(p));
+  return significantFiles(manifest).filter((path) => !isCovered(path));
 }
 
 /** The raw `gh` JSON pieces getManifest fetches, assembled into a PrManifest.

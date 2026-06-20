@@ -4,6 +4,7 @@ import {
   buildDiscussion,
   buildManifest,
   COVERAGE_MIN_ADDS,
+  significantFiles,
   uncoveredFiles,
   type GhInline,
   type GhIssueComment,
@@ -28,6 +29,21 @@ const mkManifest = (files: Partial<PrManifest["files"][number]>[]): PrManifest =
     deletions: f.deletions ?? 0,
     ...(f.patch !== undefined ? { patch: f.patch } : {}),
   })),
+});
+
+describe("significantFiles", () => {
+  it("lists files >= COVERAGE_MIN_ADDS, excluding small/removed/generated/test files", () => {
+    const m = mkManifest([
+      { path: "src/a.ts", additions: 40 },
+      { path: "src/small.ts", additions: 5 }, // below the threshold
+      { path: "package-lock.json", additions: 200 }, // generated
+      { path: "src/a.spec.ts", additions: 90 }, // unit test
+      { path: "test/unit/b.unit.spec.ts", additions: 90 }, // test dir + .spec
+      { path: "src/c.e2e-spec.ts", additions: 90 }, // e2e spec
+      { path: "src/d.ts", additions: 50, status: "removed" }, // removed
+    ]);
+    expect(significantFiles(m)).toEqual(["src/a.ts"]);
+  });
 });
 
 describe("uncoveredFiles", () => {

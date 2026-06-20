@@ -95,6 +95,20 @@ describe("preparePublish", () => {
     });
   });
 
+  it("does not nudge for a big test file — tests are excluded from the coverage check", () => {
+    const manifests = new Map([
+      [
+        KEY,
+        manifestWith([
+          { path: "src/a.ts", additions: 80 },
+          { path: "src/a.spec.ts", additions: 200 },
+        ]),
+      ],
+    ]);
+    const outcome = preparePublish(spec([{ file: "src/a.ts" }]), state({ manifests }));
+    expect(outcome.kind).toBe("published"); // a.ts covered, a.spec.ts ignored → first publish goes through
+  });
+
   it("publishes with no gap note when every significant file is covered", () => {
     const manifests = new Map([[KEY, manifestWith([{ path: "src/a.ts", additions: 80 }])]]);
     const outcome = preparePublish(spec([{ file: "src/a.ts" }]), state({ manifests }));
