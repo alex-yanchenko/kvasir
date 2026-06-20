@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  DraftSchema,
   lineRange,
   repoSlug,
   resolveStep,
@@ -8,6 +9,20 @@ import {
   type DraftStep,
   type RepoContext,
 } from "./reviewBuild";
+
+describe("DraftSchema explicit-lines locator", () => {
+  const draft = (locator: unknown) => ({
+    title: "t",
+    steps: [{ repoDir: "r", file: "f", locator, title: "s", body: "b" }],
+  });
+  it("rejects an inverted, zero, or non-integer range locally (not deferred to the server)", () => {
+    expect(DraftSchema.safeParse(draft({ lines: { start: 5, end: 2 } })).success).toBe(false);
+    expect(DraftSchema.safeParse(draft({ lines: { start: 0, end: 3 } })).success).toBe(false);
+    expect(DraftSchema.safeParse(draft({ lines: { start: 1.5, end: 3 } })).success).toBe(false);
+    expect(DraftSchema.safeParse(draft({ lines: { start: 2, end: 5 } })).success).toBe(true);
+    expect(DraftSchema.safeParse(draft({ from: "x" })).success).toBe(true);
+  });
+});
 
 describe("repoSlug", () => {
   it("parses ssh and https remotes, with or without .git", () => {
