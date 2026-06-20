@@ -59,6 +59,13 @@ export function ReviewTab(): JSX.Element {
         <div className="mb-2 text-xs text-muted-foreground">
           {step.repo.owner}/{step.repo.name} · {step.file}
         </div>
+        {/* step.body/detail are MARKDOWN (a pushed review), so they go through
+            renderMarkdown — a constructive renderer that escapes first and only
+            emits a fixed safe tag/attr set (links are protocol-checked and the
+            href is attribute-escaped in markdown.ts). This is the XSS boundary for
+            markdown content; do NOT swap it for WalkthroughTab's sanitizeSpecHtml,
+            which expects author-supplied HTML and strips every attribute (it would
+            kill the links/code styling renderMarkdown produces). */}
         <div
           className="kvasir-prose text-sm"
           data-testid="review-step-body"
