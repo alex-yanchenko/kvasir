@@ -4,10 +4,12 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 vi.mock("../../../api", () => ({ api: vi.fn() }));
 vi.mock("../../../muninn", () => ({ storeGet: vi.fn(), storeSet: vi.fn(), storeRemove: vi.fn() }));
+vi.mock("../../debug", () => ({ wipeStoredData: vi.fn() }));
 
 import { api } from "../../../api";
 import { bifrost } from "../../../bifrost";
 import { storeGet } from "../../../muninn";
+import { wipeStoredData } from "../../debug";
 import { pairingStore } from "../../pairing";
 import { state } from "../../store";
 import { SettingsTab } from "./SettingsTab";
@@ -70,6 +72,22 @@ describe("SettingsTab", () => {
     render(<SettingsTab />);
     await screen.findByText(/Paired with your Claude session/);
     expect(screen.queryByRole("button", { name: "Pair" })).toBeNull();
+  });
+
+  it("Debug: Wipe asks to confirm, runs the wipe, and shows the reload hint", () => {
+    render(<SettingsTab />);
+    fireEvent.click(screen.getByRole("button", { name: "Wipe data" }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirm wipe" }));
+    expect(wipeStoredData).toHaveBeenCalledTimes(1);
+    expect(screen.getByText("Wiped — reload the page")).toBeTruthy();
+  });
+
+  it("Debug: Cancel backs out without wiping", () => {
+    render(<SettingsTab />);
+    fireEvent.click(screen.getByRole("button", { name: "Wipe data" }));
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(wipeStoredData).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Wipe data" })).toBeTruthy();
   });
 
   it("surfaces a pairing error with a Retry", async () => {
