@@ -470,6 +470,15 @@ describe("/push + history mailbox (token-less)", () => {
     deps.guides.put(reviewToRecord({ ...mkReview(), id: "rev-1" }));
     expect((await call("/review?id=rev-1")).status).toBe(200);
   });
+
+  it("DELETE /entries hard-wipes the store AND the in-memory specs, even unpaired", async () => {
+    deps.pairing.verify.mockReturnValue(false); // token-less: works while unpaired
+    deps.guides.put(reviewToRecord({ ...mkReview(), id: "rev-1" }));
+    deps.specs.set("acme/widget-api#7", mkSpec());
+    expect(await (await call("/entries", { method: "DELETE" })).json()).toEqual({ ok: true });
+    expect(await (await call("/history")).json()).toEqual({ entries: [] });
+    expect(deps.specs.size).toBe(0);
+  });
 });
 
 describe("parseSuggestions", () => {

@@ -144,6 +144,16 @@ describe("createSqliteGuideStore (file-backed durability)", () => {
     expect(reopened.list().map((entry) => entry.id)).toEqual(["r1"]);
   });
 
+  it("wipe truncates the table on disk — a reopened store on the same file is empty", () => {
+    const dbPath = path.join(directory, "kvasir.db");
+    const store = createSqliteGuideStore(dbPath, clock());
+    store.put(reviewToRecord(mkReview({ id: "x" })));
+    store.put(specToRecord(mkSpec()));
+    store.wipe();
+    expect(store.list()).toEqual([]);
+    expect(createSqliteGuideStore(dbPath, clock()).list()).toEqual([]);
+  });
+
   it("migrates a db created before the author column existed", () => {
     const dbPath = path.join(directory, "kvasir.db");
     const old = new Database(dbPath, { create: true });

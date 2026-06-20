@@ -158,5 +158,8 @@ export function createSqliteGuideStore(dbPath: string, now: () => number = () =>
     },
     list: () => selectLive.all().map((row) => rowToSummary(row)),
     softDelete: (id) => softDeleteById.run({ $t: now(), $id: id }).changes > 0,
+    wipe: () => {
+      db.run("DELETE FROM entries");
+    },
   };
 }
