@@ -35,6 +35,8 @@ export interface PrManifest {
   repo: string;
   number: number;
   title: string;
+  /** The PR author's login (gh `user.login`). */
+  author: string;
   /** The PR description (author intent/scope) — secondary to the code, ahead of comments. */
   description: string;
   headSha: string;
@@ -68,6 +70,7 @@ export interface GhPull {
   title: string;
   body?: string;
   head?: { sha?: string };
+  user?: RawUser;
 }
 export interface GhFile {
   filename: string;
@@ -211,6 +214,7 @@ export function buildManifest(
     repo: ids.repo,
     number: ids.number,
     title: raw.pull.title,
+    author: raw.pull.user?.login ?? "unknown",
     description: trim(raw.pull.body, CAP_DESCRIPTION),
     headSha: raw.pull.head?.sha ?? "",
     files,

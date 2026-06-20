@@ -24,6 +24,10 @@ export const EntrySummarySchema = z.object({
   /** Distinct `owner/name` repos the steps touch. */
   repos: z.array(z.string()),
   steps: z.number(),
+  /** PR number (pr entries only) — for the "#123" badge in History. */
+  prNumber: z.number().optional(),
+  /** PR author login (pr entries only). */
+  author: z.string().optional(),
   /** Where a row opens: pr -> `<pr.url>/files`; code -> the `?prw=` blob landing. */
   url: z.string(),
   /** Bumped by the store ONLY when the stored content changes — drives FE drift. */

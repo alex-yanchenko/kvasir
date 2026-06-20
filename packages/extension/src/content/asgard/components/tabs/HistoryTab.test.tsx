@@ -77,6 +77,23 @@ describe("HistoryTab", () => {
     expect(historyStore.open).toHaveBeenCalledTimes(1);
   });
 
+  it("shows the PR number and author on a PR Walkthrough row", () => {
+    const pr = sum({
+      id: "p1",
+      kind: "pr",
+      title: "Add limit",
+      steps: 12,
+      source: undefined,
+      repos: ["acme/web"],
+      prNumber: 7,
+      author: "alice",
+    });
+    vi.mocked(historyStore.all).mockReturnValue([pr]);
+    vi.mocked(historyStore.prItems).mockReturnValue([pr]);
+    render(<HistoryTab />);
+    expect(screen.getByText("acme/web #7 · 12 steps · by alice")).toBeTruthy();
+  });
+
   it("shows a ↻ for a drifted entry (sync one) and trash (remove); none for current", () => {
     const stale = sum({ id: "c1", title: "Stale one" });
     const fresh = sum({ id: "c2", title: "Fresh one" });

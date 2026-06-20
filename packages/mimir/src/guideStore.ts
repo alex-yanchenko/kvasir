@@ -29,6 +29,8 @@ export interface GuideRecord {
   repos: string[];
   payload: unknown;
   generatedAt?: string;
+  prNumber?: number;
+  author?: string;
 }
 
 export interface GuideStore {
@@ -82,6 +84,8 @@ export function specToRecord(spec: WalkthroughSpec): GuideRecord {
     repos: [`${owner}/${repo}`],
     payload: spec,
     generatedAt: spec.generatedAt,
+    prNumber: number,
+    ...(spec.pr.author === undefined ? {} : { author: spec.pr.author }),
   };
 }
 
@@ -98,6 +102,8 @@ export function toEntrySummary(record: GuideRecord, version: number, updatedAt: 
     updatedAt,
     ...(record.source === undefined ? {} : { source: record.source }),
     ...(record.generatedAt === undefined ? {} : { generatedAt: record.generatedAt }),
+    ...(record.prNumber === undefined ? {} : { prNumber: record.prNumber }),
+    ...(record.author === undefined ? {} : { author: record.author }),
   };
 }
 
