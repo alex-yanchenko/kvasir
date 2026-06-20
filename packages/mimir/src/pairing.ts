@@ -89,11 +89,16 @@ export function createPairing(deps: PairingDeps): Pairing {
 
   return {
     request(name) {
+      // `name` is attacker-controllable display text and is interpolated into the
+      // pushEvent content that drives the token-granting decision in the session.
+      // Collapse whitespace/newlines so it can't inject extra instruction lines
+      // (mirrors the title sanitization in channel.ts start_walkthrough).
+      const safeName = name.replaceAll(/\s+/g, " ");
       if (livePending()) {
         // a second request while one is pending is exactly the confusion race —
         // refuse it and make it loud in the session
         void deps.pushEvent(
-          `A SECOND pairing request ("${name}") arrived while one is already pending — denied. If you did not expect two requests, something else on this machine is probing the bridge.`,
+          `A SECOND pairing request ("${safeName}") arrived while one is already pending — denied. If you did not expect two requests, something else on this machine is probing the bridge.`,
           { event_type: "pairing_denied" },
         );
         return { ok: false, reason: "busy" };
@@ -101,13 +106,13 @@ export function createPairing(deps: PairingDeps): Pairing {
       pending = {
         requestId: randomBytes(16).toString("hex"),
         code: newCode(),
-        name,
+        name: safeName,
         expiresAt: Date.now() + requestTtlMs,
         approved: false,
         token: null,
       };
       void deps.pushEvent(
-        `Pairing request from "${name}" — code ${pending.code}. Confirm with the user via the AskUserQuestion tool (options "Approve" / "Decline", with this code in the question) and call approve_pairing only if they Approve. If you did not initiate this, ignore it and let it expire.`,
+        `Pairing request from "${safeName}" — code ${pending.code}. Confirm with the user via the AskUserQuestion tool (options "Approve" / "Decline", with this code in the question) and call approve_pairing only if they Approve. If you did not initiate this, ignore it and let it expire.`,
         { event_type: "pairing_request", code: pending.code },
       );
       return { ok: true, requestId: pending.requestId, code: pending.code };
@@ -125,10 +130,15 @@ export function createPairing(deps: PairingDeps): Pairing {
       const p = livePending();
       if (!p || p.requestId !== requestId) return null;
       if (!p.approved || !p.token) return { status: "pending" };
-      pending = null;
       const tokenHash = hashToken(p.token);
-      tokenHashes.add(tokenHash);
+      // Persist BEFORE consuming the pending request. If the SessionStore write
+      // throws (locked db, disk full), the request stays claimable and the extension
+      // can retry — instead of being stranded with `pending` gone, the token never
+      // delivered, and a dead hash left in the in-memory set. add() is an upsert
+      // keyed on requestId, so a retry after a partial failure converges.
       deps.sessions?.add({ id: p.requestId, tokenHash, name: p.name, createdAt: now() });
+      tokenHashes.add(tokenHash);
+      pending = null;
       return { token: p.token };
     },
 
