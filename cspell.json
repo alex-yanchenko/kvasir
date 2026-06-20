@@ -71,6 +71,9 @@
     "hardlinks",
     "daaabdb",
     "ABCDEFGHJKMNPQRSTUVWXYZ",
-    "HJKMNP"
+    "HJKMNP",
+    "buntest",
+    "upsert",
+    "upserts"
   ]
 }

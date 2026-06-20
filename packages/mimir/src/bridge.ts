@@ -5,15 +5,15 @@
 import { prKey, PR_URL_RE, type Review, type WalkthroughSpec } from "@prw/runes";
 import type { QuestionSnapshot } from "./broker";
 import { authorizedLocalCaller, corsHeaders, isRecord, readJsonBody, truncate, prOrNull } from "./guard";
+import { type GuideStore, reviewToRecord } from "./guideStore";
 import type { Pairing } from "./pairing";
 import { parseReviewInput, reviewLandingUrl } from "./review";
-import { type ReviewStore } from "./reviewStore";
 
 export interface BridgeDeps {
   /** Published specs, keyed by `owner/repo#number`. */
   specs: Map<string, WalkthroughSpec>;
-  /** Pushed reviews (cross-repo explanations), durable across restarts. */
-  reviews: ReviewStore;
+  /** Durable history of stored walkthroughs (pr + code), across restarts. */
+  guides: GuideStore;
   /** Mint a fresh review id from the title when a push omits one. */
   mintReviewId(title: string): string;
   /** Register a streamed question for the session; returns its poll id. */
@@ -84,19 +84,30 @@ async function handlePush({ request, deps }: Context): Promise<Response> {
   if (!result.ok) return json(request, { error: result.error }, 400);
   const id = result.review.id ?? deps.mintReviewId(result.review.title);
   const review: Review = { ...result.review, id };
-  deps.reviews.put(review);
+  deps.guides.put(reviewToRecord(review));
   return json(request, { id, url: reviewLandingUrl(review) });
 }
 
 function handleReview({ request, url, deps }: Context): Response {
   const id = truncate(url.searchParams.get("id"), 100);
   if (!id) return json(request, { error: "need an id" }, 400);
-  const review = deps.reviews.get(id);
-  return review ? json(request, review) : json(request, { error: "unknown review id" }, 404);
+  const entry = deps.guides.get(id);
+  return entry ? json(request, entry.payload) : json(request, { error: "unknown review id" }, 404);
 }
 
-function handleReviews({ request, deps }: Context): Response {
-  return json(request, { reviews: deps.reviews.list() });
+function handleHistory({ request, deps }: Context): Response {
+  return json(request, { entries: deps.guides.list() });
+}
+
+// Soft-delete a stored walkthrough (kept server-side for retro analysis; it just
+// stops appearing in /history and reads as absent). Token-less like the rest of
+// the mailbox — the owning session pushed it, any local session can prune it.
+function handleDeleteEntry({ request, url, deps }: Context): Response {
+  const id = truncate(url.searchParams.get("id"), 100);
+  if (!id) return json(request, { error: "need an id" }, 400);
+  return deps.guides.softDelete(id)
+    ? json(request, { ok: true })
+    : json(request, { error: "unknown entry id" }, 404);
 }
 
 // ── token-gated routes ───────────────────────────────────────────────────────
@@ -278,8 +289,9 @@ const PUBLIC_ROUTES: Record<string, (context: Context) => Response | Promise<Res
   "POST /pair": handlePair,
   "GET /pair/claim": handlePairClaim,
   "POST /push": handlePush,
-  "GET /reviews": handleReviews,
+  "GET /history": handleHistory,
   "GET /review": handleReview,
+  "DELETE /entry": handleDeleteEntry,
 };
 
 export function createFetchHandler(deps: BridgeDeps): (request: Request) => Promise<Response> {

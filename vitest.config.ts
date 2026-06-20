@@ -35,6 +35,11 @@ export default defineConfig({
         // is the gh subprocess shell, its transforms in manifest.ts. All ARE covered.
         "packages/mimir/src/channel.ts",
         "packages/mimir/src/diff.ts",
+        // bun:sqlite store: Bun-only (can't import under vitest); all its logic
+        // mirrors the node-tested createMemoryGuideStore and is verified by
+        // guideStore.sqlite.buntest.ts under `bun test`.
+        "packages/mimir/src/guideStore.sqlite.ts",
+        "packages/mimir/src/**/*.buntest.ts",
       ],
       thresholds: {
         "packages/extension/src/content/asgard/**": {

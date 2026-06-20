@@ -6,7 +6,8 @@
 // properties can, so every importer sees the same live values. Every mutation
 // must be followed by touch() or React won't re-render.
 
-import type { Review, ReviewSummary } from "@prw/runes/review";
+import type { EntrySummary } from "@prw/runes/history";
+import type { Review } from "@prw/runes/review";
 import type { WalkthroughSpec, WalkthroughStep } from "@prw/runes/spec";
 import { bifrost } from "../bifrost";
 import { chatsKey, PANEL_GEOM_KEY, prUrl } from "../keys";
@@ -19,12 +20,12 @@ export interface TourState {
   size: { w: number; h: number } | null;
 }
 
-/** The consolidated panel's tabs (the redesign IA). Chat owns its own session
- * switcher (a left rail), so there is no separate History tab. */
+/** The consolidated panel's tabs (the redesign IA). History lists the durable
+ * store (PR + Code Walkthroughs); Chat owns its own session switcher (a left rail). */
 export const PANEL_TABS = {
   WALKTHROUGH: "walkthrough",
   CHAT: "chat",
-  REVIEWS: "reviews",
+  HISTORY: "history",
   SETTINGS: "settings",
 } as const;
 export type PanelTab = (typeof PANEL_TABS)[keyof typeof PANEL_TABS];
@@ -57,9 +58,11 @@ export const state: {
   hlStyle: string; // "tint" | "github"
   tourState: TourState;
   chatHistory: ChatSession[]; // session objects, most recent first
-  /** Review history (GET /reviews): null until first loaded; reviewsQuery filters it. */
-  reviews: ReviewSummary[] | null;
-  reviewsQuery: string;
+  /** History (GET /history): null until first loaded; historyQuery filters it.
+   * `seen` maps an entry id -> the version the FE last caught up to (drift flag). */
+  history: EntrySummary[] | null;
+  historyQuery: string;
+  seen: Record<string, number>;
   panel: PanelState;
 } = {
   spec: null,
@@ -72,8 +75,9 @@ export const state: {
   hlStyle: localStorage.getItem("prwHl") || "tint",
   tourState: { step: 0, pos: null, size: null },
   chatHistory: [],
-  reviews: null,
-  reviewsQuery: "",
+  history: null,
+  historyQuery: "",
+  seen: {},
   panel: { open: false, tab: PANEL_TABS.WALKTHROUGH, pos: null, size: null },
 };
 

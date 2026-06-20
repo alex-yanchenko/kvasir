@@ -20,6 +20,9 @@ class ROStub {
 beforeEach(() => {
   observed = [];
   vi.stubGlobal("ResizeObserver", ROStub);
+  // Panel auto-loads history on open; with no extension runtime the bridge call is
+  // a graceful no-op, but api.ts reads `chrome` — stub it so it isn't a ReferenceError.
+  vi.stubGlobal("chrome", { runtime: {} });
   Object.defineProperty(window, "location", {
     value: new URL("https://github.com/acme/widget-api/pull/7/files"),
     writable: true,
@@ -28,6 +31,8 @@ beforeEach(() => {
   state.review = null;
   state.reviewStep = 0;
   state.panel = { open: false, tab: PANEL_TABS.WALKTHROUGH, pos: null, size: null };
+  state.history = null;
+  state.seen = {};
   pairingStore.reset(); // "unknown" → no banner unless a test sets the phase
 });
 afterEach(() => {
@@ -56,7 +61,7 @@ describe("Panel", () => {
     expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual([
       "Walkthrough",
       "Chat",
-      "Reviews",
+      "History",
       "Settings",
     ]);
 
@@ -104,7 +109,7 @@ describe("Panel", () => {
     expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual([
       "Review",
       "Chat",
-      "Reviews",
+      "History",
       "Settings",
     ]);
     expect(screen.getByText("Auth flow")).toBeTruthy();
@@ -190,6 +195,25 @@ describe("Panel", () => {
     fireEvent.mouseMove(document, { clientX: 60, clientY: 70 });
     fireEvent.mouseUp(document);
     expect(panelStore.pos()).toEqual({ left: 0, top: 0 }); // jsdom rects
+  });
+
+  it("badges the History tab when stored entries need syncing", () => {
+    state.history = [
+      {
+        kind: "code",
+        id: "x",
+        title: "t",
+        repos: ["acme/web"],
+        steps: 1,
+        url: "u",
+        version: 2,
+        updatedAt: 1,
+      },
+    ];
+    state.seen = { x: 1 }; // backend at v2, FE last saw v1 -> one stale -> badge "1"
+    render(<Panel />);
+    act(() => panelStore.open());
+    expect(screen.getByRole("tab", { name: /History/ }).textContent).toContain("History1");
   });
 
   it("restores persisted geometry as inline styles", () => {
