@@ -124,6 +124,7 @@ describe("historyStore.remove", () => {
     expect(storeSet).toHaveBeenCalledWith(HISTORY_KEY, [sum({ id: "b" })]);
     expect(storeRemove).toHaveBeenCalledWith("prw:review:a"); // code entry's render cache cleared
     expect(state.seen).toEqual({ b: 1 });
+    expect(storeSet).toHaveBeenCalledWith(SEEN_KEY, { b: 1 }); // pruned seen is persisted, not just in-state
   });
 
   it("clears a pr entry's spec cache (keyed by the PR url, minus /files)", async () => {
@@ -144,6 +145,20 @@ describe("historyStore.remove", () => {
     vi.mocked(api).mockResolvedValue({ ok: true, data: { ok: true } });
     await historyStore.remove("a");
     expect(state.review).toBeNull();
+    expect(state.guideDeleted).toBe(true);
+  });
+
+  it("clears the open PR walkthrough (spec path) when you delete the one you're viewing", async () => {
+    state.history = [sum({ id: "acme/web#7", kind: "pr", url: "https://github.com/acme/web/pull/7/files" })];
+    state.spec = {
+      version: 1,
+      pr: { url: "https://github.com/acme/web/pull/7", owner: "acme", repo: "web", number: 7 },
+      generatedAt: "t",
+      steps: [],
+    };
+    vi.mocked(api).mockResolvedValue({ ok: true, data: { ok: true } });
+    await historyStore.remove("acme/web#7");
+    expect(state.spec).toBeNull();
     expect(state.guideDeleted).toBe(true);
   });
 

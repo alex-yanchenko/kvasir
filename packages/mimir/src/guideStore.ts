@@ -1,7 +1,7 @@
-// Durable storage for stored walkthroughs — the upgrade from reviewStore.ts (one
-// JSON file per review) to a single SQLite table with soft deletes. Two KINDS
-// share one store: `pr` (a PR-bound diff tour = a WalkthroughSpec) and `code` (a
-// cross-repo authored explanation = a Review). bridge.ts depends on the
+// Durable storage for stored walkthroughs — one SQLite table with soft deletes, so
+// the full history survives a restart and deleted rows linger for retro analysis.
+// Two KINDS share one store: `pr` (a PR-bound diff tour = a WalkthroughSpec) and
+// `code` (a cross-repo authored explanation = a Review). bridge.ts depends on the
 // GuideStore interface (the in-memory impl here is what its unit tests use);
 // channel.ts wires the bun:sqlite-backed one (guideStore.sqlite.ts), which can't
 // be imported under vitest/node — so all the LOGIC (record building, content
@@ -89,8 +89,14 @@ export function specToRecord(spec: WalkthroughSpec): GuideRecord {
   };
 }
 
-/** Project a record + its stored version/timestamp to the wire summary. */
-export function toEntrySummary(record: GuideRecord, version: number, updatedAt: number): EntrySummary {
+/** Project a record + its stored version/timestamp to the wire summary. The
+ * payload is never read here — only the summary fields — so callers reconstructing
+ * a row for display needn't carry it. */
+export function toEntrySummary(
+  record: Omit<GuideRecord, "payload">,
+  version: number,
+  updatedAt: number,
+): EntrySummary {
   return {
     kind: record.kind,
     id: record.id,

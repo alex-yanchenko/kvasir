@@ -27,18 +27,18 @@
  */
 
 import { randomBytes } from "node:crypto";
-import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync } from "node:fs";
+import { mkdirSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { isReview, isWalkthroughSpec, prKey, type WalkthroughSpec } from "@prw/runes";
+import { isWalkthroughSpec, prKey, type WalkthroughSpec } from "@prw/runes";
 import { z } from "zod";
 
 import { createFetchHandler } from "./bridge";
 import { createAskBroker } from "./broker";
 import { getManifest, getHeadSha, type PrManifest } from "./diff";
-import { reviewToRecord, specToRecord } from "./guideStore";
+import { specToRecord } from "./guideStore";
 import { createSqliteGuideStore } from "./guideStore.sqlite";
 import { COVERAGE_MIN_ADDS, significantFiles } from "./manifest";
 import { createPairing } from "./pairing";
@@ -77,27 +77,6 @@ for (const entry of guides.list()) {
   if (entry.kind !== "pr") continue;
   const stored = guides.get(entry.id);
   if (stored && isWalkthroughSpec(stored.payload)) specs.set(entry.id, stored.payload);
-}
-
-// One-time import of the Phase-1 file store (~/.kvasir/reviews/*.json) into the db.
-// Best-effort: corrupt files are skipped; the dir is renamed so it runs only once.
-const legacyReviewsDirectory = path.join(KVASIR_DIR, "reviews");
-const importedMarkerDirectory = path.join(KVASIR_DIR, "reviews.imported");
-if (existsSync(legacyReviewsDirectory) && !existsSync(importedMarkerDirectory)) {
-  try {
-    for (const name of readdirSync(legacyReviewsDirectory)) {
-      if (!name.endsWith(".json")) continue;
-      try {
-        const parsed: unknown = JSON.parse(readFileSync(path.join(legacyReviewsDirectory, name), "utf8"));
-        if (isReview(parsed) && parsed.id) guides.put(reviewToRecord(parsed));
-      } catch (error) {
-        console.error(`[pr-walkthrough] skipped legacy review ${name}:`, error);
-      }
-    }
-    renameSync(legacyReviewsDirectory, importedMarkerDirectory);
-  } catch (error) {
-    console.error("[pr-walkthrough] legacy review migration skipped:", error);
-  }
 }
 
 /** Last manifest per PR (from start_walkthrough) — lets publish_walkthrough check
