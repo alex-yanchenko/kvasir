@@ -39,6 +39,7 @@ export default defineConfig({
         // mirrors the node-tested createMemoryGuideStore and is verified by
         // guideStore.sqlite.buntest.ts under `bun test`.
         "packages/mimir/src/guideStore.sqlite.ts",
+        "packages/mimir/src/sessionStore.sqlite.ts",
         "packages/mimir/src/**/*.buntest.ts",
       ],
       thresholds: {
@@ -103,6 +104,12 @@ export default defineConfig({
           lines: 100,
         },
         "packages/mimir/src/reviewBuild.ts": {
+          statements: 100,
+          branches: 100,
+          functions: 100,
+          lines: 100,
+        },
+        "packages/mimir/src/sessionStore.ts": {
           statements: 100,
           branches: 100,
           functions: 100,
