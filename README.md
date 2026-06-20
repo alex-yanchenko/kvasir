@@ -10,6 +10,35 @@ plain file/`blob` pages, across one or many repos.
 This started as a live demo (Claude driving a browser via the automation
 extension) and was rebuilt into something stable, cheap, and credential-free.
 
+## Quick start
+
+Prerequisites: **bun**, **gh**, and **pnpm** on your PATH. Then, from the repo
+root:
+
+```bash
+./install.sh
+```
+
+That installs the `/kvasir` skill, builds the extension, **registers the channel
+in `.mcp.json`**, and puts a **`kvasir`** command on your PATH. (Add
+`--allow-push` to also skip the per-push permission prompt.)
+
+Three one-time steps:
+
+1. **Load the extension** — `chrome://extensions` → enable **Developer mode** →
+   **Load unpacked** → select `packages/extension/`.
+2. **Start the channel** — run **`kvasir`** (one instance serves every Claude
+   session; the bridge listens on `http://localhost:8799`).
+3. **Pair** — open any GitHub PR, click the **Kvasir** launcher → **Settings →
+   Pair**, and approve the code in your Claude session.
+
+Then make a walkthrough:
+
+- **From a PR:** in your Claude session, ask _"Build a walkthrough for `<PR url>`,"_ then open the PR's **Files** tab and click the **Kvasir** launcher.
+- **From any chat:** run **`/kvasir`** and open the link it prints.
+
+On any walkthrough, **select code → Ask** to ask questions in place.
+
 ## Why "Kvasir"
 
 In Norse myth, **Kvasir** was the wisest of beings — he wandered the world
@@ -117,24 +146,6 @@ consumes them. Either side can change independently.
   from your running Claude session through the channel. No GitHub PAT, no API key.
 - **Robust highlighting.** The extension highlights by GitHub's stable per-line
   anchors (with a text-match fallback), instead of scraping the live DOM.
-
-## Quick start
-
-`./install.sh` installs the `/kvasir` skill globally, builds the extension, and
-puts a **`kvasir`** command on your PATH. Then:
-
-1. **Channel** — register it in your project `.mcp.json` under the key `kvasir`,
-   pointing at `packages/mimir/src/channel.ts` (see `packages/mimir/README.md`),
-   then run it:
-   `kvasir` — which launches `claude --dangerously-load-development-channels server:kvasir`.
-   The HTTP bridge comes up on `http://localhost:8799`.
-2. **Extension** — load `packages/extension/` unpacked in `chrome://extensions`
-   (Developer mode → Load unpacked). `pnpm --filter @kvasir/extension dev` rebuilds
-   on save.
-3. **PR tour:** in your Claude session, _"Build a walkthrough for `<PR url>`,"_
-   then open the PR's **Files** tab and click the **Kvasir** launcher.
-   **Push from any chat:** run **`/kvasir`** and open the link it prints.
-4. On any walkthrough, select code and click **Ask about this** to ask questions.
 
 ## Develop
 
