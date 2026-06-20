@@ -170,8 +170,7 @@ coverage-ignore comments), **Midgard at ≥90%** (fixture-driven jsdom tests).
 
 ## Status
 
-The React migration ("the Nine Realms", MIGRATION.md) is complete: the panel UI
-is a React app in a shadow root, the page controller is imperative Midgard, and
-everything between them crosses the typed Bifrost. Content bundle: ~250 KB raw /
-~76 KB gzipped (React included). Known gap: jump-to-line can miss on some diff
-rows — the side-aware fix needs ground-truth GitHub markup (MIGRATION.md, A2).
+The React migration ("the Nine Realms") is complete: the panel UI is a React app
+in a shadow root, the page controller is imperative Midgard, and everything
+between them crosses the typed Bifrost. Known gap: jump-to-line can miss on some
+diff rows — the side-aware fix needs ground-truth GitHub markup.

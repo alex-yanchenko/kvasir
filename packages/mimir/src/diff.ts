@@ -1,8 +1,7 @@
 /**
  * The `gh` subprocess shell for PR data. All GitHub access goes through the `gh`
  * CLI, so this reuses whatever auth the user already has — no PAT, no token in
- * config. That mirrors how the example-watcher / example-watcher
- * channels work.
+ * config.
  *
  * This file is the IO boundary only: spawn `gh`, parse its JSON, hand the raw
  * pieces to buildManifest (manifest.ts) for the pure assembly. The anchor trick

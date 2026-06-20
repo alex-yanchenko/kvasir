@@ -1,8 +1,8 @@
 # Kvasir channel + bridge (`mimir`)
 
 A Claude Code **channel** (stdio MCP server with the experimental
-`claude/channel` capability) plus a small **localhost HTTP bridge**. Modeled on
-the `example-watcher` / `example-watcher` channels.
+`claude/channel` capability) plus a small **localhost HTTP bridge**. Built on the
+Claude Code channel pattern (a stdio server that pushes events into your session).
 
 ## What it does
 
@@ -26,7 +26,7 @@ events; you answer and call `answer_question` to send the reply back.
 
 ## Requirements
 
-- [Bun](https://bun.sh) (the channel is a Bun script, like the ones)
+- [Bun](https://bun.sh) (the channel is a Bun script)
 - [`gh`](https://cli.github.com/) authenticated to your GitHub account — this is
   the only "auth", and it's the login you already have. No token in config.
 - Claude Code v2.1.80+ with channels enabled for your org.
