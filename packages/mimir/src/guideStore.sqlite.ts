@@ -6,7 +6,7 @@
 // bump, idempotent re-push, soft-delete, newest-first order) mirrors the
 // node-tested createMemoryGuideStore in guideStore.ts and is verified by the
 // bun-run guideStore.sqlite.buntest.ts.
-import { EntryKindSchema, type EntrySummary } from "@prw/runes";
+import { type EntryKind, EntryKindSchema, type EntrySummary } from "@prw/runes";
 import { Database } from "bun:sqlite";
 import { contentHash, type GuideRecord, type GuideStore, toEntrySummary } from "./guideStore";
 
@@ -23,6 +23,7 @@ interface EntryRow {
   version: number;
   content_hash: string;
   generated_at: string | null;
+  author: string | null;
   created_at: number;
   updated_at: number;
   deleted_at: number | null;
@@ -41,6 +42,7 @@ const CREATE_TABLE = `
     version      INTEGER NOT NULL,
     content_hash TEXT    NOT NULL,
     generated_at TEXT,
+    author       TEXT,
     created_at   INTEGER NOT NULL,
     updated_at   INTEGER NOT NULL,
     deleted_at   INTEGER
@@ -54,10 +56,20 @@ const CREATE_INDEX =
 const asStringArray = (value: unknown): string[] =>
   Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
 
+/** Recover the PR number from a pr entry's id (prKey = "owner/repo#number"), so
+ * even rows stored before the author column show "#123" without a re-publish. */
+const prNumberFromId = (kind: EntryKind, id: string): number | undefined => {
+  if (kind !== "pr") return undefined;
+  const parsed = Number(id.slice(id.lastIndexOf("#") + 1));
+  return Number.isFinite(parsed) ? parsed : undefined;
+};
+
 const rowToSummary = (row: EntryRow): EntrySummary => {
   const repos: unknown = JSON.parse(row.repos);
+  const kind = EntryKindSchema.parse(row.kind);
+  const prNumber = prNumberFromId(kind, row.id);
   const record: GuideRecord = {
-    kind: EntryKindSchema.parse(row.kind),
+    kind,
     id: row.id,
     title: row.title,
     steps: row.steps,
@@ -66,6 +78,8 @@ const rowToSummary = (row: EntryRow): EntrySummary => {
     payload: undefined,
     ...(row.source === null ? {} : { source: row.source }),
     ...(row.generated_at === null ? {} : { generatedAt: row.generated_at }),
+    ...(prNumber === undefined ? {} : { prNumber }),
+    ...(row.author === null ? {} : { author: row.author }),
   };
   return toEntrySummary(record, row.version, row.updated_at);
 };
@@ -77,6 +91,10 @@ export function createSqliteGuideStore(dbPath: string, now: () => number = () =>
   db.run("PRAGMA journal_mode = WAL;"); // concurrent reads while a push writes
   db.run(CREATE_TABLE);
   db.run(CREATE_INDEX);
+  const columns = db.query<{ name: string }, []>("PRAGMA table_info(entries)").all();
+  if (!columns.some((column) => column.name === "author")) {
+    db.run("ALTER TABLE entries ADD COLUMN author TEXT");
+  }
 
   const selectById = db.query<EntryRow, [string]>("SELECT * FROM entries WHERE id = ?");
   const selectLiveById = db.query<EntryRow, [string]>(
@@ -87,12 +105,12 @@ export function createSqliteGuideStore(dbPath: string, now: () => number = () =>
   );
   const upsert = db.query(
     `INSERT INTO entries
-       (id, kind, title, source, steps, url, repos, payload, version, content_hash, generated_at, created_at, updated_at, deleted_at)
-     VALUES ($id, $kind, $title, $source, $steps, $url, $repos, $payload, $version, $hash, $generatedAt, $createdAt, $updatedAt, NULL)
+       (id, kind, title, source, steps, url, repos, payload, version, content_hash, generated_at, author, created_at, updated_at, deleted_at)
+     VALUES ($id, $kind, $title, $source, $steps, $url, $repos, $payload, $version, $hash, $generatedAt, $author, $createdAt, $updatedAt, NULL)
      ON CONFLICT(id) DO UPDATE SET
        kind = $kind, title = $title, source = $source, steps = $steps, url = $url, repos = $repos,
        payload = $payload, version = $version, content_hash = $hash, generated_at = $generatedAt,
-       updated_at = $updatedAt, deleted_at = NULL`,
+       author = $author, updated_at = $updatedAt, deleted_at = NULL`,
   );
   const softDeleteById = db.query("UPDATE entries SET deleted_at = $t WHERE id = $id AND deleted_at IS NULL");
 
@@ -118,6 +136,7 @@ export function createSqliteGuideStore(dbPath: string, now: () => number = () =>
       $version: version,
       $hash: hash,
       $generatedAt: record.generatedAt ?? null,
+      $author: record.author ?? null,
       $createdAt: createdAt,
       $updatedAt: updatedAt,
     });
