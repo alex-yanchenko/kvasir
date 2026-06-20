@@ -26,7 +26,20 @@ export function boot(): void {
   // The content script matches PR pages AND any page that might carry a pushed
   // review (?kvasir). Bail on everything else so we don't mount on plain GitHub pages.
   const reviewId = reviewIdFromUrl();
-  if (!prUrl() && !reviewId) return;
+  if (!prUrl() && !reviewId) {
+    // A matched-but-not-yet-relevant page (e.g. a /blob/ page with no ?kvasir).
+    // Don't mount, but poll for an SPA navigation INTO a PR/review — a soft nav
+    // doesn't re-run the content script, so without this a blob→PR transition would
+    // never raise the panel until a hard refresh. boot()'s #kvasir-root guard makes
+    // the re-entry idempotent, and boot() starts watchUrl() to take over from there.
+    const poll = setInterval(() => {
+      if (prUrl() || reviewIdFromUrl()) {
+        clearInterval(poll);
+        boot();
+      }
+    }, 500);
+    return;
+  }
 
   // Midgard listens on the Bifrost before anything sends a command; Asgard's
   // chat machine listens for the grip's completed asks.
