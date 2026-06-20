@@ -61,12 +61,22 @@ BIN_DIR="$HOME/.local/bin"
 mkdir -p "$BIN_DIR"
 cat > "$BIN_DIR/kvasir" <<WRAP
 #!/usr/bin/env bash
-# Kvasir CLI. \`kvasir\` (or \`kvasir run\`) launches Claude with the channel;
-# \`kvasir build <draft.json>\` builds + pushes a walkthrough.
+# Kvasir CLI. \`kvasir\` (or \`kvasir run\`) launches Claude with the channel,
+# freeing the single-owner :8799 bridge first; \`kvasir build <draft.json>\`
+# builds + pushes a walkthrough.
 REPO="$REPO_DIR"
+free_bridge() {
+  command -v lsof >/dev/null 2>&1 || return 0
+  local pids; pids=\$(lsof -nP -iTCP:8799 -sTCP:LISTEN -t 2>/dev/null || true)
+  [ -n "\$pids" ] || return 0
+  echo "kvasir: closing the existing :8799 bridge (pids: \$(echo \$pids | tr '\n' ' '))" >&2
+  kill \$pids 2>/dev/null || true
+  local i=0
+  while lsof -nP -iTCP:8799 -sTCP:LISTEN >/dev/null 2>&1 && [ "\$i" -lt 25 ]; do sleep 0.2; i=\$((i+1)); done
+}
 case "\${1:-run}" in
   build) shift; exec bun run "\$REPO/packages/mimir/scripts/buildReview.ts" "\$@" ;;
-  run|"") cd "\$REPO" && exec claude --dangerously-load-development-channels server:kvasir ;;
+  run|"") free_bridge; cd "\$REPO" && exec claude --dangerously-load-development-channels server:kvasir ;;
   *) printf 'usage: kvasir [run] | kvasir build <draft.json>\n' >&2; exit 1 ;;
 esac
 WRAP
