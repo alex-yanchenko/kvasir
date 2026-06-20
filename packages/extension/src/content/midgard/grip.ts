@@ -198,4 +198,16 @@ export function connectGrip(bifrost: Bifrost): void {
       grip.style.display = "none";
     }
   });
+
+  // The grip is positioned from a row's viewport rect; on scroll the row moves but
+  // the fixed grip doesn't, so it drifts off its line. Hide it on scroll (capture, so
+  // the inner /changes diff scroller counts too) — the next mouseover re-shows it in
+  // place. Skipped mid-drag, where the grip is already hidden.
+  globalThis.addEventListener(
+    "scroll",
+    () => {
+      if (grip && !picking) grip.style.display = "none";
+    },
+    { passive: true, capture: true },
+  );
 }
