@@ -22,7 +22,11 @@
  *
  * Config (env):
  *   KVASIR_PORT   HTTP port (default 8799)
- *   KVASIR_ORIGIN allowed CORS origin (default reflects github.com + localhost)
+ *   KVASIR_ORIGIN optional extra CORS allow-origin (default: none — nothing is
+ *                 reflected). The extension's worker isn't CORS-bound, so this is
+ *                 normally unset. NEVER set it to a multi-tenant origin such as
+ *                 https://github.com: that would let any script on that origin reach
+ *                 the token-less routes (/history, /review, DELETE /entries).
  *   ASK_TIMEOUT_MS        how long /ask and /suggest wait for you (default 120000)
  */
 
@@ -40,7 +44,7 @@ import { createAskBroker } from "./broker";
 import { getManifest, getHeadSha, type PrManifest } from "./diff";
 import { specToRecord } from "./guideStore";
 import { createSqliteGuideStore } from "./guideStore.sqlite";
-import { COVERAGE_MIN_ADDS, significantFiles } from "./manifest";
+import { COVERAGE_MIN_ADDS, renderManifest, significantFiles } from "./manifest";
 import { createPairing } from "./pairing";
 import { preparePublish } from "./publish";
 import { slugify } from "./reviewBuild";
@@ -192,11 +196,14 @@ server.registerTool(
       mustCover.length > 0
         ? `COVER each of these files with at least one step (≥${COVERAGE_MIN_ADDS} added lines; tests/generated already excluded) so the first publish passes the coverage check:\n${coverList}\n\n`
         : "";
+    // Collapse whitespace in the (PR-author-controlled) title so it can't inject
+    // newlines into this header; the untrusted prose is fenced by renderManifest.
+    const title = manifest.title.replaceAll(/\s+/g, " ");
     return text(
-      `Manifest for ${manifest.owner}/${manifest.repo}#${manifest.number} — "${manifest.title}" @ ${manifest.headSha}\n\n` +
+      `Manifest for ${manifest.owner}/${manifest.repo}#${manifest.number} — "${title}" @ ${manifest.headSha}\n\n` +
         `Author a walkthrough spec from this, then call publish_walkthrough.\n\n` +
         coverage +
-        JSON.stringify(manifest, null, 2),
+        renderManifest(manifest),
     );
   },
 );

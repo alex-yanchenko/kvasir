@@ -111,6 +111,14 @@ describe("historyStore.open", () => {
     expect(storeSet).toHaveBeenCalledWith(SEEN_KEY, { a: 3 });
     expect(assign).toHaveBeenCalledWith("https://github.com/acme/web/blob/main/a.ts?kvasir=a");
   });
+
+  it("refuses an off-github url, navigating nowhere and leaving it un-seen", () => {
+    const assign = vi.fn();
+    Object.defineProperty(globalThis, "location", { value: { assign }, writable: true });
+    historyStore.open(sum({ id: "x", version: 2, url: "https://evil.example/acme/web/blob/main/a.ts" }));
+    expect(assign).not.toHaveBeenCalled();
+    expect(state.seen).toEqual({});
+  });
 });
 
 describe("historyStore.remove", () => {
