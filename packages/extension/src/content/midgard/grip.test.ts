@@ -28,9 +28,9 @@ function buildContainer(): Element {
   return document.getElementById("diff-abc123")!;
 }
 
-const grip = () => document.querySelector<HTMLElement>(".prw-grip");
-const askbar = () => document.querySelector<HTMLElement>(".prw-askbar");
-const picked = (c: Element) => rowsOf(c).filter((r) => r.classList.contains("prw-pick"));
+const grip = () => document.querySelector<HTMLElement>(".kvasir-grip");
+const askbar = () => document.querySelector<HTMLElement>(".kvasir-askbar");
+const picked = (c: Element) => rowsOf(c).filter((r) => r.classList.contains("kvasir-pick"));
 
 function hoverRow(row: Element): void {
   row.querySelector("td")!.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
@@ -71,7 +71,7 @@ describe("drag select", () => {
     expect(picked(container)).toEqual(rowsOf(container));
   });
 
-  it("selects the row span, paints prw-pick, and reports selection:completed as data", () => {
+  it("selects the row span, paints kvasir-pick, and reports selection:completed as data", () => {
     const completed = vi.fn();
     const off = bifrost.on("selection:completed", completed);
     dragFrom(rowsOf(container)[1]);

@@ -4,7 +4,7 @@
  * landing URL the user follows to open it. The bridge handlers do only the side
  * effects (assign id, stamp, store in the mailbox).
  */
-import { type Review, ReviewSchema, stepBlobUrl } from "@prw/runes";
+import { type Review, ReviewSchema, stepBlobUrl } from "@kvasir/runes";
 
 export type ReviewInputResult = { ok: true; review: Review } | { ok: false; error: string };
 
@@ -26,7 +26,7 @@ export function parseReviewInput(raw: unknown): ReviewInputResult {
 }
 
 /** The GitHub page the user follows to open a pushed review — step 1's code,
- * carrying `?prw=<id>`. The URL format lives in @prw/runes (shared with the
+ * carrying `?kvasir=<id>`. The URL format lives in @kvasir/runes (shared with the
  * extension's per-step navigation). */
 export function reviewLandingUrl(review: Review): string {
   return stepBlobUrl(review.steps[0]!, review.id); // ReviewSchema .min(1) guarantees a first step

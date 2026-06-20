@@ -23,7 +23,7 @@ describe("pairingStore", () => {
   it("markUnpaired drops the stored token and flips to unpaired, idempotently", () => {
     pairingStore.markUnpaired();
     expect(pairingStore.state()).toEqual({ phase: "unpaired" });
-    expect(vi.mocked(storeRemove)).toHaveBeenCalledWith("prw:token");
+    expect(vi.mocked(storeRemove)).toHaveBeenCalledWith("kvasir:token");
     vi.mocked(storeRemove).mockClear();
     pairingStore.markUnpaired(); // already unpaired — no second clear
     expect(vi.mocked(storeRemove)).not.toHaveBeenCalled();
@@ -53,7 +53,7 @@ describe("pairingStore", () => {
     vi.mocked(api).mockResolvedValue({ ok: false, status: 401 });
     await pairingStore.refresh();
     expect(vi.mocked(api)).toHaveBeenCalledWith("/auth");
-    expect(vi.mocked(storeRemove)).toHaveBeenCalledWith("prw:token");
+    expect(vi.mocked(storeRemove)).toHaveBeenCalledWith("kvasir:token");
     expect(pairingStore.state()).toEqual({ phase: "unpaired" });
   });
 
@@ -67,7 +67,7 @@ describe("pairingStore", () => {
     vi.mocked(storeGet).mockResolvedValue("stale");
     vi.mocked(api).mockResolvedValue({ ok: false, status: 401 });
     await pairingStore.recheck();
-    expect(vi.mocked(storeRemove)).toHaveBeenCalledWith("prw:token");
+    expect(vi.mocked(storeRemove)).toHaveBeenCalledWith("kvasir:token");
     expect(pairingStore.state()).toEqual({ phase: "unpaired" });
 
     vi.mocked(storeGet).mockResolvedValue(undefined);
@@ -151,7 +151,7 @@ describe("pairingStore", () => {
     await vi.advanceTimersByTimeAsync(CLAIM_POLL_MS * 2);
     await pending;
     expect(pairingStore.state()).toEqual({ phase: "paired" });
-    expect(vi.mocked(storeSet)).toHaveBeenCalledWith("prw:token", "t0k");
+    expect(vi.mocked(storeSet)).toHaveBeenCalledWith("kvasir:token", "t0k");
     expect(vi.mocked(api)).toHaveBeenCalledWith("/pair/claim?id=rid-1");
   });
 

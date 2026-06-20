@@ -3,7 +3,7 @@
 // glue that uses these lives in scripts/setup.ts and scripts/kvasir.ts, so the
 // decision logic here stays unit-testable on Node.
 // isRecord/isUnknownArray are defined locally (not imported from ./guard, which
-// pulls in @prw/runes) so this module stays dependency-free — setup.ts runs it on
+// pulls in @kvasir/runes) so this module stays dependency-free — setup.ts runs it on
 // a fresh clone, before `pnpm install` has populated node_modules.
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);

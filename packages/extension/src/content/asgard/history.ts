@@ -5,8 +5,8 @@
 // carries a `version` the store bumps when its content changes; `seen` records the
 // version the FE last opened/synced, so an entry whose backend version moved past
 // `seen` is flagged for re-sync (and counted into the tab badge).
-import { type EntrySummary, isEntrySummaryList } from "@prw/runes/history";
-import { prKey } from "@prw/runes/prUrl";
+import { type EntrySummary, isEntrySummaryList } from "@kvasir/runes/history";
+import { prKey } from "@kvasir/runes/prUrl";
 import { api } from "../api";
 import { HISTORY_KEY, reviewKey, SEEN_KEY, specKey } from "../keys";
 import { storeGet, storeRemove, storeSet } from "../muninn";

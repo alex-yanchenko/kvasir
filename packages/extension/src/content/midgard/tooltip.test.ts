@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { initTooltips } from "./tooltip";
 
 // initTooltips binds document listeners once per import; the module keeps its
-// own tip element across tests, so assertions read the shared .prw-tip node.
+// own tip element across tests, so assertions read the shared .kvasir-tip node.
 let inited = false;
 let btn: HTMLButtonElement;
 beforeEach(() => {
@@ -13,7 +13,7 @@ beforeEach(() => {
     inited = true;
   }
   btn = document.createElement("button");
-  btn.setAttribute("data-prw-tip", "Hi there");
+  btn.setAttribute("data-kvasir-tip", "Hi there");
   document.body.append(btn);
 });
 afterEach(() => {
@@ -24,7 +24,7 @@ afterEach(() => {
 
 const hover = (el: Element) => el.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
 const unhover = (el: Element) => el.dispatchEvent(new MouseEvent("mouseout", { bubbles: true }));
-const tip = () => document.querySelector<HTMLElement>(".prw-tip");
+const tip = () => document.querySelector<HTMLElement>(".kvasir-tip");
 
 describe("initTooltips", () => {
   it("shows the tip after the delay, flipped below a top-edge anchor", () => {
@@ -88,7 +88,7 @@ describe("initTooltips", () => {
 
   it("an element that loses its attribute before the timer fires shows nothing", () => {
     hover(btn);
-    btn.removeAttribute("data-prw-tip");
+    btn.removeAttribute("data-kvasir-tip");
     vi.advanceTimersByTime(350);
     expect(tip()!.style.display).toBe("none");
   });

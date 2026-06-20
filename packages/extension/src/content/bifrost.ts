@@ -74,7 +74,7 @@ function makeBus<EventMap>() {
         try {
           fn(payload);
         } catch (error) {
-          console.error(`[prw bifrost] ${String(kind)} handler failed:`, error);
+          console.error(`[kvasir bifrost] ${String(kind)} handler failed:`, error);
         }
       }
     },

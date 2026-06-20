@@ -85,9 +85,9 @@ describe("Panel", () => {
     expect(screen.getByText("Fix the thing")).toBeTruthy();
   });
 
-  it("in review-mode (?prw) labels the tab Review and renders the review steps + title", () => {
+  it("in review-mode (?kvasir) labels the tab Review and renders the review steps + title", () => {
     Object.defineProperty(window, "location", {
-      value: new URL("https://github.com/acme/web/blob/main/src/a.ts?prw=rev-1"),
+      value: new URL("https://github.com/acme/web/blob/main/src/a.ts?kvasir=rev-1"),
       writable: true,
     });
     state.review = {
@@ -119,7 +119,7 @@ describe("Panel", () => {
 
   it("falls back to a default title when the review has no title", () => {
     Object.defineProperty(window, "location", {
-      value: new URL("https://github.com/acme/web/blob/main/src/a.ts?prw=rev-1"),
+      value: new URL("https://github.com/acme/web/blob/main/src/a.ts?kvasir=rev-1"),
       writable: true,
     });
     state.review = {
@@ -234,7 +234,7 @@ describe("Panel", () => {
       size: { w: 480, h: 500 },
     };
     render(<Panel />);
-    const win = document.querySelector<HTMLElement>(".prw-panel")!;
+    const win = document.querySelector<HTMLElement>(".kvasir-panel")!;
     expect(win.style.left).toBe("11px");
     expect(win.style.width).toBe("480px");
   });

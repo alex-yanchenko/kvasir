@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "pr-walkthrough-server",
+      "name": "kvasir-server",
       "dependencies": {
         "@modelcontextprotocol/sdk": "^1.0.0",
       },

@@ -47,7 +47,7 @@ describe("RegenDialog", () => {
     const { container } = render(<RegenDialog onClose={onClose} />);
     fireEvent.click(screen.getByText("Cancel"));
     expect(onClose).toHaveBeenCalledTimes(1);
-    fireEvent.click(container.querySelector(".prw-dialog-back")!);
+    fireEvent.click(container.querySelector(".kvasir-dialog-back")!);
     expect(onClose).toHaveBeenCalledTimes(2);
     expect(gen).not.toHaveBeenCalled();
   });
@@ -56,7 +56,7 @@ describe("RegenDialog", () => {
     vi.spyOn(launcherStore, "newCommits").mockReturnValue(false);
     const onClose = vi.fn();
     const { container } = render(<RegenDialog onClose={onClose} />);
-    fireEvent.click(container.querySelector(".prw-dialog")!);
+    fireEvent.click(container.querySelector(".kvasir-dialog")!);
     expect(onClose).not.toHaveBeenCalled();
   });
 

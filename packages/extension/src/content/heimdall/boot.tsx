@@ -22,9 +22,9 @@ import { applyTheme, loadPersisted, watchUrl } from "./watch";
 // Compiled Tailwind + legacy panel CSS (build.mjs produces this from tailwind.css).
 
 export function boot(): void {
-  if (document.querySelector("#prw-root")) return; // re-injection guard
+  if (document.querySelector("#kvasir-root")) return; // re-injection guard
   // The content script matches PR pages AND any page that might carry a pushed
-  // review (?prw). Bail on everything else so we don't mount on plain GitHub pages.
+  // review (?kvasir). Bail on everything else so we don't mount on plain GitHub pages.
   const reviewId = reviewIdFromUrl();
   if (!prUrl() && !reviewId) return;
 
@@ -55,7 +55,7 @@ export function boot(): void {
   if (reviewId) reviewStore.hydrate();
 
   const host = document.createElement("div");
-  host.id = "prw-root";
+  host.id = "kvasir-root";
   document.body.append(host);
   shieldHotkeys(host); // typing in Asgard must not trigger GitHub's hotkeys
   const shadow = host.attachShadow({ mode: "open" });

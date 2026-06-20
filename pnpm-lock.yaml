@@ -92,7 +92,7 @@ importers:
 
   packages/extension:
     dependencies:
-      '@prw/runes':
+      '@kvasir/runes':
         specifier: workspace:*
         version: link:../runes
       '@radix-ui/react-slot':
@@ -153,12 +153,12 @@ importers:
 
   packages/mimir:
     dependencies:
+      '@kvasir/runes':
+        specifier: workspace:*
+        version: link:../runes
       '@modelcontextprotocol/sdk':
         specifier: ^1.29.0
         version: 1.29.0(zod@4.4.3)
-      '@prw/runes':
-        specifier: workspace:*
-        version: link:../runes
       zod:
         specifier: ^4.4.3
         version: 4.4.3

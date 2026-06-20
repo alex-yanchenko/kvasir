@@ -24,16 +24,16 @@ beforeEach(() => {
   scrolls = vi.fn();
   Element.prototype.scrollIntoView = scrolls;
   document.body.innerHTML = "";
-  delete document.body.dataset.prwTheme;
-  delete document.body.dataset.prwHl;
+  delete document.body.dataset.kvasirTheme;
+  delete document.body.dataset.kvasirHl;
 });
 afterEach(() => {
   vi.useRealTimers();
   Reflect.deleteProperty(document, "elementFromPoint"); // a test may stub it; jsdom has none
 });
 
-const lined = (c: Element) => rowsOf(c).filter((r) => r.classList.contains("prw-line"));
-const picked = (c: Element) => rowsOf(c).filter((r) => r.classList.contains("prw-pick"));
+const lined = (c: Element) => rowsOf(c).filter((r) => r.classList.contains("kvasir-line"));
+const picked = (c: Element) => rowsOf(c).filter((r) => r.classList.contains("kvasir-pick"));
 
 describe("connectMidgard command handling", () => {
   it("highlight:step paints the step's rows without scrolling when they're already in view", () => {
@@ -175,8 +175,8 @@ describe("connectMidgard command handling", () => {
     const b = createBifrost();
     connectMidgard(b);
     b.send("theme:apply", { theme: "dark", hlStyle: "github" });
-    expect(document.body.dataset.prwTheme).toBe("dark");
-    expect(document.body.dataset.prwHl).toBe("github");
+    expect(document.body.dataset.kvasirTheme).toBe("dark");
+    expect(document.body.dataset.kvasirHl).toBe("github");
   });
 
   it("disconnect() detaches every handler", () => {
@@ -187,7 +187,7 @@ describe("connectMidgard command handling", () => {
     b.send("highlight:step", { anchor: "diff-abc123", lines: { start: 10, end: 12 }, highlight: null });
     b.send("theme:apply", { theme: "light", hlStyle: "tint" });
     expect(lined(c)).toEqual([]);
-    expect(document.body.dataset.prwTheme).toBeUndefined();
+    expect(document.body.dataset.kvasirTheme).toBeUndefined();
   });
   it("scrollRowsIntoView settle stops once the container is removed mid-poll", () => {
     vi.useFakeTimers();

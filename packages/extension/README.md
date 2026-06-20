@@ -42,7 +42,7 @@ If you change the server port, update `PORT` in both `src/huginn.ts` and the
 | `src/content/midgard/`          | the page controller: diff readers, highlights, grip/ask bar, jumps   |
 | `src/content/bifrost.ts`        | the typed bridge between Asgard and Midgard                          |
 | `src/content/heimdall/`         | boot glue + per-PR restore + the SPA URL watcher                     |
-| `src/midgard.css`               | light-DOM styles (grip, ask bar, row highlights — prefixed `prw-`)   |
+| `src/midgard.css`               | light-DOM styles (grip, ask bar, row highlights — prefixed `kvasir-`)   |
 | `src/content/asgard/asgard.css` | panel styles, injected into the shadow root                          |
 
 ## Known rough edges (v0.1)

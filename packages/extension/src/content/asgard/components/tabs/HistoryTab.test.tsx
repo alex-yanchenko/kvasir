@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import type { EntrySummary } from "@prw/runes/history";
+import type { EntrySummary } from "@kvasir/runes/history";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
@@ -30,7 +30,7 @@ const sum = (over: Partial<EntrySummary> = {}): EntrySummary => ({
   source: "chat",
   steps: 2,
   repos: ["acme/web"],
-  url: "https://github.com/acme/web/blob/main/a.ts?prw=a",
+  url: "https://github.com/acme/web/blob/main/a.ts?kvasir=a",
   version: 1,
   updatedAt: 1000,
   ...over,

@@ -1,7 +1,7 @@
 // The ONE file coupled to GitHub's "Files changed" diff markup. Everything that
 // reads selectors, line numbers, row geometry, or file anchors lives here, so a
 // GitHub markup change is a one-file fix. Pure readers: they take DOM nodes /
-// coords / ranges and return data — no overlay (.prw-*) writes, no app state.
+// coords / ranges and return data — no overlay (.kvasir-*) writes, no app state.
 
 export interface LineRange {
   start: number;

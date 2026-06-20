@@ -18,7 +18,7 @@ describe("renderMarkdown", () => {
 
   it("renders bold and inline code inside a paragraph", () => {
     expect(renderMarkdown("**bold** and `code`")).toBe(
-      `<p><strong>bold</strong> and <code class="prw-inline">code</code></p>`,
+      `<p><strong>bold</strong> and <code class="kvasir-inline">code</code></p>`,
     );
   });
 
@@ -28,12 +28,12 @@ describe("renderMarkdown", () => {
 
   it("renders a fenced code block with a language label", () => {
     expect(renderMarkdown("```ts\nconst x = 1;\n```")).toBe(
-      `<pre class="prw-code"><span class="prw-code-lang">ts</span><code>const x = 1;</code></pre>`,
+      `<pre class="kvasir-code"><span class="kvasir-code-lang">ts</span><code>const x = 1;</code></pre>`,
     );
   });
 
   it("renders a fenced code block without a language label", () => {
-    expect(renderMarkdown("```\nhi\n```")).toBe(`<pre class="prw-code"><code>hi</code></pre>`);
+    expect(renderMarkdown("```\nhi\n```")).toBe(`<pre class="kvasir-code"><code>hi</code></pre>`);
   });
 
   it("renders an http(s) link as an anchor opening in a new tab", () => {
@@ -48,7 +48,7 @@ describe("renderMarkdown", () => {
 
   it("does not apply inline/bold rendering inside a code block", () => {
     expect(renderMarkdown("```\n**x** and `y`\n```")).toBe(
-      `<pre class="prw-code"><code>**x** and \`y\`</code></pre>`,
+      `<pre class="kvasir-code"><code>**x** and \`y\`</code></pre>`,
     );
   });
 });

@@ -1,5 +1,5 @@
 // The Midgard controller: every WRITE to GitHub's page lives here — painting the
-// walkthrough (prw-line) and selection (prw-pick) highlights onto GitHub's rows,
+// walkthrough (kvasir-line) and selection (kvasir-pick) highlights onto GitHub's rows,
 // and scrolling/jumping the diff. The ./diff readers stay pure; Asgard (the panel
 // UI) must never touch the page directly. When the Bifrost lands, these become
 // the handlers behind its commands.
@@ -31,7 +31,7 @@ interface RehighlightableSession {
 }
 
 export const clearHL = (): void => {
-  for (const r of document.querySelectorAll("tr.prw-line")) r.classList.remove("prw-line");
+  for (const r of document.querySelectorAll("tr.kvasir-line")) r.classList.remove("kvasir-line");
 };
 
 // Unrendered (lazy) lines resolve to null and are skipped; dedupe as we go.
@@ -60,17 +60,17 @@ export function highlightStep(step: HighlightableStep): Element[] {
   if (!cont) return [];
   let rows = step.lines ? rowsByLines(cont, step.lines) : [];
   if (rows.length === 0 && Array.isArray(step.highlight)) rows = rowsByText(cont, step.highlight);
-  for (const r of rows) r.classList.add("prw-line");
+  for (const r of rows) r.classList.add("kvasir-line");
   return rows;
 }
 
 export const clearPick = (): void => {
-  for (const r of document.querySelectorAll("tr.prw-pick")) r.classList.remove("prw-pick");
+  for (const r of document.querySelectorAll("tr.kvasir-pick")) r.classList.remove("kvasir-pick");
 };
 
 export function highlightRows(rows: Element[]): void {
   clearPick();
-  for (const r of rows) r.classList.add("prw-pick");
+  for (const r of rows) r.classList.add("kvasir-pick");
 }
 
 // Re-paint a stored selection by matching its code text against the live rows —

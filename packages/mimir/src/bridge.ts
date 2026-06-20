@@ -2,7 +2,7 @@
 // (request: Request) => Response over injected dependencies, so the whole surface
 // (auth gate, validation, prompt building, response codes) is unit-testable on
 // Node; channel.ts supplies the live deps and hands the handler to Bun.serve.
-import { prKey, PR_URL_RE, type Review, type WalkthroughSpec } from "@prw/runes";
+import { prKey, PR_URL_RE, type Review, type WalkthroughSpec } from "@kvasir/runes";
 import type { QuestionSnapshot } from "./broker";
 import { authorizedLocalCaller, corsHeaders, isRecord, readJsonBody, truncate, prOrNull } from "./guard";
 import { type GuideStore, reviewToRecord } from "./guideStore";
@@ -76,7 +76,7 @@ function handlePairClaim({ request, url, deps }: Context): Response {
 // Push a cross-repo review into the mailbox. Token-less by design: any local
 // session (not just the bridge owner) pushes here with the guard header, so a
 // review authored in any of your Claude sessions reaches the extension. Returns
-// the id + the GitHub landing URL (carrying ?prw=<id>) to open it.
+// the id + the GitHub landing URL (carrying ?kvasir=<id>) to open it.
 async function handlePush({ request, deps }: Context): Promise<Response> {
   const body = await readJsonBody(request);
   if (!body) return json(request, { error: "bad request body" }, 400);
@@ -128,7 +128,7 @@ async function handleHead({ request, url, deps }: Context): Promise<Response> {
   try {
     return json(request, { headSha: await deps.getHeadSha(pr) });
   } catch (error) {
-    console.error("[pr-walkthrough] /head failed:", error); // detail to stderr only
+    console.error("[kvasir] /head failed:", error); // detail to stderr only
     return json(request, { error: "could not fetch head sha" }, 502);
   }
 }
@@ -310,7 +310,7 @@ export function createFetchHandler(deps: BridgeDeps): (request: Request) => Prom
     if (url.pathname === "/health") return json(request, { ok: true, specs: deps.specs.size });
 
     // Token-less routes (before the pairing gate): /pair only starts pairing; the
-    // review mailbox pushes/pulls by id (the extension reads ?prw=<id> off the
+    // review mailbox pushes/pulls by id (the extension reads ?kvasir=<id> off the
     // GitHub landing URL).
     const publicRoute = PUBLIC_ROUTES[`${request.method} ${url.pathname}`];
     if (publicRoute) return publicRoute(context);
@@ -319,7 +319,7 @@ export function createFetchHandler(deps: BridgeDeps): (request: Request) => Prom
     // unpaired extension (or any other local process) gets 401 and must pair
     // through the session first. The token is in-memory server-side, so a session
     // restart invalidates it.
-    if (!deps.pairing.verify(request.headers.get("x-prw-token") ?? "")) {
+    if (!deps.pairing.verify(request.headers.get("x-kvasir-token") ?? "")) {
       return json(request, { error: "not paired" }, 401);
     }
 

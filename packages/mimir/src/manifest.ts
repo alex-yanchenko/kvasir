@@ -4,7 +4,7 @@
  * separate from diff.ts (the `gh` shell) so this branchy logic (comment merging,
  * capping, coverage detection) is fully unit-tested and mutation-covered.
  */
-import { anchorFor } from "@prw/runes";
+import { anchorFor } from "@kvasir/runes";
 
 interface ChangedFile {
   path: string;

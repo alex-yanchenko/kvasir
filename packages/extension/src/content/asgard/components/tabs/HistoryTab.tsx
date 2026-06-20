@@ -3,7 +3,7 @@
 // durable store (GET /history) with a search filter; a row opens that artifact,
 // the trash soft-deletes it, and a ↻ appears when the backend content has moved
 // past what was last shown (click to acknowledge; "Sync all" clears them at once).
-import type { EntrySummary } from "@prw/runes/history";
+import type { EntrySummary } from "@kvasir/runes/history";
 import { Loader2, RefreshCw, Trash2 } from "lucide-react";
 import { useEffect, useSyncExternalStore } from "react";
 import type { JSX } from "react";

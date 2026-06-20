@@ -3,7 +3,7 @@
  *
  * Self-themed inside the shadow: shadcn design tokens live on :host (light) with
  * a .dark override, toggled on the host element by the theme store — so Asgard
- * no longer depends on GitHub's light-DOM --prw-* inheritance. During the
+ * no longer depends on GitHub's light-DOM --kvasir-* inheritance. During the
  * island-by-island redesign the legacy asgard.css is @imported below for
  * coexistence; each block is deleted as its island migrates. */
 

@@ -6,7 +6,7 @@
 // bump, idempotent re-push, soft-delete, newest-first order) mirrors the
 // node-tested createMemoryGuideStore in guideStore.ts and is verified by the
 // bun-run guideStore.sqlite.buntest.ts.
-import { type EntryKind, EntryKindSchema, type EntrySummary } from "@prw/runes";
+import { type EntryKind, EntryKindSchema, type EntrySummary } from "@kvasir/runes";
 import { Database } from "bun:sqlite";
 import { contentHash, type GuideRecord, type GuideStore, toEntrySummary } from "./guideStore";
 

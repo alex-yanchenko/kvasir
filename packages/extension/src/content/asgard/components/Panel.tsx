@@ -107,7 +107,7 @@ function PanelWindow(): JSX.Element {
 
   const pos = panelStore.pos();
   const size = panelStore.size();
-  // Review-mode (a pushed cross-repo review opened via ?prw) swaps the walkthrough
+  // Review-mode (a pushed cross-repo review opened via ?kvasir) swaps the walkthrough
   // tab for the review tab; everything else (chat, settings) is unchanged.
   const isReview = activeGuide().kind === "review";
   const staleHistory = historyStore.staleCount();
@@ -118,7 +118,7 @@ function PanelWindow(): JSX.Element {
       ref={panelRef}
       role="dialog"
       aria-label="Kvasir"
-      className="prw-panel fixed bottom-5 right-5 z-[2147483002] flex max-h-[85vh] min-h-[320px] w-[420px] min-w-[340px] max-w-[92vw] resize flex-col overflow-hidden rounded-lg border border-border bg-background text-foreground"
+      className="kvasir-panel fixed bottom-5 right-5 z-[2147483002] flex max-h-[85vh] min-h-[320px] w-[420px] min-w-[340px] max-w-[92vw] resize flex-col overflow-hidden rounded-lg border border-border bg-background text-foreground"
       style={{
         boxShadow: "var(--elevation)",
         ...(pos ? { left: pos.left, top: pos.top, right: "auto", bottom: "auto" } : null),

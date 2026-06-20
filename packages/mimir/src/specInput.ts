@@ -10,7 +10,7 @@
  * This lives apart from channel.ts (the untestable MCP/Bun.serve wiring) so the
  * coerce-and-validate logic — the exact thing that silently broke — is unit-tested.
  */
-import { WalkthroughSpecSchema, type WalkthroughSpec } from "@prw/runes";
+import { WalkthroughSpecSchema, type WalkthroughSpec } from "@kvasir/runes";
 
 export type SpecInputResult = { ok: true; spec: WalkthroughSpec } | { ok: false; error: string };
 

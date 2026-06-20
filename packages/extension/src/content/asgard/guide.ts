@@ -19,7 +19,7 @@ export interface Guide {
   askAboutStep(): void;
 }
 
-/** The guide backing the current page — review when the URL carries a `?prw=<id>`
+/** The guide backing the current page — review when the URL carries a `?kvasir=<id>`
  * (a pushed review), otherwise the PR walkthrough. */
 export function activeGuide(): Guide {
   return reviewIdFromUrl() ? reviewStore : tourStore;

@@ -1,5 +1,5 @@
 {
-  "name": "pr-walkthrough",
+  "name": "kvasir",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -7,8 +7,8 @@
   "license": "SEE LICENSE IN LICENSE",
   "packageManager": "pnpm@11.5.1",
   "scripts": {
-    "mimir": "pnpm --filter @prw/mimir start",
-    "build": "pnpm --filter @prw/extension build",
+    "mimir": "pnpm --filter @kvasir/mimir start",
+    "build": "pnpm --filter @kvasir/extension build",
     "typecheck": "pnpm -r typecheck",
     "lint": "eslint .",
     "knip": "knip",

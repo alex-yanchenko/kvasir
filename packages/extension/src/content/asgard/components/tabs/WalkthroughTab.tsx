@@ -81,7 +81,7 @@ function Steps(): JSX.Element {
         tourStore.goto(tourStore.stepIndex() - 1);
       }
     };
-    const root = document.querySelector("#prw-root")?.shadowRoot ?? document;
+    const root = document.querySelector("#kvasir-root")?.shadowRoot ?? document;
     document.addEventListener("keydown", keys);
     if (root !== document) root.addEventListener("keydown", keys);
     return () => {
@@ -107,7 +107,7 @@ function Steps(): JSX.Element {
             size="icon"
             className="h-7 w-7"
             aria-label="Ask about this step"
-            data-prw-tip="Ask about this step"
+            data-kvasir-tip="Ask about this step"
             disabled={pairingStore.needsPairing()}
             onClick={() => {
               tourStore.askAboutStep();
@@ -121,7 +121,7 @@ function Steps(): JSX.Element {
             size="icon"
             className="h-7 w-7"
             aria-label="Scroll to this step's code"
-            data-prw-tip="Scroll to this step's code"
+            data-kvasir-tip="Scroll to this step's code"
             onClick={() => tourStore.goto(index)}
           >
             <Crosshair />
@@ -131,7 +131,7 @@ function Steps(): JSX.Element {
             size="icon"
             className={"h-7 w-7" + (newCommits ? " text-primary" : "")}
             aria-label={newCommits ? "Update" : "Regenerate"}
-            data-prw-tip={newCommits ? "Update — new commits since this review" : "Regenerate review"}
+            data-kvasir-tip={newCommits ? "Update — new commits since this review" : "Regenerate review"}
             disabled={pairingStore.needsPairing()}
             onClick={() => setDialog(true)}
           >
@@ -143,7 +143,7 @@ function Steps(): JSX.Element {
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
         <h3 className="mb-2 text-base font-semibold">{step.title}</h3>
         <div
-          className="prw-prose text-sm"
+          className="kvasir-prose text-sm"
           data-testid="step-body"
           dangerouslySetInnerHTML={{ __html: sanitizeSpecHtml(step.body) }}
         />
@@ -159,7 +159,7 @@ function Steps(): JSX.Element {
             </Button>
             {showDetail && (
               <div
-                className="prw-prose mt-2 border-t border-border pt-2 text-sm"
+                className="kvasir-prose mt-2 border-t border-border pt-2 text-sm"
                 data-testid="step-detail"
                 dangerouslySetInnerHTML={{ __html: sanitizeSpecHtml(step.detail) }}
               />
@@ -170,7 +170,7 @@ function Steps(): JSX.Element {
 
       {/* wizard footer: Back (quiet) · progress dots · Next (accent) */}
       <div className="flex items-center gap-2 border-t border-border px-3 py-2">
-        <span data-prw-tip={atFirst ? "First step" : undefined}>
+        <span data-kvasir-tip={atFirst ? "First step" : undefined}>
           <Button
             variant="ghost"
             size="sm"
@@ -186,7 +186,7 @@ function Steps(): JSX.Element {
             <button
               key={dotIndex}
               aria-label={`Go to step ${dotIndex + 1}`}
-              data-prw-tip={`Step ${dotIndex + 1}`}
+              data-kvasir-tip={`Step ${dotIndex + 1}`}
               onClick={() => tourStore.goto(dotIndex)}
               className={
                 "h-1.5 cursor-pointer rounded-full transition-all " +
@@ -195,7 +195,7 @@ function Steps(): JSX.Element {
             />
           ))}
         </div>
-        <span data-prw-tip={atLast ? "Last step" : undefined}>
+        <span data-kvasir-tip={atLast ? "Last step" : undefined}>
           <Button
             variant="default"
             size="sm"

@@ -9,7 +9,7 @@
  * and all field mapping live there; keeping them apart lets the transforms be
  * fully unit-tested while this thin shell stays subprocess-bound.
  */
-import { parsePrUrl } from "@prw/runes";
+import { parsePrUrl } from "@kvasir/runes";
 import {
   buildManifest,
   type GhFile,

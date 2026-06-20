@@ -1,5 +1,5 @@
 {
-  "name": "@prw/mimir",
+  "name": "@kvasir/mimir",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
-    "@prw/runes": "workspace:*",
+    "@kvasir/runes": "workspace:*",
     "zod": "^4.4.3"
   },
   "devDependencies": {

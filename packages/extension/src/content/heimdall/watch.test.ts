@@ -39,7 +39,7 @@ describe("loadPersisted", () => {
   it("restores stored chats and tour geometry for the current PR", async () => {
     const chats = [{ key: "a", file: "f.ts", lines: null, text: "t", suggestions: [], messages: [] }];
     vi.mocked(storeGet).mockImplementation(async (key: string) => {
-      if (key === `prw:chats:${PR}`) return chats;
+      if (key === `kvasir:chats:${PR}`) return chats;
       return { step: 2, pos: { left: 1, top: 2 }, size: { w: 3, h: 4 } };
     });
     await loadPersisted();
@@ -51,7 +51,7 @@ describe("loadPersisted", () => {
     const live = [{ key: "live", file: null, lines: null, text: "", suggestions: [], messages: [] }];
     state.chatHistory = live;
     vi.mocked(storeGet).mockImplementation(async (key: string) =>
-      key.startsWith("prw:chats:") ? [{ key: "stored" }] : {},
+      key.startsWith("kvasir:chats:") ? [{ key: "stored" }] : {},
     );
     await loadPersisted();
     expect(state.chatHistory).toEqual(live);
@@ -59,7 +59,7 @@ describe("loadPersisted", () => {
   });
 
   it("does not touch panel state off a PR page (panel is per-tab, hydrated at boot)", async () => {
-    setUrl("https://github.com/acme/widget-api/blob/main/src/a.ts?prw=rev-1"); // no PR url
+    setUrl("https://github.com/acme/widget-api/blob/main/src/a.ts?kvasir=rev-1"); // no PR url
     state.panel = { open: true, tab: "history", pos: { left: 5, top: 6 }, size: { w: 7, h: 8 } };
     vi.mocked(storeGet).mockResolvedValue(null);
     await loadPersisted();
@@ -119,7 +119,7 @@ describe("watchUrl", () => {
     expect(state.tourState).toEqual({ step: 0, pos: null, size: null });
     expect(state.panel).toEqual({ open: true, tab: "chat", pos: { left: 1, top: 1 }, size: { w: 2, h: 2 } }); // untouched: panel is per-tab, a PR switch (same tab) keeps its window
     expect(state.spec).toBeNull();
-    expect(vi.mocked(storeGet)).toHaveBeenCalledWith(`prw:chats:${OTHER}`);
+    expect(vi.mocked(storeGet)).toHaveBeenCalledWith(`kvasir:chats:${OTHER}`);
   });
 
   it("stops itself when the extension is reloaded out from under the page", () => {

@@ -15,7 +15,7 @@ the `example-watcher` / `example-watcher` channels.
   - `GET /health`
   - `GET /walkthrough?pr=<url>` → the stored spec, or `{ status: "absent" }`
   - `POST /ask` `{pr,stepId,file,selection,question}` → an answer from your session
-  - `POST /push` `{review}` → store a pushed cross-repo review, returns its `?prw=` link
+  - `POST /push` `{review}` → store a pushed cross-repo review, returns its `?kvasir=` link
   - `GET /review?id=<id>` → a stored review · `GET /history` → `{ entries: [...] }` summaries for the history list
   - `DELETE /entry?id=<id>` → soft-delete a stored walkthrough (drops it from `/history` and stops serving it)
   - `POST /suggest` `{pr,file,selection}` → 3–4 suggested questions
@@ -63,7 +63,7 @@ The `.mcp.json` entry:
   "mcpServers": {
     "kvasir": {
       "command": "bun",
-      "args": ["run", "<abs-path>/pr-walkthrough/packages/mimir/src/channel.ts"]
+      "args": ["run", "<abs-path>/kvasir/packages/mimir/src/channel.ts"]
     }
   }
 }
@@ -79,8 +79,8 @@ curl http://localhost:8799/health      # → {"ok":true,"specs":0}
 
 | Var                     | Default                       | Purpose                               |
 | ----------------------- | ----------------------------- | ------------------------------------- |
-| `PR_WALKTHROUGH_PORT`   | `8799`                        | HTTP bridge port                      |
-| `PR_WALKTHROUGH_ORIGIN` | reflects github.com/localhost | CORS allow-origin                     |
+| `KVASIR_PORT`   | `8799`                        | HTTP bridge port                      |
+| `KVASIR_ORIGIN` | reflects github.com/localhost | CORS allow-origin                     |
 | `ASK_TIMEOUT_MS`        | `120000`                      | how long `/ask` waits for your answer |
 
 ## Security
@@ -102,7 +102,7 @@ project's browser extension, on the same machine. Defenses:
   page cannot spoof. If `Origin` is a foreign web origin, the request is rejected
   server-side — independent of CORS. The extension's background worker sends a
   `chrome-extension://` origin (or none), which passes.
-- **Guard header.** Every request must carry the `x-pr-walkthrough` header. A web
+- **Guard header.** Every request must carry the `x-kvasir` header. A web
   page cannot set a custom header on a "simple" cross-origin request, and any
   request that does set it is forced through a CORS preflight this server does not
   grant. So a malicious site **cannot** make your browser drive this bridge (no
@@ -111,7 +111,7 @@ project's browser extension, on the same machine. Defenses:
   DNS-rebinding (a domain that resolves to `127.0.0.1`).
 - **No wildcard CORS.** No `Access-Control-Allow-Origin: *`, and github.com is not
   granted by default (the extension never needs it). Override with
-  `PR_WALKTHROUGH_ORIGIN` only if you know why.
+  `KVASIR_ORIGIN` only if you know why.
 
 Residual risks to be aware of:
 
@@ -129,7 +129,7 @@ Residual risks to be aware of:
 ## Test without Claude
 
 `sample/walkthrough.sample.json` is an example spec (a fictional `acme/widget-api`
-PR) showing the format. You can serve it manually (send the `x-pr-walkthrough`
+PR) showing the format. You can serve it manually (send the `x-kvasir`
 header), or point the extension at it while developing.
 
 ## TODO

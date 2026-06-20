@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import type { Review } from "@prw/runes/review";
+import type { Review } from "@kvasir/runes/review";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 

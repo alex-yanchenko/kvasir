@@ -6,12 +6,12 @@
  * The logic is split into a pure core (isAuthorizedCaller, over plain values) and
  * thin Request-reading wrappers, so the security rules are easy to unit-test.
  */
-import { PR_URL_RE } from "@prw/runes";
+import { PR_URL_RE } from "@kvasir/runes";
 
 /** Custom header the extension's background worker sends on every request. A page
  *  can't set a custom header on a "simple" cross-origin request, and any request
  *  that does set it is forced through a CORS preflight we don't grant. */
-export const GUARD_HEADER = "x-pr-walkthrough";
+export const GUARD_HEADER = "x-kvasir";
 
 /** A non-null, non-array object — narrows `unknown` JSON to an indexable record. */
 export const isRecord = (v: unknown): v is Record<string, unknown> =>
@@ -60,7 +60,7 @@ export function authorizedLocalCaller(request: Request): boolean {
       method: request.method,
       contentType: request.headers.get("content-type") ?? "",
     },
-    process.env.PR_WALKTHROUGH_ORIGIN,
+    process.env.KVASIR_ORIGIN,
   );
 }
 
@@ -74,7 +74,7 @@ export function corsHeaders(request: Request): Record<string, string> {
     "access-control-allow-headers": "content-type," + GUARD_HEADER,
     vary: "origin",
   };
-  if (origin && origin === process.env.PR_WALKTHROUGH_ORIGIN) headers["access-control-allow-origin"] = origin;
+  if (origin && origin === process.env.KVASIR_ORIGIN) headers["access-control-allow-origin"] = origin;
   return headers;
 }
 

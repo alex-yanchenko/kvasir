@@ -53,7 +53,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   cleanup();
-  document.getElementById("prw-root")?.remove();
+  document.getElementById("kvasir-root")?.remove();
   offs.forEach((off) => off());
   vi.unstubAllGlobals();
 });
@@ -90,7 +90,7 @@ describe("REF_RE + linkifyReferences + closeFences", () => {
       "see src/app.ts:4 and src/app.ts:4-6 then src/app.ts but <pre>x.ts:9</pre> and vendor/lib.ts";
     el.append(document.createTextNode("")); // empty node is skipped
     linkifyReferences(el);
-    const refs = [...el.querySelectorAll<HTMLAnchorElement>(".prw-ref")];
+    const refs = [...el.querySelectorAll<HTMLAnchorElement>(".kvasir-ref")];
     expect(refs.map((a) => a.textContent)).toEqual(["src/app.ts:4", "src/app.ts:4-6", "src/app.ts"]);
     refs[0].click();
     refs[1].click();
@@ -146,11 +146,11 @@ describe("ChatTab shell", () => {
     });
     const rail = screen.getByRole("button", { name: "New chat" }).closest("[style]") as HTMLElement;
     expect(rail.style.width).toBe("210px"); // jsdom row left = 0 → width = clientX
-    expect(localStorage.getItem("prw:chatRailW")).toBe("210");
+    expect(localStorage.getItem("kvasir:chatRailW")).toBe("210");
   });
 
   it("restores a persisted rail width on mount", () => {
-    localStorage.setItem("prw:chatRailW", "200");
+    localStorage.setItem("kvasir:chatRailW", "200");
     render(<ChatTab />);
     const rail = screen.getByRole("button", { name: "New chat" }).closest("[style]") as HTMLElement;
     expect(rail.style.width).toBe("200px");
@@ -164,7 +164,7 @@ describe("ChatTab shell", () => {
       fireEvent.mouseMove(document, { clientX: 9999 });
       fireEvent.mouseUp(document);
     });
-    expect(localStorage.getItem("prw:chatRailW")).toBe("280"); // RAIL_MAX
+    expect(localStorage.getItem("kvasir:chatRailW")).toBe("280"); // RAIL_MAX
   });
 
   it("resizes the rail with arrow keys and persists; ignores other keys", () => {
@@ -172,11 +172,11 @@ describe("ChatTab shell", () => {
     const sep = screen.getByRole("separator", { name: "Resize chat list" });
     act(() => fireEvent.keyDown(sep, { key: "ArrowRight" }));
     expect(sep.getAttribute("aria-valuenow")).toBe("168"); // 152 default + 16
-    expect(localStorage.getItem("prw:chatRailW")).toBe("168");
+    expect(localStorage.getItem("kvasir:chatRailW")).toBe("168");
     act(() => fireEvent.keyDown(sep, { key: "ArrowLeft" }));
-    expect(localStorage.getItem("prw:chatRailW")).toBe("152");
+    expect(localStorage.getItem("kvasir:chatRailW")).toBe("152");
     act(() => fireEvent.keyDown(sep, { key: "a" }));
-    expect(localStorage.getItem("prw:chatRailW")).toBe("152");
+    expect(localStorage.getItem("kvasir:chatRailW")).toBe("152");
   });
 
   it("disables the composer/chips and fires no backend call while unpaired", () => {
@@ -185,10 +185,10 @@ describe("ChatTab shell", () => {
     const suggest = vi.spyOn(chatStore, "ensureSuggestions");
     render(<ChatTab />);
     openSession(mkSession("a", { suggestions: null, messages: [{ role: "user", content: "pending?" }] }));
-    expect(document.querySelector<HTMLTextAreaElement>(".prw-chat-input")!.disabled).toBe(true);
+    expect(document.querySelector<HTMLTextAreaElement>(".kvasir-chat-input")!.disabled).toBe(true);
     expect((screen.getByRole("button", { name: "Ask" }) as HTMLButtonElement).disabled).toBe(true);
     expect((screen.getByText("Explain") as HTMLButtonElement).disabled).toBe(true);
-    expect(document.querySelector(".prw-skel")).toBeNull(); // no endless shimmer
+    expect(document.querySelector(".kvasir-skel")).toBeNull(); // no endless shimmer
     expect(suggest).not.toHaveBeenCalled(); // no prefetch
     expect(ask).not.toHaveBeenCalled(); // trailing user turn NOT auto-resent
   });
@@ -231,7 +231,7 @@ describe("ChatTab shell", () => {
   it("shows the step banner and closes it on an outside click", () => {
     render(<ChatTab />);
     openSession(mkSession("a", { step: "Step: X\nbody" }));
-    const banner = document.querySelector<HTMLDetailsElement>(".prw-ctxbanner")!;
+    const banner = document.querySelector<HTMLDetailsElement>(".kvasir-ctxbanner")!;
     banner.open = true;
     fireEvent.mouseDown(document.body);
     expect(banner.open).toBe(false);
@@ -252,7 +252,7 @@ describe("asking", () => {
     openSession(mkSession("a"));
     act(() => fireEvent.click(screen.getByText("Explain")));
     expect((screen.getByRole("button", { name: "Ask" }) as HTMLButtonElement).disabled).toBe(true);
-    expect(document.querySelector<HTMLTextAreaElement>(".prw-chat-input")!.disabled).toBe(true);
+    expect(document.querySelector<HTMLTextAreaElement>(".kvasir-chat-input")!.disabled).toBe(true);
     expect((screen.getByText("Explain") as HTMLButtonElement).disabled).toBe(true);
   });
 
@@ -268,15 +268,15 @@ describe("asking", () => {
     await act(async () => {
       fireEvent.click(screen.getByText("Explain"));
     });
-    expect(document.querySelector(".prw-typing")).toBeTruthy();
+    expect(document.querySelector(".kvasir-typing")).toBeTruthy();
     await act(async () => {
       await vi.advanceTimersByTimeAsync(600);
     });
     await act(async () => {
       await vi.advanceTimersByTimeAsync(2000);
     });
-    expect(document.querySelector(".prw-md")).toBeTruthy();
-    expect(document.querySelector(".prw-ref")!.textContent).toBe("src/app.ts:4");
+    expect(document.querySelector(".kvasir-md")).toBeTruthy();
+    expect(document.querySelector(".kvasir-ref")!.textContent).toBe("src/app.ts:4");
     cont.remove();
     vi.useRealTimers();
   });
@@ -300,12 +300,12 @@ describe("asking", () => {
     await act(async () => {
       await vi.advanceTimersByTimeAsync(600);
     });
-    expect(document.querySelector(".prw-live-text .prw-md")).toBeTruthy();
-    expect(document.querySelector(".prw-typing")).toBeTruthy();
+    expect(document.querySelector(".kvasir-live-text .kvasir-md")).toBeTruthy();
+    expect(document.querySelector(".kvasir-typing")).toBeTruthy();
     await act(async () => {
       await vi.advanceTimersByTimeAsync(600);
     });
-    expect(document.querySelector(".prw-live-text")).toBeNull();
+    expect(document.querySelector(".kvasir-live-text")).toBeNull();
     expect(state.chatHistory[0].messages.at(-1)).toEqual({
       role: "assistant",
       content: "First. **Done.**",
@@ -479,11 +479,11 @@ describe("message actions", () => {
     const copy = screen.getByLabelText("Copy message");
     fireEvent.click(copy);
     expect(writeText).toHaveBeenCalledWith("the answer");
-    expect(copy.className).toContain("prw-ok");
+    expect(copy.className).toContain("kvasir-ok");
     await act(async () => {
       await vi.advanceTimersByTimeAsync(1200);
     });
-    expect(copy.className).not.toContain("prw-ok");
+    expect(copy.className).not.toContain("kvasir-ok");
     vi.useRealTimers();
   });
 
@@ -499,7 +499,7 @@ describe("message actions", () => {
         ],
       }),
     );
-    document.querySelector<HTMLButtonElement>(".prw-code-copy")!.click();
+    document.querySelector<HTMLButtonElement>(".kvasir-code-copy")!.click();
     expect(writeText).toHaveBeenCalledWith("const x = 1;");
   });
 });
@@ -522,13 +522,13 @@ describe("suggestions + input", () => {
     );
     render(<ChatTab />);
     openSession(mkSession("a", { suggestions: null }));
-    expect(document.querySelector(".prw-skel")).toBeTruthy();
+    expect(document.querySelector(".kvasir-skel")).toBeTruthy();
     await act(async () => {
       resolve({ ok: true, data: { suggestions: ["why is this safe?"] } });
     });
     expect(screen.getByText("why is this safe?")).toBeTruthy();
     fireEvent.click(screen.getByLabelText("Show full text")); // expand the clipped row
-    expect(document.querySelector(".prw-srow-open")).toBeTruthy();
+    expect(document.querySelector(".kvasir-srow-open")).toBeTruthy();
     fireEvent.click(screen.getByLabelText("Ask this question"));
     expect(vi.mocked(api)).toHaveBeenCalledWith(
       "/ask",
@@ -543,9 +543,9 @@ describe("suggestions + input", () => {
   it("a general chat shows no suggestion rows; an empty suggestions list renders the bare area", () => {
     render(<ChatTab />);
     openSession(mkSession("g", { general: true, file: null, lines: null, text: "", suggestions: [] }));
-    expect(document.querySelector(".prw-srow")).toBeNull();
+    expect(document.querySelector(".kvasir-srow")).toBeNull();
     openSession(mkSession("a", { suggestions: [] })); // selection chat, no suggestions
-    expect(document.querySelector(".prw-ai")?.className).not.toContain("prw-has");
+    expect(document.querySelector(".kvasir-ai")?.className).not.toContain("kvasir-has");
   });
 
   it("Enter sends, ⌘+Enter inserts a newline, Shift+Enter is native, empty is a no-op, input autosizes", async () => {
@@ -553,7 +553,7 @@ describe("suggestions + input", () => {
     mockStream(snap({ done: true, text: "a" }));
     render(<ChatTab />);
     openSession(mkSession("a"));
-    const input = document.querySelector<HTMLTextAreaElement>(".prw-chat-input")!;
+    const input = document.querySelector<HTMLTextAreaElement>(".kvasir-chat-input")!;
 
     fireEvent.click(screen.getByText("Ask")); // empty
     expect(state.chatHistory[0].messages).toEqual([]);

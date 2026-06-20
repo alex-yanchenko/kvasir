@@ -7,15 +7,15 @@
  * instead of 404-ing a blob link later. IO only; the pure logic is in
  * src/review-build.ts.
  *
- *   kvasir build <draft.json>   →  prints the ?prw= link on success
+ *   kvasir build <draft.json>   →  prints the ?kvasir= link on success
  */
 import { homedir } from "node:os";
 import path from "node:path";
-import { type Review } from "@prw/runes/review";
+import { type Review } from "@kvasir/runes/review";
 import { z } from "zod";
 import { DraftSchema, type RepoContext, resolveStep, ReviewBuildError } from "../src/reviewBuild";
 
-const PORT = Number(process.env.PR_WALKTHROUGH_PORT) || 8799;
+const PORT = Number(process.env.KVASIR_PORT) || 8799;
 
 const expandHome = (input: string): string =>
   input.startsWith("~/") ? path.resolve(homedir(), input.slice(2)) : path.resolve(input);
@@ -66,7 +66,7 @@ async function main(): Promise<void> {
   try {
     response = await fetch(`http://localhost:${PORT}/push`, {
       method: "POST",
-      headers: { "content-type": "application/json", "x-pr-walkthrough": "1" },
+      headers: { "content-type": "application/json", "x-kvasir": "1" },
       body: JSON.stringify(review),
     });
   } catch (error) {

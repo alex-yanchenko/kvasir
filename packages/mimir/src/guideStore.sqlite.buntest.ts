@@ -5,7 +5,7 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { type Review, type WalkthroughSpec } from "@prw/runes";
+import { type Review, type WalkthroughSpec } from "@kvasir/runes";
 import { Database } from "bun:sqlite";
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { reviewToRecord, specToRecord } from "./guideStore";

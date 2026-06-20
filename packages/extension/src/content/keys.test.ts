@@ -5,10 +5,10 @@ import { chatsKey, genKey, onFilesTab, prUrl, reviewIdFromUrl, reviewKey, specKe
 describe("storage keys", () => {
   it("embed the PR url per concern", () => {
     const pr = "https://github.com/acme/widget-api/pull/7";
-    expect(chatsKey(pr)).toBe(`prw:chats:${pr}`);
-    expect(specKey(pr)).toBe(`prw:spec:${pr}`);
-    expect(tourKey(pr)).toBe(`prw:tour:${pr}`);
-    expect(genKey(pr)).toBe(`prw:gen:${pr}`);
+    expect(chatsKey(pr)).toBe(`kvasir:chats:${pr}`);
+    expect(specKey(pr)).toBe(`kvasir:spec:${pr}`);
+    expect(tourKey(pr)).toBe(`kvasir:tour:${pr}`);
+    expect(genKey(pr)).toBe(`kvasir:gen:${pr}`);
   });
 });
 
@@ -32,25 +32,25 @@ describe("location readers", () => {
     expect(onFilesTab()).toBe(false);
   });
 
-  it("reviewIdFromUrl reads (and decodes) the ?prw id, else null", () => {
+  it("reviewIdFromUrl reads (and decodes) the ?kvasirid, else null", () => {
     const at = (href: string): void => {
       Object.defineProperty(window, "location", { value: new URL(href), writable: true });
     };
-    at("https://github.com/acme/web/blob/main/src/a.ts?prw=rev-1#L10-L20");
+    at("https://github.com/acme/web/blob/main/src/a.ts?kvasir=rev-1#L10-L20");
     expect(reviewIdFromUrl()).toBe("rev-1");
-    at("https://github.com/acme/web/blob/main/src/a.ts?foo=1&prw=a%20b");
+    at("https://github.com/acme/web/blob/main/src/a.ts?foo=1&kvasir=a%20b");
     expect(reviewIdFromUrl()).toBe("a b");
     at("https://github.com/acme/web/blob/main/src/a.ts");
     expect(reviewIdFromUrl()).toBeNull();
-    at("https://github.com/acme/web/blob/main/src/a.ts?prw=");
+    at("https://github.com/acme/web/blob/main/src/a.ts?kvasir=");
     expect(reviewIdFromUrl()).toBeNull();
-    at("https://github.com/acme/web/blob/main/src/a.ts?prw=%");
+    at("https://github.com/acme/web/blob/main/src/a.ts?kvasir=%");
     expect(reviewIdFromUrl()).toBeNull(); // malformed escape — decodeURIComponent throws, swallowed
   });
 });
 
 describe("reviewKey", () => {
   it("namespaces a review id", () => {
-    expect(reviewKey("rev-1")).toBe("prw:review:rev-1");
+    expect(reviewKey("rev-1")).toBe("kvasir:review:rev-1");
   });
 });

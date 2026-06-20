@@ -1,4 +1,4 @@
-import type { Review } from "@prw/runes/review";
+import type { Review } from "@kvasir/runes/review";
 import { describe, it, expect } from "vitest";
 import { parsePanelState, parseReviewCache } from "./persisted";
 

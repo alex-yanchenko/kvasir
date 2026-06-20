@@ -1,5 +1,5 @@
-import { prKey } from "@prw/runes";
-import type { Review, WalkthroughSpec } from "@prw/runes";
+import { prKey } from "@kvasir/runes";
+import type { Review, WalkthroughSpec } from "@kvasir/runes";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createFetchHandler, parseSuggestions } from "./bridge";
 import { GUARD_HEADER } from "./guard";
@@ -163,7 +163,7 @@ describe("pairing routes + the token gate", () => {
 
     deps.pairing.verify.mockReturnValue(true);
     const allowed = await call(`/walkthrough?pr=${encodeURIComponent(PR)}`, {
-      headers: { "x-prw-token": "t0k" },
+      headers: { "x-kvasir-token": "t0k" },
     });
     expect(allowed.status).toBe(200);
     expect(deps.pairing.verify).toHaveBeenLastCalledWith("t0k");
@@ -387,7 +387,7 @@ describe("/push + history mailbox (token-less)", () => {
     const r = await call("/push", { method: "POST", body: mkReview() });
     expect(await r.json()).toEqual({
       id: "rev-1",
-      url: "https://github.com/acme/web/blob/main/src/auth/guard.ts?prw=rev-1#L1-L2",
+      url: "https://github.com/acme/web/blob/main/src/auth/guard.ts?kvasir=rev-1#L1-L2",
     });
     expect(deps.mintReviewId).toHaveBeenCalledTimes(1);
     expect(deps.mintReviewId).toHaveBeenCalledWith("Auth flow");
@@ -404,7 +404,7 @@ describe("/push + history mailbox (token-less)", () => {
           title: "Auth flow",
           steps: 1,
           repos: ["acme/web"],
-          url: "https://github.com/acme/web/blob/main/src/auth/guard.ts?prw=rev-1#L1-L2",
+          url: "https://github.com/acme/web/blob/main/src/auth/guard.ts?kvasir=rev-1#L1-L2",
           version: 1,
           updatedAt: expect.any(Number),
         },
@@ -416,7 +416,7 @@ describe("/push + history mailbox (token-less)", () => {
     const r = await call("/push", { method: "POST", body: { ...mkReview(), id: "mine" } });
     expect(await r.json()).toEqual({
       id: "mine",
-      url: "https://github.com/acme/web/blob/main/src/auth/guard.ts?prw=mine#L1-L2",
+      url: "https://github.com/acme/web/blob/main/src/auth/guard.ts?kvasir=mine#L1-L2",
     });
     expect(deps.mintReviewId).not.toHaveBeenCalled();
   });

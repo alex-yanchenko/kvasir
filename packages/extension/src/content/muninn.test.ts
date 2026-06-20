@@ -10,12 +10,12 @@ describe("storeGet", () => {
     vi.stubGlobal("chrome", {
       storage: { local: { get: (k: string, cb: (o: Record<string, unknown>) => void) => cb({ [k]: 42 }) } },
     });
-    expect(await storeGet("prw:spec")).toBe(42);
+    expect(await storeGet("kvasir:spec")).toBe(42);
   });
 
   it("resolves undefined (does not hang) when chrome.storage.local is undefined", async () => {
     vi.stubGlobal("chrome", { storage: {} });
-    expect(await storeGet("prw:spec")).toBeUndefined();
+    expect(await storeGet("kvasir:spec")).toBeUndefined();
   });
 
   it("resolves undefined when storage access throws (API unavailable)", async () => {
@@ -28,7 +28,7 @@ describe("storeGet", () => {
         },
       },
     });
-    expect(await storeGet("prw:spec")).toBeUndefined();
+    expect(await storeGet("kvasir:spec")).toBeUndefined();
   });
 });
 
@@ -36,8 +36,8 @@ describe("storeSet", () => {
   it("writes the value under the key", () => {
     const set = vi.fn();
     vi.stubGlobal("chrome", { storage: { local: { set } } });
-    storeSet("prw:tour", { step: 2 });
-    expect(set).toHaveBeenCalledWith({ "prw:tour": { step: 2 } });
+    storeSet("kvasir:tour", { step: 2 });
+    expect(set).toHaveBeenCalledWith({ "kvasir:tour": { step: 2 } });
     expect(set).toHaveBeenCalledTimes(1);
   });
 });
@@ -46,8 +46,8 @@ describe("storeRemove", () => {
   it("removes the key", () => {
     const remove = vi.fn();
     vi.stubGlobal("chrome", { storage: { local: { remove } } });
-    storeRemove("prw:gen");
-    expect(remove).toHaveBeenCalledWith("prw:gen");
+    storeRemove("kvasir:gen");
+    expect(remove).toHaveBeenCalledWith("kvasir:gen");
     expect(remove).toHaveBeenCalledTimes(1);
   });
 });
@@ -63,14 +63,14 @@ describe("write failures are swallowed (storage unavailable)", () => {
         },
       },
     });
-    expect(() => storeSet("prw:tour", { step: 1 })).not.toThrow();
+    expect(() => storeSet("kvasir:tour", { step: 1 })).not.toThrow();
   });
 
   it("storeSet swallows an async rejection from set", async () => {
     vi.stubGlobal("chrome", {
       storage: { local: { set: () => Promise.reject(new Error("QuotaExceeded")) } },
     });
-    expect(() => storeSet("prw:tour", { step: 1 })).not.toThrow();
+    expect(() => storeSet("kvasir:tour", { step: 1 })).not.toThrow();
     await Promise.resolve();
   });
 
@@ -84,12 +84,12 @@ describe("write failures are swallowed (storage unavailable)", () => {
         },
       },
     });
-    expect(() => storeRemove("prw:gen")).not.toThrow();
+    expect(() => storeRemove("kvasir:gen")).not.toThrow();
   });
 
   it("storeRemove swallows an async rejection from remove", async () => {
     vi.stubGlobal("chrome", { storage: { local: { remove: () => Promise.reject(new Error("gone")) } } });
-    expect(() => storeRemove("prw:gen")).not.toThrow();
+    expect(() => storeRemove("kvasir:gen")).not.toThrow();
     await Promise.resolve();
   });
 });
@@ -115,10 +115,10 @@ describe("onStored", () => {
   it("calls the handler with the new value only for the watched key in local area", () => {
     const listeners = stubOnChanged();
     const handler = vi.fn();
-    onStored("prw:history", handler);
-    listeners[0]?.({ "prw:history": { newValue: [1, 2] } }, "local");
-    listeners[0]?.({ "prw:other": { newValue: 9 } }, "local"); // wrong key
-    listeners[0]?.({ "prw:history": { newValue: 3 } }, "sync"); // wrong area
+    onStored("kvasir:history", handler);
+    listeners[0]?.({ "kvasir:history": { newValue: [1, 2] } }, "local");
+    listeners[0]?.({ "kvasir:other": { newValue: 9 } }, "local"); // wrong key
+    listeners[0]?.({ "kvasir:history": { newValue: 3 } }, "sync"); // wrong area
     expect(handler).toHaveBeenCalledTimes(1);
     expect(handler).toHaveBeenCalledWith([1, 2]);
   });
@@ -126,14 +126,14 @@ describe("onStored", () => {
   it("unsubscribe removes the listener", () => {
     const listeners = stubOnChanged();
     const handler = vi.fn();
-    const off = onStored("prw:history", handler);
+    const off = onStored("kvasir:history", handler);
     off();
     expect(listeners).toHaveLength(0);
   });
 
   it("is a no-op (returns a safe unsubscribe) when chrome.storage is unavailable", () => {
     vi.stubGlobal("chrome", {});
-    const off = onStored("prw:history", vi.fn());
+    const off = onStored("kvasir:history", vi.fn());
     expect(() => off()).not.toThrow();
   });
 
@@ -147,7 +147,7 @@ describe("onStored", () => {
         },
       },
     });
-    const off = onStored("prw:history", vi.fn());
+    const off = onStored("kvasir:history", vi.fn());
     expect(() => off()).not.toThrow();
   });
 
@@ -162,7 +162,7 @@ describe("onStored", () => {
         },
       },
     });
-    const off = onStored("prw:history", vi.fn());
+    const off = onStored("kvasir:history", vi.fn());
     expect(() => off()).not.toThrow();
   });
 });

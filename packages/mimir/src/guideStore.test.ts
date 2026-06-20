@@ -1,4 +1,4 @@
-import { type Review, stepBlobUrl, type WalkthroughSpec } from "@prw/runes";
+import { type Review, stepBlobUrl, type WalkthroughSpec } from "@kvasir/runes";
 import { describe, expect, it } from "vitest";
 import {
   contentHash,

@@ -3,9 +3,9 @@
 // identically. The one thing it does differently is reveal a step: there's no PR
 // diff on the page, so it NAVIGATES the tab to the step's GitHub blob URL and lets
 // GitHub's native #L highlight land it (each step may be in a different repo).
-// State (which review, which step) is re-derived on every page load from ?prw +
+// State (which review, which step) is re-derived on every page load from ?kvasir +
 // stored step, because that navigation is a full page load that re-runs boot.
-import { isReview, type Review, type ReviewStep, stepBlobUrl } from "@prw/runes/review";
+import { isReview, type Review, type ReviewStep, stepBlobUrl } from "@kvasir/runes/review";
 import { api } from "../api";
 import { reviewIdFromUrl, reviewKey, reviewSessionKey } from "../keys";
 import { storeGet, storeSet } from "../muninn";
@@ -32,7 +32,7 @@ const applyReview = (review: Review): void => {
   state.review = review;
   state.reviewStep = clamp(state.reviewStep, review.steps.length);
   // A History jump leaves the hydrated tab on History (so the next pick is one click
-  // away); a direct ?prw open shows the review on the Walkthrough tab.
+  // away); a direct ?kvasir open shows the review on the Walkthrough tab.
   panelStore.open(state.panel.tab === PANEL_TABS.HISTORY ? PANEL_TABS.HISTORY : PANEL_TABS.WALKTHROUGH);
 };
 

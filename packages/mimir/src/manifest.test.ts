@@ -1,4 +1,4 @@
-import { anchorFor } from "@prw/runes";
+import { anchorFor } from "@kvasir/runes";
 import { describe, it, expect } from "vitest";
 import {
   buildDiscussion,

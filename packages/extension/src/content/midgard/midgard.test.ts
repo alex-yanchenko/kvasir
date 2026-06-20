@@ -37,11 +37,11 @@ beforeEach(() => {
   container = buildContainer();
 });
 
-const picked = () => rowsOf(container).filter((r) => r.classList.contains("prw-pick"));
-const lined = () => rowsOf(container).filter((r) => r.classList.contains("prw-line"));
+const picked = () => rowsOf(container).filter((r) => r.classList.contains("kvasir-pick"));
+const lined = () => rowsOf(container).filter((r) => r.classList.contains("kvasir-line"));
 
 describe("highlightStep", () => {
-  it("paints prw-line on the rows in the step's line range and returns them", () => {
+  it("paints kvasir-line on the rows in the step's line range and returns them", () => {
     const rows = highlightStep({ anchor: "diff-abc123", lines: { start: 10, end: 11 } });
     expect(lined()).toEqual(rowsOf(container).slice(0, 2));
     expect(rows).toEqual(rowsOf(container).slice(0, 2));
@@ -69,7 +69,7 @@ describe("highlightStep", () => {
 });
 
 describe("highlightRows / clearPick", () => {
-  it("paints prw-pick and replaces any previous pick", () => {
+  it("paints kvasir-pick and replaces any previous pick", () => {
     const rows = rowsOf(container);
     highlightRows([rows[0]]);
     highlightRows([rows[1], rows[2]]);
