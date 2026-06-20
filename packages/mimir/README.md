@@ -77,11 +77,11 @@ curl http://localhost:8799/health      # → {"ok":true,"specs":0}
 
 ## Config (env)
 
-| Var                     | Default                       | Purpose                               |
-| ----------------------- | ----------------------------- | ------------------------------------- |
-| `KVASIR_PORT`   | `8799`                        | HTTP bridge port                      |
-| `KVASIR_ORIGIN` | reflects github.com/localhost | CORS allow-origin                     |
-| `ASK_TIMEOUT_MS`        | `120000`                      | how long `/ask` waits for your answer |
+| Var              | Default                       | Purpose                               |
+| ---------------- | ----------------------------- | ------------------------------------- |
+| `KVASIR_PORT`    | `8799`                        | HTTP bridge port                      |
+| `KVASIR_ORIGIN`  | reflects github.com/localhost | CORS allow-origin                     |
+| `ASK_TIMEOUT_MS` | `120000`                      | how long `/ask` waits for your answer |
 
 ## Security
 

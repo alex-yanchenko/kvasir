@@ -3,6 +3,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import {
   cleanLine,
   codeForRows,
+  containerForFile,
   diffContainerOf,
   filePathFromContainer,
   lineOfRow,
@@ -15,6 +16,7 @@ import {
   rowsInRange,
   rowsOf,
   changedFilePaths,
+  stepCode,
 } from "./diff";
 import type { RowBand } from "./diff";
 
@@ -61,6 +63,36 @@ describe("diffContainerOf", () => {
   it("walks up from a descendant node to the diff- container", () => {
     const cell = container.querySelector("td.diff-text-cell")!;
     expect(diffContainerOf(cell)).toBe(container);
+  });
+
+  it("resolves a non-Element node via its parentElement", () => {
+    const textNode = container.querySelector("td.diff-text-cell")!.firstChild!;
+    expect(diffContainerOf(textNode)).toBe(container);
+  });
+
+  it("returns null for a null node", () => {
+    expect(diffContainerOf(null)).toBeNull();
+  });
+
+  it("returns null when no ancestor is a diff- container", () => {
+    const orphan = document.createElement("div");
+    document.body.append(orphan);
+    expect(diffContainerOf(orphan)).toBeNull();
+    orphan.remove();
+  });
+});
+
+describe("containerForFile", () => {
+  it("finds the diff container whose path matches", () => {
+    expect(containerForFile("src/app.ts")).toBe(container);
+  });
+
+  it("returns null for a falsy file", () => {
+    expect(containerForFile(null)).toBeNull();
+  });
+
+  it("returns null when no container matches the path", () => {
+    expect(containerForFile("src/missing.ts")).toBeNull();
   });
 });
 
@@ -157,6 +189,21 @@ describe("lineRangeOf", () => {
     expect(lineRangeOf(container, range)).toBeNull();
     expect(lineRangeOf(null, range)).toBeNull();
   });
+
+  it("skips a cell whose data-line-number parses to a falsy number", () => {
+    document.body.innerHTML = `
+      <div id="diff-zero">
+        <table>
+          <tbody>
+            <tr class="diff-line-row"><td class="diff-text-cell" data-line-number="0">+zero line\n</td></tr>
+          </tbody>
+        </table>
+      </div>`;
+    const zeroContainer = document.getElementById("diff-zero")!;
+    const range = document.createRange();
+    range.selectNodeContents(zeroContainer.querySelector("tbody")!);
+    expect(lineRangeOf(zeroContainer, range)).toBeNull();
+  });
 });
 
 describe("changedFilePaths", () => {
@@ -171,6 +218,23 @@ describe("changedFilePaths", () => {
     expect(changedFilePaths()).toEqual(["src/app.ts", "src/other.ts"]);
     extra.remove();
     unreadable.remove();
+  });
+});
+
+describe("stepCode", () => {
+  it("returns the step's code text and the first row's rect", () => {
+    expect(stepCode({ anchor: "diff-abc123", lines: { start: 10, end: 11 } })).toEqual({
+      text: "const a = 1;\nconst b = 2;",
+      rect: rowsOf(container)[0].getBoundingClientRect(),
+    });
+  });
+
+  it("returns null when the anchor container is missing", () => {
+    expect(stepCode({ anchor: "diff-nope", lines: { start: 10, end: 11 } })).toBeNull();
+  });
+
+  it("returns null when the step has no lines", () => {
+    expect(stepCode({ anchor: "diff-abc123", lines: null })).toBeNull();
   });
 });
 
@@ -194,6 +258,18 @@ describe("reader edge branches", () => {
   it("filePathFromContainer ignores an empty aria-labelledby heading", () => {
     document.getElementById("h1")!.textContent = "Collapse file";
     expect(filePathFromContainer(container)).toBe("src/app.ts"); // table aria-label fallback
+  });
+
+  it("filePathFromContainer treats a null heading textContent as empty, falling through", () => {
+    const heading = document.getElementById("h1")!;
+    Object.defineProperty(heading, "textContent", { configurable: true, get: () => null });
+    expect(filePathFromContainer(container)).toBe("src/app.ts"); // table aria-label fallback
+  });
+
+  it("cleanLine treats a null text-cell textContent as empty", () => {
+    const cell = container.querySelector<HTMLElement>("td.diff-text-cell")!;
+    Object.defineProperty(cell, "textContent", { configurable: true, get: () => null });
+    expect(cleanLine(rowsOf(container)[0])).toBe("");
   });
 
   it("rowForLine returns null for a line not in the diff", () => {

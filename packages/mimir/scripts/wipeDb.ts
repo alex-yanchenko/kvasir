@@ -36,9 +36,7 @@ function main(): void {
 
   guides.wipe();
   sessions.clear();
-  console.log(
-    `wiped ${entryCount} entries + ${sessionCount} sessions — restart the kvasir channel`,
-  );
+  console.log(`wiped ${entryCount} entries + ${sessionCount} sessions — restart the kvasir channel`);
 }
 
 try {

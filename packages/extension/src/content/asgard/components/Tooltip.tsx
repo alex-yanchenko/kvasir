@@ -27,7 +27,8 @@ export function Tooltips(): JSX.Element {
       setTip(null);
     };
     const over = (event: Event) => {
-      const t = event.target instanceof Element ? event.target.closest<HTMLElement>("[data-kvasir-tip]") : null;
+      const t =
+        event.target instanceof Element ? event.target.closest<HTMLElement>("[data-kvasir-tip]") : null;
       if (!t) return;
       if (timer.current !== null) clearTimeout(timer.current);
       timer.current = setTimeout(

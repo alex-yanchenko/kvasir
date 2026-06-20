@@ -162,6 +162,13 @@ export default [
       "sonarjs/slow-regex": "off",
       // TODO/REVIEW markers are an allowed convention here (see CLAUDE.md self-flag).
       "sonarjs/todo-tag": "off",
+      // SonarJS's own type/flow inference, less precise than TypeScript strict +
+      // typescript-eslint, which already own null-safety and type checking here.
+      // It false-flags TS-proven-safe code (e.g. a non-null string param read as
+      // "might be null") — defer to the compiler, as we do for slow-regex above.
+      "sonarjs/null-dereference": "off",
+      "sonarjs/function-return-type": "off",
+      "sonarjs/argument-type": "off",
     },
   },
 

@@ -5,12 +5,17 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 vi.mock("../../muninn", () => ({ storeGet: vi.fn(), storeSet: vi.fn(), storeRemove: vi.fn() }));
 
 import { pairingStore } from "../pairing";
+import * as store from "../store";
 import { PANEL_TABS, panelStore, state } from "../store";
 import { tourStore } from "../tour";
 import { Panel } from "./Panel";
 
 let observed: Element[];
+let roCallback: (() => void) | null;
 class ROStub {
+  constructor(cb: () => void) {
+    roCallback = cb;
+  }
   observe(el: Element): void {
     observed.push(el);
   }
@@ -19,6 +24,7 @@ class ROStub {
 
 beforeEach(() => {
   observed = [];
+  roCallback = null;
   vi.stubGlobal("ResizeObserver", ROStub);
   // Panel auto-loads history on open; with no extension runtime the bridge call is
   // a graceful no-op, but api.ts reads `chrome` — stub it so it isn't a ReferenceError.
@@ -54,6 +60,20 @@ describe("Panel", () => {
     expect(observed).toEqual([screen.getByRole("dialog", { name: "Kvasir" })]);
   });
 
+  it("persists the panel size when the resize observer fires (debounced)", () => {
+    vi.useFakeTimers();
+    const setSize = vi.spyOn(panelStore, "setSize");
+    render(<Panel />);
+    act(() => panelStore.open());
+    act(() => roCallback?.());
+    act(() => {
+      vi.advanceTimersByTime(300);
+    });
+    expect(setSize).toHaveBeenCalledWith({ w: 0, h: 0 }); // jsdom offsetWidth/Height = 0
+    expect(setSize).toHaveBeenCalledTimes(1);
+    vi.useRealTimers();
+  });
+
   it("opens with the three tabs and a default title, switching tab on click", () => {
     render(<Panel />);
     act(() => panelStore.open());
@@ -70,6 +90,16 @@ describe("Panel", () => {
     act(() => screen.getByRole("tab", { name: "Settings" }).focus());
     expect(panelStore.tab()).toBe("settings");
     expect(screen.getByText("Theme")).toBeTruthy(); // the real SettingsTab now renders here
+  });
+
+  it("ignores a tab change to an unrecognised value (the isPanelTab guard)", () => {
+    vi.spyOn(store, "isPanelTab").mockReturnValue(false);
+    const setTab = vi.spyOn(panelStore, "setTab");
+    render(<Panel />);
+    act(() => panelStore.open());
+    act(() => screen.getByRole("tab", { name: "Settings" }).focus()); // Radix emits "settings"
+    expect(setTab).not.toHaveBeenCalled(); // guard rejected it → no store write
+    expect(panelStore.tab()).toBe(PANEL_TABS.WALKTHROUGH);
   });
 
   it("uses the PR title from the spec when present", () => {

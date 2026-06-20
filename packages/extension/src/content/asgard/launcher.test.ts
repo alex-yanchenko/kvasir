@@ -135,6 +135,22 @@ describe("dismissGen", () => {
     await vi.advanceTimersByTimeAsync(GEN_POLL_INTERVAL_MS * 3);
     expect(vi.mocked(api).mock.calls.length).toBe(calls); // poll really stopped
   });
+
+  it("with no poll running is a safe no-op", () => {
+    launcherStore.dismissGen();
+    expect(launcherStore.generating()).toBe(false);
+    expect(vi.mocked(storeRemove)).toHaveBeenCalledWith(`kvasir:gen:${PR}`);
+  });
+
+  it("off a PR page skips removing the marker", () => {
+    Object.defineProperty(window, "location", {
+      value: new URL("https://github.com/acme"),
+      writable: true,
+    });
+    launcherStore.dismissGen();
+    expect(launcherStore.generating()).toBe(false);
+    expect(vi.mocked(storeRemove)).not.toHaveBeenCalled();
+  });
 });
 
 describe("refresh", () => {
@@ -283,7 +299,9 @@ describe("branch edges", () => {
   });
 
   it("an empty marker object counts as stale and is dropped", async () => {
-    vi.mocked(storeGet).mockImplementation(async (k: string) => (k.startsWith("kvasir:gen:") ? {} : undefined));
+    vi.mocked(storeGet).mockImplementation(async (k: string) =>
+      k.startsWith("kvasir:gen:") ? {} : undefined,
+    );
     await launcherStore.refresh();
     expect(launcherStore.generating()).toBe(false);
     expect(vi.mocked(storeRemove)).toHaveBeenCalledWith(`kvasir:gen:${PR}`);
@@ -295,6 +313,47 @@ describe("branch edges", () => {
     );
     await launcherStore.refresh();
     expect(launcherStore.generating()).toBe(true);
+  });
+
+  it("installs a spec that landed after the poll was already dismissed", async () => {
+    const fresh = mkSpec({ generatedAt: "2026-07-07T00:00:00Z" });
+    let resolveWalk: (r: { ok: boolean; data?: WalkthroughSpec }) => void = () => {};
+    vi.mocked(api).mockImplementation(async (path: string) => {
+      if (!path.startsWith("/walkthrough")) return { ok: true };
+      return new Promise((res) => {
+        resolveWalk = res;
+      });
+    });
+    await launcherStore.requestGenerate("new");
+    await vi.advanceTimersByTimeAsync(GEN_POLL_INTERVAL_MS); // tick fires, awaits /walkthrough
+    launcherStore.dismissGen(); // clears the interval handle mid-await
+    resolveWalk({ ok: true, data: fresh });
+    await vi.advanceTimersByTimeAsync(0); // callback resumes with a null poll handle
+    expect(state.spec).toEqual(fresh);
+  });
+
+  it("gives up on the cap even when the poll was already dismissed", async () => {
+    const unchanged = mkSpec();
+    state.spec = unchanged;
+    let resolveWalk: (r: { ok: boolean; data?: WalkthroughSpec }) => void = () => {};
+    let walkCalls = 0;
+    vi.mocked(api).mockImplementation(async (path: string) => {
+      if (!path.startsWith("/walkthrough")) return { ok: true };
+      walkCalls++;
+      // every tick up to the cap returns the unchanged spec; the over-cap tick hangs
+      if (walkCalls <= GEN_MAX_TRIES) return { ok: true, data: unchanged };
+      return new Promise((res) => {
+        resolveWalk = res;
+      });
+    });
+    await launcherStore.requestGenerate("new");
+    await vi.advanceTimersByTimeAsync(GEN_POLL_INTERVAL_MS * GEN_MAX_TRIES); // burn the cap
+    await vi.advanceTimersByTimeAsync(GEN_POLL_INTERVAL_MS); // over-cap tick, awaits /walkthrough
+    launcherStore.dismissGen(); // clears the interval handle mid-await
+    resolveWalk({ ok: true, data: unchanged });
+    await vi.advanceTimersByTimeAsync(0); // callback resumes over-cap with a null poll handle
+    expect(launcherStore.generating()).toBe(false);
+    expect(state.spec).toEqual(unchanged);
   });
 
   it("refresh during an active poll skips the resume probe", async () => {

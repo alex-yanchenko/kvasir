@@ -136,6 +136,94 @@ describe("pick:clear", () => {
   });
 });
 
+describe("mouseover guards", () => {
+  it("ignores a mouseover whose target is not an Element (target → null)", () => {
+    hoverRow(rowsOf(container)[0]);
+    expect(grip()!.style.display).toBe("flex");
+    // dispatching on document gives event.target === document (not an Element):
+    // the instanceof ternary yields null and the !target guard returns early,
+    // so the grip is left exactly where it was.
+    const top = grip()!.style.top;
+    document.dispatchEvent(new MouseEvent("mouseover", { bubbles: false }));
+    expect(grip()!.style.top).toBe(top);
+    expect(grip()!.style.display).toBe("flex");
+  });
+
+  it("leaves the grip shown when hovering a non-row element still inside the diff", () => {
+    hoverRow(rowsOf(container)[0]);
+    expect(grip()!.style.display).toBe("flex");
+    // The heading lives inside #diff-abc123 but is not a tr.diff-line-row, so the
+    // hide branch (grip && !target.closest('[id^="diff-"]')) is skipped — still in
+    // the diff, keep the grip.
+    container.querySelector("h1")!.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+    expect(grip()!.style.display).toBe("flex");
+  });
+});
+
+describe("payloadFor falls back to null", () => {
+  it("reports neither completed nor a usable selection when the file path is unresolvable", () => {
+    const completed = vi.fn();
+    const off = bifrost.on("selection:completed", completed);
+    // A diff container with no heading / aria-label / data-tagsearch-path: rows
+    // have text and a first row, but filePathFromContainer returns null, so
+    // payloadFor short-circuits to null — selection:completed is never reported.
+    document.getElementById("diff-nofile")?.remove();
+    const host = document.createElement("div");
+    host.innerHTML = `
+			<div id="diff-nofile">
+				<table>
+					<tbody>
+						<tr class="diff-line-row"><td class="diff-text-cell" data-line-number="3">+x\n</td></tr>
+					</tbody>
+				</table>
+			</div>`;
+    document.body.append(host.firstElementChild!);
+    const noFile = document.getElementById("diff-nofile")!;
+    dragFrom(rowsOf(noFile)[0]);
+    expect(completed).not.toHaveBeenCalled();
+    // the ask click also finds no payload, so it stays silent
+    const ask = vi.fn();
+    const offA = bifrost.on("selection:ask", ask);
+    askbar()!.querySelector("button")?.click();
+    expect(ask).not.toHaveBeenCalled();
+    off();
+    offA();
+  });
+
+  it("emits lines:null when the span's first row carries no line number", () => {
+    const completed = vi.fn();
+    const off = bifrost.on("selection:completed", completed);
+    // Row 0 has a text cell (so rowsOf keeps it) but no data-line-number; the lower
+    // rows are numbered so the grip can show on hover. The drag runs up to row 0, so
+    // the span's first row is numberless → lineOfRow(first) is null and the lines
+    // ternary takes the null arm.
+    document.getElementById("diff-noline")?.remove();
+    const host = document.createElement("div");
+    host.innerHTML = `
+			<div id="diff-noline" aria-labelledby="h2">
+				<h2 id="h2">Collapse filesrc/noline.ts</h2>
+				<table>
+					<tbody>
+						<tr class="diff-line-row"><td class="diff-text-cell">+noline\n</td></tr>
+						<tr class="diff-line-row"><td class="diff-text-cell" data-line-number="5">+const c = 3;\n</td></tr>
+					</tbody>
+				</table>
+			</div>`;
+    document.body.append(host.firstElementChild!);
+    const noLine = document.getElementById("diff-noline")!;
+    dragFrom(rowsOf(noLine)[1]);
+    expect(completed).toHaveBeenCalledTimes(1);
+    expect(completed).toHaveBeenCalledWith({
+      selectionId: "src/noline.ts::noline\nconst c = 3;",
+      file: "src/noline.ts",
+      text: "noline\nconst c = 3;",
+      lines: null,
+      rect: expect.objectContaining({ top: 0, left: 0 }),
+    });
+    off();
+  });
+});
+
 describe("grip ignores non-code rows", () => {
   it("does not move the grip for a row without a line number", () => {
     const table = container.querySelector("tbody")!;

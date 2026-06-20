@@ -9,7 +9,7 @@ import { bifrost } from "../bifrost";
 import { storeSet } from "../muninn";
 import { chatStore, connectChat, friendlyError, POLL_MS } from "./chat";
 import { pairingStore } from "./pairing";
-import { state } from "./store";
+import { state, subscribe } from "./store";
 import { tourStore } from "./tour";
 import type { ChatSession } from "./types";
 
@@ -138,6 +138,19 @@ describe("openSelection", () => {
     vi.spyOn(tourStore, "stepContext").mockReturnValue("Step: X\nbody");
     chatStore.openSelection(payload, true);
     expect(state.chatHistory[0].step).toBe("Step: X\nbody");
+  });
+
+  it("does not open a session that vanished during the step update", () => {
+    vi.spyOn(tourStore, "stepContext").mockReturnValue("Step: X\nbody");
+    // The withStep update's touch() lets a subscriber drop the session before the
+    // re-lookup runs — the open is then skipped instead of dereferencing null.
+    const off = subscribe(() => {
+      state.chatHistory = [];
+    });
+    chatStore.openSelection(payload, true);
+    off();
+    expect(chatStore.active()).toBeNull();
+    expect(sends).toEqual([]);
   });
 });
 

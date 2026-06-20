@@ -9,7 +9,25 @@ import {
   highlightStep,
   jumpToRef,
   rehighlightSession,
+  showStep,
 } from "./midgard";
+
+// A full DOMRect from the four bands the controller reads; the rest are zero. Used
+// to spy getBoundingClientRect so jsdom (which has no layout) can drive the
+// scroll/in-view geometry branches deterministically.
+function rect(top: number, bottom: number): DOMRect {
+  return {
+    left: 0,
+    right: 0,
+    width: 0,
+    top,
+    bottom,
+    height: bottom - top,
+    x: 0,
+    y: top,
+    toJSON: () => null,
+  };
+}
 
 // Same minimal GitHub-diff stand-in as diff.test.ts: an anchored container whose
 // path lives in the aria-labelledby heading, three code rows, one hunk row.
@@ -68,6 +86,24 @@ describe("highlightStep", () => {
   });
 });
 
+describe("highlightStep — extra branch arms", () => {
+  it("uses the substring path directly when the step carries no line range", () => {
+    const rows = highlightStep({ anchor: "diff-abc123", lines: null, highlight: ["context line"] });
+    expect(rows).toEqual([rowsOf(container)[2]]);
+    expect(lined()).toEqual([rowsOf(container)[2]]);
+  });
+
+  it("dedupes when two highlight strings resolve to the same row", () => {
+    const rows = highlightStep({
+      anchor: "diff-abc123",
+      lines: null,
+      highlight: ["context", "line"],
+    });
+    expect(rows).toEqual([rowsOf(container)[2]]);
+    expect(lined()).toEqual([rowsOf(container)[2]]);
+  });
+});
+
 describe("highlightRows / clearPick", () => {
   it("paints kvasir-pick and replaces any previous pick", () => {
     const rows = rowsOf(container);
@@ -94,6 +130,13 @@ describe("rehighlightSession", () => {
     };
     rehighlightSession(session);
     expect(picked()).toEqual(rowsOf(container).slice(1, 3));
+    expect(session.container).toBe(container);
+  });
+
+  it("reuses a still-connected cached container without re-resolving by path", () => {
+    const session = { container, file: "does/not/matter.ts", text: "const a = 1;" };
+    rehighlightSession(session);
+    expect(picked()).toEqual([rowsOf(container)[0]]);
     expect(session.container).toBe(container);
   });
 
@@ -238,6 +281,197 @@ describe("jumpToRef", () => {
   it("returns false when the cited file is not in the diff", () => {
     expect(jumpToRef("missing.ts", 1, null)).toBe(false);
     expect(jumpToRef("missing.ts", null, null)).toBe(false);
+  });
+});
+
+describe("scrollRowsIntoView geometry (via jumpToRef)", () => {
+  // Drive every row's rect to a fixed band so jsdom's layout-less rects don't all
+  // read as on-screen; mounting a separate sticky bar gives a non-zero overlay.
+  function mockRows(top: number, bottom: number): void {
+    for (const row of rowsOf(container)) {
+      vi.spyOn(row, "getBoundingClientRect").mockReturnValue(rect(top, bottom));
+    }
+  }
+
+  it("top-aligns under the sticky bar when a too-tall range is off-screen, then re-seats until settled", () => {
+    vi.useFakeTimers();
+    const scrollIntoView = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
+    const bar = document.createElement("div");
+    document.body.append(bar);
+    vi.spyOn(bar, "getBoundingClientRect").mockReturnValue(rect(0, 48));
+    document.elementFromPoint = vi.fn().mockReturnValue(bar);
+    mockRows(500, 2000); // taller than the usable viewport and parked below the bar
+
+    expect(jumpToRef("src/app.ts", 10, null)).toBe(true);
+    expect(picked()).toEqual([rowsOf(container)[0]]);
+    expect(scrollIntoView).toHaveBeenCalledWith({ behavior: "smooth", block: "start" });
+
+    vi.advanceTimersByTime(2000); // mocked rects never settle: 1 initial + 6 settle re-seats
+    expect(scrollIntoView).toHaveBeenCalledTimes(7);
+
+    bar.remove();
+    vi.useRealTimers();
+  });
+
+  it("centers a fits-the-viewport range that is scrolled out of view (no overlay)", () => {
+    vi.useFakeTimers();
+    const scrollIntoView = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
+    document.elementFromPoint = vi.fn().mockReturnValue(null); // no sticky bar → overlay 0
+    mockRows(900, 924); // short range pushed below the 768px viewport bottom
+
+    expect(jumpToRef("src/app.ts", 10, null)).toBe(true);
+    expect(scrollIntoView).toHaveBeenCalledWith({ behavior: "smooth", block: "center" });
+
+    vi.advanceTimersByTime(2000);
+    vi.useRealTimers();
+  });
+
+  it("falls back to documentElement.clientHeight then 0 when innerHeight is unset", () => {
+    vi.useFakeTimers();
+    Element.prototype.scrollIntoView = vi.fn();
+    document.elementFromPoint = vi.fn().mockReturnValue(null);
+    vi.spyOn(window, "innerHeight", "get").mockReturnValue(0);
+    vi.spyOn(document.documentElement, "clientHeight", "get").mockReturnValue(0);
+    mockRows(900, 924);
+
+    expect(jumpToRef("src/app.ts", 10, null)).toBe(true);
+    vi.advanceTimersByTime(2000);
+    vi.useRealTimers();
+  });
+
+  it("stops re-seating once the container detaches mid-settle", () => {
+    vi.useFakeTimers();
+    Element.prototype.scrollIntoView = vi.fn();
+    document.elementFromPoint = vi.fn().mockReturnValue(null);
+    mockRows(900, 924);
+
+    expect(jumpToRef("src/app.ts", 10, null)).toBe(true);
+    container.remove(); // SPA nav detaches the file before the settle timer fires
+    expect(() => vi.advanceTimersByTime(2000)).not.toThrow();
+
+    document.body.append(container);
+    vi.useRealTimers();
+  });
+});
+
+describe("showStep", () => {
+  it("highlights and scrolls when the rows are present on the first try", () => {
+    vi.useFakeTimers();
+    showStep({ anchor: "diff-abc123", lines: { start: 10, end: 11 } });
+    expect(lined()).toEqual(rowsOf(container).slice(0, 2));
+    vi.advanceTimersByTime(2000);
+    vi.useRealTimers();
+  });
+
+  it("polls, clicking Load Diff, until it gives up after 40 tries when rows never render", () => {
+    vi.useFakeTimers();
+    const click = vi.fn();
+    const button = document.createElement("button");
+    button.textContent = "Load Diff";
+    button.click = click;
+    container.append(button);
+
+    showStep({ anchor: "diff-abc123", lines: { start: 90, end: 91 } }); // no such lines
+    vi.advanceTimersByTime(40 * 41); // 40 retries then the ++tries < 40 guard ends it
+    expect(click).toHaveBeenCalled();
+    expect(lined()).toEqual([]);
+
+    button.remove();
+    vi.useRealTimers();
+  });
+
+  it("cancels its retry loop as soon as a newer showStep supersedes it", () => {
+    vi.useFakeTimers();
+    showStep({ anchor: "diff-missing", lines: { start: 1, end: 2 } }); // container absent → polls
+    showStep({ anchor: "diff-abc123", lines: { start: 10, end: 10 } }); // newer generation
+    vi.advanceTimersByTime(2000);
+    expect(lined()).toEqual([rowsOf(container).slice(0, 1)[0]]);
+    vi.useRealTimers();
+  });
+});
+
+describe("loadDiffIfPresent (via showStep with a non-button match)", () => {
+  it("ignores a Load Diff match that isn't an HTMLElement and keeps polling", () => {
+    vi.useFakeTimers();
+    // textContent matches the regex but the node is an SVG element, not HTMLElement,
+    // so the click guard rejects it (exercises the null-coalesce on textContent too).
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "a");
+    svg.setAttribute("role", "button");
+    svg.textContent = "load diff";
+    container.append(svg);
+
+    showStep({ anchor: "diff-abc123", lines: { start: 90, end: 91 } });
+    vi.advanceTimersByTime(40 * 41);
+    expect(lined()).toEqual([]);
+
+    svg.remove();
+    vi.useRealTimers();
+  });
+});
+
+describe("jumpToRef — extra branch arms", () => {
+  it("polls a cited range, clicking Load Diff, and gives up after 40 tries", () => {
+    vi.useFakeTimers();
+    const click = vi.fn();
+    const button = document.createElement("button");
+    button.textContent = "Load Diff";
+    button.click = click;
+    container.append(button);
+
+    expect(jumpToRef("src/app.ts", 90, 91)).toBe(true); // range with no rendered rows
+    vi.advanceTimersByTime(40 * 41);
+    expect(click).toHaveBeenCalled();
+    expect(picked()).toEqual([]);
+
+    button.remove();
+    vi.useRealTimers();
+  });
+
+  it("stops the land retry loop when the container detaches", () => {
+    vi.useFakeTimers();
+    expect(jumpToRef("src/app.ts", 90, 91)).toBe(true);
+    container.remove();
+    expect(() => vi.advanceTimersByTime(2000)).not.toThrow();
+    document.body.append(container);
+    vi.useRealTimers();
+  });
+
+  it("a line-less ref does not flush an inner scroller already flush with the viewport top", () => {
+    vi.useFakeTimers();
+    const scrollBy = vi.fn();
+    vi.stubGlobal("scrollBy", scrollBy);
+    document.elementFromPoint = vi.fn().mockReturnValue(null);
+    const scroller = document.createElement("div");
+    scroller.style.overflowY = "auto";
+    Object.defineProperty(scroller, "scrollHeight", { value: 1000 });
+    Object.defineProperty(scroller, "clientHeight", { value: 100 });
+    container.parentElement!.insertBefore(scroller, container);
+    scroller.append(container);
+    // scroller top 0 → already flush: the off > 4 inner correction and the flush > 4
+    // window correction both no-op, leaving scrollBy untouched.
+    vi.spyOn(scroller, "getBoundingClientRect").mockReturnValue(rect(0, 0));
+    vi.spyOn(container, "getBoundingClientRect").mockReturnValue(rect(0, 0));
+
+    expect(jumpToRef("src/app.ts", null, null)).toBe(true);
+    vi.advanceTimersByTime(2000);
+    expect(scrollBy).not.toHaveBeenCalled();
+    expect(scroller.scrollTop).toBe(0);
+
+    document.body.append(container);
+    scroller.remove();
+    vi.useRealTimers();
+  });
+
+  it("a line-less ref stops seating once the container detaches", () => {
+    vi.useFakeTimers();
+    document.elementFromPoint = vi.fn().mockReturnValue(null);
+    expect(jumpToRef("src/app.ts", null, null)).toBe(true);
+    container.remove();
+    expect(() => vi.advanceTimersByTime(2000)).not.toThrow();
+    document.body.append(container);
+    vi.useRealTimers();
   });
 });
 

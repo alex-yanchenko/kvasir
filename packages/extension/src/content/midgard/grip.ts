@@ -118,7 +118,8 @@ export function connectGrip(bifrost: Bifrost): void {
       bar.append(b);
     };
     // Order left→right: context chat on the left, plain chat always rightmost.
-    if (hasActiveStep) mk("Ask about these lines — with the current step's context", true, "kvasir-askbtn-ctx");
+    if (hasActiveStep)
+      mk("Ask about these lines — with the current step's context", true, "kvasir-askbtn-ctx");
     mk("Ask about these lines — plain chat", false);
     const r = rowRect(rows[0] ?? null);
     bar.style.top = `${r.top + (r.height - 22) / 2}px`;

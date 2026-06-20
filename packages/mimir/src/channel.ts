@@ -223,9 +223,7 @@ server.registerTool(
       now: new Date().toISOString(),
     });
     if (outcome.kind === "invalid") {
-      console.error(
-        `[kvasir] publish_walkthrough rejected (received ${typeof spec}): ${outcome.message}`,
-      );
+      console.error(`[kvasir] publish_walkthrough rejected (received ${typeof spec}): ${outcome.message}`);
       throw new InvalidSpecError(outcome.message);
     }
     if (outcome.kind === "nudge") {

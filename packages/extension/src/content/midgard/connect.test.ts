@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi, type Mock } from "vitest";
 import { createBifrost } from "../bifrost";
 import { connectMidgard } from "./connect";
 import { rowsOf } from "./diff";
@@ -19,9 +19,9 @@ function buildContainer(): Element {
   return document.getElementById("diff-abc123")!;
 }
 
-let scrolls: ReturnType<typeof vi.fn>;
+let scrolls: Mock<(arg?: boolean | ScrollIntoViewOptions) => void>;
 beforeEach(() => {
-  scrolls = vi.fn();
+  scrolls = vi.fn<(arg?: boolean | ScrollIntoViewOptions) => void>();
   Element.prototype.scrollIntoView = scrolls;
   document.body.innerHTML = "";
   delete document.body.dataset.kvasirTheme;

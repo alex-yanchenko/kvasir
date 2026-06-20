@@ -41,7 +41,9 @@ describe("stepBlobUrl", () => {
   });
 
   it("builds a blob URL with the line range and ?kvasir id", () => {
-    expect(stepBlobUrl(step(), "rid")).toBe("https://github.com/acme/web/blob/main/src/a.ts?kvasir=rid#L10-L20");
+    expect(stepBlobUrl(step(), "rid")).toBe(
+      "https://github.com/acme/web/blob/main/src/a.ts?kvasir=rid#L10-L20",
+    );
   });
 
   it("omits the line hash without a line range", () => {

@@ -49,14 +49,14 @@ A pnpm-workspaces monorepo. **Kvasir** is the umbrella (the product, the
 `/kvasir` skill, the `kvasir` CLI, the channel on `:8799`). Beneath it, the parts
 carry Norse names, used consistently in code and docs:
 
-| Name         | Is                                                                                                             | Why                                                                    |
-| ------------ | -------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| **Asgard**   | `extension/src/content/asgard/` — the React panel app (launcher, tour, chat, settings) in a shadow root        | realm of the gods — never touches the mortal page                      |
-| **Midgard**  | `extension/src/content/midgard/` — the imperative page controller; everything coupled to GitHub's diff DOM     | the mortal realm — the code that lives in the page                     |
-| **Bifrost**  | `extension/src/content/bifrost.ts` — the typed bridge (commands · reports · queries); DOM nodes never cross    | the only way between realms                                            |
-| **Heimdall** | `extension/src/content/heimdall/` — boot + per-PR restore + the SPA URL watcher                                | the all-seeing watchman of the Bifrost                                 |
-| **Huginn**   | `extension/src/huginn.ts` — the background service worker (fetch proxy to Mimir)                               | Odin's thought-raven: flies out, returns with tidings                  |
-| **Muninn**   | `extension/src/content/muninn.ts` — the chrome.storage wrapper                                                 | the memory-raven: remembers                                            |
+| Name         | Is                                                                                                                | Why                                                                    |
+| ------------ | ----------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| **Asgard**   | `extension/src/content/asgard/` — the React panel app (launcher, tour, chat, settings) in a shadow root           | realm of the gods — never touches the mortal page                      |
+| **Midgard**  | `extension/src/content/midgard/` — the imperative page controller; everything coupled to GitHub's diff DOM        | the mortal realm — the code that lives in the page                     |
+| **Bifrost**  | `extension/src/content/bifrost.ts` — the typed bridge (commands · reports · queries); DOM nodes never cross       | the only way between realms                                            |
+| **Heimdall** | `extension/src/content/heimdall/` — boot + per-PR restore + the SPA URL watcher                                   | the all-seeing watchman of the Bifrost                                 |
+| **Huginn**   | `extension/src/huginn.ts` — the background service worker (fetch proxy to Mimir)                                  | Odin's thought-raven: flies out, returns with tidings                  |
+| **Muninn**   | `extension/src/content/muninn.ts` — the chrome.storage wrapper                                                    | the memory-raven: remembers                                            |
 | **Mimir**    | `packages/mimir` — `@kvasir/mimir`, the Claude Code channel + localhost bridge (Bun)                              | the well of wisdom the extension consults; your Claude session answers |
 | **Runes**    | `packages/runes` — `@kvasir/runes`, the pure shared contract (spec types, PR-URL parsing, diff anchors, markdown) | the shared symbols every realm can read                                |
 

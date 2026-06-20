@@ -61,13 +61,19 @@ describe("WalkthroughTab", () => {
     expect((screen.getByLabelText("Next step") as HTMLButtonElement).disabled).toBe(false);
   });
 
-  it("generating state shows the timer and can stop watching", () => {
+  it("generating state shows the timer, ticks the elapsed clock, and can stop watching", () => {
     vi.useFakeTimers();
     vi.spyOn(launcherStore, "generating").mockReturnValue(true);
     vi.spyOn(launcherStore, "genStartAt").mockReturnValue(Date.now() - 5000);
     const dismiss = vi.spyOn(launcherStore, "dismissGen").mockImplementation(() => {});
     render(<WalkthroughTab />);
     expect(screen.getByText("Generating review…")).toBeTruthy();
+    expect(screen.getByText(/^0:05/)).toBeTruthy();
+    // the 1s interval fires its updater, re-rendering with the next elapsed value
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+    expect(screen.getByText(/^0:06/)).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Stop watching" }));
     expect(dismiss).toHaveBeenCalledTimes(1);
     vi.useRealTimers();
