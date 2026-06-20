@@ -57,6 +57,9 @@ function pollForSpec(pr: string, previousSig: string): void {
     void (async () => {
       tries++;
       const r = noteAuth(await api(`/walkthrough?pr=${encodeURIComponent(pr)}`));
+      // Stop writing if the user navigated to another PR mid-poll (the interval for
+      // this pr was already cleared by resetForPr on the switch; just don't clobber).
+      if (prUrl() !== pr) return;
       const got = r.ok && isWalkthroughSpec(r.data) ? r.data : null;
       if (got && specSig(got) !== previousSig) {
         if (genPoll) clearInterval(genPoll);
@@ -83,11 +86,16 @@ function pollForSpec(pr: string, previousSig: string): void {
 /** Load the live spec (and cache it), else fall back to the cached one. */
 async function loadSpec(pr: string): Promise<void> {
   const r = noteAuth(await api(`/walkthrough?pr=${encodeURIComponent(pr)}`));
+  // GitHub PRs are an SPA: the user can switch to another PR while this fetch is in
+  // flight. Bail before writing if the page has moved on, so a stale PR's spec can't
+  // clobber (and persist over) the current PR's state.
+  if (prUrl() !== pr) return;
   if (r.ok && isWalkthroughSpec(r.data)) {
     state.spec = r.data;
     storeSet(specKey(pr), r.data); // cache fresh spec
   } else {
     const cached = await storeGet(specKey(pr));
+    if (prUrl() !== pr) return;
     state.spec = isWalkthroughSpec(cached) ? cached : null;
   }
   touch();
