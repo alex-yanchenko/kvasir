@@ -151,11 +151,22 @@ async function handleGenerate({ request, deps }: Context): Promise<Response> {
   if (!pr) return json(request, { error: "bad or missing pr" }, 400);
   const mode = b.mode === "incremental" ? "incremental" : "new";
   const since = truncate(b.sinceSha, 100);
-  const content =
+  // Heavy is the default: when the client omits depth (older builds) or sends
+  // anything but "light", read the local repo. The repos root is the user's own
+  // setting; strip newlines/tabs so it can't inject extra prompt lines.
+  const depth = b.depth === "light" ? "light" : "heavy";
+  const reposRoot = truncate(b.reposRoot, 500).replaceAll(/[\n\r\t]+/g, " ") || "~/code";
+  const baseInstruction =
     mode === "incremental"
       ? `The user asked for an INCREMENTAL update of the walkthrough for ${pr}. Fetch ONLY what changed since commit ${since} (the previously-reviewed head) and author steps for ONLY those new/changed lines. Call publish_walkthrough with a spec whose steps array contains ONLY those new steps — do NOT re-include the earlier steps. Keep it minimal (fewer steps = less data to send and a faster update).`
       : `The user asked to build a fresh walkthrough for ${pr}. Call start_walkthrough, author the spec, and call publish_walkthrough.`;
-  await deps.pushEvent(content, { event_type: "generate_walkthrough", pr, mode, since });
+  // Heavy review augments the baseline checklist with a local-repo pass so the
+  // walkthrough reasons about correctness against code OUTSIDE the diff (callers,
+  // called definitions, types) — the diff-only flow is blind to that. Line numbers
+  // still come from the patch; the worktree is for reading context, not numbering.
+  const heavyProtocol = ` HEAVY REVIEW — read the local repo for correctness, not just the diff: after start_walkthrough returns the head SHA, locate the PR's local clone (owner/repo from the manifest) under ${reposRoot} (a directory whose git remote or name matches the repo). If you find it: \`git -C <repo> fetch\` the head SHA, add a throwaway worktree at that SHA under ~/.kvasir/worktrees/<repo>-<sha> (\`git -C <repo> worktree add\`), and read the surrounding code there — definitions of called functions/types, callers of any changed signature, and relevant tests — so each step's body/detail reflects whether the change is actually correct (flag real bugs, broken callers, or type mismatches you find; do not invent concerns). Still take line numbers from the patch — do NOT open files just to find numbers. Remove the worktree (\`git -C <repo> worktree remove\`) when done. If you do NOT find the repo under ${reposRoot}, author from the diff manifest alone (light mode) and say so plainly in the overview.`;
+  const content = depth === "heavy" ? baseInstruction + heavyProtocol : baseInstruction;
+  await deps.pushEvent(content, { event_type: "generate_walkthrough", pr, mode, since, depth });
   return json(request, { queued: true });
 }
 

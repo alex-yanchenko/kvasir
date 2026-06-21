@@ -160,6 +160,27 @@ export function SettingsTab(): JSX.Element {
         ]}
         onChange={(v) => settingsStore.setReviewSync(v === "synced")}
       />
+      <Segmented
+        label="Review depth"
+        value={settingsStore.reviewMode()}
+        options={[
+          { value: "heavy", label: "Heavy" },
+          { value: "light", label: "Light" },
+        ]}
+        onChange={(v) => settingsStore.setReviewMode(v)}
+      />
+      {settingsStore.reviewMode() === "heavy" && (
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-sm text-muted-foreground">Local repos root</span>
+          <input
+            type="text"
+            aria-label="Local repos root"
+            value={settingsStore.reviewReposRoot()}
+            onChange={(event) => settingsStore.setReviewReposRoot(event.target.value)}
+            className="h-7 w-40 rounded-lg border border-border bg-muted px-2 text-sm text-foreground"
+          />
+        </div>
+      )}
       <div className="border-t border-border pt-3">
         <Connection />
       </div>
