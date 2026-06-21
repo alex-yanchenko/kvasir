@@ -345,6 +345,18 @@ describe("send", () => {
 });
 
 describe("ensureSuggestions", () => {
+  beforeEach(() => {
+    state.preloadQuestions = true; // the fetch path; the off path is its own test
+  });
+
+  it("caches [] without calling /suggest when preload is off (default)", async () => {
+    state.preloadQuestions = false;
+    state.chatHistory = [mkSession("d")];
+    await chatStore.ensureSuggestions("d");
+    expect(state.chatHistory[0].suggestions).toEqual([]);
+    expect(vi.mocked(api)).not.toHaveBeenCalled();
+  });
+
   it("fetches once and caches on the session; malformed data caches []", async () => {
     state.chatHistory = [mkSession("a")];
     vi.mocked(api).mockResolvedValue({ ok: true, data: { suggestions: ["q1", "q2"] } });

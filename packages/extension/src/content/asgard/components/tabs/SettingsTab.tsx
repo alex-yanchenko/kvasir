@@ -181,6 +181,15 @@ export function SettingsTab(): JSX.Element {
           />
         </div>
       )}
+      <Segmented
+        label="Suggested questions"
+        value={settingsStore.preloadQuestions() ? "on" : "off"}
+        options={[
+          { value: "off", label: "Off" },
+          { value: "on", label: "On" },
+        ]}
+        onChange={(value) => settingsStore.setPreloadQuestions(value === "on")}
+      />
       <div className="border-t border-border pt-3">
         <Connection />
       </div>

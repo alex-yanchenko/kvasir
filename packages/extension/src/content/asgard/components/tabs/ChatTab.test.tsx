@@ -58,6 +58,7 @@ beforeEach(() => {
   Object.defineProperty(window, "location", { value: new URL(`${PR}/files`), writable: true });
   state.spec = null;
   state.chatHistory = [];
+  state.preloadQuestions = false;
   state.panel = { open: true, tab: PANEL_TABS.CHAT, pos: null, size: null };
   localStorage.clear();
   pairingStore.reset(); // "unknown" → composer/chips enabled unless a test sets unpaired
@@ -552,6 +553,7 @@ describe("suggestions + input", () => {
     Object.defineProperty(HTMLElement.prototype, "scrollWidth", { configurable: true, value: 500 });
     Object.defineProperty(HTMLElement.prototype, "clientWidth", { configurable: true, value: 100 });
 
+    state.preloadQuestions = true; // this test exercises the suggest fetch + skeleton path
     let resolve!: (v: { ok: boolean; data?: unknown }) => void;
     vi.mocked(api).mockImplementation((path: string) =>
       path === "/suggest"

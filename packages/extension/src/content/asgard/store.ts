@@ -62,6 +62,8 @@ export const state: {
   /** Filesystem root the session searches for the PR's local clone in heavy mode;
    * if the repo isn't found under it, heavy degrades to light. */
   reviewReposRoot: string;
+  /** Preload 3 AI-suggested questions when a code/step chat opens. Default off. */
+  preloadQuestions: boolean;
   theme: string; // "auto" | "light" | "dark"
   hlStyle: string; // "tint" | "github"
   tourState: TourState;
@@ -84,6 +86,7 @@ export const state: {
   reviewSync: localStorage.getItem("kvasirReviewSync") !== "false", // default on
   reviewMode: localStorage.getItem("kvasirReviewMode") || "heavy", // default heavy
   reviewReposRoot: localStorage.getItem("kvasirReviewReposRoot") || "~/code",
+  preloadQuestions: localStorage.getItem("kvasirPreloadQuestions") === "true", // default off
   theme: localStorage.getItem("kvasirTheme") || "auto",
   hlStyle: localStorage.getItem("kvasirHl") || "tint",
   tourState: { step: 0, pos: null, size: null },
@@ -141,6 +144,12 @@ export const settingsStore = {
   setReviewReposRoot(root: string): void {
     state.reviewReposRoot = root;
     localStorage.setItem("kvasirReviewReposRoot", root);
+    touch();
+  },
+  preloadQuestions: (): boolean => state.preloadQuestions,
+  setPreloadQuestions(on: boolean): void {
+    state.preloadQuestions = on;
+    localStorage.setItem("kvasirPreloadQuestions", String(on));
     touch();
   },
   setTheme(theme: string): void {

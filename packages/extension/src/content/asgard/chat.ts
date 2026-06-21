@@ -11,7 +11,7 @@ import { chatsKey, prUrl } from "../keys";
 import { storeSet } from "../muninn";
 import { activeGuide } from "./guide";
 import { pairingStore } from "./pairing";
-import { chatsStore, PANEL_TABS, panelStore, state, touch } from "./store";
+import { chatsStore, PANEL_TABS, panelStore, settingsStore, state, touch } from "./store";
 import type { ChatMessage, ChatSession } from "./types";
 
 export type AskOutcome = { ok: true; streamed: boolean } | { ok: false; error: string };
@@ -288,10 +288,16 @@ export const chatStore = {
     return { ok: true, streamed: result.streamed };
   },
 
-  /** Prefetch the AI suggestions once per session; cached on the session. */
+  /** Prefetch the AI suggestions once per session; cached on the session. Gated by
+   * the Suggested-questions setting (default off) — when off, cache an empty list so
+   * the chat opens clean (no skeleton, no /suggest call). */
   async ensureSuggestions(key: string): Promise<void> {
     const sess = state.chatHistory.find((s) => s.key === key);
     if (!sess || sess.suggestions) return;
+    if (!settingsStore.preloadQuestions()) {
+      update(key, (s) => ({ ...s, suggestions: [] }));
+      return;
+    }
     const r = await api("/suggest", "POST", {
       pr: prUrl(),
       file: sess.file,

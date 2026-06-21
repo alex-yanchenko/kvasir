@@ -21,6 +21,7 @@ beforeEach(() => {
   state.hlStyle = "tint";
   state.reviewMode = "heavy";
   state.reviewReposRoot = "~/code";
+  state.preloadQuestions = false;
   localStorage.clear();
   pairingStore.reset();
   vi.mocked(storeGet).mockResolvedValue(undefined);
@@ -75,6 +76,15 @@ describe("SettingsTab", () => {
     render(<SettingsTab />);
     fireEvent.change(screen.getByLabelText("Local repos root"), { target: { value: "/srv/repos" } });
     expect(state.reviewReposRoot).toBe("/srv/repos");
+  });
+
+  it("suggested-questions toggle flips preloadQuestions (default off)", () => {
+    render(<SettingsTab />);
+    const group = screen.getByRole("group", { name: "Suggested questions" });
+    fireEvent.click(within(group).getByRole("button", { name: "On" }));
+    expect(state.preloadQuestions).toBe(true);
+    fireEvent.click(within(group).getByRole("button", { name: "Off" }));
+    expect(state.preloadQuestions).toBe(false);
   });
 
   it("shows the unpaired state and starts pairing on Pair", async () => {

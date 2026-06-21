@@ -11,6 +11,7 @@ beforeEach(() => {
   state.hlStyle = "tint";
   state.reviewMode = "heavy";
   state.reviewReposRoot = "~/code";
+  state.preloadQuestions = false;
   localStorage.clear();
   applied = vi.fn<(payload: { theme: string; hlStyle: string }) => void>();
   offApply = bifrost.handle("theme:apply", applied);
@@ -68,6 +69,15 @@ describe("settingsStore", () => {
     settingsStore.setReviewReposRoot("/srv/repos");
     expect(state.reviewReposRoot).toBe("/srv/repos");
     expect(localStorage.getItem("kvasirReviewReposRoot")).toBe("/srv/repos");
+    expect(getSnapshot()).toBe(before + 1);
+  });
+
+  it("preloadQuestions defaults off, and setPreloadQuestions persists + bumps the version", () => {
+    expect(settingsStore.preloadQuestions()).toBe(false);
+    const before = getSnapshot();
+    settingsStore.setPreloadQuestions(true);
+    expect(state.preloadQuestions).toBe(true);
+    expect(localStorage.getItem("kvasirPreloadQuestions")).toBe("true");
     expect(getSnapshot()).toBe(before + 1);
   });
 });
