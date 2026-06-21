@@ -30,7 +30,14 @@ interface StepHighlightPayload {
 interface BifrostCommands {
   "highlight:step": StepHighlightPayload;
   "highlight:clear": undefined;
-  "pick:rehighlight": { file: string; text: string; scroll?: boolean };
+  "pick:rehighlight": {
+    file: string;
+    text: string;
+    /** The selection's stored line range — anchors which occurrence of duplicate
+     * text to re-highlight (the span whose first row sits at lines.start). */
+    lines?: { start: number; end: number } | null;
+    scroll?: boolean;
+  };
   "pick:clear": undefined;
   /** start null = no line cited — jump to the file's diff container itself. */
   "jump:ref": { file: string; start: number | null; end: number | null };

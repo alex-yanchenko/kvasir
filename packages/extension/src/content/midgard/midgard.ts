@@ -8,6 +8,7 @@ import {
   cleanLine,
   containerForFile,
   filePathFromContainer,
+  lineOfRow,
   rowForLine,
   rowForText,
   rowsInRange,
@@ -28,6 +29,9 @@ interface RehighlightableSession {
   container?: Element | null;
   file?: string | null;
   text?: string | null;
+  /** The selection's stored line range — disambiguates duplicate text by anchoring
+   * to the span whose first row sits at lines.start. */
+  lines?: { start: number; end: number } | null;
 }
 
 export const clearHL = (): void => {
@@ -82,22 +86,27 @@ export function rehighlightSession(s: RehighlightableSession): Element[] {
   s.container = container;
   const want = s.text.split("\n");
   const rows = rowsOf(container);
+  const firstLineOf = (span: Element[]): number | null => {
+    const row = span[0];
+    return row ? lineOfRow(row) : null;
+  };
+  // Scan in DOM order (never by numeric range — added/deleted line numbers aren't
+  // unique or monotonic). Remember the first text match as a fallback, but prefer
+  // the span anchored at the stored start line so duplicate text (e.g. a recurring
+  // "}") re-highlights the occurrence the user actually selected.
+  let firstMatch: Element[] | null = null;
   for (let index = 0; index + want.length <= rows.length; index++) {
-    let ok = true;
-    for (const [k, element] of want.entries()) {
-      const row = rows[index + k];
-      if (!row || cleanLine(row) !== element) {
-        ok = false;
-        break;
-      }
-    }
-    if (ok) {
-      const span = rows.slice(index, index + want.length);
+    const span = rows.slice(index, index + want.length);
+    if (!span.every((row, k) => cleanLine(row) === want[k])) continue;
+    firstMatch ??= span;
+    if (s.lines != null && firstLineOf(span) === s.lines.start) {
       highlightRows(span);
       return span;
     }
   }
-  return [];
+  if (firstMatch === null) return [];
+  highlightRows(firstMatch);
+  return firstMatch;
 }
 
 /** Viewport bounds of the whole step range: the top of the first row, the bottom

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { rowsOf, stepCode } from "./diff";
+import { lineOfRow, rowsOf, stepCode } from "./diff";
 import {
   clearHL,
   clearPick,
@@ -157,6 +157,43 @@ describe("rehighlightSession", () => {
     rehighlightSession({ file: "gone/elsewhere.ts", text: "const a = 1;" });
     rehighlightSession({ file: "src/app.ts", text: "" });
     expect(picked()).toEqual([]);
+  });
+
+  it("anchors duplicate text to the stored start line (picks the right occurrence)", () => {
+    // a file where the same line recurs at two different line numbers
+    const el = document.createElement("div");
+    el.id = "diff-dup";
+    const table = document.createElement("table");
+    table.setAttribute("aria-label", "Diff for: src/dup.ts");
+    const tbody = document.createElement("tbody");
+    const addRow = (lineNo: number, text: string): void => {
+      const tr = document.createElement("tr");
+      tr.className = "diff-line-row";
+      const td = document.createElement("td");
+      td.className = "diff-text-cell";
+      td.setAttribute("data-line-number", String(lineNo));
+      td.textContent = text;
+      tr.append(td);
+      tbody.append(tr);
+    };
+    addRow(5, "return null;");
+    addRow(6, "other");
+    addRow(40, "return null;");
+    table.append(tbody);
+    el.append(table);
+    document.body.append(el);
+
+    // No anchor → the first occurrence (line 5).
+    expect(lineOfRow(rehighlightSession({ file: "src/dup.ts", text: "return null;" })[0]!)).toBe(5);
+    clearPick();
+    // Anchored at line 40 → the second occurrence, not the first.
+    const anchored = rehighlightSession({
+      file: "src/dup.ts",
+      text: "return null;",
+      lines: { start: 40, end: 40 },
+    });
+    expect(lineOfRow(anchored[0]!)).toBe(40);
+    el.remove();
   });
 });
 
