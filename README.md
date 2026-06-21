@@ -27,15 +27,22 @@ Three one-time steps:
 
 1. **Load the extension** — `chrome://extensions` → enable **Developer mode** →
    **Load unpacked** → select `packages/extension/`.
-2. **Start the channel** — run **`kvasir`** (one instance serves every Claude
-   session; the bridge listens on `http://localhost:8799`).
+2. **Start the channel** — run **`kvasir`** from anywhere. It opens a Claude Code
+   session that serves the channel (one instance per machine serves every browser
+   tab; the bridge listens on `http://localhost:8799`). Leave it running.
 3. **Pair** — open any GitHub PR, click the **Kvasir** launcher → **Settings →
-   Pair**, and approve the code in your Claude session.
+   Pair**, and approve the code in that session.
 
-Then make a walkthrough:
+Then make a walkthrough — you drive it from the extension, not the terminal:
 
-- **From a PR:** in your Claude session, ask _"Build a walkthrough for `<PR url>`,"_ then open the PR's **Files** tab and click the **Kvasir** launcher.
-- **From any chat:** run **`/kvasir`** and open the link it prints.
+- **From a PR (nothing cloned needed):** open the PR's **Files** tab, click the
+  **Kvasir** launcher, and hit **Run review**. The panel asks your running session
+  to generate the walkthrough (it reads the PR through `gh`, so the repo doesn't
+  have to be checked out locally) and renders it; **Regenerate/Update** live in the
+  panel too.
+- **From any chat (cross-repo):** after you've explained code across one or more
+  **locally-cloned** repos, run the **`/kvasir`** skill — it builds the walkthrough
+  from those repos on disk and prints a link to open.
 
 On any walkthrough, **select code → Ask** to ask questions in place.
 
@@ -57,10 +64,11 @@ of wisdom — here, the local channel your Claude session answers through.
 Both produce the same artifact — a stepped walkthrough rendered in Kvasir's
 panel — and differ only in where the steps come from:
 
-1. **PR tour (in-session).** In your Claude session: _"Build a walkthrough for
-   `<PR url>`."_ Claude reads the diff via `gh`, authors a spec, and publishes it.
-   Open the PR's **Files** tab and the panel renders the tour. Generated once per
-   commit and cached — reopening costs nothing.
+1. **PR tour (from the panel).** Open the PR's **Files** tab and click **Run review**
+   in the Kvasir panel. That asks your running session to read the diff via `gh`,
+   author a spec, and publish it — no repo checkout required. Generated once per
+   commit and cached, so reopening costs nothing. (You can also just ask the session
+   _"Build a walkthrough for `<PR url>`"_ by hand, but the button is the point.)
 
 2. **Push / capture (from any chat).** After you've explained some code — often
    across several repos — run the **`/kvasir`** skill. It drafts the steps, the
