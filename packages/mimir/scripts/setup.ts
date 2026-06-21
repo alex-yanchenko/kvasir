@@ -20,6 +20,7 @@ import {
 import { homedir } from "node:os";
 import path from "node:path";
 import {
+  channelAssetName,
   KVASIR_PERMISSION,
   kvasirShim,
   parseSetupArgs,
@@ -76,14 +77,41 @@ for (const name of readdirSync(skillsSource)) {
   }
 }
 
+// The extension bundle is NOT committed: pnpm present → build it fresh; else reuse
+// an existing dist; else download the prebuilt dist (extension-dist.tgz) from the
+// latest release. So a no-pnpm install still gets a loadable extension.
+console.log("Extension:");
+const distributionDirectory = path.join(REPO, "packages/extension/dist");
+const distributionEntry = path.join(distributionDirectory, "content.js");
 if (have("pnpm")) {
-  console.log("Building the extension:");
   const built = Bun.spawnSync(["sh", "-c", `cd "${REPO}" && pnpm install --frozen-lockfile && pnpm build`], {
     stdout: "ignore",
     stderr: "ignore",
   });
   if (built.exitCode === 0) ok("built → packages/extension/dist");
   else warn("build failed — run 'pnpm build' manually");
+} else if (existsSync(distributionEntry)) {
+  ok("using existing extension/dist");
+} else if (have("gh")) {
+  mkdirSync(distributionDirectory, { recursive: true });
+  const tarball = path.join(distributionDirectory, "extension-dist.tgz");
+  const downloaded = Bun.spawnSync(
+    // prettier-ignore
+    ["gh", "release", "download", "--repo", "alex-yanchenko/kvasir", "--pattern", "extension-dist.tgz", "--output", tarball, "--clobber"],
+    { stdout: "ignore", stderr: "ignore" },
+  );
+  const extracted =
+    downloaded.exitCode === 0 &&
+    Bun.spawnSync(["tar", "xzf", tarball, "-C", REPO + "/packages/extension"], {
+      stdout: "ignore",
+      stderr: "ignore",
+    }).exitCode === 0;
+  if (extracted) {
+    rmSync(tarball, { force: true });
+    ok("downloaded prebuilt extension → packages/extension/dist");
+  } else warn("extension download failed (no release yet?) — install pnpm and run 'pnpm build'");
+} else {
+  warn("need pnpm (to build) or gh (to download) for the extension — then load packages/extension");
 }
 
 console.log("CLI:");
@@ -98,9 +126,43 @@ if ((process.env.PATH ?? "").split(":").includes(binDirectory)) {
   warn(`installed kvasir → ${binDirectory} (add to PATH: export PATH="$HOME/.local/bin:$PATH")`);
 }
 
+// Compile (or download) the channel into a standalone binary so the running
+// channel needs neither bun nor node_modules — the floor is claude + gh + binary.
+// bun present → compile locally; else gh → download the platform's release asset;
+// neither → register the bun-run fallback (so a dev clone still works).
+console.log("Channel binary:");
+const channelSource = path.join(REPO, "packages/mimir/src/channel.ts");
+const channelBinDirectory = path.join(HOME, ".kvasir/bin");
+mkdirSync(channelBinDirectory, { recursive: true });
+const channelBinary = path.join(channelBinDirectory, "kvasir-channel");
+if (have("bun")) {
+  const compiled = Bun.spawnSync(["bun", "build", channelSource, "--compile", "--outfile", channelBinary], {
+    stdout: "ignore",
+    stderr: "ignore",
+  });
+  if (compiled.exitCode === 0) ok(`compiled channel → ${channelBinary}`);
+  else warn("channel compile failed — registering the 'bun run' fallback instead");
+} else {
+  const asset = channelAssetName(process.platform, process.arch);
+  if (!asset) {
+    warn(`no prebuilt channel for ${process.platform}/${process.arch} — install bun to compile it locally`);
+  } else if (have("gh")) {
+    const downloaded = Bun.spawnSync(
+      // prettier-ignore
+      ["gh", "release", "download", "--repo", "alex-yanchenko/kvasir", "--pattern", asset, "--output", channelBinary, "--clobber"],
+      { stdout: "ignore", stderr: "ignore" },
+    );
+    if (downloaded.exitCode === 0) {
+      chmodSync(channelBinary, 0o755);
+      ok(`downloaded channel → ${channelBinary}`);
+    } else warn("channel download failed (no release yet?) — install bun to compile it locally");
+  } else {
+    warn("need bun (to compile) or gh (to download) for the channel binary");
+  }
+}
+
 console.log("Channel registration:");
 const mcpPath = path.join(REPO, ".mcp.json");
-const channelPath = path.join(REPO, "packages/mimir/src/channel.ts");
 let mcpPrevious: unknown = {};
 if (existsSync(mcpPath)) {
   try {
@@ -109,8 +171,15 @@ if (existsSync(mcpPath)) {
     mcpPrevious = {};
   }
 }
-writeFileSync(mcpPath, `${JSON.stringify(withKvasirServer(mcpPrevious, channelPath), null, 2)}\n`);
-ok(`registered 'kvasir' in ${mcpPath}`);
+const haveBinary = existsSync(channelBinary);
+const merged = haveBinary
+  ? withKvasirServer(mcpPrevious, channelBinary)
+  : withKvasirServer(mcpPrevious, "bun", ["run", channelSource]);
+writeFileSync(mcpPath, `${JSON.stringify(merged, null, 2)}\n`);
+ok(
+  `registered 'kvasir' in ${mcpPath}` +
+    (haveBinary ? " (compiled binary)" : " (bun run — install bun or gh for a standalone binary)"),
+);
 
 console.log("Permission:");
 const settingsPath = path.join(HOME, ".claude/settings.json");

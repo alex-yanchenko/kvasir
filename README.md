@@ -12,16 +12,23 @@ extension) and was rebuilt into something stable, cheap, and credential-free.
 
 ## Quick start
 
-Prerequisites: **bun**, the **claude** CLI, **gh** (run `gh auth login` once —
-PR data needs it), and **pnpm** on your PATH. Then, from the repo root:
+Prerequisites: the **claude** CLI and **gh** (run `gh auth login` once — PR data
+needs it). The channel ships as a standalone binary: the installer compiles it
+with **bun** if present, otherwise downloads the prebuilt binary for your platform
+from the latest release — so at runtime the floor is just **claude + gh + the
+binary** (no `node_modules`). **pnpm** is only needed to build the extension from
+source; without it the installer downloads the prebuilt extension from the latest
+release. Then, from the repo root:
 
 ```bash
 ./install.sh
 ```
 
-That installs the `/kvasir` skill, builds the extension, **registers the channel
-in `.mcp.json`**, and puts a **`kvasir`** command on your PATH. (Add
-`--allow-push` to also skip the per-push permission prompt.)
+That installs the `/kvasir` skill, sets up the extension (builds it with pnpm or
+downloads the prebuilt bundle), **compiles (or
+downloads) the channel binary** into `~/.kvasir/bin` and **registers it in
+`.mcp.json`**, and puts a **`kvasir`** command on your PATH. (Add `--allow-push` to
+also skip the per-push permission prompt.)
 
 Three one-time steps:
 
