@@ -121,6 +121,24 @@ describe("WalkthroughTab", () => {
     expect(screen.getByTestId("step-detail")).toBeTruthy();
   });
 
+  it("keeps 'Show details' expanded across step navigation", () => {
+    state.spec = {
+      version: 1,
+      pr: { url: "u", owner: "a", repo: "b", number: 7 },
+      generatedAt: "t",
+      steps: [
+        { id: "s1", title: "First step", body: "b1", detail: "d1", file: "f.ts", anchor: "x1" },
+        { id: "s2", title: "Second step", body: "b2", detail: "d2", file: "g.ts", anchor: "x2" },
+      ],
+    };
+    render(<WalkthroughTab />);
+    fireEvent.click(screen.getByRole("button", { name: "Show details" }));
+    expect(screen.getByTestId("step-detail")).toBeTruthy();
+    fireEvent.click(screen.getByLabelText("Next step"));
+    expect(screen.getByText("Second step")).toBeTruthy();
+    expect(screen.getByTestId("step-detail")).toBeTruthy(); // expansion persists across steps
+  });
+
   it("arrow keys navigate; Ask about this step routes to the Chat tab", () => {
     state.spec = mkSpec();
     const ask = vi.spyOn(tourStore, "askAboutStep").mockImplementation(() => {});

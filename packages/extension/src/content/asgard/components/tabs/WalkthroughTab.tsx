@@ -74,7 +74,6 @@ function Steps(): JSX.Element {
   useEffect(() => {
     tourStore.start();
   }, []);
-  useEffect(() => setShowDetail(false), [index]);
 
   // Arrow keys navigate; bound to the document AND the shadow root (the hotkey
   // shield keeps shadow-origin keys off the document), skipping editable fields.
