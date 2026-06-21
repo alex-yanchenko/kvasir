@@ -84,7 +84,7 @@ panel — and differ only in where the steps come from:
    Heavy needs `git` and the repo cloned locally. Generated once per commit and cached,
    so reopening costs nothing. (You can also just ask the session _"Build a walkthrough
    for `<PR url>`"_ by hand, but the button is the point.) After it publishes, the panel's
-   **Copy build log** button grabs *how* it was built — the change/coverage facts plus the
+   **Copy build log** button grabs _how_ it was built — the change/coverage facts plus the
    session's own rationale (for heavy: what it read, any correctness concerns) — to paste
    for a quality review. It's also saved under `~/.kvasir/logs/`, so any session can read it
    when you ask _"how was this walkthrough built?"_.
