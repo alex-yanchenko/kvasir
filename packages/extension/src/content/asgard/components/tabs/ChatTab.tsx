@@ -10,6 +10,7 @@ import {
   Copy,
   Crosshair,
   MessageSquare,
+  Minimize2,
   Plus,
   RotateCw,
   Trash2,
@@ -550,6 +551,16 @@ function Thread({ sess }: Readonly<{ sess: ChatSession }>): JSX.Element {
           variant="ghost"
           size="icon"
           className="ml-auto h-6 w-6 text-muted-foreground"
+          aria-label="Collapse chat"
+          data-kvasir-tip="Collapse (keep in the list)"
+          onClick={() => chatStore.closeActive()}
+        >
+          <Minimize2 />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-6 w-6 text-muted-foreground"
           aria-label="Close and delete"
           data-kvasir-tip="Delete this chat"
           onClick={() => chatStore.deleteActive()}

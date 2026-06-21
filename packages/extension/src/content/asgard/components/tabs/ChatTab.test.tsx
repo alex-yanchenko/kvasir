@@ -158,6 +158,14 @@ describe("ChatTab shell", () => {
     expect(state.chatHistory.find((s) => s.key === "a")).toBeUndefined();
   });
 
+  it("collapse leaves the chat (empty state) but keeps it in the list", () => {
+    render(<ChatTab />);
+    openSession(mkSession("a"));
+    fireEvent.click(screen.getByLabelText("Collapse chat"));
+    expect(screen.getByText(/Pick a chat/)).toBeTruthy();
+    expect(state.chatHistory.find((s) => s.key === "a")).toBeDefined(); // kept, not deleted
+  });
+
   it("resizes the chat rail by dragging the divider and persists the width", () => {
     render(<ChatTab />);
     const sep = screen.getByRole("separator", { name: "Resize chat list" });
