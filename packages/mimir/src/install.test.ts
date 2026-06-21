@@ -123,6 +123,9 @@ describe("kvasirShim", () => {
     expect(shim).toContain("exec claude --dangerously-load-development-channels server:kvasir");
     expect(shim).toContain("iTCP:8799"); // frees the single-owner bridge before launch
     expect(shim).not.toContain("kvasir.ts");
+    // `shift` with no positional args returns non-zero; under `set -e` a bare
+    // `kvasir` (no subcommand) would abort before launching Claude.
+    expect(shim).toContain("shift || true");
   });
 
   it("routes build to the bun authoring script, guarded on bun being present", () => {

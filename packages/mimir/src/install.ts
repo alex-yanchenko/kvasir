@@ -140,7 +140,7 @@ set -euo pipefail
 cmd="\${1:-run}"
 case "$cmd" in
   build)
-    shift
+    shift || true
     if ! command -v bun >/dev/null 2>&1; then
       echo "kvasir build needs bun (the walkthrough author flow): https://bun.sh" >&2
       exit 1
@@ -148,7 +148,7 @@ case "$cmd" in
     exec bun run "${repoDirectory}/packages/mimir/scripts/buildReview.ts" "$@"
     ;;
   run)
-    shift
+    shift || true
     if command -v lsof >/dev/null 2>&1; then
       pids="$(lsof -nP -iTCP:8799 -sTCP:LISTEN -t 2>/dev/null || true)"
       if [ -n "$pids" ]; then
