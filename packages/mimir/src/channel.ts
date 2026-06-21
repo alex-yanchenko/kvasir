@@ -31,7 +31,7 @@
  */
 
 import { randomBytes } from "node:crypto";
-import { mkdirSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
 import { isWalkthroughSpec, prKey, type WalkthroughSpec } from "@kvasir/runes";
@@ -41,6 +41,7 @@ import { z } from "zod";
 
 import { createFetchHandler } from "./bridge";
 import { createAskBroker } from "./broker";
+import { buildLogFileName, composeBuildLog } from "./buildLog";
 import { getManifest, getHeadSha, type PrManifest } from "./diff";
 import { specToRecord } from "./guideStore";
 import { createSqliteGuideStore } from "./guideStore.sqlite";
@@ -73,6 +74,18 @@ const specs = new Map<string, WalkthroughSpec>();
 const KVASIR_DIR = path.join(homedir(), ".kvasir");
 mkdirSync(KVASIR_DIR, { recursive: true }); // bun:sqlite creates the file, not the dir
 const guides = createSqliteGuideStore(path.join(KVASIR_DIR, "kvasir.db"));
+
+// Per-PR "how it was built" logs (record_build_log writes them; the bridge serves
+// them to the panel's Copy-build-log button; any local session can read the file).
+const LOGS_DIR = path.join(KVASIR_DIR, "logs");
+mkdirSync(LOGS_DIR, { recursive: true });
+const getBuildLog = (pr: string): string | null => {
+  try {
+    return readFileSync(path.join(LOGS_DIR, buildLogFileName(pr)), "utf8");
+  } catch {
+    return null; // not recorded yet (or unreadable) — the panel shows "generate first"
+  }
+};
 
 // Specs are in-memory for fast /walkthrough render; rehydrate the PR ones from the
 // durable store on boot so a restart doesn't drop every PR walkthrough's render
@@ -128,6 +141,7 @@ Bun.serve({
     snapshot: (id) => broker.snapshot(id),
     pushEvent,
     getHeadSha,
+    getBuildLog,
     pairing,
   }),
 });
@@ -156,6 +170,7 @@ const server = new McpServer(
       '☐ 6. If mode="incremental": author steps for ONLY what changed since the `since` commit, and publish a spec containing ONLY those new steps (do NOT re-include earlier steps).',
       "☐ 7. Self-check coverage BEFORE publishing: start_walkthrough printed a 'COVER each of these files' list — make sure every file on it has at least one step (that is exactly what publish_walkthrough's coverage check enforces, so covering them up front means a single publish, no re-author round-trip). Tests/generated files are already excluded from that list; you may add a test step but are not required to.",
       "☐ 8. Call publish_walkthrough(spec). The Chrome extension renders it on the PR page.",
+      "☐ 9. Call record_build_log(pr, depth, rationale) — depth = what you actually did ('heavy'/'light', 'light' if heavy fell back); rationale = a short note on how you built it (heavy: which files/callers/types you read + correctness concerns; light: diff-only). This is the shareable build log; it's also saved to ~/.kvasir/logs so any session can read it when the user asks how a walkthrough was built.",
       "",
       'ANSWER A CODE QUESTION — on <channel source="kvasir" event_type="code_question" id=...> (the user selected code and asked):',
       "☐ 1. Call progress_note(id, note) before anything slow (reading a file, running a command).",
@@ -242,6 +257,28 @@ server.registerTool(
     publishNudges.delete(outcome.key); // published — reset for the next regenerate
     console.error(`[kvasir] published ${outcome.key} (${outcome.spec.steps.length} steps)`);
     return text(outcome.message);
+  },
+);
+
+server.registerTool(
+  "record_build_log",
+  {
+    description:
+      "Record how you built this walkthrough so it can be shared for a quality review. Call after publish_walkthrough. pr = the PR url; depth = what you ACTUALLY did ('heavy' or 'light'; use 'light' if heavy fell back to the diff); rationale = a short markdown note — for heavy, which files/callers/types you read and any correctness concerns; for light, that it was diff-only.",
+    inputSchema: { pr: z.string(), depth: z.string(), rationale: z.string() },
+  },
+  ({ pr, depth, rationale }) => {
+    const key = prKey(pr);
+    const log = composeBuildLog({
+      pr,
+      depth,
+      rationale,
+      manifest: manifests.get(key) ?? null,
+      spec: specs.get(key) ?? null,
+      now: new Date().toISOString(),
+    });
+    writeFileSync(path.join(LOGS_DIR, buildLogFileName(pr)), log);
+    return text("Build log recorded.");
   },
 );
 

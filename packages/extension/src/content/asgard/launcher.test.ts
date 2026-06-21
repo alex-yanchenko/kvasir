@@ -63,6 +63,55 @@ describe("fmtElapsed / specSig", () => {
   });
 });
 
+describe("copyBuildLog", () => {
+  const writeText = vi.fn();
+  beforeEach(() => {
+    writeText.mockReset();
+    vi.stubGlobal("navigator", { clipboard: { writeText } });
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("fetches the log and writes it to the clipboard", async () => {
+    vi.mocked(api).mockResolvedValue({ ok: true, data: { log: "## build log" } });
+    expect(await launcherStore.copyBuildLog()).toBe("ok");
+    expect(vi.mocked(api)).toHaveBeenCalledWith(`/buildlog?pr=${encodeURIComponent(PR)}`);
+    expect(writeText).toHaveBeenCalledWith("## build log");
+  });
+
+  it("returns absent when no log is recorded yet", async () => {
+    vi.mocked(api).mockResolvedValue({ ok: true, data: { status: "absent" } });
+    expect(await launcherStore.copyBuildLog()).toBe("absent");
+    expect(writeText).not.toHaveBeenCalled();
+  });
+
+  it("returns error on a failed request", async () => {
+    vi.mocked(api).mockResolvedValue({ ok: false });
+    expect(await launcherStore.copyBuildLog()).toBe("error");
+  });
+
+  it("returns error when the clipboard is unavailable", async () => {
+    vi.stubGlobal("navigator", {});
+    vi.mocked(api).mockResolvedValue({ ok: true, data: { log: "x" } });
+    expect(await launcherStore.copyBuildLog()).toBe("error");
+  });
+
+  it("returns error when the clipboard write throws", async () => {
+    writeText.mockRejectedValue(new Error("denied"));
+    vi.mocked(api).mockResolvedValue({ ok: true, data: { log: "x" } });
+    expect(await launcherStore.copyBuildLog()).toBe("error");
+  });
+
+  it("returns error off a PR page", async () => {
+    Object.defineProperty(window, "location", {
+      value: new URL("https://github.com/acme/widget-api"),
+      writable: true,
+    });
+    expect(await launcherStore.copyBuildLog()).toBe("error");
+  });
+});
+
 describe("requestGenerate → poll → spec lands", () => {
   it("persists the marker, closes the tour, polls, and installs the new spec", async () => {
     const fresh = mkSpec({ generatedAt: "2026-02-02T00:00:00Z" });

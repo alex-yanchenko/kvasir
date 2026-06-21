@@ -223,6 +223,27 @@ describe("WalkthroughTab", () => {
     expect(screen.getByRole("button", { name: "Update" })).toBeTruthy();
   });
 
+  it("copies the build log and flashes a confirmation on success", async () => {
+    state.spec = mkSpec();
+    const copy = vi.spyOn(launcherStore, "copyBuildLog").mockResolvedValue("ok");
+    render(<WalkthroughTab />);
+    await act(async () => {
+      fireEvent.click(screen.getByLabelText("Copy build log"));
+    });
+    expect(copy).toHaveBeenCalledTimes(1);
+    expect(screen.getByLabelText("Copy build log").className).toContain("text-primary");
+  });
+
+  it("does not flash when the build log copy fails", async () => {
+    state.spec = mkSpec();
+    vi.spyOn(launcherStore, "copyBuildLog").mockResolvedValue("absent");
+    render(<WalkthroughTab />);
+    await act(async () => {
+      fireEvent.click(screen.getByLabelText("Copy build log"));
+    });
+    expect(screen.getByLabelText("Copy build log").className).not.toContain("text-primary");
+  });
+
   it("a step without detail shows no details toggle", () => {
     state.spec = {
       version: 1,

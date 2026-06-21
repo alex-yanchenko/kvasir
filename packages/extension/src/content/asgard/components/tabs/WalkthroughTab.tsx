@@ -2,7 +2,17 @@
 // states: no spec (run a review), generating (status), or the step walkthrough.
 // tourStore drives the page highlights; the tab mount/unmount starts/stops the
 // tour so switching tabs or closing the panel clears the highlight.
-import { ChevronLeft, ChevronRight, Crosshair, Loader2, MessageSquare, Play, RefreshCw } from "lucide-react";
+import {
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Crosshair,
+  FileText,
+  Loader2,
+  MessageSquare,
+  Play,
+  RefreshCw,
+} from "lucide-react";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import type { JSX } from "react";
 import { sanitizeSpecHtml } from "../../../sanitize";
@@ -52,6 +62,7 @@ function Empty(): JSX.Element {
 function Steps(): JSX.Element {
   const [showDetail, setShowDetail] = useState(false);
   const [dialog, setDialog] = useState(false);
+  const [copiedLog, setCopiedLog] = useState(false);
   const step = tourStore.step();
   const index = tourStore.stepIndex();
   const count = tourStore.stepCount();
@@ -125,6 +136,16 @@ function Steps(): JSX.Element {
             onClick={() => tourStore.goto(index)}
           >
             <Crosshair />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className={"h-7 w-7" + (copiedLog ? " text-primary" : "")}
+            aria-label="Copy build log"
+            data-kvasir-tip="Copy how this was built — paste to Claude to review"
+            onClick={() => void launcherStore.copyBuildLog().then((result) => setCopiedLog(result === "ok"))}
+          >
+            {copiedLog ? <Check /> : <FileText />}
           </Button>
           <Button
             variant="ghost"

@@ -40,6 +40,7 @@ let deps: {
   snapshot: Mock<BridgeDeps["snapshot"]>;
   pushEvent: Mock<BridgeDeps["pushEvent"]>;
   getHeadSha: Mock<BridgeDeps["getHeadSha"]>;
+  getBuildLog: Mock<BridgeDeps["getBuildLog"]>;
   pairing: {
     request: Mock<Pairing["request"]>;
     approve: Mock<Pairing["approve"]>;
@@ -60,6 +61,7 @@ beforeEach(() => {
     snapshot: vi.fn<BridgeDeps["snapshot"]>().mockReturnValue(null),
     pushEvent: vi.fn<BridgeDeps["pushEvent"]>().mockResolvedValue(undefined),
     getHeadSha: vi.fn<BridgeDeps["getHeadSha"]>().mockResolvedValue("abc123"),
+    getBuildLog: vi.fn<BridgeDeps["getBuildLog"]>().mockReturnValue(null),
     pairing: {
       request: vi.fn<Pairing["request"]>().mockReturnValue({ ok: true, requestId: "rid-1", code: "ABC234" }),
       approve: vi.fn<Pairing["approve"]>(),
@@ -230,6 +232,7 @@ describe("/generate", () => {
     const [content, meta] = deps.pushEvent.mock.lastCall!;
     expect(content).toContain("HEAVY REVIEW");
     expect(content).toContain("under /home/me/src");
+    expect(content).toContain("record_build_log");
     expect(meta.depth).toBe("heavy");
     expect(deps.pushEvent).toHaveBeenCalledTimes(1);
   });
@@ -264,6 +267,22 @@ describe("/generate", () => {
     );
     expect(noBody.status).toBe(400);
     expect((await call("/generate", { method: "POST", body: { pr: "nope" } })).status).toBe(400);
+  });
+});
+
+describe("/buildlog", () => {
+  it("returns the stored log, or absent when none recorded", async () => {
+    deps.getBuildLog.mockReturnValueOnce("## Kvasir build log — acme/widget-api#7");
+    const r = await call(`/buildlog?pr=${encodeURIComponent(PR)}`);
+    expect(await r.json()).toEqual({ log: "## Kvasir build log — acme/widget-api#7" });
+    expect(deps.getBuildLog).toHaveBeenCalledWith(PR);
+
+    const absent = await call(`/buildlog?pr=${encodeURIComponent(PR)}`);
+    expect(await absent.json()).toEqual({ status: "absent" });
+  });
+
+  it("400 on a bad or missing pr", async () => {
+    expect((await call("/buildlog?pr=nope")).status).toBe(400);
   });
 });
 
