@@ -15,6 +15,9 @@ import { state, touch } from "./store";
 
 let open = false;
 let stepIndex = 0;
+// The detail pane's open state lives here, NOT in React component state, so it
+// survives the WalkthroughTab unmount when you switch to Chat/Settings and back.
+let detailOpen = false;
 
 const clamp = (index: number, length: number): number => Math.min(Math.max(index, 0), length - 1);
 
@@ -24,6 +27,11 @@ export const tourStore = {
   stepIndex: (): number => stepIndex,
   stepCount: (): number => state.spec?.steps.length ?? 0,
   step: (): WalkthroughStep | null => (open && state.spec ? (state.spec.steps[stepIndex] ?? null) : null),
+  detailOpen: (): boolean => detailOpen,
+  setDetailOpen(value: boolean): void {
+    detailOpen = value;
+    touch();
+  },
 
   start(): void {
     if (!state.spec) return;
@@ -113,7 +121,10 @@ export const tourStore = {
     const rect = page?.rect ?? { left: 60, top: 90, bottom: 114, height: 24 };
     chatStore.openSelection(
       {
-        selectionId: `${s.file}::${text.slice(0, 200)}`,
+        // Key the chat by the step id (stable) so re-asking reopens the same chat
+        // and WalkthroughTab can tell a step already has one.
+        selectionId: `step:${s.id}`,
+        stepId: s.id,
         file: s.file,
         text,
         lines: s.lines ?? null,

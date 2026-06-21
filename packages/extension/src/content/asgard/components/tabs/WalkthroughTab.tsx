@@ -10,12 +10,14 @@ import {
   FileText,
   Loader2,
   MessageSquare,
+  MessageSquareMore,
   Play,
   RefreshCw,
 } from "lucide-react";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import type { JSX } from "react";
 import { sanitizeSpecHtml } from "../../../sanitize";
+import { chatStore } from "../../chat";
 import { fmtElapsed, launcherStore } from "../../launcher";
 import { pairingStore } from "../../pairing";
 import { getSnapshot, PANEL_TABS, panelStore, subscribe } from "../../store";
@@ -60,7 +62,6 @@ function Empty(): JSX.Element {
 }
 
 function Steps(): JSX.Element {
-  const [showDetail, setShowDetail] = useState(false);
   const [dialog, setDialog] = useState(false);
   const [copiedLog, setCopiedLog] = useState(false);
   const step = tourStore.step();
@@ -102,6 +103,8 @@ function Steps(): JSX.Element {
 
   if (!step) return <Empty />;
   const newCommits = launcherStore.newCommits();
+  const stepChat = chatStore.stepChat(step.id);
+  const detailOpen = tourStore.detailOpen();
   const atFirst = index === 0;
   const atLast = index >= count - 1;
   return (
@@ -115,16 +118,16 @@ function Steps(): JSX.Element {
           <Button
             variant="ghost"
             size="icon"
-            className="h-7 w-7"
-            aria-label="Ask about this step"
-            data-kvasir-tip="Ask about this step"
+            className={"h-7 w-7" + (stepChat ? " text-primary" : "")}
+            aria-label={stepChat ? "Reopen chat for this step" : "Ask about this step"}
+            data-kvasir-tip={stepChat ? "Reopen this step's chat" : "Ask about this step"}
             disabled={pairingStore.needsPairing()}
             onClick={() => {
               tourStore.askAboutStep();
               panelStore.setTab(PANEL_TABS.CHAT);
             }}
           >
-            <MessageSquare />
+            {stepChat ? <MessageSquareMore /> : <MessageSquare />}
           </Button>
           <Button
             variant="ghost"
@@ -173,11 +176,11 @@ function Steps(): JSX.Element {
               variant="link"
               size="sm"
               className="mt-2 h-auto p-0"
-              onClick={() => setShowDetail((d) => !d)}
+              onClick={() => tourStore.setDetailOpen(!detailOpen)}
             >
-              {showDetail ? "Hide details" : "Show details"}
+              {detailOpen ? "Hide details" : "Show details"}
             </Button>
-            {showDetail && (
+            {detailOpen && (
               <div
                 className="kvasir-prose mt-2 border-t border-border pt-2 text-sm"
                 data-testid="step-detail"

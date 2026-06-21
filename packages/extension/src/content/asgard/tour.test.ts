@@ -163,7 +163,8 @@ describe("step context + ask", () => {
     tourStore.askAboutStep();
     expect(open).toHaveBeenCalledWith(
       {
-        selectionId: "src/app.ts::const a = 1;",
+        selectionId: "step:s1",
+        stepId: "s1",
         file: "src/app.ts",
         text: "const a = 1;",
         lines: { side: "R", start: 4, end: 6 },

@@ -18,6 +18,9 @@ export interface ChatSession {
   messages: ChatMessage[];
   /** Compact walkthrough-step context captured when the chat was opened from a step. */
   step?: string;
+  /** The walkthrough step id this chat belongs to (set when opened from a step) —
+   * lets the step's icon show a chat exists and reopen it. */
+  stepId?: string;
   /** True only for the single whole-PR chat. */
   general?: boolean;
 }

@@ -34,10 +34,12 @@ beforeEach(() => {
     writable: true,
   });
   state.spec = null;
+  state.chatHistory = [];
   state.tourState = { step: 0, pos: null, size: null };
   state.panel = { open: true, tab: PANEL_TABS.WALKTHROUGH, pos: null, size: null };
   pairingStore.reset(); // "unknown" → backend actions enabled unless a test sets unpaired
   if (tourStore.open()) tourStore.close();
+  tourStore.setDetailOpen(false); // detail state is module-level now — reset per test
 });
 afterEach(() => {
   cleanup();
@@ -137,6 +139,38 @@ describe("WalkthroughTab", () => {
     fireEvent.click(screen.getByLabelText("Next step"));
     expect(screen.getByText("Second step")).toBeTruthy();
     expect(screen.getByTestId("step-detail")).toBeTruthy(); // expansion persists across steps
+  });
+
+  it("keeps 'Show details' expanded across an unmount/remount (tab switch)", () => {
+    state.spec = mkSpec();
+    const { unmount } = render(<WalkthroughTab />);
+    fireEvent.click(screen.getByRole("button", { name: "Show details" }));
+    expect(screen.getByTestId("step-detail")).toBeTruthy();
+    unmount(); // leaving to Chat/Settings unmounts the tab
+    render(<WalkthroughTab />); // …and back
+    expect(screen.getByTestId("step-detail")).toBeTruthy(); // still expanded
+  });
+
+  it("the step chat icon flips to Reopen when a chat exists for the step", () => {
+    state.spec = mkSpec();
+    render(<WalkthroughTab />);
+    expect(screen.getByLabelText("Ask about this step")).toBeTruthy();
+    // a chat linked to the first step (s1) makes the icon offer Reopen
+    state.chatHistory = [
+      {
+        key: "step:s1",
+        stepId: "s1",
+        file: "f.ts",
+        lines: null,
+        text: "x",
+        suggestions: [],
+        messages: [],
+      },
+    ];
+    cleanup();
+    render(<WalkthroughTab />);
+    expect(screen.getByLabelText("Reopen chat for this step")).toBeTruthy();
+    expect(screen.queryByLabelText("Ask about this step")).toBeNull();
   });
 
   it("arrow keys navigate; Ask about this step routes to the Chat tab", () => {

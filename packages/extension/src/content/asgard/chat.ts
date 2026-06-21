@@ -160,6 +160,10 @@ export const chatStore = {
   active: (): ChatSession | null => state.chatHistory.find((s) => s.key === activeKey) ?? null,
   live: (): LiveAsk | null => live,
 
+  /** The chat opened from a given walkthrough step, if one exists. */
+  stepChat: (stepId: string): ChatSession | null =>
+    state.chatHistory.find((s) => s.stepId === stepId) ?? null,
+
   /** Show a session in the Chat tab; routes the panel there and repaints its
    * selection on the page (general PR chat has none). */
   open(sess: ChatSession): void {
@@ -182,6 +186,7 @@ export const chatStore = {
         text: p.text,
         suggestions: null,
         messages: [],
+        ...(p.stepId ? { stepId: p.stepId } : {}),
       };
       state.chatHistory = [sess, ...state.chatHistory];
       persist();
