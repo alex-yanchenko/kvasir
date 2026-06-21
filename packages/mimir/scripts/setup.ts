@@ -47,8 +47,14 @@ console.log("Prerequisites:");
 const have = (bin: string): boolean => Bun.which(bin) !== null;
 if (have("bun")) ok("bun");
 else warn("bun missing — needed to run the channel (https://bun.sh)");
-if (have("gh")) ok("gh");
-else warn("gh missing — needed for PR data");
+if (have("claude")) ok("claude");
+else warn("claude missing — needed to serve the channel (https://docs.claude.com/claude-code)");
+if (have("gh")) {
+  ok("gh");
+  const authed = Bun.spawnSync(["gh", "auth", "status"], { stdout: "ignore", stderr: "ignore" });
+  if (authed.exitCode === 0) ok("gh authenticated");
+  else warn("gh not authenticated — run 'gh auth login' (PR data needs it)");
+} else warn("gh missing — needed for PR data");
 if (have("pnpm")) ok("pnpm");
 else warn("pnpm missing — needed to build the extension");
 

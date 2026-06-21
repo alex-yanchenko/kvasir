@@ -12,8 +12,8 @@ extension) and was rebuilt into something stable, cheap, and credential-free.
 
 ## Quick start
 
-Prerequisites: **bun**, **gh**, and **pnpm** on your PATH. Then, from the repo
-root:
+Prerequisites: **bun**, the **claude** CLI, **gh** (run `gh auth login` once —
+PR data needs it), and **pnpm** on your PATH. Then, from the repo root:
 
 ```bash
 ./install.sh
