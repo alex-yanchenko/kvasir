@@ -4,7 +4,7 @@
 // from the vanilla tour.
 import type { WalkthroughStep } from "@kvasir/runes/spec";
 import { bifrost } from "../bifrost";
-import { onFilesTab, prUrl, tourKey } from "../keys";
+import { prUrl, tourKey } from "../keys";
 import { stepCode } from "../midgard/diff";
 import { storeSet } from "../muninn";
 import { chatStore } from "./chat";
@@ -27,14 +27,13 @@ export const tourStore = {
 
   start(): void {
     if (!state.spec) return;
-    if (!onFilesTab()) {
-      // Hop to the diff tab and auto-resume once it loads.
-      sessionStorage.setItem("kvasirAutoStart", "1");
-      location.href = prUrl() + "/files";
-      return;
-    }
+    // Open and resume where you left off. Off the diff (e.g. the PR conversation
+    // tab) the highlight commands simply find no rows and no-op — the panel still
+    // shows the step text, and highlighting re-engages when you're on the Files
+    // tab. Deliberately does NOT navigate: a passive restore on refresh must never
+    // yank the page to /files.
     open = true;
-    tourStore.goto(state.tourState.step || 0); // resume where you left off
+    tourStore.goto(state.tourState.step || 0);
   },
 
   goto(index: number): void {

@@ -217,10 +217,11 @@ export const launcherStore = {
     const pr = prUrl();
     if (!pr) return;
     await loadSpec(pr);
-    if (state.spec && onFilesTab() && sessionStorage.getItem("kvasirAutoStart") === "1") {
-      sessionStorage.removeItem("kvasirAutoStart");
-      setTimeout(() => tourStore.start(), 900);
-    }
+    // The panel persists across SPA tab switches (Conversation ↔ Files) without
+    // remounting, so re-issue the current step's highlight whenever a refresh lands
+    // on the diff with the tour open — otherwise highlights wouldn't reappear when
+    // you navigate back to Files. (start() never navigates the page; see tour.ts.)
+    if (state.spec && onFilesTab() && tourStore.open()) tourStore.goto(tourStore.stepIndex());
     if (!genPoll && (await resumeGeneration(pr))) return;
     if (state.spec && !generating) await detectNewCommits(pr);
   },

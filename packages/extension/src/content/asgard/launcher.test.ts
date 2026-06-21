@@ -227,14 +227,25 @@ describe("refresh", () => {
     expect(state.spec).toBeNull();
   });
 
-  it("auto-starts the tour after a tab hop when flagged", async () => {
-    sessionStorage.setItem("kvasirAutoStart", "1");
+  it("re-highlights the current step on a refresh while touring the diff", async () => {
     vi.mocked(api).mockResolvedValue({ ok: true, data: mkSpec() });
+    vi.spyOn(tourStore, "open").mockReturnValue(true);
+    vi.spyOn(tourStore, "stepIndex").mockReturnValue(2);
+    const goto = vi.spyOn(tourStore, "goto").mockImplementation(() => {});
     await launcherStore.refresh();
-    expect(sessionStorage.getItem("kvasirAutoStart")).toBeNull();
-    expect(tourStore.start).not.toHaveBeenCalled();
-    await vi.advanceTimersByTimeAsync(900);
-    expect(tourStore.start).toHaveBeenCalledTimes(1);
+    expect(goto).toHaveBeenCalledWith(2);
+  });
+
+  it("does not re-highlight off the diff tab", async () => {
+    Object.defineProperty(window, "location", {
+      value: new URL("https://github.com/acme/widget-api/pull/7"),
+      writable: true,
+    });
+    vi.mocked(api).mockResolvedValue({ ok: true, data: mkSpec() });
+    vi.spyOn(tourStore, "open").mockReturnValue(true);
+    const goto = vi.spyOn(tourStore, "goto").mockImplementation(() => {});
+    await launcherStore.refresh();
+    expect(goto).not.toHaveBeenCalled();
   });
 
   it("resumes a fresh in-flight generation (timer from the original start)", async () => {
