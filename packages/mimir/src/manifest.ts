@@ -4,7 +4,7 @@
  * separate from diff.ts (the `gh` shell) so this branchy logic (comment merging,
  * capping, coverage detection) is fully unit-tested and mutation-covered.
  */
-import { anchorFor, prKey } from "@kvasir/runes";
+import { anchorFor, prKey, type WalkthroughStep } from "@kvasir/runes";
 
 interface ChangedFile {
   path: string;
@@ -191,14 +191,70 @@ export function significantFiles(manifest: PrManifest): string[] {
     .map((f) => f.path);
 }
 
+/** Lenient path match: exact, or one is a boundary-suffix of the other — a step's
+ * `file` may be a short or long variant of the manifest path. Shared by the coverage
+ * and line-target checks so a path variant resolves the same way in both. */
+export function pathsMatch(a: string, b: string): boolean {
+  return a === b || a.endsWith("/" + b) || b.endsWith("/" + a);
+}
+
 /** Significant files (above) that have no step covering them. Path match is lenient
  * at the boundary so a step's `file` can be a short or long variant. The publish-time
  * backstop for when the author skimmed the up-front list. */
 export function uncoveredFiles(manifest: PrManifest, stepFiles: string[]): string[] {
   const covered = stepFiles.filter(Boolean);
-  const isCovered = (path: string): boolean =>
-    covered.some((c) => c === path || c.endsWith("/" + path) || path.endsWith("/" + c));
+  const isCovered = (path: string): boolean => covered.some((c) => pathsMatch(c, path));
   return significantFiles(manifest).filter((path) => !isCovered(path));
+}
+
+/** A changed-line span on one side of the diff. */
+export interface HunkRange {
+  side: "R" | "L";
+  start: number;
+  end: number;
+}
+
+// Unified-diff hunk header: @@ -oldStart,oldCount +newStart,newCount @@ (counts
+// optional — absent means 1). "R" (new side) spans the line numbers on the new file;
+// "L" (old side) spans the old file. A step's lines must fall within one of these.
+const HUNK_HEADER = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/gm;
+
+/** The line spans a file's patch touches, from its @@ headers — one "L" + one "R"
+ * range per hunk. Empty for a patch-less (binary/huge) file. */
+export function changedLineRanges(patch: string | undefined): HunkRange[] {
+  if (!patch) return [];
+  const ranges: HunkRange[] = [];
+  for (const match of patch.matchAll(HUNK_HEADER)) {
+    const oldStart = Number(match[1]);
+    const oldCount = match[2] === undefined ? 1 : Number(match[2]);
+    const newStart = Number(match[3]);
+    const newCount = match[4] === undefined ? 1 : Number(match[4]);
+    if (oldCount > 0) ranges.push({ side: "L", start: oldStart, end: oldStart + oldCount - 1 });
+    if (newCount > 0) ranges.push({ side: "R", start: newStart, end: newStart + newCount - 1 });
+  }
+  return ranges;
+}
+
+/** Steps whose `lines` are present but fall outside every changed hunk of their file
+ * — they'd jump the reader away from the PR's changes. Skips steps with no `lines`
+ * (missing-lines is a separate hard check) and steps whose file has no patch in the
+ * manifest (unverifiable). Same-side overlap only. */
+export function stepsOffTarget(
+  manifest: PrManifest,
+  steps: readonly Pick<WalkthroughStep, "id" | "file" | "lines">[],
+): { id: string; file: string }[] {
+  const off: { id: string; file: string }[] = [];
+  for (const step of steps) {
+    const lines = step.lines;
+    if (!lines) continue;
+    const patch = manifest.files.find((file) => pathsMatch(file.path, step.file))?.patch;
+    if (patch === undefined) continue;
+    const onTarget = changedLineRanges(patch).some(
+      (range) => range.side === lines.side && range.start <= lines.end && lines.start <= range.end,
+    );
+    if (!onTarget) off.push({ id: step.id, file: step.file });
+  }
+  return off;
 }
 
 // A PR participant who wrote the fence marker into a comment/description could

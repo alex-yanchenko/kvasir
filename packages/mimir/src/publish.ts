@@ -7,7 +7,13 @@
  * just applies the side effects the outcome names (Map writes, logging, throw).
  */
 import { prKey, type WalkthroughSpec } from "@kvasir/runes";
-import { COVERAGE_MIN_ADDS, significantFiles, uncoveredFiles, type PrManifest } from "./manifest";
+import {
+  COVERAGE_MIN_ADDS,
+  significantFiles,
+  stepsOffTarget,
+  uncoveredFiles,
+  type PrManifest,
+} from "./manifest";
 import { parseSpecInput } from "./specInput";
 
 export interface PublishState {
@@ -31,9 +37,31 @@ export function preparePublish(rawSpec: unknown, state: PublishState): PublishOu
   const spec = result.spec;
   const key = prKey(spec.pr.url);
 
-  // Coverage gate (bounded): if significant changed files have no step, nudge ONCE
-  // with the list so the author adds steps, then accept regardless — so a genuinely
-  // step-less file (or a stubborn model) can't loop generation forever.
+  // Line-target gate (hard): a step with no `lines` opens to nothing in the panel —
+  // it can't highlight or scroll to code. Always fixable from the patch (no legit
+  // step lacks a line range), so reject rather than nudge — there's no loop risk.
+  const missingLines = spec.steps.filter((step) => !step.lines).map((step) => step.id);
+  if (missingLines.length > 0) {
+    return {
+      kind: "invalid",
+      message: `spec failed validation — every step must set lines:{side,start,end} (read from the @@ patch headers) so it highlights code; without them the step opens to nothing. Steps with no lines: ${missingLines.join(", ")}.`,
+    };
+  }
+
+  // Overview gate (hard): every PR walkthrough opens with an Overview "step 0" so the
+  // reader gets the "what is this" without reading the PR description. The schema keeps
+  // it optional (the manual `kvasir build` path produces specs without one); this gate
+  // only applies on the publish_walkthrough path.
+  if (!spec.overview?.trim()) {
+    return {
+      kind: "invalid",
+      message: `spec failed validation — set overview to a 2-4 sentence HTML summary of the PR (same markup as a step body; it's shown as the walkthrough's Overview step and fed to chat as context).`,
+    };
+  }
+
+  // Coverage + on-target gate (bounded): nudge ONCE if a significant file has no step
+  // OR a step's lines miss their file's changed hunks, then accept regardless — so a
+  // genuinely step-less file (or imperfect line precision) can't loop generation.
   const manifest = state.manifests.get(key);
   const uncovered = manifest
     ? uncoveredFiles(
@@ -41,16 +69,28 @@ export function preparePublish(rawSpec: unknown, state: PublishState): PublishOu
         spec.steps.map((step) => step.file),
       )
     : [];
+  const offTarget = manifest ? stepsOffTarget(manifest, spec.steps) : [];
   const nudges = state.nudges.get(key) ?? 0;
-  if (uncovered.length > 0 && nudges < state.maxNudges) {
+  if ((uncovered.length > 0 || offTarget.length > 0) && nudges < state.maxNudges) {
+    const sections: string[] = [];
+    if (uncovered.length > 0) {
+      sections.push(
+        `These changed files have ≥${COVERAGE_MIN_ADDS} added lines but no step:\n` +
+          uncovered.map((path) => `  - ${path}`).join("\n") +
+          `\n(If a listed file genuinely needs no step — generated/config/trivial — call publish_walkthrough again unchanged to proceed.)`,
+      );
+    }
+    if (offTarget.length > 0) {
+      sections.push(
+        `These steps' lines fall outside their file's changed hunks (re-read the @@ -a,b +c,d @@ headers and set lines inside a changed hunk):\n` +
+          offTarget.map((step) => `  - ${step.id} (${step.file})`).join("\n") +
+          `\n(If a step's lines are already as precise as the patch allows, call publish_walkthrough again unchanged to proceed.)`,
+      );
+    }
     return {
       kind: "nudge",
       key,
-      message:
-        `NOT published — coverage check. These changed files have ≥${COVERAGE_MIN_ADDS} added lines but no step:\n` +
-        uncovered.map((path) => `  - ${path}`).join("\n") +
-        `\n\nAdd steps covering the significant changes in them (see the sizing checklist), then call publish_walkthrough again. ` +
-        `If a listed file genuinely needs no step (generated/config/trivial), just call publish_walkthrough again unchanged — it will go through.`,
+      message: `NOT published — fix these, then call publish_walkthrough again:\n\n` + sections.join("\n\n"),
     };
   }
 

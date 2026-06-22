@@ -3,11 +3,14 @@ import { describe, it, expect } from "vitest";
 import {
   buildDiscussion,
   buildManifest,
+  changedLineRanges,
   COVERAGE_MIN_ADDS,
+  pathsMatch,
   prFileName,
   renderManifest,
   RENDER_INLINE_BUDGET,
   significantFiles,
+  stepsOffTarget,
   uncoveredFiles,
   type GhInline,
   type GhIssueComment,
@@ -417,5 +420,96 @@ describe("renderManifest", () => {
 describe("prFileName", () => {
   it("makes a filesystem-safe name from the pr key", () => {
     expect(prFileName("https://github.com/acme/web/pull/7")).toBe("acme-web-7.md");
+  });
+});
+
+describe("changedLineRanges", () => {
+  it("returns the L and R span of each hunk from the @@ headers", () => {
+    expect(changedLineRanges("@@ -10,3 +12,5 @@ ctx\n-old\n+new1\n+new2")).toEqual([
+      { side: "L", start: 10, end: 12 },
+      { side: "R", start: 12, end: 16 },
+    ]);
+  });
+
+  it("treats an omitted hunk count as 1 and skips a zero-count side", () => {
+    expect(changedLineRanges("@@ -0,0 +5 @@\n+only")).toEqual([{ side: "R", start: 5, end: 5 }]);
+  });
+
+  it("collects every hunk in a multi-hunk patch", () => {
+    expect(changedLineRanges("@@ -1,1 +1,1 @@\n-a\n+b\n@@ -20,1 +20,2 @@\n c\n+d")).toEqual([
+      { side: "L", start: 1, end: 1 },
+      { side: "R", start: 1, end: 1 },
+      { side: "L", start: 20, end: 20 },
+      { side: "R", start: 20, end: 21 },
+    ]);
+  });
+
+  it("handles an omitted old count and a pure-deletion hunk (no new range)", () => {
+    expect(changedLineRanges("@@ -5 +6,2 @@\n line\n+a\n+b")).toEqual([
+      { side: "L", start: 5, end: 5 },
+      { side: "R", start: 6, end: 7 },
+    ]);
+    expect(changedLineRanges("@@ -3,2 +2,0 @@\n-x\n-y")).toEqual([{ side: "L", start: 3, end: 4 }]);
+  });
+
+  it("treats both counts omitted as one line on each side (@@ -5 +6 @@)", () => {
+    expect(changedLineRanges("@@ -5 +6 @@\n-old\n+new")).toEqual([
+      { side: "L", start: 5, end: 5 },
+      { side: "R", start: 6, end: 6 },
+    ]);
+  });
+
+  it("is empty for a patch-less (binary/huge) file", () => {
+    expect(changedLineRanges(undefined)).toEqual([]);
+    expect(changedLineRanges("")).toEqual([]);
+  });
+});
+
+describe("stepsOffTarget", () => {
+  const m = mkManifest([
+    { path: "src/a.ts", patch: "@@ -0,0 +1,3 @@\n+a\n+b\n+c", additions: 3 }, // R 1-3 only
+    { path: "img.png", additions: 0 }, // no patch
+  ]);
+
+  it("flags a step whose lines miss every changed hunk", () => {
+    expect(
+      stepsOffTarget(m, [{ id: "x", file: "src/a.ts", lines: { side: "R", start: 50, end: 60 } }]),
+    ).toEqual([{ id: "x", file: "src/a.ts" }]);
+  });
+
+  it("clears a step whose lines fall inside a hunk", () => {
+    expect(
+      stepsOffTarget(m, [{ id: "x", file: "src/a.ts", lines: { side: "R", start: 2, end: 3 } }]),
+    ).toEqual([]);
+  });
+
+  it("flags a side mismatch (lines on L when the change is only on R)", () => {
+    expect(
+      stepsOffTarget(m, [{ id: "x", file: "src/a.ts", lines: { side: "L", start: 1, end: 1 } }]),
+    ).toEqual([{ id: "x", file: "src/a.ts" }]);
+  });
+
+  it("skips a step with no lines and a step on a patch-less file", () => {
+    expect(
+      stepsOffTarget(m, [
+        { id: "noLines", file: "src/a.ts" },
+        { id: "binary", file: "img.png", lines: { side: "R", start: 1, end: 1 } },
+      ]),
+    ).toEqual([]);
+  });
+
+  it("skips a step whose file is not in the manifest", () => {
+    expect(
+      stepsOffTarget(m, [{ id: "ghost", file: "src/missing.ts", lines: { side: "R", start: 1, end: 1 } }]),
+    ).toEqual([]);
+  });
+});
+
+describe("pathsMatch", () => {
+  it("matches exact and boundary-suffix variants, rejects unrelated paths", () => {
+    expect(pathsMatch("src/a.ts", "src/a.ts")).toBe(true); // exact
+    expect(pathsMatch("src/a.ts", "a.ts")).toBe(true); // manifest long, step short
+    expect(pathsMatch("a.ts", "src/a.ts")).toBe(true); // manifest short, step long
+    expect(pathsMatch("src/a.ts", "src/b.ts")).toBe(false); // unrelated
   });
 });

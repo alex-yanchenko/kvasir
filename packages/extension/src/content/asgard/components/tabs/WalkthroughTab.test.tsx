@@ -299,4 +299,58 @@ describe("WalkthroughTab", () => {
     render(<WalkthroughTab />);
     expect(screen.queryByRole("button", { name: "Show details" })).toBeNull();
   });
+
+  it("Back from the first code step falls into the overview step 0", () => {
+    state.spec = { ...mkSpec(), overview: "<p>what this PR is about</p>" };
+    render(<WalkthroughTab />);
+    // opens on the first code step, not the overview
+    expect(screen.getByText("First step")).toBeTruthy();
+    expect(screen.queryByTestId("overview-body")).toBeNull();
+    // with an overview, Back is enabled on step 1 and lands on the overview: prose in the
+    // main pane, footer reads "Overview", Back disabled, Next returns to the first step
+    // on a code step, the step-scoped tools are present
+    expect(screen.getByLabelText("Ask about this step")).toBeTruthy();
+    expect((screen.getByLabelText("Previous step") as HTMLButtonElement).disabled).toBe(false);
+    fireEvent.click(screen.getByLabelText("Previous step"));
+    expect(screen.getByTestId("overview-body").innerHTML).toContain("what this PR is about");
+    // footer counter reads "Overview" (the OverviewView heading is the other match)
+    expect(screen.getAllByText("Overview")).toHaveLength(2);
+    expect((screen.getByLabelText("Previous step") as HTMLButtonElement).disabled).toBe(true);
+    // step-scoped tools are hidden on the overview (no code target)
+    expect(screen.queryByLabelText("Ask about this step")).toBeNull();
+    expect(screen.queryByLabelText("Scroll to this step's code")).toBeNull();
+    fireEvent.click(screen.getByLabelText("Next step"));
+    expect(screen.getByText("First step")).toBeTruthy();
+    expect(screen.queryByTestId("overview-body")).toBeNull();
+  });
+
+  it("restores the overview step across an unmount/remount (close + reopen)", () => {
+    state.spec = { ...mkSpec(), overview: "<p>ov text</p>" };
+    const { unmount } = render(<WalkthroughTab />);
+    fireEvent.click(screen.getByLabelText("Previous step")); // into the overview
+    expect(screen.getByTestId("overview-body")).toBeTruthy();
+    unmount();
+    tourStore.close(); // the panel close resets the in-memory flag — only the persisted one restores
+    render(<WalkthroughTab />); // …reopen
+    expect(screen.getByTestId("overview-body")).toBeTruthy(); // still on the overview, not step 1
+  });
+
+  it("ArrowLeft from the first step opens the overview; ArrowRight returns", () => {
+    state.spec = { ...mkSpec(), overview: "<p>ov text</p>" };
+    render(<WalkthroughTab />);
+    act(() => {
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowLeft" }));
+    });
+    expect(screen.getByTestId("overview-body")).toBeTruthy();
+    act(() => {
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight" }));
+    });
+    expect(screen.getByText("First step")).toBeTruthy();
+  });
+
+  it("without an overview, Back is disabled on the first step (no step 0)", () => {
+    state.spec = mkSpec();
+    render(<WalkthroughTab />);
+    expect((screen.getByLabelText("Previous step") as HTMLButtonElement).disabled).toBe(true);
+  });
 });

@@ -44,7 +44,20 @@ describe("loadPersisted", () => {
     });
     await loadPersisted();
     expect(state.chatHistory).toEqual(chats);
-    expect(state.tourState).toEqual({ step: 2, pos: { left: 1, top: 2 }, size: { w: 3, h: 4 } });
+    expect(state.tourState).toEqual({
+      step: 2,
+      overview: false,
+      pos: { left: 1, top: 2 },
+      size: { w: 3, h: 4 },
+    });
+  });
+
+  it("restores the overview 'step 0' flag so a refresh resumes on the overview", async () => {
+    vi.mocked(storeGet).mockImplementation(async (key: string) =>
+      key.startsWith("kvasir:chats:") ? [] : { step: 3, overview: true, pos: null, size: null },
+    );
+    await loadPersisted();
+    expect(state.tourState).toEqual({ step: 3, overview: true, pos: null, size: null });
   });
 
   it("keeps in-memory chats, tolerates empty storage, defaults sparse tour fields", async () => {
@@ -55,7 +68,7 @@ describe("loadPersisted", () => {
     );
     await loadPersisted();
     expect(state.chatHistory).toEqual(live);
-    expect(state.tourState).toEqual({ step: 0, pos: null, size: null });
+    expect(state.tourState).toEqual({ step: 0, overview: false, pos: null, size: null });
   });
 
   it("does not touch panel state off a PR page (panel is per-tab, hydrated at boot)", async () => {
@@ -78,7 +91,7 @@ describe("loadPersisted", () => {
     vi.mocked(storeGet).mockResolvedValue(null);
     await loadPersisted();
     expect(state.chatHistory).toEqual([]);
-    expect(state.tourState).toEqual({ step: 0, pos: null, size: null });
+    expect(state.tourState).toEqual({ step: 0, overview: false, pos: null, size: null });
   });
 });
 
@@ -113,12 +126,16 @@ describe("watchUrl", () => {
 
     setUrl(`${OTHER}/files`);
     vi.advanceTimersByTime(1500);
+    // synchronous part of the PR switch: state reset; refresh is chained AFTER loadPersisted
     expect(reset).toHaveBeenCalledTimes(1);
-    expect(refresh).toHaveBeenCalledTimes(2);
+    expect(refresh).toHaveBeenCalledTimes(1); // not yet re-fired — waiting on loadPersisted
     expect(state.chatHistory).toEqual([]);
-    expect(state.tourState).toEqual({ step: 0, pos: null, size: null });
+    expect(state.tourState).toEqual({ step: 0, overview: false, pos: null, size: null });
     expect(state.panel).toEqual({ open: true, tab: "chat", pos: { left: 1, top: 1 }, size: { w: 2, h: 2 } }); // untouched: panel is per-tab, a PR switch (same tab) keeps its window
     expect(state.spec).toBeNull();
+    // flush microtasks so loadPersisted resolves and its .then re-fires refresh
+    for (let tick = 0; tick < 5; tick += 1) await Promise.resolve();
+    expect(refresh).toHaveBeenCalledTimes(2); // re-fired only after the new PR's state landed
     expect(vi.mocked(storeGet)).toHaveBeenCalledWith(`kvasir:chats:${OTHER}`);
   });
 

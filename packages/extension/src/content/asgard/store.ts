@@ -17,6 +17,9 @@ import type { ChatSession } from "./types";
 
 export interface TourState {
   step: number;
+  /** Whether the overview "step 0" was the active view — so close/reopen restores it
+   * rather than always resuming on a code step. */
+  overview?: boolean;
   pos: { left: number; top: number } | null;
   size: { w: number; h: number } | null;
 }
@@ -95,7 +98,7 @@ export const state: {
   generateDiagram: localStorage.getItem("kvasirGenerateDiagram") === "true", // default off
   theme: localStorage.getItem("kvasirTheme") || "auto",
   hlStyle: localStorage.getItem("kvasirHl") || "tint",
-  tourState: { step: 0, pos: null, size: null },
+  tourState: { step: 0, overview: false, pos: null, size: null },
   chatHistory: [],
   history: null,
   historyQuery: "",

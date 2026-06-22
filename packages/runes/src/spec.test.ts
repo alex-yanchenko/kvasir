@@ -22,4 +22,13 @@ describe("isWalkthroughSpec", () => {
     expect(isWalkthroughSpec(null)).toBe(false);
     expect(isWalkthroughSpec("nope")).toBe(false);
   });
+
+  it("rejects step lines with start > end, accepts start <= end", () => {
+    const withLines = (start: number, end: number) => ({
+      ...valid,
+      steps: [{ ...valid.steps[0], lines: { side: "R", start, end } }],
+    });
+    expect(isWalkthroughSpec(withLines(5, 3))).toBe(false);
+    expect(isWalkthroughSpec(withLines(3, 3))).toBe(true);
+  });
 });

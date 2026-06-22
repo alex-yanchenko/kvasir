@@ -41,16 +41,19 @@ export function watchUrl(intervalMs = 1500): () => void {
     if (location.href === lastUrl) return;
     lastUrl = location.href;
     const pr = prUrl();
-    if (pr !== currentPr) {
+    if (pr === currentPr) {
+      void launcherStore.refresh(); // same PR, just an SPA tab change (Conversation ↔ Files)
+    } else {
       currentPr = pr;
       state.chatHistory = [];
       touch(); // React drops the panel content with the old PR's state
-      state.tourState = { step: 0, pos: null, size: null };
+      state.tourState = { step: 0, overview: false, pos: null, size: null };
       state.spec = null;
       launcherStore.resetForPr();
-      void loadPersisted();
+      // The spec load triggers the tour's start(), so it must wait for the new PR's
+      // tour state to land — same ordering the boot path relies on (see boot.tsx).
+      void loadPersisted().then(() => launcherStore.refresh());
     }
-    void launcherStore.refresh();
   }, intervalMs);
   return () => clearInterval(poll);
 }

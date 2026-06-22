@@ -154,6 +154,150 @@ describe("navigation", () => {
   });
 });
 
+describe("overview step 0", () => {
+  const withOverview = (): WalkthroughSpec => ({
+    ...mkSpec(),
+    overview: "<p>what this PR is about</p>",
+  });
+
+  it("gotoOverview shows the overview and clears the page; canBack false / canNext true", () => {
+    state.spec = withOverview();
+    tourStore.start(); // opens on the first code step
+    sent = [];
+    tourStore.gotoOverview();
+    expect(tourStore.atOverview()).toBe(true);
+    expect(state.activeStep).toBeNull();
+    expect(sent).toEqual([
+      { kind: "highlight:clear", payload: undefined },
+      { kind: "grip:context", payload: { hasActiveStep: false } },
+    ]);
+    expect(tourStore.canBack()).toBe(false);
+    expect(tourStore.canNext()).toBe(true);
+  });
+
+  it("next from the overview advances to the first code step", () => {
+    state.spec = withOverview();
+    tourStore.start();
+    tourStore.gotoOverview();
+    tourStore.next();
+    expect(tourStore.atOverview()).toBe(false);
+    expect(tourStore.stepIndex()).toBe(0);
+    expect(state.activeStep).toEqual(state.spec!.steps[0]);
+  });
+
+  it("back from the first code step falls into the overview, and is a no-op once there", () => {
+    state.spec = withOverview();
+    tourStore.start(); // step 0
+    expect(tourStore.canBack()).toBe(true); // the overview is reachable
+    tourStore.back();
+    expect(tourStore.atOverview()).toBe(true);
+    tourStore.back(); // already at the overview → no-op
+    expect(tourStore.atOverview()).toBe(true);
+  });
+
+  it("gotoOverview is a no-op without an overview", () => {
+    tourStore.start(); // mkSpec carries no overview
+    tourStore.gotoOverview();
+    expect(tourStore.atOverview()).toBe(false);
+    expect(tourStore.hasOverview()).toBe(false);
+    expect(tourStore.canBack()).toBe(false); // step 0, no overview to fall back into
+  });
+
+  it("hasOverview/canBack/canNext are false without a spec; back is a safe no-op", () => {
+    state.spec = null;
+    expect(tourStore.hasOverview()).toBe(false);
+    expect(tourStore.canBack()).toBe(false);
+    expect(tourStore.canNext()).toBe(false);
+    expect(() => tourStore.back()).not.toThrow();
+  });
+
+  it("canBack/canNext reflect the position on the last code step", () => {
+    state.spec = withOverview();
+    tourStore.start();
+    tourStore.goto(1); // last of two steps
+    expect(tourStore.canBack()).toBe(true); // stepIndex > 0
+    expect(tourStore.canNext()).toBe(false); // last step
+  });
+
+  it("gotoOverview persists the overview flag so a reopen restores it", () => {
+    state.spec = withOverview();
+    tourStore.start();
+    vi.mocked(storeSet).mockClear();
+    tourStore.gotoOverview();
+    expect(state.tourState.overview).toBe(true);
+    expect(vi.mocked(storeSet)).toHaveBeenCalledWith(`kvasir:tour:${PR}`, state.tourState);
+  });
+
+  it("start restores the overview when that's where we left off", () => {
+    state.spec = withOverview();
+    state.tourState = { step: 1, overview: true, pos: null, size: null };
+    tourStore.start();
+    expect(tourStore.atOverview()).toBe(true);
+  });
+
+  it("start resumes a code step when the saved overview flag has no overview in the spec", () => {
+    state.spec = mkSpec(); // regenerated without an overview
+    state.tourState = { step: 1, overview: true, pos: null, size: null };
+    tourStore.start();
+    expect(tourStore.atOverview()).toBe(false);
+    expect(tourStore.stepIndex()).toBe(1);
+  });
+
+  it("goto clears the persisted overview flag", () => {
+    state.spec = withOverview();
+    tourStore.start();
+    tourStore.gotoOverview();
+    tourStore.goto(1);
+    expect(state.tourState.overview).toBe(false);
+  });
+
+  it("reapply re-issues the overview when on it, and the step otherwise", () => {
+    state.spec = withOverview();
+    tourStore.start(); // on the first code step
+    tourStore.gotoOverview();
+    sent = [];
+    tourStore.reapply(); // on the overview → re-clears the page, stays on the overview
+    expect(tourStore.atOverview()).toBe(true);
+    expect(sent.some((s) => s.kind === "highlight:clear")).toBe(true);
+
+    tourStore.goto(1);
+    sent = [];
+    tourStore.reapply(); // on a step → re-highlights it
+    expect(tourStore.atOverview()).toBe(false);
+    expect(sent.some((s) => s.kind === "highlight:step")).toBe(true);
+  });
+
+  it("reapply is a safe no-op without a spec", () => {
+    state.spec = null;
+    expect(() => tourStore.reapply()).not.toThrow();
+  });
+
+  it("a 1-step spec with an overview cycles overview <-> the single code step", () => {
+    state.spec = { ...withOverview(), steps: [mkSpec().steps[0]!] };
+    tourStore.start(); // the only code step
+    expect(tourStore.atOverview()).toBe(false);
+    expect(tourStore.canBack()).toBe(true); // overview reachable
+    expect(tourStore.canNext()).toBe(false); // only one code step
+    tourStore.back();
+    expect(tourStore.atOverview()).toBe(true);
+    expect(tourStore.canNext()).toBe(true);
+    tourStore.next();
+    expect(tourStore.atOverview()).toBe(false);
+    expect(tourStore.stepIndex()).toBe(0);
+  });
+
+  it("goto and close both leave the overview", () => {
+    state.spec = withOverview();
+    tourStore.start();
+    tourStore.gotoOverview();
+    tourStore.goto(1);
+    expect(tourStore.atOverview()).toBe(false);
+    tourStore.gotoOverview();
+    tourStore.close();
+    expect(tourStore.atOverview()).toBe(false);
+  });
+});
+
 describe("step context + ask", () => {
   it("stepContext strips markup and cites the location", () => {
     tourStore.start();
@@ -245,12 +389,12 @@ describe("guard and formatting arms", () => {
 });
 
 describe("backgroundContext", () => {
-  it("distills overview + steps with locations, capped", () => {
+  it("distills overview + steps with locations, stripping HTML, capped", () => {
     state.spec = {
       version: 1,
       pr: { url: PR, owner: "acme", repo: "widget-api", number: 7 },
       generatedAt: "t",
-      overview: "Adds   rate limiting.",
+      overview: "<p>Adds   <code>rate limiting</code>.</p>",
       steps: [
         {
           id: "s1",

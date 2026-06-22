@@ -56,6 +56,31 @@ describe("OutlineRail", () => {
     expect(tourStore.stepIndex()).toBe(2); // jumped to s3
   });
 
+  it("renders an Overview entry that navigates to step 0 and marks current when active", () => {
+    state.spec = { ...spec3("rail-ov"), overview: "<p>ov</p>" };
+    tourStore.start(); // opens on a code step, not the overview
+    render(<OutlineRail />);
+    const overviewBtn = within(screen.getByTestId("outline")).getByRole("button", {
+      name: "Overview",
+    });
+    expect(overviewBtn.getAttribute("aria-current")).toBeNull();
+    fireEvent.click(overviewBtn);
+    expect(tourStore.atOverview()).toBe(true);
+    cleanup();
+    render(<OutlineRail />);
+    const rail = screen.getByTestId("outline");
+    expect(within(rail).getByRole("button", { name: "Overview" }).getAttribute("aria-current")).toBe("step");
+    // no code step is marked current while on the overview
+    expect(rail.querySelector('[aria-current="step"]')?.textContent).toContain("Overview");
+  });
+
+  it("renders no Overview entry when the spec has no overview", () => {
+    state.spec = spec3("rail-no-ov");
+    tourStore.start();
+    render(<OutlineRail />);
+    expect(within(screen.getByTestId("outline")).queryByRole("button", { name: "Overview" })).toBeNull();
+  });
+
   it("renders a coverage chip when the spec carries coverage", () => {
     state.spec = { ...spec3("rail-cov"), coverage: { significant: ["f.ts", "g.ts"], uncovered: ["g.ts"] } };
     tourStore.start();

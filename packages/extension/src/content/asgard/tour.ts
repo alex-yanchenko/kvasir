@@ -15,6 +15,10 @@ import { state, touch } from "./store";
 
 let open = false;
 let stepIndex = 0;
+// The overview "step 0" view: a prose-only intro before the first code step. Lives
+// here (not in the steps array) so it stays out of coverage/outline-by-file and keeps
+// its own place in the Back/Next sequence. Module-level so it survives a tab switch.
+let atOverview = false;
 // The detail pane's open state lives here, NOT in React component state, so it
 // survives the WalkthroughTab unmount when you switch to Chat/Settings and back.
 let detailOpen = false;
@@ -49,6 +53,35 @@ export const tourStore = {
   },
   isVisited: (stepId: string): boolean => visited.has(stepId),
 
+  /** Whether this spec carries an overview (and so has a "step 0"). */
+  hasOverview: (): boolean => (state.spec ? !!state.spec.overview : false),
+  /** Whether the overview "step 0" is the current view. */
+  atOverview: (): boolean => atOverview,
+  /** Whether Back/Next can move from where we are now (drives the footer + arrows). */
+  canBack: (): boolean => {
+    if (!state.spec) return false;
+    if (atOverview) return false;
+    return stepIndex > 0 || !!state.spec.overview;
+  },
+  canNext: (): boolean => {
+    if (!state.spec) return false;
+    if (atOverview) return true;
+    return stepIndex < state.spec.steps.length - 1;
+  },
+
+  /** Show the overview "step 0": prose only, no code target, so clear the page. */
+  gotoOverview(): void {
+    if (!state.spec || !state.spec.overview) return;
+    atOverview = true;
+    diagramOpen = false;
+    state.activeStep = null;
+    state.tourState = { ...state.tourState, overview: true }; // restore here on reopen
+    storeSet(tourKey(prUrl()), state.tourState);
+    bifrost.send("highlight:clear", undefined);
+    bifrost.send("grip:context", { hasActiveStep: false });
+    touch();
+  },
+
   start(): void {
     if (!state.spec) return;
     // Open and resume where you left off. Off the diff (e.g. the PR conversation
@@ -57,13 +90,22 @@ export const tourStore = {
     // tab. Deliberately does NOT navigate: a passive restore on refresh must never
     // yank the page to /files.
     open = true;
+    // Restore the overview "step 0" if that's where we left off; otherwise resume the
+    // last code step. The persisted flag can outlive its spec (regenerated without an
+    // overview), so guard on the current spec too.
+    if (state.tourState.overview && state.spec.overview) {
+      tourStore.gotoOverview();
+      return;
+    }
     tourStore.goto(state.tourState.step || 0);
   },
 
   goto(index: number): void {
     if (!state.spec) return;
+    atOverview = false; // navigating to a real step always leaves the overview
     stepIndex = clamp(index, state.spec.steps.length);
-    state.tourState = { ...state.tourState, step: stepIndex }; // remember where we are
+    // remember where we are (and that we're off the overview)
+    state.tourState = { ...state.tourState, step: stepIndex, overview: false };
     storeSet(tourKey(prUrl()), state.tourState);
     const s = state.spec.steps[stepIndex];
     if (!s) return; // empty spec / out-of-range — nothing to highlight
@@ -83,16 +125,37 @@ export const tourStore = {
     touch();
   },
 
-  /** Advance to the next step; a no-op on the last (the Next control is disabled). */
+  /** Re-issue the page commands for wherever we currently are (overview or a step),
+   * without changing position. Used after an SPA refresh lands back on the diff —
+   * a raw goto(stepIndex) here would silently drop the overview. */
+  reapply(): void {
+    if (!state.spec) return;
+    if (atOverview) tourStore.gotoOverview();
+    else tourStore.goto(stepIndex);
+  },
+
+  /** Advance to the next step; a no-op on the last (the Next control is disabled).
+   * From the overview "step 0" it advances to the first code step. */
   next(): void {
+    if (atOverview) {
+      tourStore.goto(0);
+      return;
+    }
     if (state.spec && stepIndex < state.spec.steps.length - 1) tourStore.goto(stepIndex + 1);
   },
+  /** Step back; from the first code step it falls into the overview "step 0" (if any). */
   back(): void {
-    if (stepIndex > 0) tourStore.goto(stepIndex - 1);
+    if (atOverview) return;
+    if (stepIndex > 0) {
+      tourStore.goto(stepIndex - 1);
+      return;
+    }
+    if (tourStore.hasOverview()) tourStore.gotoOverview();
   },
 
   close(): void {
     open = false;
+    atOverview = false;
     // The diagram overlay is walkthrough-scoped: closing/regenerating must not leave
     // it open, or a regenerated spec that carries a diagram would auto-open it unasked.
     diagramOpen = false;
@@ -107,7 +170,10 @@ export const tourStore = {
   backgroundContext(): string {
     if (!state.spec) return "";
     const head = state.spec.overview
-      ? `Overview: ${state.spec.overview.replaceAll(/\s+/g, " ").trim()}\n\n`
+      ? `Overview: ${state.spec.overview
+          .replaceAll(/<[^>]+>/g, "")
+          .replaceAll(/\s+/g, " ")
+          .trim()}\n\n`
       : "";
     const steps = state.spec.steps
       .map((st) => {

@@ -4,6 +4,7 @@
 // sidebar shell (PanelSidebar) owns the width, scroll and resize; this just renders
 // the content.
 import type { WalkthroughStep } from "@kvasir/runes/spec";
+import { FileText } from "lucide-react";
 import type { JSX } from "react";
 import { launcherStore } from "../launcher";
 import { tourStore } from "../tour";
@@ -20,6 +21,7 @@ function dotClass(isCurrent: boolean, isVisited: boolean): string {
 export function OutlineRail(): JSX.Element | null {
   const spec = launcherStore.spec();
   const current = tourStore.stepIndex();
+  const onOverview = tourStore.atOverview();
   if (!spec) return null;
   const groups: { file: string; items: { step: WalkthroughStep; index: number }[] }[] = [];
   let position = 0;
@@ -39,6 +41,19 @@ export function OutlineRail(): JSX.Element | null {
         <Coverage coverage={spec.coverage} />
       </div>
       <div className="py-2">
+        {spec.overview && (
+          <button
+            className={
+              "mb-2 flex min-w-full items-center gap-1.5 whitespace-nowrap px-3 py-1.5 text-left text-sm hover:bg-muted " +
+              (onOverview ? "font-medium text-primary" : "text-foreground/90")
+            }
+            aria-current={onOverview ? "step" : undefined}
+            onClick={() => tourStore.gotoOverview()}
+          >
+            <FileText className="size-3.5 shrink-0 text-muted-foreground/60" />
+            <span>Overview</span>
+          </button>
+        )}
         {groups.map((group, groupIndex) => (
           <div key={groupIndex} className="mb-2">
             <div className="whitespace-nowrap px-3 py-1 font-mono text-[11px] text-muted-foreground/80">
@@ -46,7 +61,7 @@ export function OutlineRail(): JSX.Element | null {
             </div>
             <ul>
               {group.items.map((item, itemIndex) => {
-                const isCurrent = item.index === current;
+                const isCurrent = !onOverview && item.index === current;
                 return (
                   <li key={item.index}>
                     <button
