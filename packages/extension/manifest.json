@@ -1,18 +1,29 @@
 {
   "manifest_version": 3,
   "name": "Kvasir",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Kvasir — interactive, in-browser code walkthroughs on GitHub, with select-code Q&A.",
-  "permissions": ["storage"],
-  "host_permissions": ["http://localhost:8799/*"],
+  "permissions": [
+    "storage"
+  ],
+  "host_permissions": [
+    "http://localhost:8799/*"
+  ],
   "background": {
     "service_worker": "dist/huginn.js"
   },
   "content_scripts": [
     {
-      "matches": ["https://github.com/*/*/pull/*", "https://github.com/*/*/blob/*"],
-      "js": ["dist/content.js"],
-      "css": ["dist/midgard.css"],
+      "matches": [
+        "https://github.com/*/*/pull/*",
+        "https://github.com/*/*/blob/*"
+      ],
+      "js": [
+        "dist/content.js"
+      ],
+      "css": [
+        "dist/midgard.css"
+      ],
       "run_at": "document_idle"
     }
   ],
@@ -33,8 +44,12 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["dist/mermaid.mjs"],
-      "matches": ["https://github.com/*"]
+      "resources": [
+        "dist/mermaid.mjs"
+      ],
+      "matches": [
+        "https://github.com/*"
+      ]
     }
   ]
 }
