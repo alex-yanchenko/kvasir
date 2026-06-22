@@ -10,6 +10,13 @@ on:
   push:
     branches: [main]
 
+# Serialize releases: only one run at a time. A second push while a run is mid-flight queues
+# behind it (cancel-in-progress: false) rather than racing on the release PR / draft. We do NOT
+# cancel the in-progress run — killing it mid-compile could leave a half-built draft.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 permissions:
   contents: write
   pull-requests: write
@@ -18,9 +25,18 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
+      # Mint a short-lived installation token from the dedicated release GitHub App so PR creation
+      # is scoped to THIS workflow's token — not the repo-wide "Actions can create PRs" toggle. The
+      # token also makes the release PR trigger CI (PRs opened by the default GITHUB_TOKEN don't).
+      - uses: actions/create-github-app-token@v1
+        id: app-token
+        with:
+          app-id: ${{ secrets.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
       - uses: googleapis/release-please-action@v4
         id: release
         with:
+          token: ${{ steps.app-token.outputs.token }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
 
