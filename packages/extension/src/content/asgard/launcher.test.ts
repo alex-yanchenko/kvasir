@@ -97,8 +97,22 @@ describe("requestGenerate → poll → spec lands", () => {
     expect(launcherStore.generating()).toBe(false);
     expect(vi.mocked(storeSet)).toHaveBeenCalledWith(`kvasir:spec:${PR}`, fresh);
     expect(vi.mocked(storeRemove)).toHaveBeenCalledWith(`kvasir:gen:${PR}`);
-    // new review → back to the first step, pos/size kept
-    expect(state.tourState).toEqual({ step: 0, pos: null, size: null });
+    // no overview on this spec → resume on the first code step, pos/size kept
+    expect(state.tourState).toEqual({ step: 0, overview: false, pos: null, size: null });
+    expect(vi.mocked(storeSet)).toHaveBeenCalledWith(`kvasir:tour:${PR}`, state.tourState);
+  });
+
+  it("resumes a freshly generated walkthrough on the overview step 0 when it has one", async () => {
+    const fresh = mkSpec({ generatedAt: "2026-02-02T00:00:00Z", overview: "<p>The big picture</p>" });
+    vi.mocked(api).mockImplementation(async (path: string) =>
+      path.startsWith("/walkthrough") ? { ok: true, data: fresh } : { ok: true },
+    );
+
+    await launcherStore.requestGenerate("new");
+    await vi.advanceTimersByTimeAsync(GEN_POLL_INTERVAL_MS);
+
+    expect(state.spec).toEqual(fresh);
+    expect(state.tourState).toEqual({ step: 0, overview: true, pos: null, size: null });
     expect(vi.mocked(storeSet)).toHaveBeenCalledWith(`kvasir:tour:${PR}`, state.tourState);
   });
 
