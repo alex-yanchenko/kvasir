@@ -12,3 +12,8 @@ playwright-report/
 
 # release-please generates this from commit messages; not prettier-shaped
 CHANGELOG.md
+
+# release-please rewrites the version here via its JSON updater, which re-serializes the whole file
+# (short arrays expanded to multi-line) in a shape prettier rejects. MV3 manifests must be
+# comment-free JSON, so the line-annotation updater isn't an option — exclude it from the check.
+packages/extension/manifest.json
