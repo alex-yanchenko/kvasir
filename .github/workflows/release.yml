@@ -61,3 +61,20 @@ jobs:
         run: |
           gh release upload "${{ steps.release.outputs.tag_name }}" \
             packages/mimir/dist/kvasir-channel-* packages/mimir/dist/extension-dist.tgz --clobber
+      # Keep exactly one unpublished draft. Merging successive release PRs without publishing the
+      # prior draft would otherwise leave a stack of stale drafts; delete every draft except the one
+      # just created. Drafts carry no git tag, so this never deletes a tag or a published release.
+      - name: Prune stale draft releases (keep only the new one)
+        if: ${{ steps.release.outputs.release_created }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          new_tag="${{ steps.release.outputs.tag_name }}"
+          gh release list --limit 100 --json tagName,isDraft \
+            --jq '.[] | select(.isDraft) | .tagName' \
+          | while read -r tag; do
+              if [ "$tag" != "$new_tag" ]; then
+                echo "Deleting stale draft $tag"
+                gh release delete "$tag" --yes
+              fi
+            done
