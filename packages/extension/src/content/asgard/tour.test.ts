@@ -272,6 +272,20 @@ describe("overview step 0", () => {
     expect(() => tourStore.reapply()).not.toThrow();
   });
 
+  it("a 1-step spec with an overview cycles overview <-> the single code step", () => {
+    state.spec = { ...withOverview(), steps: [mkSpec().steps[0]!] };
+    tourStore.start(); // the only code step
+    expect(tourStore.atOverview()).toBe(false);
+    expect(tourStore.canBack()).toBe(true); // overview reachable
+    expect(tourStore.canNext()).toBe(false); // only one code step
+    tourStore.back();
+    expect(tourStore.atOverview()).toBe(true);
+    expect(tourStore.canNext()).toBe(true);
+    tourStore.next();
+    expect(tourStore.atOverview()).toBe(false);
+    expect(tourStore.stepIndex()).toBe(0);
+  });
+
   it("goto and close both leave the overview", () => {
     state.spec = withOverview();
     tourStore.start();
@@ -375,12 +389,12 @@ describe("guard and formatting arms", () => {
 });
 
 describe("backgroundContext", () => {
-  it("distills overview + steps with locations, capped", () => {
+  it("distills overview + steps with locations, stripping HTML, capped", () => {
     state.spec = {
       version: 1,
       pr: { url: PR, owner: "acme", repo: "widget-api", number: 7 },
       generatedAt: "t",
-      overview: "Adds   rate limiting.",
+      overview: "<p>Adds   <code>rate limiting</code>.</p>",
       steps: [
         {
           id: "s1",

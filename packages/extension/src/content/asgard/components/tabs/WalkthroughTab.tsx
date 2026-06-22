@@ -175,6 +175,7 @@ function StepTools({
   onRegen: () => void;
 }>): JSX.Element {
   const diagramOpen = tourStore.diagramOpen();
+  const atOverview = tourStore.atOverview();
   const stepChat = chatStore.stepChat(step.id);
   const newCommits = launcherStore.newCommits();
   return (
@@ -191,30 +192,35 @@ function StepTools({
           <Workflow />
         </Button>
       )}
-      <Button
-        variant="ghost"
-        size="icon"
-        className={"h-7 w-7" + (stepChat ? " text-primary" : "")}
-        aria-label={stepChat ? "Reopen chat for this step" : "Ask about this step"}
-        data-kvasir-tip={stepChat ? "Reopen this step's chat" : "Ask about this step"}
-        disabled={pairingStore.needsPairing()}
-        onClick={() => {
-          tourStore.askAboutStep();
-          panelStore.setTab(PANEL_TABS.CHAT);
-        }}
-      >
-        {stepChat ? <MessageSquareMore /> : <MessageSquare />}
-      </Button>
-      <Button
-        variant="ghost"
-        size="icon"
-        className="h-7 w-7"
-        aria-label="Scroll to this step's code"
-        data-kvasir-tip="Scroll to this step's code"
-        onClick={() => tourStore.goto(index)}
-      >
-        <Crosshair />
-      </Button>
+      {/* Ask + scroll-to-code are step-scoped; the overview "step 0" has no code target. */}
+      {!atOverview && (
+        <Button
+          variant="ghost"
+          size="icon"
+          className={"h-7 w-7" + (stepChat ? " text-primary" : "")}
+          aria-label={stepChat ? "Reopen chat for this step" : "Ask about this step"}
+          data-kvasir-tip={stepChat ? "Reopen this step's chat" : "Ask about this step"}
+          disabled={pairingStore.needsPairing()}
+          onClick={() => {
+            tourStore.askAboutStep();
+            panelStore.setTab(PANEL_TABS.CHAT);
+          }}
+        >
+          {stepChat ? <MessageSquareMore /> : <MessageSquare />}
+        </Button>
+      )}
+      {!atOverview && (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7"
+          aria-label="Scroll to this step's code"
+          data-kvasir-tip="Scroll to this step's code"
+          onClick={() => tourStore.goto(index)}
+        >
+          <Crosshair />
+        </Button>
+      )}
       <Button
         variant="ghost"
         size="icon"

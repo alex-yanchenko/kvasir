@@ -170,7 +170,10 @@ export const tourStore = {
   backgroundContext(): string {
     if (!state.spec) return "";
     const head = state.spec.overview
-      ? `Overview: ${state.spec.overview.replaceAll(/\s+/g, " ").trim()}\n\n`
+      ? `Overview: ${state.spec.overview
+          .replaceAll(/<[^>]+>/g, "")
+          .replaceAll(/\s+/g, " ")
+          .trim()}\n\n`
       : "";
     const steps = state.spec.steps
       .map((st) => {

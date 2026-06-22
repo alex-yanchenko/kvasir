@@ -452,6 +452,13 @@ describe("changedLineRanges", () => {
     expect(changedLineRanges("@@ -3,2 +2,0 @@\n-x\n-y")).toEqual([{ side: "L", start: 3, end: 4 }]);
   });
 
+  it("treats both counts omitted as one line on each side (@@ -5 +6 @@)", () => {
+    expect(changedLineRanges("@@ -5 +6 @@\n-old\n+new")).toEqual([
+      { side: "L", start: 5, end: 5 },
+      { side: "R", start: 6, end: 6 },
+    ]);
+  });
+
   it("is empty for a patch-less (binary/huge) file", () => {
     expect(changedLineRanges(undefined)).toEqual([]);
     expect(changedLineRanges("")).toEqual([]);

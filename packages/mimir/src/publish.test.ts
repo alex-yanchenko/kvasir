@@ -173,6 +173,8 @@ describe("preparePublish", () => {
     expect(outcome.kind).toBe("invalid");
     const message = outcome.kind === "invalid" ? outcome.message : "";
     expect(message).toContain("set overview");
+    expect(message).toContain("HTML summary"); // matches the spec/channel wording, not "plain-text"
+    expect(message).not.toContain("plain-text");
   });
 
   it("nudges when a step's lines fall outside the file's changed hunks", () => {
@@ -187,6 +189,28 @@ describe("preparePublish", () => {
     const message = outcome.kind === "nudge" ? outcome.message : "";
     expect(message).toContain("fall outside their file's changed hunks");
     expect(message).toContain("  - s0 (src/a.ts)");
+  });
+
+  it("nudges with both sections when a file is uncovered AND a step is off-target", () => {
+    const manifests = new Map([
+      [
+        KEY,
+        manifestWith([
+          { path: "src/a.ts", additions: 80, patch: "@@ -0,0 +1,2 @@\n+a\n+b" },
+          { path: "src/big.ts", additions: 80, patch: "@@ -0,0 +1,2 @@\n+x\n+y" },
+        ]),
+      ],
+    ]);
+    // one step on src/a.ts with off-target lines; src/big.ts is significant but step-less
+    const outcome = preparePublish(
+      spec([{ file: "src/a.ts", lines: { side: "R", start: 50, end: 60 } }]),
+      state({ manifests }),
+    );
+    expect(outcome.kind).toBe("nudge");
+    const message = outcome.kind === "nudge" ? outcome.message : "";
+    expect(message).toContain("but no step"); // uncovered section
+    expect(message).toContain("fall outside their file's changed hunks"); // off-target section
+    expect(message.split("\n\n")).toHaveLength(3); // prefix + both sections
   });
 
   it("publishes when a step's lines sit at the edge of the changed hunk", () => {

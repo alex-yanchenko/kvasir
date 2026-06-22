@@ -48,14 +48,14 @@ export function preparePublish(rawSpec: unknown, state: PublishState): PublishOu
     };
   }
 
-  // Overview gate (hard): every PR walkthrough opens with a plain-text summary so the
+  // Overview gate (hard): every PR walkthrough opens with an Overview "step 0" so the
   // reader gets the "what is this" without reading the PR description. The schema keeps
   // it optional (the manual `kvasir build` path produces specs without one); this gate
   // only applies on the publish_walkthrough path.
   if (!spec.overview?.trim()) {
     return {
       kind: "invalid",
-      message: `spec failed validation — set overview to a 2-4 sentence plain-text summary of the PR (it's shown in the panel's Overview and fed to chat as context).`,
+      message: `spec failed validation — set overview to a 2-4 sentence HTML summary of the PR (same markup as a step body; it's shown as the walkthrough's Overview step and fed to chat as context).`,
     };
   }
 

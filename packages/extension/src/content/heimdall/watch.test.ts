@@ -126,12 +126,16 @@ describe("watchUrl", () => {
 
     setUrl(`${OTHER}/files`);
     vi.advanceTimersByTime(1500);
+    // synchronous part of the PR switch: state reset; refresh is chained AFTER loadPersisted
     expect(reset).toHaveBeenCalledTimes(1);
-    expect(refresh).toHaveBeenCalledTimes(2);
+    expect(refresh).toHaveBeenCalledTimes(1); // not yet re-fired — waiting on loadPersisted
     expect(state.chatHistory).toEqual([]);
-    expect(state.tourState).toEqual({ step: 0, pos: null, size: null });
+    expect(state.tourState).toEqual({ step: 0, overview: false, pos: null, size: null });
     expect(state.panel).toEqual({ open: true, tab: "chat", pos: { left: 1, top: 1 }, size: { w: 2, h: 2 } }); // untouched: panel is per-tab, a PR switch (same tab) keeps its window
     expect(state.spec).toBeNull();
+    // flush microtasks so loadPersisted resolves and its .then re-fires refresh
+    for (let tick = 0; tick < 5; tick += 1) await Promise.resolve();
+    expect(refresh).toHaveBeenCalledTimes(2); // re-fired only after the new PR's state landed
     expect(vi.mocked(storeGet)).toHaveBeenCalledWith(`kvasir:chats:${OTHER}`);
   });
 
