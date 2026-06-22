@@ -17,6 +17,9 @@ import type { ChatSession } from "./types";
 
 export interface TourState {
   step: number;
+  /** Whether the overview "step 0" was the active view — so close/reopen restores it
+   * rather than always resuming on a code step. */
+  overview?: boolean;
   pos: { left: number; top: number } | null;
   size: { w: number; h: number } | null;
 }

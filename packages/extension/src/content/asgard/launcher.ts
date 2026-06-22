@@ -201,7 +201,7 @@ export const launcherStore = {
     // remounting, so re-issue the current step's highlight whenever a refresh lands
     // on the diff with the tour open — otherwise highlights wouldn't reappear when
     // you navigate back to Files. (start() never navigates the page; see tour.ts.)
-    if (state.spec && onFilesTab() && tourStore.open()) tourStore.goto(tourStore.stepIndex());
+    if (state.spec && onFilesTab() && tourStore.open()) tourStore.reapply();
     if (!genPoll && (await resumeGeneration(pr))) return;
     if (state.spec && !generating) await detectNewCommits(pr);
   },

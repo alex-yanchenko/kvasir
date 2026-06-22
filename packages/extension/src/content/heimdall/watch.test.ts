@@ -44,7 +44,20 @@ describe("loadPersisted", () => {
     });
     await loadPersisted();
     expect(state.chatHistory).toEqual(chats);
-    expect(state.tourState).toEqual({ step: 2, pos: { left: 1, top: 2 }, size: { w: 3, h: 4 } });
+    expect(state.tourState).toEqual({
+      step: 2,
+      overview: false,
+      pos: { left: 1, top: 2 },
+      size: { w: 3, h: 4 },
+    });
+  });
+
+  it("restores the overview 'step 0' flag so a refresh resumes on the overview", async () => {
+    vi.mocked(storeGet).mockImplementation(async (key: string) =>
+      key.startsWith("kvasir:chats:") ? [] : { step: 3, overview: true, pos: null, size: null },
+    );
+    await loadPersisted();
+    expect(state.tourState).toEqual({ step: 3, overview: true, pos: null, size: null });
   });
 
   it("keeps in-memory chats, tolerates empty storage, defaults sparse tour fields", async () => {
@@ -55,7 +68,7 @@ describe("loadPersisted", () => {
     );
     await loadPersisted();
     expect(state.chatHistory).toEqual(live);
-    expect(state.tourState).toEqual({ step: 0, pos: null, size: null });
+    expect(state.tourState).toEqual({ step: 0, overview: false, pos: null, size: null });
   });
 
   it("does not touch panel state off a PR page (panel is per-tab, hydrated at boot)", async () => {
@@ -78,7 +91,7 @@ describe("loadPersisted", () => {
     vi.mocked(storeGet).mockResolvedValue(null);
     await loadPersisted();
     expect(state.chatHistory).toEqual([]);
-    expect(state.tourState).toEqual({ step: 0, pos: null, size: null });
+    expect(state.tourState).toEqual({ step: 0, overview: false, pos: null, size: null });
   });
 });
 

@@ -15,10 +15,16 @@ const isPos = (v: unknown): v is Pos =>
 const isSize = (v: unknown): v is Size => isRecord(v) && typeof v.w === "number" && typeof v.h === "number";
 
 /** Restore a persisted TourState, dropping any field that doesn't match. */
-export function parseTourState(v: unknown): { step: number; pos: Pos | null; size: Size | null } {
-  if (!isRecord(v)) return { step: 0, pos: null, size: null };
+export function parseTourState(v: unknown): {
+  step: number;
+  overview: boolean;
+  pos: Pos | null;
+  size: Size | null;
+} {
+  if (!isRecord(v)) return { step: 0, overview: false, pos: null, size: null };
   return {
     step: typeof v.step === "number" ? v.step : 0,
+    overview: v.overview === true,
     pos: isPos(v.pos) ? v.pos : null,
     size: isSize(v.size) ? v.size : null,
   };

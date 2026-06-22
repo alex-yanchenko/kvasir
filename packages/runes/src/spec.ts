@@ -56,7 +56,7 @@ export const WalkthroughSpecSchema = z.object({
   /** Generated-at, for cache display. */
   generatedAt: z.string(),
   /** 2-4 sentence HTML summary of the whole PR (same markup as a step body). Shown in
-   * the extension's Overview popup and fed to chat as background so a fresh session
+   * the extension's Overview step (step 0 of the walkthrough) and fed to chat as background so a fresh session
    * understands the PR. Written for a human reader opening the PR cold. */
   overview: z.string().optional(),
   steps: z.array(WalkthroughStepSchema).min(1),

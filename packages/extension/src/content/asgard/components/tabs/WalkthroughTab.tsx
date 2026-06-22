@@ -7,7 +7,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Crosshair,
-  FileText,
   Loader2,
   MessageSquare,
   MessageSquareMore,
@@ -25,7 +24,6 @@ import { getSnapshot, PANEL_TABS, panelStore, subscribe } from "../../store";
 import { tourStore } from "../../tour";
 import { Button } from "../../ui/button";
 import { Diagram } from "../Diagram";
-import { OverviewPopup } from "../OverviewPopup";
 import { RegenDialog } from "../RegenDialog";
 
 function Generating(): JSX.Element {
@@ -100,13 +98,36 @@ function StepBody({ step }: Readonly<{ step: WalkthroughStep }>): JSX.Element {
   );
 }
 
-// The content pane (right of the rail): the diagram overlay when open, else the
-// step body. The outline rail is a sibling column, not part of this pane.
+// The overview "step 0": a prose-only intro shown in the full content pane (so long
+// overviews read comfortably, unlike a floating card). Same prose rendering as a step.
+function OverviewView({ overview }: Readonly<{ overview: string }>): JSX.Element {
+  return (
+    <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+      <h3 className="mb-2 text-base font-semibold">Overview</h3>
+      <div
+        className="kvasir-prose text-sm"
+        data-testid="overview-body"
+        dangerouslySetInnerHTML={{ __html: sanitizeSpecHtml(overview) }}
+      />
+    </div>
+  );
+}
+
+// The content pane (right of the rail): the overview "step 0" when one is active, the
+// diagram overlay when open, else the step body. The outline rail is a sibling column,
+// not part of this pane. `overview` is the overview HTML when on step 0, else undefined.
 function MainView({
   spec,
   step,
   diagramOpen,
-}: Readonly<{ spec: WalkthroughSpec; step: WalkthroughStep; diagramOpen: boolean }>): JSX.Element {
+  overview,
+}: Readonly<{
+  spec: WalkthroughSpec;
+  step: WalkthroughStep;
+  diagramOpen: boolean;
+  overview: string | undefined;
+}>): JSX.Element {
+  if (overview) return <OverviewView overview={overview} />;
   if (diagramOpen && spec.diagram) return <Diagram source={spec.diagram} />;
   return <StepBody step={step} />;
 }
@@ -121,12 +142,12 @@ function useArrowKeyNav(): void {
       const t = event.target;
       if (t instanceof HTMLElement && (/^(?:TEXTAREA|INPUT|SELECT)$/.test(t.tagName) || t.isContentEditable))
         return;
-      if (event.key === "ArrowRight" && tourStore.stepIndex() < tourStore.stepCount() - 1) {
+      if (event.key === "ArrowRight" && tourStore.canNext()) {
         event.preventDefault();
-        tourStore.goto(tourStore.stepIndex() + 1);
-      } else if (event.key === "ArrowLeft" && tourStore.stepIndex() > 0) {
+        tourStore.next();
+      } else if (event.key === "ArrowLeft" && tourStore.canBack()) {
         event.preventDefault();
-        tourStore.goto(tourStore.stepIndex() - 1);
+        tourStore.back();
       }
     };
     const root = document.querySelector("#kvasir-root")?.shadowRoot ?? document;
@@ -147,32 +168,17 @@ function StepTools({
   step,
   index,
   onRegen,
-  onOverview,
 }: Readonly<{
   spec: WalkthroughSpec;
   step: WalkthroughStep;
   index: number;
   onRegen: () => void;
-  onOverview: (overview: string) => void;
 }>): JSX.Element {
   const diagramOpen = tourStore.diagramOpen();
   const stepChat = chatStore.stepChat(step.id);
   const newCommits = launcherStore.newCommits();
-  const overview = spec.overview;
   return (
     <div className="ml-auto flex items-center gap-1">
-      {overview && (
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-7 w-7"
-          aria-label="Overview"
-          data-kvasir-tip="What this change is about"
-          onClick={() => onOverview(overview)}
-        >
-          <FileText />
-        </Button>
-      )}
       {spec.diagram && (
         <Button
           variant="ghost"
@@ -226,28 +232,34 @@ function StepTools({
 
 // Footer: Back · step counter · Next on one row. The counter sits between the buttons
 // (it stays short at any step count); the outline sidebar handles jumping to a step.
+// On the overview "step 0" the counter reads "Overview" and Back is disabled.
 function Footer({ index, count }: Readonly<{ index: number; count: number }>): JSX.Element {
-  const atFirst = index === 0;
-  const atLast = index >= count - 1;
+  const atOverview = tourStore.atOverview();
   return (
     <div className="flex items-center justify-between gap-2 border-t border-border px-3 py-2">
       <Button
         variant="ghost"
         size="sm"
         aria-label="Previous step"
-        disabled={atFirst}
+        disabled={!tourStore.canBack()}
         onClick={() => tourStore.back()}
       >
         <ChevronLeft /> Back
       </Button>
       <span className="shrink-0 text-xs text-muted-foreground">
-        Step <span className="font-medium text-primary">{index + 1}</span> / {count}
+        {atOverview ? (
+          "Overview"
+        ) : (
+          <>
+            Step <span className="font-medium text-primary">{index + 1}</span> / {count}
+          </>
+        )}
       </span>
       <Button
         variant="default"
         size="sm"
         aria-label="Next step"
-        disabled={atLast}
+        disabled={!tourStore.canNext()}
         onClick={() => tourStore.next()}
       >
         Next <ChevronRight />
@@ -258,7 +270,6 @@ function Footer({ index, count }: Readonly<{ index: number; count: number }>): J
 
 function Steps({ spec }: Readonly<{ spec: WalkthroughSpec }>): JSX.Element {
   const [dialog, setDialog] = useState(false);
-  const [overviewText, setOverviewText] = useState<string | null>(null);
   const step = tourStore.step();
   const index = tourStore.stepIndex();
   const count = tourStore.stepCount();
@@ -274,23 +285,15 @@ function Steps({ spec }: Readonly<{ spec: WalkthroughSpec }>): JSX.Element {
 
   if (!step) return <Empty />;
   const diagramOpen = tourStore.diagramOpen();
+  const overview = tourStore.atOverview() ? spec.overview : undefined;
   return (
     <div className="flex h-full flex-col">
       {/* header: low-frequency utilities (the outline toggle lives in the panel title bar) */}
-      <div className="relative flex items-center gap-1 border-b border-border px-3 py-2">
-        <StepTools
-          spec={spec}
-          step={step}
-          index={index}
-          onRegen={() => setDialog(true)}
-          onOverview={(overview) => setOverviewText(overview)}
-        />
-        {overviewText !== null && (
-          <OverviewPopup overview={overviewText} onClose={() => setOverviewText(null)} />
-        )}
+      <div className="flex items-center gap-1 border-b border-border px-3 py-2">
+        <StepTools spec={spec} step={step} index={index} onRegen={() => setDialog(true)} />
       </div>
 
-      <MainView spec={spec} step={step} diagramOpen={diagramOpen} />
+      <MainView spec={spec} step={step} diagramOpen={diagramOpen} overview={overview} />
 
       <Footer index={index} count={count} />
       {dialog && <RegenDialog onClose={() => setDialog(false)} />}

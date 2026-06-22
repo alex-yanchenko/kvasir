@@ -300,18 +300,50 @@ describe("WalkthroughTab", () => {
     expect(screen.queryByRole("button", { name: "Show details" })).toBeNull();
   });
 
-  it("opens the overview popup from the toolbar and closes it", () => {
-    state.spec = { ...mkSpec(), overview: "<p>Adds rate limiting at the gateway.</p>" };
+  it("Back from the first code step falls into the overview step 0", () => {
+    state.spec = { ...mkSpec(), overview: "<p>what this PR is about</p>" };
     render(<WalkthroughTab />);
-    fireEvent.click(screen.getByRole("button", { name: "Overview" }));
-    expect(screen.getByText("Adds rate limiting at the gateway.")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Close overview" }));
-    expect(screen.queryByText("Adds rate limiting at the gateway.")).toBeNull();
+    // opens on the first code step, not the overview
+    expect(screen.getByText("First step")).toBeTruthy();
+    expect(screen.queryByTestId("overview-body")).toBeNull();
+    // with an overview, Back is enabled on step 1 and lands on the overview: prose in the
+    // main pane, footer reads "Overview", Back disabled, Next returns to the first step
+    expect((screen.getByLabelText("Previous step") as HTMLButtonElement).disabled).toBe(false);
+    fireEvent.click(screen.getByLabelText("Previous step"));
+    expect(screen.getByTestId("overview-body").innerHTML).toContain("what this PR is about");
+    expect((screen.getByLabelText("Previous step") as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(screen.getByLabelText("Next step"));
+    expect(screen.getByText("First step")).toBeTruthy();
+    expect(screen.queryByTestId("overview-body")).toBeNull();
   });
 
-  it("shows no overview button when the spec has no overview", () => {
+  it("restores the overview step across an unmount/remount (close + reopen)", () => {
+    state.spec = { ...mkSpec(), overview: "<p>ov text</p>" };
+    const { unmount } = render(<WalkthroughTab />);
+    fireEvent.click(screen.getByLabelText("Previous step")); // into the overview
+    expect(screen.getByTestId("overview-body")).toBeTruthy();
+    unmount();
+    tourStore.close(); // the panel close resets the in-memory flag — only the persisted one restores
+    render(<WalkthroughTab />); // …reopen
+    expect(screen.getByTestId("overview-body")).toBeTruthy(); // still on the overview, not step 1
+  });
+
+  it("ArrowLeft from the first step opens the overview; ArrowRight returns", () => {
+    state.spec = { ...mkSpec(), overview: "<p>ov text</p>" };
+    render(<WalkthroughTab />);
+    act(() => {
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowLeft" }));
+    });
+    expect(screen.getByTestId("overview-body")).toBeTruthy();
+    act(() => {
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight" }));
+    });
+    expect(screen.getByText("First step")).toBeTruthy();
+  });
+
+  it("without an overview, Back is disabled on the first step (no step 0)", () => {
     state.spec = mkSpec();
     render(<WalkthroughTab />);
-    expect(screen.queryByRole("button", { name: "Overview" })).toBeNull();
+    expect((screen.getByLabelText("Previous step") as HTMLButtonElement).disabled).toBe(true);
   });
 });

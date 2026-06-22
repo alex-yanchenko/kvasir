@@ -198,25 +198,25 @@ describe("refresh", () => {
     expect(state.spec).toBeNull();
   });
 
-  it("re-highlights the current step on a refresh while touring the diff", async () => {
+  it("re-applies the current view on a refresh while touring the diff", async () => {
     vi.mocked(api).mockResolvedValue({ ok: true, data: mkSpec() });
     vi.spyOn(tourStore, "open").mockReturnValue(true);
-    vi.spyOn(tourStore, "stepIndex").mockReturnValue(2);
-    const goto = vi.spyOn(tourStore, "goto").mockImplementation(() => {});
+    // reapply (not a raw goto) so the overview "step 0" survives the refresh
+    const reapply = vi.spyOn(tourStore, "reapply").mockImplementation(() => {});
     await launcherStore.refresh();
-    expect(goto).toHaveBeenCalledWith(2);
+    expect(reapply).toHaveBeenCalledTimes(1);
   });
 
-  it("does not re-highlight off the diff tab", async () => {
+  it("does not re-apply off the diff tab", async () => {
     Object.defineProperty(window, "location", {
       value: new URL("https://github.com/acme/widget-api/pull/7"),
       writable: true,
     });
     vi.mocked(api).mockResolvedValue({ ok: true, data: mkSpec() });
     vi.spyOn(tourStore, "open").mockReturnValue(true);
-    const goto = vi.spyOn(tourStore, "goto").mockImplementation(() => {});
+    const reapply = vi.spyOn(tourStore, "reapply").mockImplementation(() => {});
     await launcherStore.refresh();
-    expect(goto).not.toHaveBeenCalled();
+    expect(reapply).not.toHaveBeenCalled();
   });
 
   it("resumes a fresh in-flight generation (timer from the original start)", async () => {
