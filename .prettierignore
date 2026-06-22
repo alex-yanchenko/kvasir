@@ -9,3 +9,6 @@ pnpm-lock.yaml
 # Playwright artifacts
 test-results/
 playwright-report/
+
+# release-please generates this from commit messages; not prettier-shaped
+CHANGELOG.md

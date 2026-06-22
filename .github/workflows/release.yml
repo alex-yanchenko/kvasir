@@ -1,29 +1,46 @@
 name: Release
 
-# Cut a release: push a tag like v0.1.0. bun cross-compiles the channel for every
-# supported platform from a single runner (--target) and attaches the binaries to
-# the GitHub Release; install.sh / setup.ts download the one matching the host.
+# release-please maintains a "chore: release X.Y.Z" PR off main: it bumps every
+# version file (root + extension package.json + the MV3 manifest) and writes the
+# CHANGELOG from Conventional Commit messages. Merging that PR creates a DRAFT GitHub
+# release; this same job then cross-compiles the channel for every supported platform
+# and attaches the binaries + the built extension, so the draft is ready to ship.
+# Publishing the draft (a manual click) is what creates the git tag and releases it.
 on:
   push:
-    tags: ["v*"]
+    branches: [main]
 
 permissions:
   contents: write
+  pull-requests: write
 
 jobs:
-  binaries:
+  release:
     runs-on: ubuntu-latest
     steps:
+      - uses: googleapis/release-please-action@v4
+        id: release
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+      # The rest runs ONLY when a release PR was just merged (a draft release now exists).
       - uses: actions/checkout@v4
+        if: ${{ steps.release.outputs.release_created }}
       - uses: oven-sh/setup-bun@v2
+        if: ${{ steps.release.outputs.release_created }}
       - uses: pnpm/action-setup@v4
+        if: ${{ steps.release.outputs.release_created }}
       - uses: actions/setup-node@v4
+        if: ${{ steps.release.outputs.release_created }}
         with:
           node-version-file: .node-version
           cache: pnpm
+      - if: ${{ steps.release.outputs.release_created }}
+        run: pnpm install --frozen-lockfile
       # bun --compile resolves @kvasir/runes + mcp-sdk + zod from node_modules.
-      - run: pnpm install --frozen-lockfile
       - name: Compile channel binaries
+        if: ${{ steps.release.outputs.release_created }}
         run: |
           cd packages/mimir
           mkdir -p dist
@@ -33,13 +50,14 @@ jobs:
       # Ship the built extension as a release asset too, so a no-pnpm install can
       # download a loadable extension instead of building from source.
       - name: Build extension bundle
+        if: ${{ steps.release.outputs.release_created }}
         run: |
           pnpm build
           tar -czf packages/mimir/dist/extension-dist.tgz -C packages/extension dist
-      - name: Publish to the release
+      - name: Attach binaries to the draft release
+        if: ${{ steps.release.outputs.release_created }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "${{ github.ref_name }}" packages/mimir/dist/kvasir-channel-* packages/mimir/dist/extension-dist.tgz \
-            --title "${{ github.ref_name }}" --generate-notes \
-          || gh release upload "${{ github.ref_name }}" packages/mimir/dist/kvasir-channel-* packages/mimir/dist/extension-dist.tgz --clobber
+          gh release upload "${{ steps.release.outputs.tag_name }}" \
+            packages/mimir/dist/kvasir-channel-* packages/mimir/dist/extension-dist.tgz --clobber
