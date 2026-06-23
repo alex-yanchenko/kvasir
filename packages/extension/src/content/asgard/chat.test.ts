@@ -167,6 +167,25 @@ describe("openSelection", () => {
   });
 });
 
+describe("openOverview", () => {
+  it("creates a stable, general overview chat once and reopens it after", () => {
+    chatStore.openOverview();
+    expect(state.chatHistory).toEqual([
+      { key: "overview", general: true, file: null, lines: null, text: "", suggestions: [], messages: [] },
+    ]);
+    expect(chatStore.active()?.key).toBe("overview");
+    expect(sends).toEqual([]); // general chat → no page rehighlight
+
+    chatStore.openOverview();
+    expect(state.chatHistory.length).toBe(1); // reopens the same session, not a duplicate
+    expect(chatStore.overviewChat()?.key).toBe("overview");
+  });
+
+  it("overviewChat is null until one is opened", () => {
+    expect(chatStore.overviewChat()).toBeNull();
+  });
+});
+
 const snap = (over: Partial<{ notes: string[]; text: string; done: boolean; timedOut: boolean }> = {}) => ({
   notes: [],
   text: "",

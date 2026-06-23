@@ -67,8 +67,10 @@ function pollForSpec(pr: string, previousSig: string): void {
         state.spec = got;
         storeSet(specKey(pr), got);
         storeRemove(genKey(pr));
-        state.tourState = { ...state.tourState, step: 0 };
-        storeSet(tourKey(pr), state.tourState); // new review → first step; keep pos + size
+        // A freshly generated walkthrough opens on its overview "step 0" when it has
+        // one, else on the first code step. Keep pos + size.
+        state.tourState = { ...state.tourState, step: 0, overview: !!got.overview };
+        storeSet(tourKey(pr), state.tourState);
         newCommits = !!(currentHead && got.pr?.headSha && got.pr.headSha !== currentHead);
         generating = false;
         touch();

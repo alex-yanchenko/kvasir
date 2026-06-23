@@ -160,6 +160,49 @@ function useArrowKeyNav(): void {
   }, []);
 }
 
+// The "ask" button: on a code step it opens that step's chat; on the overview "step
+// 0" it opens the whole-PR overview chat. Split out of StepTools so the label/click
+// branching stays out of the JSX (and StepTools under the cognitive-complexity bar).
+function ChatTool({
+  step,
+  atOverview,
+}: Readonly<{ step: WalkthroughStep; atOverview: boolean }>): JSX.Element {
+  const hasChat = atOverview ? !!chatStore.overviewChat() : !!chatStore.stepChat(step.id);
+  const label = chatToolLabel(atOverview, hasChat);
+  const onClick = (): void => {
+    if (atOverview) {
+      chatStore.openOverview();
+      return;
+    }
+    tourStore.askAboutStep();
+    panelStore.setTab(PANEL_TABS.CHAT);
+  };
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      className={"h-7 w-7" + (hasChat ? " text-primary" : "")}
+      aria-label={label.aria}
+      data-kvasir-tip={label.tip}
+      disabled={pairingStore.needsPairing()}
+      onClick={onClick}
+    >
+      {hasChat ? <MessageSquareMore /> : <MessageSquare />}
+    </Button>
+  );
+}
+
+// aria-label / tooltip for the ChatTool, by where we are and whether a chat exists.
+function chatToolLabel(atOverview: boolean, hasChat: boolean): { aria: string; tip: string } {
+  if (atOverview)
+    return hasChat
+      ? { aria: "Reopen the overview chat", tip: "Reopen the overview chat" }
+      : { aria: "Ask about the overview", tip: "Ask about the overview" };
+  return hasChat
+    ? { aria: "Reopen chat for this step", tip: "Reopen this step's chat" }
+    : { aria: "Ask about this step", tip: "Ask about this step" };
+}
+
 // The header utility cluster (outline/diagram toggles, ask, re-scroll,
 // regenerate). Split out of Steps so that component stays under the
 // cognitive-complexity bar; reads its own toggle/chat/commit state from the stores.
@@ -176,7 +219,6 @@ function StepTools({
 }>): JSX.Element {
   const diagramOpen = tourStore.diagramOpen();
   const atOverview = tourStore.atOverview();
-  const stepChat = chatStore.stepChat(step.id);
   const newCommits = launcherStore.newCommits();
   return (
     <div className="ml-auto flex items-center gap-1">
@@ -192,35 +234,19 @@ function StepTools({
           <Workflow />
         </Button>
       )}
-      {/* Ask + scroll-to-code are step-scoped; the overview "step 0" has no code target. */}
-      {!atOverview && (
-        <Button
-          variant="ghost"
-          size="icon"
-          className={"h-7 w-7" + (stepChat ? " text-primary" : "")}
-          aria-label={stepChat ? "Reopen chat for this step" : "Ask about this step"}
-          data-kvasir-tip={stepChat ? "Reopen this step's chat" : "Ask about this step"}
-          disabled={pairingStore.needsPairing()}
-          onClick={() => {
-            tourStore.askAboutStep();
-            panelStore.setTab(PANEL_TABS.CHAT);
-          }}
-        >
-          {stepChat ? <MessageSquareMore /> : <MessageSquare />}
-        </Button>
-      )}
-      {!atOverview && (
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-7 w-7"
-          aria-label="Scroll to this step's code"
-          data-kvasir-tip="Scroll to this step's code"
-          onClick={() => tourStore.goto(index)}
-        >
-          <Crosshair />
-        </Button>
-      )}
+      <ChatTool step={step} atOverview={atOverview} />
+      {/* Scroll-to-code is step-scoped: disabled on the overview "step 0", which has no code target. */}
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-7 w-7"
+        aria-label="Scroll to this step's code"
+        data-kvasir-tip={atOverview ? "The overview has no code target" : "Scroll to this step's code"}
+        disabled={atOverview}
+        onClick={() => tourStore.goto(index)}
+      >
+        <Crosshair />
+      </Button>
       <Button
         variant="ghost"
         size="icon"
