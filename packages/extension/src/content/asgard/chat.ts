@@ -29,6 +29,9 @@ const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms
 let activeKey: string | null = null;
 let live: LiveAsk | null = null;
 
+/** Stable key for the overview "step 0" chat, so re-asking reopens it. */
+const OVERVIEW_CHAT_KEY = "overview";
+
 const persist = (): void => storeSet(chatsKey(prUrl()), state.chatHistory);
 
 const update = (key: string, fn: (s: ChatSession) => ChatSession): void => {
@@ -164,6 +167,9 @@ export const chatStore = {
   stepChat: (stepId: string): ChatSession | null =>
     state.chatHistory.find((s) => s.stepId === stepId) ?? null,
 
+  /** The overview "step 0" chat (whole-PR, seeded from the overview), if opened. */
+  overviewChat: (): ChatSession | null => state.chatHistory.find((s) => s.key === OVERVIEW_CHAT_KEY) ?? null,
+
   /** Show a session in the Chat tab; routes the panel there and repaints its
    * selection on the page (general PR chat has none). */
   open(sess: ChatSession): void {
@@ -196,6 +202,29 @@ export const chatStore = {
     }
     const latest = state.chatHistory.find((c) => c.key === p.selectionId);
     if (latest) chatStore.open(latest);
+  },
+
+  /** Open (or reopen) the whole-PR chat anchored to the overview "step 0". General
+   * (no code selection) since the overview has no code target; stable-keyed so
+   * re-asking returns to the same session. The /ask background context already
+   * carries the overview, so the chat is grounded without a selection. */
+  openOverview(): void {
+    void pairingStore.recheck(); // verify pairing when a chat starts (asks don't 401 until send)
+    let sess = state.chatHistory.find((s) => s.key === OVERVIEW_CHAT_KEY);
+    if (!sess) {
+      sess = {
+        key: OVERVIEW_CHAT_KEY,
+        general: true,
+        file: null,
+        lines: null,
+        text: "",
+        suggestions: [],
+        messages: [],
+      };
+      state.chatHistory = [sess, ...state.chatHistory];
+      persist();
+    }
+    chatStore.open(sess);
   },
 
   /** Start a fresh whole-PR chat (the Chat rail's "New chat") — always a new

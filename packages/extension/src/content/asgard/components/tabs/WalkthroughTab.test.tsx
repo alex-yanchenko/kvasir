@@ -9,6 +9,7 @@ vi.mock("../../mermaidLoader", () => ({
     Promise.resolve({ initialize: () => {}, render: () => Promise.resolve({ svg: "<svg></svg>" }) }),
 }));
 
+import { chatStore } from "../../chat";
 import { launcherStore } from "../../launcher";
 import { pairingStore } from "../../pairing";
 import { PANEL_TABS, panelStore, state } from "../../store";
@@ -316,12 +317,33 @@ describe("WalkthroughTab", () => {
     // footer counter reads "Overview" (the OverviewView heading is the other match)
     expect(screen.getAllByText("Overview")).toHaveLength(2);
     expect((screen.getByLabelText("Previous step") as HTMLButtonElement).disabled).toBe(true);
-    // step-scoped tools are hidden on the overview (no code target)
+    // the overview offers its own whole-PR chat; scroll-to-code is shown but disabled (no code target)
     expect(screen.queryByLabelText("Ask about this step")).toBeNull();
-    expect(screen.queryByLabelText("Scroll to this step's code")).toBeNull();
+    expect(screen.getByLabelText("Ask about the overview")).toBeTruthy();
+    expect((screen.getByLabelText("Scroll to this step's code") as HTMLButtonElement).disabled).toBe(true);
     fireEvent.click(screen.getByLabelText("Next step"));
     expect(screen.getByText("First step")).toBeTruthy();
     expect(screen.queryByTestId("overview-body")).toBeNull();
+  });
+
+  it("Ask about the overview opens a whole-PR overview chat in the Chat tab", () => {
+    vi.spyOn(pairingStore, "recheck").mockResolvedValue();
+    state.spec = { ...mkSpec(), overview: "<p>what this PR is about</p>" };
+    render(<WalkthroughTab />);
+    fireEvent.click(screen.getByLabelText("Previous step")); // into the overview
+    expect(chatStore.overviewChat()).toBeNull();
+    fireEvent.click(screen.getByLabelText("Ask about the overview"));
+    expect(panelStore.tab()).toBe("chat");
+    const chat = chatStore.overviewChat();
+    expect(chat).toEqual({
+      key: "overview",
+      general: true,
+      file: null,
+      lines: null,
+      text: "",
+      suggestions: [],
+      messages: [],
+    });
   });
 
   it("restores the overview step across an unmount/remount (close + reopen)", () => {
