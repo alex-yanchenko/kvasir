@@ -4,10 +4,11 @@
 // from the vanilla tour.
 import type { WalkthroughStep } from "@kvasir/runes/spec";
 import { bifrost } from "../bifrost";
-import { prUrl, tourKey } from "../keys";
+import { onFilesTab, prUrl, tourKey } from "../keys";
 import { stepCode } from "../midgard/diff";
 import { storeSet } from "../muninn";
 import { chatStore } from "./chat";
+import { awaitSoftNav, softNavigate } from "./lib/nav";
 import { stripHtml } from "./lib/strip";
 import { state, touch } from "./store";
 // chat.ts imports tourStore.stepContext and we call chatStore here — a runtime-
@@ -123,6 +124,22 @@ export const tourStore = {
       highlight: s.highlight ?? null,
     });
     touch();
+  },
+
+  /** A user jump to a step's code (the outline + the scroll-to-code button). Selects the
+   * step, then — when we're off the diff (e.g. the PR Conversation tab) — soft-navigates
+   * to the Files tab and re-highlights once it lands, so the code is actually shown.
+   * goto() alone only issues highlight commands, which no-op off the diff. Unlike start()
+   * (a passive restore that must never yank the page), this is an explicit user action. */
+  jumpToStep(index: number): void {
+    tourStore.goto(index);
+    const pr = prUrl();
+    if (!pr || onFilesTab()) return;
+    const filesUrl = `${pr}/files`;
+    softNavigate(filesUrl);
+    // reapply once GitHub's router lands on /files; the diff is rendered by then so the
+    // highlight sticks. watchUrl's refresh() is a slower backstop if this races.
+    awaitSoftNav(new URL(filesUrl).pathname, () => tourStore.reapply());
   },
 
   /** Re-issue the page commands for wherever we currently are (overview or a step),
