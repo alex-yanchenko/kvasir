@@ -42,6 +42,10 @@ interface GenMarker {
 }
 const isGenMarker = (x: unknown): x is GenMarker => typeof x === "object" && x !== null;
 
+// A git SHA (abbreviated or full) — validated before going into a navigation URL so
+// a non-sha value can't smuggle extra path segments past the github-origin guard.
+const isSha = (s: string | null | undefined): s is string => !!s && /^[0-9a-f]{7,40}$/i.test(s);
+
 let generating = false;
 let newCommits = false;
 let currentHead: string | null = null;
@@ -140,6 +144,24 @@ export const launcherStore = {
   genStartAt: (): number => genStartAt,
   newCommits: (): boolean => newCommits,
   spec: (): WalkthroughSpec | null => state.spec,
+
+  /** Whether a "changes since this review" range diff can be opened — true once
+   * commits landed past the head the walkthrough was generated for. */
+  canShowChangesSinceReview: (): boolean =>
+    isSha(state.spec?.pr?.headSha) && isSha(currentHead) && state.spec?.pr?.headSha !== currentHead,
+
+  /** Navigate to GitHub's native range diff `reviewedSha..currentHead` — the combined
+   * diff of every commit pushed since the head this walkthrough was generated for, so an
+   * incremental review sees exactly what changed against what it was generated for. A full
+   * page navigation; no-op unless both SHAs are valid and differ. */
+  openChangesSinceReview(): void {
+    const pr = prUrl();
+    const reviewed = state.spec?.pr?.headSha;
+    // pr is already a https://github.com PR URL (prUrl) and both refs are validated as
+    // bare SHAs (isSha) — so the range URL can't escape the github origin or the path.
+    if (!pr || !isSha(reviewed) || !isSha(currentHead) || reviewed === currentHead) return;
+    globalThis.location.assign(`${pr}/files/${reviewed}..${currentHead}`);
+  },
 
   /** Ask the session (via the channel) to (re)generate; persist a marker so the
    * "generating" state survives a refresh, then poll for the new spec. */

@@ -280,6 +280,51 @@ describe("refresh", () => {
   });
 });
 
+describe("openChangesSinceReview", () => {
+  const REVIEWED = "a1b2c3d4e5f6";
+  const CURRENT = "f6e5d4c3b2a10";
+
+  const specAt = (headSha: string) =>
+    mkSpec({ pr: { url: PR, owner: "acme", repo: "widget-api", number: 7, headSha } });
+
+  // Drive refresh() so detectNewCommits sets currentHead from /head.
+  const refreshWithHead = async (specHead: string, currentHead: string): Promise<() => void> => {
+    const assign = vi.fn();
+    Object.defineProperty(window, "location", { value: { href: `${PR}/files`, assign }, writable: true });
+    state.spec = specAt(specHead);
+    vi.mocked(api).mockImplementation(async (path: string) => {
+      if (path.startsWith("/head")) return { ok: true, data: { headSha: currentHead } };
+      if (path.startsWith("/walkthrough")) return { ok: true, data: state.spec };
+      return { ok: true };
+    });
+    await launcherStore.refresh();
+    return assign;
+  };
+
+  it("navigates to the reviewedSha..currentHead range diff once new commits exist", async () => {
+    const assign = await refreshWithHead(REVIEWED, CURRENT);
+    expect(launcherStore.newCommits()).toBe(true);
+    expect(launcherStore.canShowChangesSinceReview()).toBe(true);
+    launcherStore.openChangesSinceReview();
+    expect(assign).toHaveBeenCalledWith(`${PR}/files/${REVIEWED}..${CURRENT}`);
+    expect(assign).toHaveBeenCalledTimes(1);
+  });
+
+  it("is a no-op when the reviewed head matches the current head", async () => {
+    const assign = await refreshWithHead(REVIEWED, REVIEWED);
+    expect(launcherStore.canShowChangesSinceReview()).toBe(false);
+    launcherStore.openChangesSinceReview();
+    expect(assign).not.toHaveBeenCalled();
+  });
+
+  it("is a no-op when a head is not a valid sha (can't form a safe range URL)", async () => {
+    const assign = await refreshWithHead("sha-1", "sha-2"); // non-hex → rejected by the sha guard
+    expect(launcherStore.canShowChangesSinceReview()).toBe(false);
+    launcherStore.openChangesSinceReview();
+    expect(assign).not.toHaveBeenCalled();
+  });
+});
+
 describe("branch edges", () => {
   it("a second requestGenerate replaces the running poll", async () => {
     // /generate accepted, /walkthrough never returns a spec → the poll stays alive
