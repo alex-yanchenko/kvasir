@@ -243,7 +243,7 @@ function StepTools({
         aria-label="Scroll to this step's code"
         data-kvasir-tip={atOverview ? "The overview has no code target" : "Scroll to this step's code"}
         disabled={atOverview}
-        onClick={() => tourStore.goto(index)}
+        onClick={() => tourStore.jumpToStep(index)}
       >
         <Crosshair />
       </Button>

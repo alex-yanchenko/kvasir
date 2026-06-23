@@ -8,11 +8,13 @@ vi.mock("../midgard/diff", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../midgard/diff")>()),
   stepCode: vi.fn(),
 }));
+vi.mock("./lib/nav", () => ({ softNavigate: vi.fn(), awaitSoftNav: vi.fn() }));
 
 import { bifrost } from "../bifrost";
 import { stepCode } from "../midgard/diff";
 import { storeSet } from "../muninn";
 import { chatStore } from "./chat";
+import { awaitSoftNav, softNavigate } from "./lib/nav";
 import { state } from "./store";
 import { tourStore } from "./tour";
 
@@ -151,6 +153,34 @@ describe("navigation", () => {
     tourStore.goto(1);
     expect(tourStore.isVisited("s1")).toBe(false); // not visited in the new session
     expect(tourStore.isVisited("s2")).toBe(true);
+  });
+});
+
+describe("jumpToStep", () => {
+  it("on the diff tab, selects the step without navigating", () => {
+    Object.defineProperty(window, "location", { value: new URL(`${PR}/files`), writable: true });
+    tourStore.start();
+    tourStore.jumpToStep(1);
+    expect(tourStore.stepIndex()).toBe(1);
+    expect(vi.mocked(softNavigate)).not.toHaveBeenCalled();
+  });
+
+  it("off the diff tab, selects the step and soft-navigates to Files, re-applying on arrival", () => {
+    Object.defineProperty(window, "location", { value: new URL(PR), writable: true });
+    const reapply = vi.spyOn(tourStore, "reapply");
+    tourStore.start();
+    tourStore.jumpToStep(1);
+    expect(tourStore.stepIndex()).toBe(1); // the step is selected regardless of the tab
+    expect(vi.mocked(softNavigate)).toHaveBeenCalledWith(`${PR}/files`);
+    expect(vi.mocked(softNavigate)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(awaitSoftNav)).toHaveBeenCalledWith(
+      "/acme/widget-api/pull/7/files",
+      expect.any(Function),
+    );
+    // the on-arrival callback re-applies the current step's highlight
+    reapply.mockClear();
+    vi.mocked(awaitSoftNav).mock.calls.at(-1)![1]();
+    expect(reapply).toHaveBeenCalledTimes(1);
   });
 });
 

@@ -70,7 +70,7 @@ export function OutlineRail(): JSX.Element | null {
                         (isCurrent ? "font-medium text-primary" : "text-foreground/90")
                       }
                       aria-current={isCurrent ? "step" : undefined}
-                      onClick={() => tourStore.goto(item.index)}
+                      onClick={() => tourStore.jumpToStep(item.index)}
                     >
                       <span className="select-none font-mono text-[11px] text-muted-foreground/40">
                         {itemIndex === group.items.length - 1 ? "└" : "├"}
