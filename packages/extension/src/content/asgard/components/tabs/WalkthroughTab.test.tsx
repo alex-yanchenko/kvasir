@@ -225,6 +225,21 @@ describe("WalkthroughTab", () => {
     expect(goto).toHaveBeenCalledWith(0);
   });
 
+  it("shows the changes-since-review button only when there are new commits, and it opens the range diff", () => {
+    state.spec = mkSpec();
+    const open = vi.spyOn(launcherStore, "openChangesSinceReview").mockImplementation(() => {});
+
+    vi.spyOn(launcherStore, "newCommits").mockReturnValue(false);
+    const view = render(<WalkthroughTab />);
+    expect(screen.queryByLabelText("View changes since this review")).toBeNull();
+    view.unmount();
+
+    vi.spyOn(launcherStore, "newCommits").mockReturnValue(true);
+    render(<WalkthroughTab />);
+    fireEvent.click(screen.getByLabelText("View changes since this review"));
+    expect(open).toHaveBeenCalledTimes(1);
+  });
+
   it("arrow keys at the boundaries and inside contentEditable are no-ops", () => {
     state.spec = mkSpec();
     render(<WalkthroughTab />);
