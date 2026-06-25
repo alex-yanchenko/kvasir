@@ -81,6 +81,77 @@ describe("OutlineRail", () => {
     expect(within(screen.getByTestId("outline")).queryByRole("button", { name: "Overview" })).toBeNull();
   });
 
+  it("renders logical groups (in first-appearance order) when steps declare a group, with global indices intact", () => {
+    state.spec = {
+      ...spec3("rail-grp"),
+      steps: [
+        { id: "s1", title: "First step", body: "b1", file: "f.ts", anchor: "x1", group: "Foundation" },
+        { id: "s2", title: "Second step", body: "b2", file: "g.ts", anchor: "x2", group: "Consumers" },
+        { id: "s3", title: "Third step", body: "b3", file: "f.ts", anchor: "x3", group: "Foundation" },
+      ],
+    };
+    tourStore.start();
+    render(<OutlineRail />);
+    const rail = screen.getByTestId("outline");
+    // non-adjacent s1 + s3 (both "Foundation") merge into ONE header, before "Consumers"
+    const headers = [...rail.querySelectorAll("div.uppercase")].map((node) => node.textContent);
+    expect(headers).toEqual(["Foundation", "Consumers"]);
+    // the file path is shown per step now that the header is the phase
+    expect(rail.textContent).toContain("f.ts");
+    // clicking the second step in the "Foundation" group jumps to its GLOBAL index (s3 = 2)
+    const foundation = within(rail).getAllByRole("button")[0]!.closest("div.mb-2")!;
+    fireEvent.click(within(foundation as HTMLElement).getByText("Third step"));
+    expect(tourStore.stepIndex()).toBe(2);
+  });
+
+  it("buckets ungrouped steps into a trailing 'Other' group when only some steps declare a group", () => {
+    state.spec = {
+      ...spec3("rail-grp-mixed"),
+      steps: [
+        { id: "s1", title: "First step", body: "b1", file: "f.ts", anchor: "x1", group: "Setup" },
+        { id: "s2", title: "Second step", body: "b2", file: "g.ts", anchor: "x2", group: "Setup" },
+        { id: "s3", title: "Third step", body: "b3", file: "g.ts", anchor: "x3" },
+      ],
+    };
+    tourStore.start();
+    render(<OutlineRail />);
+    const headers = [...screen.getByTestId("outline").querySelectorAll("div.uppercase")].map(
+      (node) => node.textContent,
+    );
+    expect(headers).toEqual(["Setup", "Other"]); // ungrouped lands last
+  });
+
+  it("guardrail: ignores degenerate grouping (a distinct label on every step) and falls back to the file outline", () => {
+    state.spec = {
+      ...spec3("rail-grp-degenerate"),
+      steps: [
+        { id: "s1", title: "First step", body: "b1", file: "f.ts", anchor: "x1", group: "A" },
+        { id: "s2", title: "Second step", body: "b2", file: "g.ts", anchor: "x2", group: "B" },
+        { id: "s3", title: "Third step", body: "b3", file: "h.ts", anchor: "x3", group: "C" },
+      ],
+    };
+    tourStore.start();
+    render(<OutlineRail />);
+    const rail = screen.getByTestId("outline");
+    // one-group-per-step adds no structure → no logical (uppercase) headers; file headers instead
+    expect(rail.querySelectorAll("div.uppercase").length).toBe(0);
+    expect(rail.querySelector("div.font-mono")?.textContent).toBe("f.ts");
+  });
+
+  it("guardrail: ignores a single all-steps group and falls back to the file outline", () => {
+    state.spec = {
+      ...spec3("rail-grp-single"),
+      steps: [
+        { id: "s1", title: "First step", body: "b1", file: "f.ts", anchor: "x1", group: "Everything" },
+        { id: "s2", title: "Second step", body: "b2", file: "f.ts", anchor: "x2", group: "Everything" },
+        { id: "s3", title: "Third step", body: "b3", file: "g.ts", anchor: "x3", group: "Everything" },
+      ],
+    };
+    tourStore.start();
+    render(<OutlineRail />);
+    expect(screen.getByTestId("outline").querySelectorAll("div.uppercase").length).toBe(0);
+  });
+
   it("renders a coverage chip when the spec carries coverage", () => {
     state.spec = { ...spec3("rail-cov"), coverage: { significant: ["f.ts", "g.ts"], uncovered: ["g.ts"] } };
     tourStore.start();
