@@ -51,6 +51,12 @@ export const WalkthroughStepSchema = z.object({
 });
 
 export const WalkthroughSpecSchema = z.object({
+  /** Schema-shape version, and the retire lever. On any BREAKING change to the spec
+   * shape, bump this literal (and the version in publish_walkthrough's description).
+   * Specs from the old shape then fail isWalkthroughSpec and are retired on read —
+   * the extension cache drops them, the channel skips them on rehydrate — so we never
+   * add a back-compat reader or an optional-for-old-data field. Retired specs linger
+   * in storage until wiped by hand; nothing serves them. */
   version: z.literal(1),
   pr: PrRefSchema,
   /** Generated-at, for cache display. */
