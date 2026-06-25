@@ -101,10 +101,19 @@ function StepBody({ step }: Readonly<{ step: WalkthroughStep }>): JSX.Element {
 
 // The overview "step 0": a prose-only intro shown in the full content pane (so long
 // overviews read comfortably, unlike a floating card). Same prose rendering as a step.
-function OverviewView({ overview }: Readonly<{ overview: string }>): JSX.Element {
+// The step count sets the reader's expectation for the length of the walkthrough ahead.
+function OverviewView({
+  overview,
+  stepCount,
+}: Readonly<{ overview: string; stepCount: number }>): JSX.Element {
   return (
     <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
-      <h3 className="mb-2 text-base font-semibold">Overview</h3>
+      <div className="mb-2 flex items-baseline justify-between gap-2">
+        <h3 className="text-base font-semibold">Overview</h3>
+        <span className="shrink-0 text-xs text-muted-foreground" data-testid="overview-step-count">
+          {stepCount} {stepCount === 1 ? "step" : "steps"}
+        </span>
+      </div>
       <div
         className="kvasir-prose text-sm"
         data-testid="overview-body"
@@ -128,7 +137,7 @@ function MainView({
   diagramOpen: boolean;
   overview: string | undefined;
 }>): JSX.Element {
-  if (overview) return <OverviewView overview={overview} />;
+  if (overview) return <OverviewView overview={overview} stepCount={spec.steps.length} />;
   if (diagramOpen && spec.diagram) return <Diagram source={spec.diagram} />;
   return <StepBody step={step} />;
 }

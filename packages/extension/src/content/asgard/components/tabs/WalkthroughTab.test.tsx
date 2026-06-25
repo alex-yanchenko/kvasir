@@ -329,6 +329,8 @@ describe("WalkthroughTab", () => {
     expect((screen.getByLabelText("Previous step") as HTMLButtonElement).disabled).toBe(false);
     fireEvent.click(screen.getByLabelText("Previous step"));
     expect(screen.getByTestId("overview-body").innerHTML).toContain("what this PR is about");
+    // the overview shows how many code steps follow (mkSpec has two)
+    expect(screen.getByTestId("overview-step-count").textContent).toBe("2 steps");
     // footer counter reads "Overview" (the OverviewView heading is the other match)
     expect(screen.getAllByText("Overview")).toHaveLength(2);
     expect((screen.getByLabelText("Previous step") as HTMLButtonElement).disabled).toBe(true);
@@ -359,6 +361,17 @@ describe("WalkthroughTab", () => {
       suggestions: [],
       messages: [],
     });
+  });
+
+  it("the overview step count reads singular for a one-step walkthrough", () => {
+    state.spec = {
+      ...mkSpec(),
+      overview: "<p>tiny</p>",
+      steps: [{ id: "s1", title: "Only step", body: "b", file: "f.ts", anchor: "d1" }],
+    };
+    render(<WalkthroughTab />);
+    fireEvent.click(screen.getByLabelText("Previous step")); // into the overview
+    expect(screen.getByTestId("overview-step-count").textContent).toBe("1 step");
   });
 
   it("restores the overview step across an unmount/remount (close + reopen)", () => {
