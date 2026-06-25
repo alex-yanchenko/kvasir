@@ -168,18 +168,31 @@ describe("createSqliteGuideStore (file-backed durability)", () => {
     expect(entry?.prNumber).toBeUndefined();
   });
 
-  it("migrates a db created before the author column existed", () => {
+  it("recreates the table when a live db's shape doesn't match, dropping old-shape rows", () => {
     const dbPath = path.join(directory, "kvasir.db");
     const old = new Database(dbPath, { create: true });
+    // A prior shape (no `author` column) carrying a row.
     old.run(
       "CREATE TABLE entries (id TEXT PRIMARY KEY, kind TEXT NOT NULL, title TEXT NOT NULL, source TEXT," +
         " steps INTEGER NOT NULL, url TEXT NOT NULL, repos TEXT NOT NULL, payload TEXT NOT NULL," +
         " version INTEGER NOT NULL, content_hash TEXT NOT NULL, generated_at TEXT, created_at INTEGER NOT NULL," +
         " updated_at INTEGER NOT NULL, deleted_at INTEGER) STRICT;",
     );
+    old.run(
+      "INSERT INTO entries (id,kind,title,source,steps,url,repos,payload,version,content_hash,generated_at,created_at,updated_at,deleted_at)" +
+        " VALUES ('old','pr','t',NULL,1,'u','[]','{}',1,'h',NULL,1,1,NULL);",
+    );
     old.close();
     const store = createSqliteGuideStore(dbPath, clock());
-    store.put(reviewToRecord(mkReview({ id: "x" }))); // upsert must succeed post-ALTER
-    expect(store.list().map((entry) => entry.id)).toEqual(["x"]);
+    expect(store.list()).toEqual([]); // old-shape row dropped on recreate, not migrated
+    store.put(reviewToRecord(mkReview({ id: "x" })));
+    expect(store.list().map((entry) => entry.id)).toEqual(["x"]); // fresh table works
+  });
+
+  it("leaves a matching-shape db untouched across a reopen (no spurious recreate)", () => {
+    const dbPath = path.join(directory, "kvasir.db");
+    createSqliteGuideStore(dbPath, clock()).put(reviewToRecord(mkReview({ id: "keep" })));
+    const reopened = createSqliteGuideStore(dbPath, clock());
+    expect(reopened.list().map((entry) => entry.id)).toEqual(["keep"]); // rows survive
   });
 });

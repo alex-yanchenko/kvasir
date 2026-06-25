@@ -48,6 +48,26 @@ const CREATE_TABLE = `
     deleted_at   INTEGER
   ) STRICT;
 `;
+// The current column set, in DDL order. A live db whose columns don't match this is
+// recreated (see createSqliteGuideStore) — so any change to CREATE_TABLE must update this.
+const EXPECTED_COLUMNS = [
+  "id",
+  "kind",
+  "title",
+  "source",
+  "steps",
+  "url",
+  "repos",
+  "payload",
+  "version",
+  "content_hash",
+  "generated_at",
+  "author",
+  "created_at",
+  "updated_at",
+  "deleted_at",
+];
+
 // Indexes the one multi-row read: SELECT ... WHERE deleted_at IS NULL ORDER BY
 // updated_at DESC. Leads with updated_at (no kind — nothing filters by kind), so the
 // index can satisfy the ORDER BY, not just the partial deleted_at filter.
@@ -59,8 +79,8 @@ const CREATE_INDEX =
 const asStringArray = (value: unknown): string[] =>
   Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
 
-/** Recover the PR number from a pr entry's id (prKey = "owner/repo#number"), so
- * even rows stored before the author column show "#123" without a re-publish. */
+/** Recover the PR number from a pr entry's id (prKey = "owner/repo#number") — it
+ * isn't a stored column, so we derive it on read. */
 const prNumberFromId = (kind: EntryKind, id: string): number | undefined => {
   if (kind !== "pr") return undefined;
   const suffix = id.slice(id.lastIndexOf("#") + 1);
@@ -94,17 +114,22 @@ export function createSqliteGuideStore(dbPath: string, now: () => number = () =>
   db.run("PRAGMA foreign_keys = ON;"); // per-connection (no FKs yet, but the contract holds)
   db.run("PRAGMA journal_mode = WAL;"); // concurrent reads while a push writes
   db.run(CREATE_TABLE);
-  db.run(CREATE_INDEX);
-  const columns = db.query<{ name: string }, []>("PRAGMA table_info(entries)").all();
-  if (!columns.some((column) => column.name === "author")) {
-    try {
-      db.run("ALTER TABLE entries ADD COLUMN author TEXT");
-    } catch (error) {
-      // A second connection racing the same migration loses with "duplicate column
-      // name: author" — benign, the column now exists. Anything else is real.
-      if (!(error instanceof Error) || !error.message.includes("duplicate column name")) throw error;
-    }
+  // Retire, don't migrate (the DB analog of the spec `version` lever): if a live db's
+  // columns don't match the current shape — a column added, removed, or renamed — drop
+  // and recreate the table instead of writing an ALTER. Old-shape rows are discarded;
+  // this is a local, wipe-anytime cache, so we never carry back-compat for them. A fresh
+  // or already-matching db is left untouched, so this only fires on a real shape change.
+  const liveColumns = db
+    .query<{ name: string }, []>("PRAGMA table_info(entries)")
+    .all()
+    .map((c) => c.name);
+  const shapeMatches =
+    liveColumns.length === EXPECTED_COLUMNS.length && EXPECTED_COLUMNS.every((c) => liveColumns.includes(c));
+  if (!shapeMatches) {
+    db.run("DROP TABLE entries");
+    db.run(CREATE_TABLE);
   }
+  db.run(CREATE_INDEX);
 
   const selectById = db.query<EntryRow, [string]>("SELECT * FROM entries WHERE id = ?");
   const selectLiveById = db.query<EntryRow, [string]>(
