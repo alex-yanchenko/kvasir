@@ -41,23 +41,6 @@ describe("RegenDialog", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it("with new commits, opens the changes-since-review range diff and closes", () => {
-    vi.spyOn(launcherStore, "newCommits").mockReturnValue(true);
-    const openChanges = vi.spyOn(launcherStore, "openChangesSinceReview").mockImplementation(() => {});
-    const onClose = vi.fn();
-    render(<RegenDialog onClose={onClose} />);
-    fireEvent.click(screen.getByText("View changes since this review"));
-    expect(openChanges).toHaveBeenCalledTimes(1);
-    expect(gen).not.toHaveBeenCalled();
-    expect(onClose).toHaveBeenCalledTimes(1);
-  });
-
-  it("hides the changes-since-review option when there are no new commits", () => {
-    vi.spyOn(launcherStore, "newCommits").mockReturnValue(false);
-    render(<RegenDialog onClose={vi.fn()} />);
-    expect(screen.queryByText("View changes since this review")).toBeNull();
-  });
-
   it("cancel and backdrop click close without generating", () => {
     vi.spyOn(launcherStore, "newCommits").mockReturnValue(false);
     const onClose = vi.fn();

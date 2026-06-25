@@ -43,20 +43,6 @@ export function RegenDialog({ onClose }: Readonly<{ onClose: () => void }>): JSX
         {newCommits && (
           <button
             className="mb-2 block w-full cursor-pointer rounded-lg border border-border bg-secondary p-3 text-left transition-colors hover:border-primary hover:bg-accent"
-            onClick={() => {
-              onClose();
-              launcherStore.openChangesSinceReview();
-            }}
-          >
-            <b className="block text-sm font-semibold">View changes since this review</b>
-            <span className="block text-xs text-muted-foreground">
-              Open GitHub&apos;s diff of all new commits, combined and compared to the reviewed head.
-            </span>
-          </button>
-        )}
-        {newCommits && (
-          <button
-            className="mb-2 block w-full cursor-pointer rounded-lg border border-border bg-secondary p-3 text-left transition-colors hover:border-primary hover:bg-accent"
             onClick={() => run("incremental", launcherStore.spec()?.pr?.headSha)}
           >
             <b className="block text-sm font-semibold">Incremental update</b>

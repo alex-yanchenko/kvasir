@@ -7,6 +7,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Crosshair,
+  GitCompare,
   Loader2,
   MessageSquare,
   MessageSquareMore,
@@ -247,6 +248,18 @@ function StepTools({
       >
         <Crosshair />
       </Button>
+      {newCommits && (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7"
+          aria-label="View changes since this review"
+          data-kvasir-tip="View changes since this review — the combined diff of all new commits"
+          onClick={() => launcherStore.openChangesSinceReview()}
+        >
+          <GitCompare />
+        </Button>
+      )}
       <Button
         variant="ghost"
         size="icon"
