@@ -31,6 +31,12 @@ describe("isWalkthroughSpec", () => {
     expect(isWalkthroughSpec("nope")).toBe(false);
   });
 
+  it("accepts an optional step group, and a spec without one (back-compat)", () => {
+    expect(isWalkthroughSpec({ ...valid, steps: [{ ...valid.steps[0], group: "Foundation" }] })).toBe(true);
+    expect(isWalkthroughSpec(valid)).toBe(true); // no group on any step still validates
+    expect(isWalkthroughSpec({ ...valid, steps: [{ ...valid.steps[0], group: 5 }] })).toBe(false);
+  });
+
   it("rejects step lines with start > end, accepts start <= end", () => {
     const withLines = (start: number, end: number) => ({
       ...valid,

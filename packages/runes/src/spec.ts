@@ -48,6 +48,12 @@ export const WalkthroughStepSchema = z.object({
   highlight: z.array(z.string()).optional(),
   /** Quick-hint questions shown as clickable chips for this step. */
   suggestions: z.array(z.string()).optional(),
+  /** Optional logical phase this step belongs to, e.g. "Foundation", "The control",
+   * "Consumers". Steps sharing a label render under one outline header in authoring
+   * order (non-adjacent steps with the same label still merge). Absent on every step
+   * → the legacy flat per-file outline. Groups the reader's mental model, NOT the
+   * file layout. */
+  group: z.string().optional(),
 });
 
 export const WalkthroughSpecSchema = z.object({
