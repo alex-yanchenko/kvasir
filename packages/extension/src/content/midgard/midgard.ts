@@ -23,8 +23,7 @@ interface HighlightableStep {
 }
 
 // The subset of a chat session the re-highlighter needs. It caches the resolved
-// container back onto the session (legacy behavior kept verbatim for the pure
-// move — goes away when sessions become data-only and DOM stops crossing layers).
+// container back onto the session so a repeat re-highlight skips the DOM lookup.
 interface RehighlightableSession {
   container?: Element | null;
   file?: string | null;

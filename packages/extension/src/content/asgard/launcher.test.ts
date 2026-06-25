@@ -212,6 +212,17 @@ describe("refresh", () => {
     expect(state.spec).toBeNull();
   });
 
+  it("retires a prior-shape cached spec on the client — one that fails validation drops to null", async () => {
+    // A bumped `version` is how a breaking shape change retires old specs: the cached
+    // one no longer validates, so the client treats it as absent instead of rendering it.
+    vi.mocked(api).mockResolvedValue({ ok: false }); // no live spec → fall back to the cache
+    vi.mocked(storeGet).mockImplementation(async (k: string) =>
+      k.startsWith("kvasir:spec:") ? { ...mkSpec(), version: 2 } : undefined,
+    );
+    await launcherStore.refresh();
+    expect(state.spec).toBeNull();
+  });
+
   it("re-applies the current view on a refresh while touring the diff", async () => {
     vi.mocked(api).mockResolvedValue({ ok: true, data: mkSpec() });
     vi.spyOn(tourStore, "open").mockReturnValue(true);
