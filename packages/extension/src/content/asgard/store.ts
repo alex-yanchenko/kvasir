@@ -1,6 +1,6 @@
-// Asgard's store. `state` is the store's mutable backing object (the end of the
-// state.ts transition — MIGRATION.md): reads pull live values from it; writes go
-// through actions (here and in the machines) that mutate it, persist, fire the
+// Asgard's store. `state` is the store's mutable backing object: reads pull live
+// values from it; writes go through actions (here and in the machines) that mutate
+// it, persist, fire the
 // page command, and bump a version that useSyncExternalStore subscribes to. A
 // single object because ESM import bindings can't be reassigned — but object
 // properties can, so every importer sees the same live values. Every mutation

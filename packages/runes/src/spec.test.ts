@@ -13,6 +13,14 @@ describe("isWalkthroughSpec", () => {
     expect(isWalkthroughSpec(valid)).toBe(true);
   });
 
+  it("retires a prior-shape spec: any version but the current literal fails validation", () => {
+    // Bumping WalkthroughSpecSchema.version is the retire lever for a breaking shape
+    // change — old specs stop validating and are dropped on read, so no back-compat
+    // reader is ever needed. This locks that behavior.
+    expect(isWalkthroughSpec({ ...valid, version: 0 })).toBe(false);
+    expect(isWalkthroughSpec({ ...valid, version: 2 })).toBe(false);
+  });
+
   it("rejects wrong version, missing pr, malformed steps, and non-objects", () => {
     expect(isWalkthroughSpec({ ...valid, version: 2 })).toBe(false);
     expect(isWalkthroughSpec({ ...valid, pr: undefined })).toBe(false);
