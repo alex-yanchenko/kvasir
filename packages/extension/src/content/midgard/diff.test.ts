@@ -114,6 +114,22 @@ describe("row reads", () => {
     expect(rowForLine(container, 12)).toBe(rowsOf(container)[2]);
   });
 
+  it("rowForLine disambiguates a number shared by an added and a deleted line via side", () => {
+    // An added line and a deleted line both numbered 43 (new-side 43 added, old-side 43 deleted).
+    document.body.innerHTML = `
+      <div id="diff-collide">
+        <table aria-label="Diff for: x.ts"><tbody>
+          <tr class="diff-line-row"><td class="diff-text-cell" data-line-number="43">+added 43\n</td></tr>
+          <tr class="diff-line-row"><td class="diff-text-cell" data-line-number="43">-removed 43\n</td></tr>
+        </tbody></table>
+      </div>`;
+    const cont = document.getElementById("diff-collide")!;
+    const [added, removed] = rowsOf(cont);
+    expect(rowForLine(cont, 43, "R")).toBe(added); // R → the added row
+    expect(rowForLine(cont, 43, "L")).toBe(removed); // L → the deleted row
+    expect(rowForLine(cont, 43)).toBe(added); // no side → first match (legacy)
+  });
+
   it("rowForText finds the first row whose text cell contains the substring", () => {
     expect(rowForText(container, "const b")).toBe(rowsOf(container)[1]);
   });

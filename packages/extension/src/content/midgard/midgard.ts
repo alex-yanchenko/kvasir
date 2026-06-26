@@ -18,7 +18,7 @@ import {
 // The subset of a Runes WalkthroughStep the highlighter needs.
 interface HighlightableStep {
   anchor: string;
-  lines?: { start: number; end: number } | null;
+  lines?: { side?: "L" | "R"; start: number; end: number } | null;
   highlight?: string[] | null;
 }
 
@@ -37,11 +37,12 @@ export const clearHL = (): void => {
   for (const r of document.querySelectorAll("tr.kvasir-line")) r.classList.remove("kvasir-line");
 };
 
-// Unrendered (lazy) lines resolve to null and are skipped; dedupe as we go.
-function rowsByLines(cont: Element, lines: { start: number; end: number }): Element[] {
+// Unrendered (lazy) lines resolve to null and are skipped; dedupe as we go. `side`
+// picks the right row when an added and a deleted line share a number (removed-line steps).
+function rowsByLines(cont: Element, lines: { side?: "L" | "R"; start: number; end: number }): Element[] {
   const rows: Element[] = [];
   for (let n = lines.start; n <= lines.end; n++) {
-    const r = rowForLine(cont, n);
+    const r = rowForLine(cont, n, lines.side);
     if (r && !rows.includes(r)) rows.push(r);
   }
   return rows;

@@ -84,6 +84,25 @@ describe("highlightStep", () => {
   it("returns [] when the anchor container is not in the DOM", () => {
     expect(highlightStep({ anchor: "diff-nope", lines: { start: 1, end: 2 } })).toEqual([]);
   });
+
+  it("highlights the deleted row for a removed-line (side 'L') step when a number collides", () => {
+    // new-side 43 (added) and old-side 43 (deleted) share the number 43.
+    document.body.innerHTML = `
+      <div id="diff-collide">
+        <table aria-label="Diff for: x.ts"><tbody>
+          <tr class="diff-line-row"><td class="diff-text-cell" data-line-number="43">+added 43\n</td></tr>
+          <tr class="diff-line-row"><td class="diff-text-cell" data-line-number="43">-removed 43\n</td></tr>
+        </tbody></table>
+      </div>`;
+    const cont = document.getElementById("diff-collide")!;
+    const [added, removed] = rowsOf(cont);
+    expect(highlightStep({ anchor: "diff-collide", lines: { side: "L", start: 43, end: 43 } })).toEqual([
+      removed,
+    ]);
+    expect(highlightStep({ anchor: "diff-collide", lines: { side: "R", start: 43, end: 43 } })).toEqual([
+      added,
+    ]);
+  });
 });
 
 describe("highlightStep — extra branch arms", () => {

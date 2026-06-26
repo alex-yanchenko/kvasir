@@ -6,6 +6,10 @@
 export interface LineRange {
   start: number;
   end: number;
+  /** Which diff side the numbers index: "R" = added/new-side, "L" = removed/old-side.
+   * Disambiguates rows when the same number appears on both an added and a deleted line
+   * (see rowForLine). Absent on a grip selection's range (resolved by DOM order). */
+  side?: "L" | "R";
 }
 
 // Subset of DOMRect the overlay positions against; also the shape of the
@@ -88,10 +92,19 @@ export function lineRangeOf(container: Element | null, range: Range): LineRange 
   return hi >= lo ? { start: lo, end: hi } : null;
 }
 
-export function rowForLine(cont: Element, n: number): Element | null {
+// Find the row carrying line number `n`. In a unified diff an added line (new number)
+// and a deleted line (old number) can share the same value, so `side` disambiguates:
+// "L" wants the deleted row (text leads with "-"), "R" the added/context row. Without a
+// side (e.g. a chat-citation jump) the first match wins — the legacy behavior.
+export function rowForLine(cont: Element, n: number, side?: "L" | "R"): Element | null {
   // eslint-disable-next-line unicorn/require-css-escape -- n is a number; it can't carry CSS-special chars, and this direct selector is on a hot path (per-line lookups).
-  const cell = cont.querySelector(`td.diff-text-cell[data-line-number="${n}"]`);
-  return cell ? cell.closest("tr.diff-line-row") : null;
+  for (const cell of cont.querySelectorAll(`td.diff-text-cell[data-line-number="${n}"]`)) {
+    const deleted = (cell.textContent ?? "").startsWith("-");
+    if (side !== undefined && (side === "L" ? !deleted : deleted)) continue; // wrong side
+    const row = cell.closest("tr.diff-line-row");
+    if (row) return row;
+  }
+  return null;
 }
 export function rowForText(cont: Element, text: string): Element | null {
   for (const c of cont.querySelectorAll("td.diff-text-cell")) {
