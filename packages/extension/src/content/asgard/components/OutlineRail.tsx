@@ -160,7 +160,11 @@ export function OutlineRail(): JSX.Element | null {
   const spec = launcherStore.spec();
   const current = tourStore.stepIndex();
   const onOverview = tourStore.atOverview();
-  if (!spec) return null;
+  // While a (re)generation is running, the main pane shows "Generating…" and the old
+  // spec is intentionally kept (so "Stop watching" can restore it) — but the outline
+  // must NOT keep offering the prior walkthrough's steps, or clicking one jumps into
+  // stale code. Render nothing until the fresh spec lands.
+  if (!spec || launcherStore.generating()) return null;
   // Guardrail (enforced here, not just asked of the model): switch to logical
   // grouping ONLY when the labels actually cluster the steps — at least two groups
   // AND fewer groups than steps (so some group holds more than one step). A label

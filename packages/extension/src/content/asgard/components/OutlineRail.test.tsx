@@ -5,6 +5,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 vi.mock("../../muninn", () => ({ storeGet: vi.fn(), storeSet: vi.fn(), storeRemove: vi.fn() }));
 
+import { launcherStore } from "../launcher";
 import { state } from "../store";
 import { tourStore } from "../tour";
 import { OutlineRail } from "./OutlineRail";
@@ -29,12 +30,23 @@ beforeEach(() => {
   state.tourState = { step: 0, pos: null, size: null };
   if (tourStore.open()) tourStore.close();
 });
-afterEach(() => cleanup());
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
 
 describe("OutlineRail", () => {
   it("renders nothing without a spec", () => {
     const { container } = render(<OutlineRail />);
     expect(container.innerHTML).toBe("");
+  });
+
+  it("renders nothing while generating, even with a stale spec (no clickable prior steps)", () => {
+    state.spec = spec3("rail-gen"); // a previous walkthrough is still in state
+    tourStore.start();
+    vi.spyOn(launcherStore, "generating").mockReturnValue(true);
+    const { container } = render(<OutlineRail />);
+    expect(container.innerHTML).toBe(""); // the old outline is withheld until the new spec lands
   });
 
   it("renders the flow as a file-grouped tree with status dots + connectors, and a step navigates", () => {
