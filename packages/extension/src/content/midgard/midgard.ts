@@ -5,6 +5,7 @@
 // the handlers behind its commands.
 
 import {
+  changeRegion,
   cleanLine,
   containerForFile,
   filePathFromContainer,
@@ -62,7 +63,13 @@ export function highlightStep(step: HighlightableStep): Element[] {
   clearHL();
   const cont = document.getElementById(step.anchor);
   if (!cont) return [];
-  let rows = step.lines ? rowsByLines(cont, step.lines) : [];
+  // Resolve the anchor rows from the line range, then widen to the whole change region
+  // so a modification highlights its removed lines too, not just the added half.
+  let rows: Element[] = [];
+  if (step.lines) {
+    const anchor = rowsByLines(cont, step.lines);
+    if (anchor.length > 0) rows = changeRegion(cont, anchor, step.lines.side);
+  }
   if (rows.length === 0 && Array.isArray(step.highlight)) rows = rowsByText(cont, step.highlight);
   for (const r of rows) r.classList.add("kvasir-line");
   return rows;
