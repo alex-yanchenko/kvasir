@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from "vitest";
 import {
+  changeRegion,
   cleanLine,
   codeForRows,
   containerForFile,
@@ -145,6 +146,41 @@ describe("rowsBetween (DOM order, not numeric)", () => {
   it("returns [] when an endpoint is not among the container's rows", () => {
     const orphan = document.createElement("tr");
     expect(rowsBetween(container, rowsOf(container)[0], orphan)).toEqual([]);
+  });
+});
+
+describe("changeRegion", () => {
+  // context, removed, removed, added, added — a modification block.
+  const buildMod = (): Element => {
+    document.body.innerHTML = `
+      <div id="diff-mod"><table aria-label="Diff for: y.ts"><tbody>
+        <tr class="diff-line-row"><td class="diff-text-cell" data-line-number="1">  ctx\n</td></tr>
+        <tr class="diff-line-row"><td class="diff-text-cell" data-line-number="2">-old a\n</td></tr>
+        <tr class="diff-line-row"><td class="diff-text-cell" data-line-number="3">-old b\n</td></tr>
+        <tr class="diff-line-row"><td class="diff-text-cell" data-line-number="4">+new a\n</td></tr>
+        <tr class="diff-line-row"><td class="diff-text-cell" data-line-number="5">+new b\n</td></tr>
+      </tbody></table></div>`;
+    return document.getElementById("diff-mod")!;
+  };
+
+  it("for an R-side anchor, pulls in the removed block directly above (stops at context)", () => {
+    const cont = buildMod();
+    const rows = rowsOf(cont); // [ctx, rem a, rem b, add a, add b]
+    expect(changeRegion(cont, [rows[3]!, rows[4]!], "R")).toEqual(rows.slice(1)); // removes + adds, not ctx
+  });
+
+  it("does not pull in the removed block for an L-side or side-less anchor", () => {
+    const cont = buildMod();
+    const rows = rowsOf(cont);
+    expect(changeRegion(cont, [rows[3]!, rows[4]!], "L")).toEqual(rows.slice(3, 5)); // just the adds
+    expect(changeRegion(cont, [rows[3]!, rows[4]!])).toEqual(rows.slice(3, 5));
+  });
+
+  it("guards empty input and rows not in the container", () => {
+    const cont = buildMod();
+    expect(changeRegion(cont, [])).toEqual([]);
+    const orphan = document.createElement("tr");
+    expect(changeRegion(cont, [orphan])).toEqual([orphan]);
   });
 });
 

@@ -181,6 +181,7 @@ describe("panelStore", () => {
   });
 
   const persisted = (): unknown => JSON.parse(sessionStorage.getItem("kvasir:panel") ?? "null");
+  const prefs = (): unknown => JSON.parse(localStorage.getItem("kvasir:panelPrefs") ?? "null");
 
   it("open shows the panel and can target a tab; close hides it", () => {
     expect(storeModule.panelStore.isOpen()).toBe(false);
@@ -198,45 +199,29 @@ describe("panelStore", () => {
     expect(storeModule.panelStore.tab()).toBe("settings");
   });
 
-  it("persists {open, sidebarOpen, tab, pos, size} per-tab to sessionStorage", () => {
+  it("splits persistence: open/tab per-tab in sessionStorage, shape (pos/size/sidebar) global in localStorage", () => {
     storeModule.panelStore.open(storeModule.PANEL_TABS.HISTORY);
-    expect(persisted()).toEqual({ open: true, sidebarOpen: false, tab: "history", pos: null, size: null });
+    expect(persisted()).toEqual({ open: true, tab: "history" }); // sessionStorage: no shape
     storeModule.panelStore.setPos({ left: 12, top: 34 });
     storeModule.panelStore.setSize({ w: 500, h: 600 });
-    expect(persisted()).toEqual({
-      open: true,
-      sidebarOpen: false,
-      tab: "history",
-      pos: { left: 12, top: 34 },
-      size: { w: 500, h: 600 },
-    });
+    storeModule.panelStore.setSidebarOpen(true);
+    // the window SHAPE lives in localStorage (survives across tabs), never in the blob
+    expect(prefs()).toEqual({ pos: { left: 12, top: 34 }, size: { w: 500, h: 600 }, sidebarOpen: true });
+    expect(persisted()).toEqual({ open: true, tab: "history" });
     storeModule.panelStore.close();
-    expect(persisted()).toEqual({
-      open: false,
-      sidebarOpen: false,
-      tab: "history",
-      pos: { left: 12, top: 34 },
-      size: { w: 500, h: 600 },
-    });
+    expect(persisted()).toEqual({ open: false, tab: "history" }); // only open/tab change
   });
 
-  it("round-trips the sidebar open state: setSidebarOpen persists, hydratePanel restores", () => {
-    storeModule.panelStore.open();
+  it("restores the global shape in a FRESH tab (empty sessionStorage) — the cross-tab bug", () => {
+    storeModule.panelStore.setPos({ left: 12, top: 34 });
+    storeModule.panelStore.setSize({ w: 500, h: 600 });
     storeModule.panelStore.setSidebarOpen(true);
-    expect(persisted()).toEqual({
-      open: true,
-      sidebarOpen: true,
-      tab: "walkthrough",
-      pos: null,
-      size: null,
-    });
-    // Keep the blob persist actually produced, flip the in-memory state to false (as a
-    // fresh tab would start), then hydrate that real blob back — a true round-trip.
-    const saved = sessionStorage.getItem("kvasir:panel");
-    storeModule.panelStore.setSidebarOpen(false);
-    expect(storeModule.panelStore.sidebarOpen()).toBe(false);
-    sessionStorage.setItem("kvasir:panel", saved ?? "");
+    // A brand-new tab starts with empty sessionStorage but shares localStorage.
+    sessionStorage.clear();
+    storeModule.state.panel = { open: false, tab: storeModule.PANEL_TABS.WALKTHROUGH, pos: null, size: null };
     storeModule.hydratePanel();
+    expect(storeModule.panelStore.pos()).toEqual({ left: 12, top: 34 }); // not snapped to default
+    expect(storeModule.panelStore.size()).toEqual({ w: 500, h: 600 });
     expect(storeModule.panelStore.sidebarOpen()).toBe(true);
   });
 
@@ -248,16 +233,18 @@ describe("panelStore", () => {
     expect(getSnapshot()).toBe(before); // geometry saves skip touch()
   });
 
-  it("hydratePanel restores open/tab/geometry; a bogus tab keeps the current one", () => {
-    sessionStorage.setItem(
-      "kvasir:panel",
-      JSON.stringify({ open: true, tab: "history", pos: { left: 5, top: 6 }, size: { w: 7, h: 8 } }),
+  it("hydratePanel restores open/tab (sessionStorage) + shape (localStorage); a bogus tab keeps the current one", () => {
+    sessionStorage.setItem("kvasir:panel", JSON.stringify({ open: true, tab: "history" }));
+    localStorage.setItem(
+      "kvasir:panelPrefs",
+      JSON.stringify({ pos: { left: 5, top: 6 }, size: { w: 7, h: 8 }, sidebarOpen: true }),
     );
     storeModule.hydratePanel();
     expect(storeModule.panelStore.isOpen()).toBe(true);
     expect(storeModule.panelStore.tab()).toBe("history");
     expect(storeModule.panelStore.pos()).toEqual({ left: 5, top: 6 });
     expect(storeModule.panelStore.size()).toEqual({ w: 7, h: 8 });
+    expect(storeModule.panelStore.sidebarOpen()).toBe(true);
     sessionStorage.setItem("kvasir:panel", JSON.stringify({ open: true, tab: "bogus" }));
     storeModule.hydratePanel();
     expect(storeModule.panelStore.tab()).toBe("history"); // bogus tab dropped
@@ -270,7 +257,8 @@ describe("panelStore", () => {
       pos: { left: 1, top: 2 },
       size: { w: 3, h: 4 },
     };
-    sessionStorage.clear(); // nothing persisted for this tab
+    sessionStorage.clear();
+    localStorage.removeItem("kvasir:panelPrefs"); // nothing persisted anywhere
     storeModule.hydratePanel();
     expect(storeModule.panelStore.isOpen()).toBe(false);
     expect(storeModule.panelStore.pos()).toBeNull();

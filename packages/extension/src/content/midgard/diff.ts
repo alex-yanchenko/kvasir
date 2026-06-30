@@ -137,6 +137,27 @@ export function rowsBetween(container: Element, rowA: Element, rowB: Element): E
   if (indexA > indexB) [indexA, indexB] = [indexB, indexA];
   return all.slice(indexA, indexB + 1);
 }
+
+const isRemovedRow = (row: Element): boolean => (textCellOf(row)?.textContent ?? "").startsWith("-");
+
+// The highlight region for a step, given the rows its line-range resolved to: the
+// contiguous DOM span those rows cover (so removes/context interleaved within the range
+// are highlighted, not just the added lines), PLUS — for an added-side ("R") step — the
+// block of removed lines directly above it, which a modification renders as the lines it
+// replaced. Walking up stops at the first non-removed row, so it never swallows an
+// adjacent added block (a different step).
+export function changeRegion(container: Element, anchorRows: Element[], side?: "L" | "R"): Element[] {
+  if (anchorRows.length === 0) return [];
+  const all = rowsOf(container);
+  const indices = anchorRows.map((row) => all.indexOf(row)).filter((index) => index >= 0);
+  if (indices.length === 0) return anchorRows;
+  let lo = Math.min(...indices);
+  const hi = Math.max(...indices);
+  if (side === "R") {
+    for (let previous = all[lo - 1]; previous && isRemovedRow(previous); previous = all[lo - 1]) lo--;
+  }
+  return all.slice(lo, hi + 1);
+}
 // Rows whose visible line number falls in [start, end]. Used for spec-defined
 // step ranges (the generator emits new-side numbers).
 export function rowsInRange(container: Element | null, start: number, end: number): Element[] {

@@ -103,6 +103,30 @@ describe("highlightStep", () => {
       added,
     ]);
   });
+
+  it("for an added-side step over a modification, also highlights the removed block it replaced", () => {
+    // A unified-diff modification: the removed lines render as a block directly above
+    // the added lines. An R-side step on the additions should highlight both halves.
+    document.body.innerHTML = `
+      <div id="diff-mod">
+        <table aria-label="Diff for: y.ts"><tbody>
+          <tr class="diff-line-row"><td class="diff-text-cell" data-line-number="194">  context\n</td></tr>
+          <tr class="diff-line-row"><td class="diff-text-cell" data-line-number="195">-old a\n</td></tr>
+          <tr class="diff-line-row"><td class="diff-text-cell" data-line-number="196">-old b\n</td></tr>
+          <tr class="diff-line-row"><td class="diff-text-cell" data-line-number="222">+new a\n</td></tr>
+          <tr class="diff-line-row"><td class="diff-text-cell" data-line-number="223">+new b\n</td></tr>
+        </tbody></table>
+      </div>`;
+    const cont = document.getElementById("diff-mod")!;
+    const [, removedA, removedB, addedA, addedB] = rowsOf(cont);
+    // R-side step on the added lines → the removed block above is pulled in (not the context)
+    expect(highlightStep({ anchor: "diff-mod", lines: { side: "R", start: 222, end: 223 } })).toEqual([
+      removedA,
+      removedB,
+      addedA,
+      addedB,
+    ]);
+  });
 });
 
 describe("highlightStep — extra branch arms", () => {

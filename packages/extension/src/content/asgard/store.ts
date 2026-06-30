@@ -12,7 +12,7 @@ import type { WalkthroughSpec, WalkthroughStep } from "@kvasir/runes/spec";
 import { bifrost } from "../bifrost";
 import { chatsKey, PANEL_STATE_KEY, prUrl } from "../keys";
 import { storeSet } from "../muninn";
-import { parsePanelState } from "./persisted";
+import { parsePanelPrefs, parsePanelState } from "./persisted";
 import type { ChatSession } from "./types";
 
 export interface TourState {
@@ -207,51 +207,62 @@ export const chatsStore = {
 };
 
 // ── panel slice ──────────────────────────────────────────────────────────────
-// The one consolidated panel: open/closed, which tab, and its movable/resizable
-// geometry. The whole state is persisted PER-TAB in sessionStorage (PANEL_STATE_KEY)
-// so it survives refresh + same-tab navigation, stays independent across tabs, and a
-// child tab inherits it via the browser's sessionStorage copy. Content lives in the
-// tab bodies, which reuse the existing machines (tour/chat/launcher/pairing).
+// The one consolidated panel, split across two persistence scopes:
+//   • PER-TAB (sessionStorage PANEL_STATE_KEY): open + tab — session state. open MUST
+//     be per-tab so a fresh tab doesn't auto-open the panel on every github page.
+//   • GLOBAL (localStorage PANEL_PREFS_KEY): the window's SHAPE — pos, size, sidebarOpen
+//     — a cross-tab preference like railWidth, so reopening a review in a new tab
+//     restores your last size/position/sidebar instead of snapping to the default.
+// Content lives in the tab bodies, which reuse the existing machines.
+
+/** localStorage key for the global window shape (pos + size + sidebarOpen). */
+const PANEL_PREFS_KEY = "kvasir:panelPrefs";
 
 // The left sidebar's open state — module-level (shared across tabs, like railWidth)
-// but persisted into the panel's sessionStorage blob so it survives a refresh.
+// and persisted GLOBALLY (PANEL_PREFS_KEY) so a fresh tab restores it.
 let sidebarOpen = false;
 
 const persistPanel = (): void => {
   try {
-    sessionStorage.setItem(
-      PANEL_STATE_KEY,
-      JSON.stringify({
-        open: state.panel.open,
-        sidebarOpen,
-        tab: state.panel.tab,
-        pos: state.panel.pos,
-        size: state.panel.size,
-      }),
-    );
+    sessionStorage.setItem(PANEL_STATE_KEY, JSON.stringify({ open: state.panel.open, tab: state.panel.tab }));
   } catch {
-    /* sessionStorage unavailable — geometry/open just won't persist this session */
+    /* sessionStorage unavailable — open/tab just won't persist this session */
   }
 };
 
-const readPanelState = (): unknown => {
+/** Persist the window shape globally (survives across tabs), separate from the per-tab
+ * open/tab blob. */
+const persistPrefs = (): void => {
   try {
-    const raw = sessionStorage.getItem(PANEL_STATE_KEY);
+    localStorage.setItem(
+      PANEL_PREFS_KEY,
+      JSON.stringify({ pos: state.panel.pos, size: state.panel.size, sidebarOpen }),
+    );
+  } catch {
+    /* localStorage unavailable — window shape just won't persist this session */
+  }
+};
+
+const readJson = (read: () => string | null): unknown => {
+  try {
+    const raw = read();
     return raw === null ? null : JSON.parse(raw);
   } catch {
     return null;
   }
 };
 
-/** Restore the panel's per-tab state at boot — SYNCHRONOUS so the first paint is
- * already correct (no async flash) and review-mode sees the hydrated tab. */
+/** Restore the panel at boot — SYNCHRONOUS so the first paint is already correct (no
+ * async flash) and review-mode sees the hydrated tab. open/tab come from the per-tab
+ * sessionStorage blob; the window shape (pos/size/sidebar) from the global entry. */
 export function hydratePanel(): void {
-  const parsed = parsePanelState(readPanelState());
-  state.panel.open = parsed.open;
-  sidebarOpen = parsed.sidebarOpen;
-  if (parsed.tab && isPanelTab(parsed.tab)) state.panel.tab = parsed.tab;
-  state.panel.pos = parsed.pos;
-  state.panel.size = parsed.size;
+  const perTab = parsePanelState(readJson(() => sessionStorage.getItem(PANEL_STATE_KEY)));
+  state.panel.open = perTab.open;
+  if (perTab.tab && isPanelTab(perTab.tab)) state.panel.tab = perTab.tab;
+  const prefs = parsePanelPrefs(readJson(() => localStorage.getItem(PANEL_PREFS_KEY)));
+  state.panel.pos = prefs.pos;
+  state.panel.size = prefs.size;
+  sidebarOpen = prefs.sidebarOpen;
 }
 
 // The sidebar's reserved width — module-level, shared across all tabs (its CONTENT
@@ -269,7 +280,7 @@ export const panelStore = {
   sidebarOpen: (): boolean => sidebarOpen,
   setSidebarOpen(value: boolean): void {
     sidebarOpen = value;
-    persistPanel();
+    persistPrefs(); // global (cross-tab), alongside pos/size
     touch();
   },
   railWidth: (): number => railWidth,
@@ -309,11 +320,11 @@ export const panelStore = {
   },
   setPos(pos: { left: number; top: number }): void {
     state.panel.pos = pos;
-    persistPanel();
+    persistPrefs();
   },
   setSize(size: { w: number; h: number }): void {
     state.panel.size = size;
-    persistPanel();
+    persistPrefs();
   },
 };
 
