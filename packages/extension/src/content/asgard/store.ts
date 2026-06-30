@@ -44,6 +44,12 @@ interface PanelState {
   size: { w: number; h: number } | null;
 }
 
+// Walkthrough-highlight styles: "rail" (left rail only — the default) and "gutter"
+// (rail + a faint wash on the line-number columns). A retired/unknown stored value
+// (e.g. an old "tint"/"github") falls back to the rail default.
+const HL_STYLES = new Set(["rail", "gutter"]);
+export const validHlStyle = (v: string | null): string => (v !== null && HL_STYLES.has(v) ? v : "rail");
+
 export const state: {
   spec: WalkthroughSpec | null;
   activeStep: WalkthroughStep | null;
@@ -71,7 +77,7 @@ export const state: {
    * (it adds time to generation and pulls in the lazy-loaded mermaid renderer). */
   generateDiagram: boolean;
   theme: string; // "auto" | "light" | "dark"
-  hlStyle: string; // "tint" | "github"
+  hlStyle: string; // "rail" (left rail only) | "gutter" (rail + faint gutter wash)
   tourState: TourState;
   chatHistory: ChatSession[]; // session objects, most recent first
   /** History (GET /history): null until first loaded; historyQuery filters it.
@@ -97,7 +103,7 @@ export const state: {
   preloadQuestions: localStorage.getItem("kvasirPreloadQuestions") === "true", // default off
   generateDiagram: localStorage.getItem("kvasirGenerateDiagram") === "true", // default off
   theme: localStorage.getItem("kvasirTheme") || "auto",
-  hlStyle: localStorage.getItem("kvasirHl") || "tint",
+  hlStyle: validHlStyle(localStorage.getItem("kvasirHl")),
   tourState: { step: 0, overview: false, pos: null, size: null },
   chatHistory: [],
   history: null,

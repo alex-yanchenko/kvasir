@@ -31,7 +31,7 @@ describe("bifrost commands (send/handle)", () => {
     const off = b.handle("theme:apply", fn);
     off();
     off();
-    b.send("theme:apply", { theme: "dark", hlStyle: "tint" });
+    b.send("theme:apply", { theme: "dark", hlStyle: "rail" });
     expect(fn).not.toHaveBeenCalled();
   });
 

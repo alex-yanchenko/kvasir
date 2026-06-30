@@ -47,7 +47,7 @@ describe("wipeStoredData", () => {
 
   it("is a no-op for chrome.storage when no extension runtime, still clearing web storage", async () => {
     vi.stubGlobal("chrome", {});
-    localStorage.setItem("kvasirHl", "github");
+    localStorage.setItem("kvasirHl", "gutter");
     await wipeStoredData();
     expect(localStorage.getItem("kvasirHl")).toBeNull();
   });

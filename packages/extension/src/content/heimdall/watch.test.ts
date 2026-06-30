@@ -100,9 +100,9 @@ describe("applyTheme", () => {
     const seen: unknown[] = [];
     const off = bifrost.handle("theme:apply", (p) => seen.push(p));
     state.theme = "dark";
-    state.hlStyle = "github";
+    state.hlStyle = "gutter";
     applyTheme();
-    expect(seen).toEqual([{ theme: "dark", hlStyle: "github" }]);
+    expect(seen).toEqual([{ theme: "dark", hlStyle: "gutter" }]);
     off();
   });
 });
