@@ -89,7 +89,7 @@ describe("Panel", () => {
     fireEvent.mouseMove(document, { clientX: 160, clientY: 260 }); // left 40 → sidebar 240; down 60 → taller
     fireEvent.mouseUp(document);
     expect(panelStore.railWidth()).toBe(240); // sidebar grew; window extends left to fit
-    expect(setSize).toHaveBeenLastCalledWith({ w: 420, h: 380 }); // content width fixed (default 420), taller
+    expect(setSize).toHaveBeenLastCalledWith({ w: 640, h: 660 }); // content width fixed (default 640), 60 taller than the 600 default
     expect(setPos).not.toHaveBeenCalled(); // no stored pos (bottom-right anchored) → grows left on its own
   });
 
