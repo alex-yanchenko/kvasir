@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.4.0](https://github.com/alex-yanchenko/kvasir/compare/v0.3.0...v0.4.0) (2026-06-30)
+
+
+### Features
+
+* **asgard:** group walkthrough outline steps into logical phases ([#26](https://github.com/alex-yanchenko/kvasir/issues/26)) ([6c0a4a4](https://github.com/alex-yanchenko/kvasir/commit/6c0a4a4025fe1d50643e82806d4b894264ca4266))
+* **asgard:** replace the step background tint with a left rail (+ rail+gutter option) ([#32](https://github.com/alex-yanchenko/kvasir/issues/32)) ([153d69e](https://github.com/alex-yanchenko/kvasir/commit/153d69e718b29d93e8cb2dc1f90fdd5392c71cec))
+* **asgard:** show the step count on the walkthrough overview ([#25](https://github.com/alex-yanchenko/kvasir/issues/25)) ([de8f5a9](https://github.com/alex-yanchenko/kvasir/commit/de8f5a9261b7020976ab538dc76befaf07f407fd))
+* **asgard:** smoother diff navigation for incremental review ([#23](https://github.com/alex-yanchenko/kvasir/issues/23)) ([df8295b](https://github.com/alex-yanchenko/kvasir/commit/df8295bd3ed7ed66bc932764a36cada24ad929fd))
+
+
+### Bug Fixes
+
+* **asgard:** hide the outline while generating so stale steps aren't clickable ([#28](https://github.com/alex-yanchenko/kvasir/issues/28)) ([1fb126a](https://github.com/alex-yanchenko/kvasir/commit/1fb126a1ef90fad7e09bb1c123045f0e5466aef0))
+* **asgard:** highlight a modification's removed lines, not just the added half ([#31](https://github.com/alex-yanchenko/kvasir/issues/31)) ([fa8665a](https://github.com/alex-yanchenko/kvasir/commit/fa8665a16edca92e685e55cd2809cc9fb31e29e3))
+* **asgard:** persist panel shape globally + open at a larger default size ([#30](https://github.com/alex-yanchenko/kvasir/issues/30)) ([ecacc3b](https://github.com/alex-yanchenko/kvasir/commit/ecacc3b09702acfe15b1dff6205cbc80d76dbe77))
+* **asgard:** tidy walkthrough output and relocate the changes-since-review button ([#24](https://github.com/alex-yanchenko/kvasir/issues/24)) ([d0a7422](https://github.com/alex-yanchenko/kvasir/commit/d0a74226f4e16be04e966457964939243c3ab214))
+* highlight removed-line walkthrough steps (thread diff side) ([#29](https://github.com/alex-yanchenko/kvasir/issues/29)) ([6c18dca](https://github.com/alex-yanchenko/kvasir/commit/6c18dcacdc69635e137885fc30532e3d72d15e3f))
+
+
+### Code Refactoring
+
+* retire prior-shape data instead of carrying back-compat ([#27](https://github.com/alex-yanchenko/kvasir/issues/27)) ([48c6d44](https://github.com/alex-yanchenko/kvasir/commit/48c6d44cbe26667cad01340e89ad9ac018f60846))
+
 ## [0.3.0](https://github.com/alex-yanchenko/kvasir/compare/v0.2.1...v0.3.0) (2026-06-23)
 
 The first feature release of Kvasir as a code-comprehension tool: a full in-page

@@ -1,6 +1,6 @@
 {
   "name": "kvasir",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "type": "module",
   "description": "Turn a GitHub PR into an interactive, in-browser walkthrough with a select-code-and-ask modal, powered by a local Claude Code channel.",
