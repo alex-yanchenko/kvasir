@@ -174,9 +174,9 @@ describe("connectMidgard command handling", () => {
   it("theme:apply reflects both choices onto the body for the github-side CSS", () => {
     const b = createBifrost();
     connectMidgard(b);
-    b.send("theme:apply", { theme: "dark", hlStyle: "github" });
+    b.send("theme:apply", { theme: "dark", hlStyle: "gutter" });
     expect(document.body.dataset.kvasirTheme).toBe("dark");
-    expect(document.body.dataset.kvasirHl).toBe("github");
+    expect(document.body.dataset.kvasirHl).toBe("gutter");
   });
 
   it("disconnect() detaches every handler", () => {
@@ -185,7 +185,7 @@ describe("connectMidgard command handling", () => {
     const c = buildContainer();
     disconnect();
     b.send("highlight:step", { anchor: "diff-abc123", lines: { start: 10, end: 12 }, highlight: null });
-    b.send("theme:apply", { theme: "light", hlStyle: "tint" });
+    b.send("theme:apply", { theme: "light", hlStyle: "rail" });
     expect(lined(c)).toEqual([]);
     expect(document.body.dataset.kvasirTheme).toBeUndefined();
   });

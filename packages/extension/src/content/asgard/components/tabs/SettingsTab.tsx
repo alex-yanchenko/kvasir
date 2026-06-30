@@ -179,11 +179,11 @@ export function SettingsTab(): JSX.Element {
         />
         <Segmented
           label="Highlight"
-          hint="How a step's lines are marked on the diff — a subtle tint, or GitHub's native line highlight."
+          hint="How a step's lines are marked on the diff — a left rail on the code, optionally with a faint wash on the line-number gutter. The code itself is never tinted, so the diff stays readable."
           value={settingsStore.hlStyle()}
           options={[
-            { value: "tint", label: "Tint" },
-            { value: "github", label: "GitHub" },
+            { value: "rail", label: "Rail" },
+            { value: "gutter", label: "Rail + gutter" },
           ]}
           onChange={(v) => settingsStore.setHlStyle(v)}
         />

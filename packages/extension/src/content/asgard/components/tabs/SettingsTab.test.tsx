@@ -18,7 +18,7 @@ let applied: Array<{ theme: string; hlStyle: string }>;
 let off: () => void;
 beforeEach(() => {
   state.theme = "auto";
-  state.hlStyle = "tint";
+  state.hlStyle = "rail";
   state.reviewMode = "heavy";
   state.reviewReposRoot = "~/code";
   state.preloadQuestions = false;
@@ -40,16 +40,16 @@ describe("SettingsTab", () => {
     render(<SettingsTab />);
     fireEvent.click(screen.getByRole("button", { name: "Dark" }));
     expect(state.theme).toBe("dark");
-    expect(applied.at(-1)).toEqual({ theme: "dark", hlStyle: "tint" });
+    expect(applied.at(-1)).toEqual({ theme: "dark", hlStyle: "rail" });
     const dark = screen.getByRole("button", { name: "Dark" });
     expect(dark.getAttribute("aria-pressed")).toBe("true");
   });
 
   it("highlight toggle writes through too", () => {
     render(<SettingsTab />);
-    fireEvent.click(screen.getByRole("button", { name: "GitHub" }));
-    expect(state.hlStyle).toBe("github");
-    expect(applied.at(-1)).toEqual({ theme: "auto", hlStyle: "github" });
+    fireEvent.click(screen.getByRole("button", { name: "Rail + gutter" }));
+    expect(state.hlStyle).toBe("gutter");
+    expect(applied.at(-1)).toEqual({ theme: "auto", hlStyle: "gutter" });
   });
 
   it("step-nav toggle flips reviewSync", () => {

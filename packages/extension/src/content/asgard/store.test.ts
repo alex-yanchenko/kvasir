@@ -8,7 +8,7 @@ let applied: Mock<(payload: { theme: string; hlStyle: string }) => void>;
 let offApply: () => void;
 beforeEach(() => {
   state.theme = "auto";
-  state.hlStyle = "tint";
+  state.hlStyle = "rail";
   state.reviewMode = "heavy";
   state.reviewReposRoot = "~/code";
   state.preloadQuestions = false;
@@ -23,7 +23,14 @@ afterEach(() => {
 describe("settingsStore", () => {
   it("reads live values from the backing state", () => {
     expect(settingsStore.theme()).toBe("auto");
-    expect(settingsStore.hlStyle()).toBe("tint");
+    expect(settingsStore.hlStyle()).toBe("rail");
+  });
+
+  it("validHlStyle keeps a known style and retires anything else to the rail default", () => {
+    expect(storeModule.validHlStyle("rail")).toBe("rail");
+    expect(storeModule.validHlStyle("gutter")).toBe("gutter");
+    expect(storeModule.validHlStyle("tint")).toBe("rail"); // a retired old value
+    expect(storeModule.validHlStyle(null)).toBe("rail");
   });
 
   it("setTheme writes through: state, localStorage, theme:apply, and a version bump", () => {
@@ -31,16 +38,16 @@ describe("settingsStore", () => {
     settingsStore.setTheme("dark");
     expect(state.theme).toBe("dark");
     expect(localStorage.getItem("kvasirTheme")).toBe("dark");
-    expect(applied).toHaveBeenCalledWith({ theme: "dark", hlStyle: "tint" });
+    expect(applied).toHaveBeenCalledWith({ theme: "dark", hlStyle: "rail" });
     expect(applied).toHaveBeenCalledTimes(1);
     expect(getSnapshot()).toBe(before + 1);
   });
 
   it("setHlStyle writes through the same path", () => {
-    settingsStore.setHlStyle("github");
-    expect(state.hlStyle).toBe("github");
-    expect(localStorage.getItem("kvasirHl")).toBe("github");
-    expect(applied).toHaveBeenCalledWith({ theme: "auto", hlStyle: "github" });
+    settingsStore.setHlStyle("gutter");
+    expect(state.hlStyle).toBe("gutter");
+    expect(localStorage.getItem("kvasirHl")).toBe("gutter");
+    expect(applied).toHaveBeenCalledWith({ theme: "auto", hlStyle: "gutter" });
     expect(applied).toHaveBeenCalledTimes(1);
   });
 

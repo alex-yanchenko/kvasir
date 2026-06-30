@@ -147,19 +147,14 @@ tr.kvasir-pick td:first-child {
 }
 
 /* ── highlight layering (consistent across walkthrough / chat / native) ──────
-   Walkthrough step = background tint (the "look"). Chat selection wins the
-   background where they overlap (turns blue) + a solid left bar that's always
-   visible. GitHub's native text selection is left to the browser (glyph layer). */
-body[data-kvasir-hl="tint"] tr.kvasir-line:not(.kvasir-pick) td {
-  background: rgba(216, 90, 48, 0.16) !important;
+   Walkthrough step = a left RAIL on the code cell, NEVER a background tint — so
+   GitHub's own red/green diff colors stay readable. The "rail" style (B, default) is
+   just that rail; the "gutter" style (C) adds a faint wash on the line-number columns
+   only (never the code). Chat selection (kvasir-pick) wins where they overlap. */
+tr.kvasir-line td.diff-text-cell {
+  box-shadow: inset 3px 0 0 #539bf5 !important;
 }
-body[data-kvasir-hl="github"] tr.kvasir-line:not(.kvasir-pick) td {
-  background: rgba(255, 212, 0, 0.22) !important;
-}
-/* walkthrough bar: right of the numbers (on the code cell), both looks */
-body[data-kvasir-hl="tint"] tr.kvasir-line td.diff-text-cell {
-  box-shadow: inset 3px 0 0 var(--kvasir-accent) !important;
-}
-body[data-kvasir-hl="github"] tr.kvasir-line td.diff-text-cell {
-  box-shadow: inset 3px 0 0 #c9a227 !important;
+/* C — faint wash on the number gutters only, leaving the code cell untinted */
+body[data-kvasir-hl="gutter"] tr.kvasir-line:not(.kvasir-pick) td:not(.diff-text-cell) {
+  background: rgba(83, 155, 245, 0.13) !important;
 }
