@@ -84,8 +84,9 @@ const SIDEBAR_MIN = 130;
 const SIDEBAR_MAX = 360;
 const DIVIDER_W = 3; // matches the separator's w-[3px]
 const CONTENT_MIN = 240; // the content column never shrinks below this
-const DEFAULT_CONTENT_W = 420; // matches the panel's w-[420px] default
-const DEFAULT_HEIGHT = 320; // matches min-h-[320px]
+const MIN_HEIGHT = 320; // the window never shrinks below this (matches min-h-[320px])
+const DEFAULT_CONTENT_W = 640; // initial content-column width (matches the w-[640px] class)
+const DEFAULT_HEIGHT = 600; // initial window height — generous so a fresh panel isn't tiny
 const DIVIDER_NUDGE: Record<string, number> = { ArrowLeft: -16, ArrowRight: 16 };
 
 // Geometry rule: panelStore.size.w is the CONTENT column width — NEVER the whole
@@ -170,7 +171,7 @@ function onCornerDown(event: ReactMouseEvent): void {
     const spill = desiredSidebar - panelStore.railWidth(); // beyond the sidebar bounds → content
     const content = Math.max(CONTENT_MIN, startContent + spill);
     const grewLeft = panelStore.railWidth() - startSidebar + (content - startContent);
-    panelStore.setSize({ w: content, h: Math.max(DEFAULT_HEIGHT, startHeight + (moved.clientY - startY)) });
+    panelStore.setSize({ w: content, h: Math.max(MIN_HEIGHT, startHeight + (moved.clientY - startY)) });
     // Right edge fixed: a positioned panel shifts its left edge out by the total growth;
     // the default bottom-right-anchored panel grows leftward on its own.
     if (startPos) panelStore.setPos({ left: startPos.left - grewLeft, top: startPos.top });
@@ -232,7 +233,7 @@ function PanelWindow(): JSX.Element {
       ref={panelRef}
       role="dialog"
       aria-label="Kvasir"
-      className="kvasir-panel fixed bottom-5 right-5 z-[2147483002] flex max-h-[85vh] min-h-[320px] w-[420px] max-w-[92vw] resize overflow-hidden rounded-lg border border-border bg-background text-foreground"
+      className="kvasir-panel fixed bottom-5 right-5 z-[2147483002] flex max-h-[85vh] min-h-[320px] w-[640px] max-w-[92vw] resize overflow-hidden rounded-lg border border-border bg-background text-foreground"
       style={{
         boxShadow: "var(--elevation)",
         ...(pos ? { left: pos.left, top: pos.top, right: "auto", bottom: "auto" } : null),
@@ -241,7 +242,9 @@ function PanelWindow(): JSX.Element {
         // never drag content below CONTENT_MIN even when the sidebar is at full width.
         width: Math.max(CONTENT_MIN, size?.w ?? DEFAULT_CONTENT_W) + chrome,
         minWidth: chrome + CONTENT_MIN,
-        ...(size?.h ? { height: size.h } : null),
+        // Open at a generous default height (capped by max-h-[85vh], floored by
+        // min-h-[320px]) instead of letting the window shrink to its content.
+        height: size?.h ?? DEFAULT_HEIGHT,
       }}
     >
       {/* The sidebar is the left column; it sits OUTSIDE the content (the window grows

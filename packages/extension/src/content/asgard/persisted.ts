@@ -49,6 +49,19 @@ export function parsePanelState(v: unknown): {
   };
 }
 
+/** Restore the panel's GLOBAL prefs (window geometry + sidebar-open) from localStorage.
+ * These are the window's SHAPE — a cross-tab preference like the rail width, NOT per-tab
+ * state — so a fresh tab opens at the user's last size/position with their sidebar
+ * preference, not the default. Drops mismatches. (open/tab stay per-tab; see store.ts.) */
+export function parsePanelPrefs(v: unknown): { pos: Pos | null; size: Size | null; sidebarOpen: boolean } {
+  if (!isRecord(v)) return { pos: null, size: null, sidebarOpen: false };
+  return {
+    pos: isPos(v.pos) ? v.pos : null,
+    size: isSize(v.size) ? v.size : null,
+    sidebarOpen: v.sidebarOpen === true,
+  };
+}
+
 /** The cached review walk (content + step), so a fresh page renders the panel
  * instantly from storage instead of waiting on the mailbox fetch. */
 export function parseReviewCache(v: unknown): { step: number; review: Review | null } {

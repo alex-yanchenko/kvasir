@@ -1,6 +1,6 @@
 import type { Review } from "@kvasir/runes/review";
 import { describe, it, expect } from "vitest";
-import { parsePanelState, parseReviewCache } from "./persisted";
+import { parsePanelPrefs, parsePanelState, parseReviewCache } from "./persisted";
 
 const review: Review = {
   version: 1,
@@ -40,6 +40,22 @@ describe("parsePanelState", () => {
       pos: null,
       size: null,
     });
+  });
+});
+
+describe("parsePanelPrefs", () => {
+  it("reads the global window shape (pos + size + sidebarOpen), dropping mismatches and non-records", () => {
+    expect(parsePanelPrefs({ pos: { left: 1, top: 2 }, size: { w: 3, h: 4 }, sidebarOpen: true })).toEqual({
+      pos: { left: 1, top: 2 },
+      size: { w: 3, h: 4 },
+      sidebarOpen: true,
+    });
+    expect(parsePanelPrefs({ pos: { left: "x" }, size: 9, sidebarOpen: "yes" })).toEqual({
+      pos: null,
+      size: null,
+      sidebarOpen: false,
+    });
+    expect(parsePanelPrefs(null)).toEqual({ pos: null, size: null, sidebarOpen: false });
   });
 });
 
