@@ -33,6 +33,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   off();
+  vi.restoreAllMocks(); // drop per-test pairingStore spies even when an assertion throws
 });
 
 describe("SettingsTab", () => {
@@ -143,7 +144,6 @@ describe("SettingsTab", () => {
     const wipe = screen.getByRole("button", { name: "Wipe data" });
     expect(wipe.hasAttribute("disabled")).toBe(true);
     expect(screen.getByText(/Pair to wipe/)).toBeTruthy();
-    vi.mocked(pairingStore.needsPairing).mockRestore();
   });
 
   it("Debug: Cancel backs out without wiping", () => {

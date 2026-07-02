@@ -432,6 +432,8 @@ describe("Panel", () => {
       [{ phase: "paired" }, "Connected to your Claude session"],
       [{ phase: "down" }, "Channel not running"],
       [{ phase: "unpaired" }, "Not paired"],
+      [{ phase: "waiting", code: "ABC234" }, "Pairing…"],
+      [{ phase: "error", message: "x" }, "Pairing failed"],
       [{ phase: "unknown" }, "Checking connection…"],
     ] as const) {
       stateSpy.mockReturnValue(phase);

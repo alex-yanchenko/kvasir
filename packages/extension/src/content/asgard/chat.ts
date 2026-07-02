@@ -32,8 +32,9 @@ const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms
 let activeKey: string | null = null;
 let live: LiveAsk | null = null;
 /** Transient "that file isn't in this diff" note — raised by a ref:missing report
- * when a clicked citation has no target on the page; self-clears. */
-let refNotice: string | null = null;
+ * when a clicked citation has no target on the page; scoped to the session whose
+ * thread raised it (like `live`) so it can't leak into another chat; self-clears. */
+let refNotice: { key: string; text: string } | null = null;
 let refNoticeTimer: ReturnType<typeof setTimeout> | null = null;
 
 /** Stable key for the overview "step 0" chat, so re-asking reopens it. */
@@ -154,7 +155,7 @@ async function pollAnswer(key: string, id: string): Promise<PollResult> {
 export const chatStore = {
   active: (): ChatSession | null => state.chatHistory.find((s) => s.key === activeKey) ?? null,
   live: (): LiveAsk | null => live,
-  refNotice: (): string | null => refNotice,
+  refNotice: (): { key: string; text: string } | null => refNotice,
 
   /** The chat opened from a given walkthrough step, if one exists. */
   stepChat: (stepId: string): ChatSession | null =>
@@ -343,7 +344,8 @@ export function connectChat(bus: Bifrost): () => void {
   const offs = [
     bus.on("selection:ask", (p) => chatStore.openSelection(p, p.withStep)),
     bus.on("ref:missing", ({ file }) => {
-      refNotice = `${file} isn't in this PR's diff`;
+      if (!activeKey) return; // citation clicks come from an open thread
+      refNotice = { key: activeKey, text: `${file} isn't in this PR's diff` };
       if (refNoticeTimer) clearTimeout(refNoticeTimer);
       refNoticeTimer = setTimeout(() => {
         refNotice = null;

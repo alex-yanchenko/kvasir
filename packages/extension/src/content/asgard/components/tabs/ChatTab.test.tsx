@@ -78,6 +78,7 @@ afterEach(() => {
   document.getElementById("kvasir-root")?.remove();
   offs.forEach((off) => off());
   vi.unstubAllGlobals();
+  vi.restoreAllMocks(); // drop per-test chatStore/tourStore spies even when an assertion throws
 });
 
 const openSession = (sess: ChatSession) => {
@@ -539,12 +540,16 @@ describe("suggestions + input", () => {
     vi.useRealTimers();
   });
 
-  it("shows the transient citation-miss note in the thread", () => {
-    vi.spyOn(chatStore, "refNotice").mockReturnValue("src/gone.ts isn't in this PR's diff");
+  it("shows the citation-miss note only in the session that raised it", () => {
+    vi.spyOn(chatStore, "refNotice").mockReturnValue({
+      key: "a",
+      text: "src/gone.ts isn't in this PR's diff",
+    });
     render(<ChatTab />);
     openSession(mkSession("a"));
     expect(screen.getByText(/src\/gone\.ts isn't in this PR's diff/)).toBeTruthy();
-    vi.mocked(chatStore.refNotice).mockRestore();
+    openSession(mkSession("b")); // a different session must not inherit the note
+    expect(screen.queryByText(/isn't in this PR's diff/)).toBeNull();
   });
 
   it("Enter sends, ⌘+Enter inserts a newline, Shift+Enter is native, empty is a no-op, input autosizes", async () => {

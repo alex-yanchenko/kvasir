@@ -94,19 +94,34 @@ export const pairingStore = {
    * send. Never interrupts an in-flight pairing. */
   async recheck(): Promise<void> {
     if (pairingActive()) return;
+    // Identity snapshot: every transition replaces the phase object, so a change
+    // during any await below means something else — pair() starting OR completing,
+    // markUnpaired — owns the phase now; this probe's result is stale, drop it.
+    // (A completed pair() is the dangerous case: applying a stale /auth 401 after
+    // it would delete the freshly-earned token.)
+    const entered = state;
     const health = await api("/health");
-    if (pairingActive()) return; // pair() started during the await
+    if (state !== entered) return;
     if (isUnreachable(health)) {
+      // An orphaned content script (extension reloaded) also fails without a
+      // status, but its remedy is refreshing the PAGE — don't tell the user to
+      // restart a channel that may be running fine.
+      if (/refresh the page/i.test(health.error ?? "")) {
+        set({ phase: "error", message: friendlyError(health) });
+        return;
+      }
       set({ phase: "down" }); // keep any stored token — a stale one is /auth's 401 to report
       return;
     }
     const token = await storeGet(TOKEN_KEY);
-    if (pairingActive()) return; // pair() started during the await
+    if (state !== entered) return;
     if (typeof token !== "string" || !token) {
       set({ phase: "unpaired" });
       return;
     }
-    set(authToPhase(await api("/auth")));
+    const r = await api("/auth");
+    if (state !== entered) return;
+    set(authToPhase(r));
   },
 
   /** Ask the bridge to pair, show the code, poll the claim until the token lands. */

@@ -342,6 +342,7 @@ function Thread({ sess }: Readonly<{ sess: ChatSession }>): JSX.Element {
   const [streamIndex, setStreamIndex] = useState<number | null>(null);
   const liveRaw = chatStore.live();
   const liveAsk = liveRaw && liveRaw.key === sess.key ? liveRaw : null;
+  const refNotice = chatStore.refNotice();
   // Asking hits the bridge; while unpaired those controls are disabled (the panel's
   // PairBanner explains why) so a click can't silently 401 into nothing.
   const blocked = pairingStore.needsPairing();
@@ -533,10 +534,11 @@ function Thread({ sess }: Readonly<{ sess: ChatSession }>): JSX.Element {
           </div>
         )}
         {/* transient citation-miss note (ref:missing) — a clicked file:line whose file
-            isn't on this page must say so instead of the click doing nothing */}
-        {chatStore.refNotice() && (
+            isn't on this page must say so instead of the click doing nothing; scoped
+            to the session that raised it so a chat switch can't inherit the note */}
+        {refNotice && refNotice.key === sess.key && (
           <div className="kvasir-msg kvasir-msg-bot kvasir-msg-note">
-            <span>ⓘ {chatStore.refNotice()}</span>
+            <span>ⓘ {refNotice.text}</span>
           </div>
         )}
       </div>
