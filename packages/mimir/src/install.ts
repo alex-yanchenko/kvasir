@@ -113,6 +113,18 @@ export function channelAssetName(platform: string, arch: string): string | null 
   return target ? `kvasir-channel-${target.replace(/^bun-/, "")}` : null;
 }
 
+/** The GitHub repo prebuilt release assets are published to and verified against. */
+export const RELEASE_REPO = "alex-yanchenko/kvasir";
+
+/** `gh` argv to verify a downloaded release asset's build-provenance attestation.
+ * The attestation is signed by GitHub's OIDC identity for the release workflow, so
+ * an asset swapped after the build fails verification — knowing the repo doesn't let
+ * an attacker forge it. The installer runs this before it will chmod+exec the channel
+ * binary or extract the extension into Chrome, and refuses the download on failure. */
+export function attestationVerifyArgs(file: string, repo: string = RELEASE_REPO): string[] {
+  return ["attestation", "verify", file, "--repo", repo];
+}
+
 /** Add the kvasir push permission to a settings.json object, idempotently. Returns
  * the (possibly unchanged) config and whether anything changed. Never mutates input. */
 export function withKvasirPermission(previous: unknown): {

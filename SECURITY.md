@@ -30,7 +30,7 @@ own Claude Code session. The security posture rests on a few properties:
   guard-header-only, not token-gated, because a legitimate caller is the
   `kvasir build` CLI running in _another_ local session that has no browser
   token — gating them would break the `/kvasir` push flow. Those routes only
-  store/read walkthrough data (regenerable) and their content is rendered through
+  store/read walkthrough data (which you can regenerate) and their content is rendered through
   XSS-safe sanitizers (escape-first markdown and an attribute-stripping HTML
   allowlist), so same-machine trust (next point) is the boundary for them.
 - **Untrusted PR content.** A PR's description, comments, and diff are
@@ -45,6 +45,12 @@ own Claude Code session. The security posture rests on a few properties:
 - **Same-machine trust.** Any process already running on your machine can call the
   local bridge. This is a localhost dev tool; a compromised machine is out of
   scope.
+- **Signed release binaries.** The prebuilt channel binary and extension bundle are
+  published with GitHub build-provenance attestations, signed by the release
+  workflow's OIDC identity. The installer runs `gh attestation verify` before it
+  will `chmod`+exec the channel or extract the extension, and refuses any asset it
+  can't verify (falling back to building from source). An asset swapped into a
+  release after the build fails verification, so a `gh`-based install won't run it.
 
 ## Supported versions
 
