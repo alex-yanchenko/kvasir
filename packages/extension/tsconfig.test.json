@@ -1,7 +1,8 @@
 {
   "//": "Tests get every strict flag EXCEPT noUncheckedIndexedAccess — that flag guards against out-of-bounds on real runtime data, but test fixtures are built in-place and indexing them is safe. Production code (tsconfig.json) keeps it on.",
   "extends": "./tsconfig.json",
-  "compilerOptions": { "noUncheckedIndexedAccess": false },
+  "//types": "Tests run under vitest in Node, so test-only files may use node: builtins (e.g. fs/path in the styling-class contract guard). Production (tsconfig.json) stays chrome-only.",
+  "compilerOptions": { "noUncheckedIndexedAccess": false, "types": ["chrome", "node"] },
   "include": ["src"],
   "exclude": []
 }
