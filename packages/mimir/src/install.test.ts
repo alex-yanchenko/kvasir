@@ -1,11 +1,13 @@
 import { describe, it, expect } from "vitest";
 import {
+  attestationVerifyArgs,
   bunTarget,
   channelAssetName,
   channelRegistration,
   KVASIR_PERMISSION,
   kvasirShim,
   parseSetupArgs,
+  RELEASE_REPO,
   SETUP_USAGE,
   withKvasirPermission,
   withKvasirServer,
@@ -91,6 +93,28 @@ describe("bunTarget / channelAssetName", () => {
     expect(channelAssetName("darwin", "arm64")).toBe("kvasir-channel-darwin-arm64");
     expect(channelAssetName("linux", "x64")).toBe("kvasir-channel-linux-x64");
     expect(channelAssetName("win32", "x64")).toBeNull();
+  });
+});
+
+describe("attestationVerifyArgs", () => {
+  it("builds the gh attestation-verify argv against the release repo by default", () => {
+    expect(attestationVerifyArgs("/tmp/kvasir-channel-linux-x64")).toEqual([
+      "attestation",
+      "verify",
+      "/tmp/kvasir-channel-linux-x64",
+      "--repo",
+      RELEASE_REPO,
+    ]);
+  });
+
+  it("accepts an explicit repo (fork installs verify against their own releases)", () => {
+    expect(attestationVerifyArgs("/tmp/extension-dist.tgz", "octocat/kvasir")).toEqual([
+      "attestation",
+      "verify",
+      "/tmp/extension-dist.tgz",
+      "--repo",
+      "octocat/kvasir",
+    ]);
   });
 });
 

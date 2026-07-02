@@ -20,6 +20,7 @@ import {
 import { homedir } from "node:os";
 import path from "node:path";
 import {
+  attestationVerifyArgs,
   channelAssetName,
   type ChannelOutcome,
   channelRegistration,
@@ -36,6 +37,15 @@ const HOME = homedir();
 const ok = (message: string): void => console.log(`  \u001B[32m✓\u001B[0m ${message}`);
 const warn = (message: string): void => console.log(`  \u001B[33m!\u001B[0m ${message}`);
 const say = (message: string): void => console.log(`  ${message}`);
+
+// Verify a downloaded release asset's build-provenance attestation before we trust
+// it (chmod+exec the channel, or extract the extension into Chrome). Fail-closed:
+// if gh can't verify — an old gh without `attestation`, offline, or a genuinely
+// tampered/unattested asset — refuse the download and fall back to building from
+// source rather than run an unverified binary.
+const attestationOk = (file: string): boolean =>
+  Bun.spawnSync(["gh", ...attestationVerifyArgs(file)], { stdout: "ignore", stderr: "ignore" }).exitCode ===
+  0;
 
 const args = parseSetupArgs(Bun.argv.slice(2));
 if (args.help) {
@@ -102,8 +112,11 @@ if (have("pnpm")) {
     ["gh", "release", "download", "--repo", "alex-yanchenko/kvasir", "--pattern", "extension-dist.tgz", "--output", tarball, "--clobber"],
     { stdout: "ignore", stderr: "ignore" },
   );
+  // Verify provenance before extracting into the loaded extension — a tampered
+  // tarball runs as a content script on github.com.
+  const verified = downloaded.exitCode === 0 && attestationOk(tarball);
   const extracted =
-    downloaded.exitCode === 0 &&
+    verified &&
     Bun.spawnSync(["tar", "xzf", tarball, "-C", REPO + "/packages/extension"], {
       stdout: "ignore",
       stderr: "ignore",
@@ -111,6 +124,9 @@ if (have("pnpm")) {
   if (extracted) {
     rmSync(tarball, { force: true });
     ok("downloaded prebuilt extension → packages/extension/dist");
+  } else if (downloaded.exitCode === 0 && !verified) {
+    rmSync(tarball, { force: true });
+    warn("extension download failed provenance verification — refusing; install pnpm and run 'pnpm build'");
   } else warn("extension download failed (no release yet?) — install pnpm and run 'pnpm build'");
 } else {
   warn("need pnpm (to build) or gh (to download) for the extension — then load packages/extension");
@@ -160,10 +176,16 @@ if (channelOutcome === "none") {
       ["gh", "release", "download", "--repo", "alex-yanchenko/kvasir", "--pattern", asset, "--output", channelBinary, "--clobber"],
       { stdout: "ignore", stderr: "ignore" },
     );
-    if (downloaded.exitCode === 0) {
+    // Verify provenance before we chmod+exec the binary as the channel.
+    if (downloaded.exitCode === 0 && attestationOk(channelBinary)) {
       chmodSync(channelBinary, 0o755);
       ok(`downloaded channel → ${channelBinary}`);
       channelOutcome = "downloaded";
+    } else if (downloaded.exitCode === 0) {
+      rmSync(channelBinary, { force: true });
+      warn(
+        "channel download failed provenance verification — refusing (upgrade gh, or 'pnpm install' to compile)",
+      );
     } else warn("channel download failed (no release yet?)");
   } else if (asset) {
     warn("need gh to download the channel (or 'pnpm install' so bun can compile it locally)");
