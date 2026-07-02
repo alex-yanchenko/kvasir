@@ -338,7 +338,7 @@ export const chatStore = {
 
 /** Asgard's ear on the Bifrost: a completed "ask" from the grip opens a chat, and
  * a citation miss (a cited file with no target on this page) raises a transient
- * note instead of the click silently doing nothing. Returns the unsubscriber. */
+ * note instead of the click silently doing nothing. Returns the unsubscribe. */
 export function connectChat(bus: Bifrost): () => void {
   const offs = [
     bus.on("selection:ask", (p) => chatStore.openSelection(p, p.withStep)),
