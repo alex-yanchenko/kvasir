@@ -51,6 +51,12 @@ own Claude Code session. The security posture rests on a few properties:
   will `chmod`+exec the channel or extract the extension, and refuses any asset it
   can't verify (falling back to building from source). An asset swapped into a
   release after the build fails verification, so a `gh`-based install won't run it.
+- **`--allow-push` is opt-in.** By default the `kvasir` push command prompts through
+  Claude Code's normal permission flow. Passing `--allow-push` to the installer
+  pre-approves it (adds `Bash(kvasir:*)` to `~/.claude/settings.json`) so the
+  `/kvasir` flow runs without a per-invocation prompt. That trades one confirmation
+  step for convenience; it only affects the local push path (which writes the
+  same-machine mailbox, never GitHub), so leave it off if you prefer the prompt.
 
 ## Supported versions
 
