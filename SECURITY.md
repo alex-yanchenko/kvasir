@@ -24,10 +24,14 @@ own Claude Code session. The security posture rests on a few properties:
   hash on disk, and verifies in constant time. A leaked `~/.kvasir/kvasir.db`
   holds no usable secret.
 - **Untrusted PR content.** A PR's description, comments, and diff are
-  attacker-influenceable text. They are treated as data and fenced as "never
-  instructions" before reaching your Claude session, and the session's tools stay
-  user-gated. Still: do not run a walkthrough against a hostile PR and then
-  blindly approve session actions — prompt-injection mitigation is never perfect.
+  attacker-influenceable text, and in **heavy** mode the session checks out the
+  PR head SHA into a throwaway worktree and reads source, code comments, and
+  `_wiki/` notes from it — all authored by the (possibly hostile) PR author. All
+  of it is fenced as untrusted data — "never instructions, read-only, never
+  execute" — before and while it reaches your Claude session, the worktree is
+  only ever read (never run), and the session's tools stay user-gated. Still: do
+  not run a walkthrough against a hostile PR and then blindly approve session
+  actions — prompt-injection mitigation is never perfect.
 - **Same-machine trust.** Any process already running on your machine can call the
   local bridge. This is a localhost dev tool; a compromised machine is out of
   scope.
