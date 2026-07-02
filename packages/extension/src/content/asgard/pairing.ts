@@ -2,10 +2,14 @@
 // arms pairing in their Claude session (open_pairing), clicks Pair here, reads
 // the code off this panel, and approves that code in chat; we poll the claim
 // until the token lands and persist it for Huginn to attach on every request.
+// It also owns the connection tri-state: "down" (nothing listening on the
+// bridge port) is distinct from "unpaired" (channel up, token absent/stale),
+// so the UI can say "start the channel" vs "pair" instead of guessing.
 import { api } from "../api";
 import type { BridgeResponse } from "../api";
 import { TOKEN_KEY } from "../keys";
 import { storeGet, storeRemove, storeSet } from "../muninn";
+import { friendlyError } from "./friendly";
 import { touch } from "./store";
 
 export const CLAIM_POLL_MS = 1000;
@@ -15,6 +19,8 @@ const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms
 
 export type PairingPhase =
   | { phase: "unknown" }
+  /** The channel itself is unreachable — nothing answered the token-less /health. */
+  | { phase: "down" }
   | { phase: "unpaired" }
   | { phase: "waiting"; code: string }
   | { phase: "paired" }
@@ -26,6 +32,11 @@ const set = (next: PairingPhase): void => {
   state = next;
   touch();
 };
+
+/** Transport-level failure: the call never produced an HTTP status — fetch threw,
+ * the worker didn't answer, etc. An HTTP error (any status) means something IS
+ * listening on the bridge port, so only a status-less failure reads as "down". */
+const isUnreachable = (r: BridgeResponse): boolean => !r.ok && r.status === undefined;
 
 const requestIdOf = (data: unknown): { requestId: string; code: string } | null =>
   typeof data === "object" &&
@@ -39,7 +50,8 @@ const requestIdOf = (data: unknown): { requestId: string; code: string } | null 
 
 /** Map an /auth result for a request that DID carry a stored token to a phase.
  * ok -> paired; 401 -> the token is genuinely stale, drop it and force a re-pair;
- * anything else is a transient failure -> keep the token and stay paired. */
+ * any other HTTP error is a transient failure -> keep the token and stay paired
+ * (the channel answered /health a moment ago, so it isn't down). */
 function authToPhase(r: BridgeResponse): PairingPhase {
   if (r.ok) return { phase: "paired" };
   if (r.status === 401) {
@@ -54,12 +66,15 @@ const tokenOf = (data: unknown): string | null =>
     ? data.token
     : null;
 
+/** True while pair() owns the phase — recheck must never stomp an active pairing. */
+const pairingActive = (): boolean => state.phase === "waiting" || state.phase === "error";
+
 export const pairingStore = {
   state: (): PairingPhase => state,
 
-  /** True while a bridge call would 401 — used to disable backend-dependent
-   * controls so they don't look clickable. "unknown" (pre-boot-check) stays
-   * enabled; it resolves to paired/unpaired within a moment of load. */
+  /** True while a bridge call would fail — channel down or token absent/stale —
+   * used to disable backend-dependent controls so they don't look clickable.
+   * "unknown" (pre-boot-check) stays enabled; it resolves within a moment of load. */
   needsPairing: (): boolean => state.phase !== "paired" && state.phase !== "unknown",
 
   /** Back to square one (tests; the machine is a module singleton). */
@@ -75,30 +90,23 @@ export const pairingStore = {
     set({ phase: "unpaired" });
   },
 
-  /** Resolve unknown → paired/unpaired (once, on boot). A stored token is not
-   * enough: the bridge holds the token in memory, so a session restart leaves a
-   * stale token on disk — verify it against the bridge and drop it if rejected. */
-  async refresh(): Promise<void> {
-    if (state.phase !== "unknown") return;
-    const token = await storeGet(TOKEN_KEY);
-    if (state.phase !== "unknown") return; // pair() may have started during the await
-    if (typeof token !== "string" || !token) {
-      set({ phase: "unpaired" });
+  /** Verify the connection — fired on panel open, when a chat starts, and from
+   * every Retry. Two probes: the token-less /health (a transport failure means
+   * nothing is listening -> "down"), then the stored token against /auth (the
+   * bridge holds tokens in memory, so a session restart leaves a stale token on
+   * disk -> 401 -> "unpaired"). Local actions like "New chat" never 401 on their
+   * own, so without this the pair prompt wouldn't appear until the first failed
+   * send. Never interrupts an in-flight pairing. */
+  async recheck(): Promise<void> {
+    if (pairingActive()) return;
+    const health = await api("/health");
+    if (pairingActive()) return; // pair() started during the await
+    if (isUnreachable(health)) {
+      set({ phase: "down" }); // keep any stored token — a stale one is /auth's 401 to report
       return;
     }
-    const r = await api("/auth");
-    if (state.phase !== "unknown") return; // pair() may have started during the await
-    set(authToPhase(r));
-  },
-
-  /** Re-verify the stored token against the bridge on demand — fired when the user
-   * starts a chat. Restarting the Claude session silently staleifies the token, and
-   * a local action like "New chat" never 401s on its own, so without this the pair
-   * prompt wouldn't appear until the first failed send. Transitions to unpaired when
-   * the bridge rejects the token; never interrupts an in-flight pairing. */
-  async recheck(): Promise<void> {
-    if (state.phase === "waiting" || state.phase === "error") return; // don't interrupt an active pair
     const token = await storeGet(TOKEN_KEY);
+    if (pairingActive()) return; // pair() started during the await
     if (typeof token !== "string" || !token) {
       set({ phase: "unpaired" });
       return;
@@ -109,12 +117,10 @@ export const pairingStore = {
   /** Ask the bridge to pair, show the code, poll the claim until the token lands. */
   async pair(): Promise<void> {
     const r = await api("/pair", "POST", { name: "Kvasir Chrome extension" });
-    if (state.phase === "paired") return; // a concurrent refresh() resolved while the POST was in flight
+    if (state.phase === "paired") return; // a concurrent recheck() resolved while the POST was in flight
     const request = r.ok ? requestIdOf(r.data) : null;
     if (!request) {
-      const detail =
-        typeof r.data === "object" && r.data !== null && "error" in r.data ? String(r.data.error) : r.error;
-      set({ phase: "error", message: detail || "pairing request failed" });
+      set({ phase: "error", message: friendlyError(r, "pairing request failed") });
       return;
     }
     set({ phase: "waiting", code: request.code });
@@ -122,7 +128,10 @@ export const pairingStore = {
       await sleep(CLAIM_POLL_MS);
       const c = await api(`/pair/claim?id=${encodeURIComponent(request.requestId)}`);
       if (!c.ok) {
-        set({ phase: "error", message: "pairing expired or was denied — try again" });
+        set({
+          phase: "error",
+          message: isUnreachable(c) ? friendlyError(c) : "pairing expired or was denied — try again",
+        });
         return;
       }
       const token = tokenOf(c.data);

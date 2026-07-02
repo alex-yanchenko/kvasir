@@ -9,6 +9,7 @@ import { bifrost } from "../bifrost";
 import type { Bifrost, SelectionPayload } from "../bifrost";
 import { chatsKey, prUrl } from "../keys";
 import { storeSet } from "../muninn";
+import { friendlyError } from "./friendly";
 import { activeGuide } from "./guide";
 import { pairingStore } from "./pairing";
 import { chatsStore, PANEL_TABS, panelStore, settingsStore, state, touch } from "./store";
@@ -69,21 +70,6 @@ function handleAuth(r: { status?: number }): boolean {
   if (r.status !== 401) return false;
   pairingStore.markUnpaired();
   return true;
-}
-
-export function friendlyError(r: { data?: unknown; error?: string }): string {
-  const fromData =
-    typeof r.data === "object" && r.data !== null && "error" in r.data && typeof r.data.error === "string"
-      ? r.data.error
-      : "";
-  const event = fromData || r.error || "";
-  if (/not paired/i.test(event)) return "Not paired — open Settings (gear) and pair the extension.";
-  if (/timed out/i.test(event))
-    return "No response yet — the session may be busy or paused in your terminal.";
-  if (/refresh the page/i.test(event)) return "Extension was reloaded — refresh the page, then retry.";
-  if (/fetch|reach|no response|network/i.test(event))
-    return "Can't reach the channel — is your Claude session running?";
-  return event ? `Something went wrong: ${event}` : "No answer came back.";
 }
 
 const idOf = (data: unknown): string | null =>
