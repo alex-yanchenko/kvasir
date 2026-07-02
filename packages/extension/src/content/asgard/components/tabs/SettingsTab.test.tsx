@@ -143,14 +143,26 @@ describe("SettingsTab", () => {
 
   it("surfaces a pairing error with a Retry", async () => {
     vi.mocked(storeGet).mockResolvedValue(undefined);
-    vi.mocked(api).mockResolvedValue({
-      ok: false,
-      data: { error: "another pairing request is already pending" },
-    });
+    vi.mocked(api).mockImplementation(async (path: string) =>
+      path === "/health"
+        ? { ok: true, data: { ok: true } }
+        : { ok: false, status: 409, data: { error: "another pairing request is already pending" } },
+    );
     render(<SettingsTab />);
     fireEvent.click(await screen.findByRole("button", { name: "Pair" }));
     await screen.findByText(/already pending/);
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
     expect(await screen.findByText(/already pending/)).toBeTruthy();
+  });
+
+  it("shows the channel-down state and recovers via Retry once the channel answers", async () => {
+    vi.mocked(storeGet).mockResolvedValue(undefined);
+    vi.mocked(api).mockResolvedValue({ ok: false, error: "TypeError: Failed to fetch" });
+    render(<SettingsTab />);
+    await screen.findByText(/Channel not running/);
+    expect(screen.queryByRole("button", { name: "Pair" })).toBeNull(); // pairing can't help a dead channel
+    vi.mocked(api).mockResolvedValue({ ok: true, data: { ok: true } });
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    await screen.findByText("Not paired"); // channel back, token still absent
   });
 });

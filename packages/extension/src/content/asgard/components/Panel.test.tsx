@@ -42,10 +42,14 @@ beforeEach(() => {
   state.guideDeleted = false;
   panelStore.setSidebarOpen(false); // module-level rail state — reset so the panel width is clean
   pairingStore.reset(); // "unknown" → no banner unless a test sets the phase
+  // The panel rechecks the connection on open; neutralize the bridge round-trip so
+  // unrelated tests don't drift to "down" (the stubbed chrome has no messaging).
+  vi.spyOn(pairingStore, "recheck").mockResolvedValue(undefined);
 });
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
 });
 
 describe("Panel", () => {
@@ -398,6 +402,41 @@ describe("Panel", () => {
     vi.mocked(pairingStore.state).mockReturnValue({ phase: "error", message: "channel down" });
     act(() => panelStore.setTab(PANEL_TABS.WALKTHROUGH));
     expect(screen.getByText("channel down")).toBeTruthy();
+  });
+
+  it("rechecks the connection when the panel opens", () => {
+    render(<Panel />);
+    expect(pairingStore.recheck).not.toHaveBeenCalled(); // closed → no probe
+    act(() => panelStore.open());
+    expect(pairingStore.recheck).toHaveBeenCalledTimes(1);
+  });
+
+  it("the banner names a down channel and Retry re-probes it", () => {
+    render(<Panel />);
+    act(() => panelStore.open());
+    vi.spyOn(pairingStore, "state").mockReturnValue({ phase: "down" });
+    act(() => panelStore.setTab(PANEL_TABS.CHAT)); // any non-settings tab; forces a re-render
+    expect(screen.getByText(/Channel not running/)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Pair" })).toBeNull(); // pairing can't help a dead channel
+    vi.mocked(pairingStore.recheck).mockClear();
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(pairingStore.recheck).toHaveBeenCalledTimes(1);
+  });
+
+  it("the title-bar status dot names each connection phase", () => {
+    render(<Panel />);
+    act(() => panelStore.open());
+    const stateSpy = vi.spyOn(pairingStore, "state");
+    for (const [phase, label] of [
+      [{ phase: "paired" }, "Connected to your Claude session"],
+      [{ phase: "down" }, "Channel not running"],
+      [{ phase: "unpaired" }, "Not paired"],
+      [{ phase: "unknown" }, "Checking connection…"],
+    ] as const) {
+      stateSpy.mockReturnValue(phase);
+      act(() => store.touch());
+      expect(screen.getByLabelText(label)).toBeTruthy();
+    }
   });
 
   it("the close button hides the panel", () => {

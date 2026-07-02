@@ -57,7 +57,7 @@ export function boot(): void {
   // it — otherwise start() races against default state, jumps to step 0, and goto(0)
   // overwrites the saved position on every reload.
   const persisted = loadPersisted();
-  void pairingStore.refresh(); // resolve paired/unpaired up front so the panel can prompt
+  void pairingStore.recheck(); // resolve down/paired/unpaired up front so the panel can prompt
   // Review-mode (a pushed cross-repo review) pulls from the mailbox; a PR page runs
   // the walkthrough generator/poll as before.
   if (reviewId) {
