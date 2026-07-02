@@ -36,6 +36,7 @@ beforeEach(() => {
   state.spec = null;
   state.review = null;
   state.reviewStep = 0;
+  state.reviewMissing = null;
   state.panel = { open: false, tab: PANEL_TABS.WALKTHROUGH, pos: null, size: null };
   state.history = null;
   state.seen = {};
@@ -481,6 +482,22 @@ describe("Panel", () => {
     expect(screen.getByText("This walkthrough was deleted.")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
     expect(screen.queryByText("This walkthrough was deleted.")).toBeNull();
+  });
+
+  it("explains a ?kvasir link this channel doesn't have (machine-local links)", () => {
+    state.reviewMissing = "notfound";
+    render(<Panel />);
+    act(() => panelStore.open());
+    expect(screen.getByText(/only open on the machine that built them/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+    expect(state.reviewMissing).toBeNull();
+  });
+
+  it("a ?kvasir link with the channel down says start the channel, not 'broken link'", () => {
+    state.reviewMissing = "down";
+    render(<Panel />);
+    act(() => panelStore.open());
+    expect(screen.getByText(/channel isn't running/)).toBeTruthy();
   });
 
   it("restores persisted geometry as inline styles", () => {

@@ -1,13 +1,13 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
-vi.mock("../api", () => ({ api: vi.fn() }));
+vi.mock(import("../api"), async (importOriginal) => ({ ...(await importOriginal()), api: vi.fn() }));
 vi.mock("../muninn", () => ({ storeGet: vi.fn(), storeSet: vi.fn(), storeRemove: vi.fn() }));
 
 import { api } from "../api";
 import { bifrost } from "../bifrost";
 import { storeSet } from "../muninn";
-import { chatStore, connectChat, POLL_MS } from "./chat";
+import { chatStore, connectChat, POLL_MS, REF_NOTICE_MS } from "./chat";
 import { pairingStore } from "./pairing";
 import { state, subscribe } from "./store";
 import { tourStore } from "./tour";
@@ -407,8 +407,22 @@ describe("ensureSuggestions", () => {
 
 describe("connectChat", () => {
   it("opens a selection chat when the grip reports an ask", () => {
-    connectChat(bifrost);
+    const off = connectChat(bifrost);
     bifrost.report("selection:ask", { ...payload, withStep: false });
     expect(chatStore.active()?.key).toBe(payload.selectionId);
+    off();
+  });
+
+  it("a citation miss raises a transient note naming the file, then clears itself", async () => {
+    vi.useFakeTimers();
+    const off = connectChat(bifrost);
+    bifrost.report("ref:missing", { file: "src/gone.ts" });
+    expect(chatStore.refNotice()).toBe("src/gone.ts isn't in this PR's diff");
+    bifrost.report("ref:missing", { file: "src/other.ts" }); // a newer miss replaces the note
+    expect(chatStore.refNotice()).toBe("src/other.ts isn't in this PR's diff");
+    await vi.advanceTimersByTimeAsync(REF_NOTICE_MS);
+    expect(chatStore.refNotice()).toBeNull();
+    off();
+    vi.useRealTimers();
   });
 });

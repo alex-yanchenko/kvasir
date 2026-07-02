@@ -25,10 +25,16 @@ export interface LiveAsk {
 }
 
 export const POLL_MS = 600;
+/** How long a citation-miss note stays up before clearing itself. */
+export const REF_NOTICE_MS = 5000;
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
 let activeKey: string | null = null;
 let live: LiveAsk | null = null;
+/** Transient "that file isn't in this diff" note — raised by a ref:missing report
+ * when a clicked citation has no target on the page; self-clears. */
+let refNotice: string | null = null;
+let refNoticeTimer: ReturnType<typeof setTimeout> | null = null;
 
 /** Stable key for the overview "step 0" chat, so re-asking reopens it. */
 const OVERVIEW_CHAT_KEY = "overview";
@@ -148,6 +154,7 @@ async function pollAnswer(key: string, id: string): Promise<PollResult> {
 export const chatStore = {
   active: (): ChatSession | null => state.chatHistory.find((s) => s.key === activeKey) ?? null,
   live: (): LiveAsk | null => live,
+  refNotice: (): string | null => refNotice,
 
   /** The chat opened from a given walkthrough step, if one exists. */
   stepChat: (stepId: string): ChatSession | null =>
@@ -329,7 +336,24 @@ export const chatStore = {
   },
 };
 
-/** Asgard's ear on the Bifrost: a completed "ask" from the grip opens a chat. */
-export function connectChat(bus: Bifrost): void {
-  bus.on("selection:ask", (p) => chatStore.openSelection(p, p.withStep));
+/** Asgard's ear on the Bifrost: a completed "ask" from the grip opens a chat, and
+ * a citation miss (a cited file with no target on this page) raises a transient
+ * note instead of the click silently doing nothing. Returns the unsubscriber. */
+export function connectChat(bus: Bifrost): () => void {
+  const offs = [
+    bus.on("selection:ask", (p) => chatStore.openSelection(p, p.withStep)),
+    bus.on("ref:missing", ({ file }) => {
+      refNotice = `${file} isn't in this PR's diff`;
+      if (refNoticeTimer) clearTimeout(refNoticeTimer);
+      refNoticeTimer = setTimeout(() => {
+        refNotice = null;
+        refNoticeTimer = null;
+        touch();
+      }, REF_NOTICE_MS);
+      touch();
+    }),
+  ];
+  return () => {
+    for (const off of offs) off();
+  };
 }

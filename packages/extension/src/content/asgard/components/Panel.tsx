@@ -111,6 +111,34 @@ function ConnectionDot(): JSX.Element {
   );
 }
 
+/** Shown when a ?kvasir link produced nothing: the channel answered but doesn't
+ * have the walkthrough (links are machine-local — say so instead of reading as a
+ * broken link), or the channel itself is down. */
+function ReviewMissingBanner(): JSX.Element | null {
+  const missing = reviewStore.missing();
+  if (!missing) return null;
+  return (
+    <div className="flex items-center gap-2 border-b border-border bg-secondary px-3 py-1.5 text-xs">
+      <span className="text-muted-foreground">
+        {missing === "down" ? (
+          <>
+            Can&apos;t load this walkthrough — the channel isn&apos;t running. Run{" "}
+            <b className="font-mono text-foreground">kvasir</b> in your terminal, then reload.
+          </>
+        ) : (
+          <>
+            This walkthrough isn&apos;t on this machine&apos;s channel — Kvasir links are machine-local and
+            only open on the machine that built them.
+          </>
+        )}
+      </span>
+      <Button variant="ghost" size="sm" className="ml-auto h-6" onClick={() => reviewStore.dismissMissing()}>
+        Dismiss
+      </Button>
+    </div>
+  );
+}
+
 /** Shown when the walkthrough this tab was viewing got deleted (here or in another
  * tab). The content is already cleared; this explains why it vanished. Auto-hides
  * once a new walkthrough loads (panelStore.guideDeleted gates on review/spec). */
@@ -355,6 +383,7 @@ function PanelWindow(): JSX.Element {
         </div>
 
         <PairBanner />
+        <ReviewMissingBanner />
         <GuideDeletedBanner />
 
         <Tabs

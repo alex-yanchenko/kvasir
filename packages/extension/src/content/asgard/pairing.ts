@@ -5,7 +5,7 @@
 // It also owns the connection tri-state: "down" (nothing listening on the
 // bridge port) is distinct from "unpaired" (channel up, token absent/stale),
 // so the UI can say "start the channel" vs "pair" instead of guessing.
-import { api } from "../api";
+import { api, isUnreachable } from "../api";
 import type { BridgeResponse } from "../api";
 import { TOKEN_KEY } from "../keys";
 import { storeGet, storeRemove, storeSet } from "../muninn";
@@ -32,11 +32,6 @@ const set = (next: PairingPhase): void => {
   state = next;
   touch();
 };
-
-/** Transport-level failure: the call never produced an HTTP status — fetch threw,
- * the worker didn't answer, etc. An HTTP error (any status) means something IS
- * listening on the bridge port, so only a status-less failure reads as "down". */
-const isUnreachable = (r: BridgeResponse): boolean => !r.ok && r.status === undefined;
 
 const requestIdOf = (data: unknown): { requestId: string; code: string } | null =>
   typeof data === "object" &&

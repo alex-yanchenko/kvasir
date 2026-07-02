@@ -7,6 +7,7 @@ import { isWalkthroughSpec, type WalkthroughSpec } from "@kvasir/runes/spec";
 import { api, type BridgeResponse } from "../api";
 import { genKey, onFilesTab, prUrl, specKey, tourKey } from "../keys";
 import { storeGet, storeRemove, storeSet } from "../muninn";
+import { friendlyError } from "./friendly";
 import { pairingStore } from "./pairing";
 import { settingsStore, state, touch } from "./store";
 import { tourStore } from "./tour";
@@ -51,6 +52,14 @@ let newCommits = false;
 let currentHead: string | null = null;
 let genPoll: ReturnType<typeof setInterval> | null = null;
 let genStartAt = 0;
+/** Why the last generate attempt ended without a spec — rendered inline with a
+ * Retry. Null while nothing is wrong; a 401 stays null (the pair banner owns it). */
+let genError: string | null = null;
+/** The last requested mode + range, so Retry re-issues exactly what failed. */
+let lastGen: { mode: "new" | "incremental"; sinceSha: string | undefined } = {
+  mode: "new",
+  sinceSha: undefined,
+};
 
 // Poll until a spec different from previousSig lands. Shared by a fresh request and
 // by resuming after a page refresh.
@@ -83,6 +92,7 @@ function pollForSpec(pr: string, previousSig: string): void {
         genPoll = null;
         storeRemove(genKey(pr));
         generating = false;
+        genError = "This took too long — the session may be stuck; check your terminal.";
         touch();
       }
     })();
@@ -144,6 +154,13 @@ export const launcherStore = {
   genStartAt: (): number => genStartAt,
   newCommits: (): boolean => newCommits,
   spec: (): WalkthroughSpec | null => state.spec,
+  genError: (): string | null => genError,
+  dismissGenError(): void {
+    genError = null;
+    touch();
+  },
+  /** Re-issue the request that just failed (same mode + range). */
+  retryGenerate: (): Promise<void> => launcherStore.requestGenerate(lastGen.mode, lastGen.sinceSha),
 
   /** Whether a "changes since this review" range diff can be opened — true once
    * commits landed past the head the walkthrough was generated for. */
@@ -171,6 +188,8 @@ export const launcherStore = {
     const previousSig = specSig(state.spec);
     tourStore.close(); // don't leave a stale walkthrough open while it regenerates
     generating = true;
+    genError = null;
+    lastGen = { mode, sinceSha };
     genStartAt = Date.now();
     storeSet(genKey(pr), { previousSig, at: genStartAt });
     touch();
@@ -185,9 +204,11 @@ export const launcherStore = {
       }),
     );
     if (!r.ok) {
-      // unpaired (or the channel is down) — don't spin a 20-minute poll on nothing
+      // don't spin a 20-minute poll on nothing; say why instead. A 401 stays
+      // silent here — noteAuth already flipped the pair banner on.
       generating = false;
       storeRemove(genKey(pr));
+      if (r.status !== 401) genError = friendlyError(r, "the generate request failed — try again");
       touch();
       return;
     }
@@ -209,6 +230,7 @@ export const launcherStore = {
     if (genPoll) clearInterval(genPoll);
     genPoll = null;
     generating = false;
+    genError = null;
     newCommits = false;
     currentHead = null;
     genStartAt = 0;

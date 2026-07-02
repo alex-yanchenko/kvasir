@@ -22,7 +22,7 @@ vi.mock("react", async () => {
   };
 });
 
-vi.mock("../../../api", () => ({ api: vi.fn() }));
+vi.mock(import("../../../api"), async (importOriginal) => ({ ...(await importOriginal()), api: vi.fn() }));
 vi.mock("../../../muninn", () => ({ storeGet: vi.fn(), storeSet: vi.fn(), storeRemove: vi.fn() }));
 
 import { api } from "../../../api";
@@ -32,7 +32,7 @@ import { chatStore } from "../../chat";
 import { pairingStore } from "../../pairing";
 import { PANEL_TABS, state } from "../../store";
 import type { ChatSession } from "../../types";
-import { ChatTab, closeFences, linkifyReferences, REF_RE } from "./ChatTab";
+import { ChatTab, closeFences, linkifyReferences, REF_RE, SUGGEST_SLOW_MS } from "./ChatTab";
 
 const PR = "https://github.com/acme/widget-api/pull/7";
 
@@ -518,6 +518,33 @@ describe("suggestions + input", () => {
     expect(document.querySelector(".kvasir-srow")).toBeNull();
     openSession(mkSession("a", { suggestions: [] })); // selection chat, no suggestions
     expect(document.querySelector(".kvasir-ai")?.className).not.toContain("kvasir-has");
+  });
+
+  it("a stalled suggest swaps the shimmer for a still-waiting note instead of shimmering forever", async () => {
+    vi.useFakeTimers();
+    state.preloadQuestions = true;
+    vi.mocked(api).mockImplementation((path: string) =>
+      path === "/suggest"
+        ? new Promise(() => {}) // never resolves — the session is stuck
+        : Promise.resolve({ ok: true, data: { id: "q" } }),
+    );
+    render(<ChatTab />);
+    openSession(mkSession("a", { suggestions: null }));
+    expect(document.querySelector(".kvasir-skel")).toBeTruthy();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(SUGGEST_SLOW_MS);
+    });
+    expect(document.querySelector(".kvasir-skel")).toBeNull(); // shimmer ends
+    expect(screen.getByText(/Suggestions are taking a while/)).toBeTruthy();
+    vi.useRealTimers();
+  });
+
+  it("shows the transient citation-miss note in the thread", () => {
+    vi.spyOn(chatStore, "refNotice").mockReturnValue("src/gone.ts isn't in this PR's diff");
+    render(<ChatTab />);
+    openSession(mkSession("a"));
+    expect(screen.getByText(/src\/gone\.ts isn't in this PR's diff/)).toBeTruthy();
+    vi.mocked(chatStore.refNotice).mockRestore();
   });
 
   it("Enter sends, ⌘+Enter inserts a newline, Shift+Enter is native, empty is a no-op, input autosizes", async () => {

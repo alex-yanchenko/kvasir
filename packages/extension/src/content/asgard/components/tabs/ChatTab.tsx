@@ -125,6 +125,9 @@ export function linkifyReferences(root: HTMLElement): void {
 export const closeFences = (text: string): string =>
   text.split("```").length % 2 === 0 ? text + "\n```" : text;
 
+/** How long the suggestion skeleton may shimmer before it reads as stalled. */
+export const SUGGEST_SLOW_MS = 20_000;
+
 /** Rendered assistant markdown: escape-first renderMarkdown HTML, then a ref
  * effect adds per-code-block copy buttons and the citation links. */
 function Markdown({ text }: Readonly<{ text: string }>): JSX.Element {
@@ -395,6 +398,18 @@ function Thread({ sess }: Readonly<{ sess: ChatSession }>): JSX.Element {
     if (!sess.general && !blocked) void chatStore.ensureSuggestions(sess.key);
   }, [blocked, sess.general, sess.key]);
 
+  // A /suggest that never lands would shimmer forever — after SUGGEST_SLOW_MS the
+  // skeleton swaps for a still-waiting note (the rows still render if they arrive).
+  const [suggestSlow, setSuggestSlow] = useState(false);
+  useEffect(() => {
+    if (sess.general || blocked || sess.suggestions) {
+      setSuggestSlow(false);
+      return;
+    }
+    const timer = setTimeout(() => setSuggestSlow(true), SUGGEST_SLOW_MS);
+    return () => clearTimeout(timer);
+  }, [blocked, sess.general, sess.suggestions, sess.key]);
+
   const ask = (q: string) => send(q);
   const endSuffix = sess.lines && sess.lines.end !== sess.lines.start ? `-${sess.lines.end}` : "";
   const lineLabel = sess.lines ? `:${sess.lines.start}${endSuffix}` : "";
@@ -411,13 +426,20 @@ function Thread({ sess }: Readonly<{ sess: ChatSession }>): JSX.Element {
   };
 
   // Suggestion area: the cached AI suggestions, or skeleton shimmer while they
-  // load — but nothing once unpaired (no fetch is coming, so don't shimmer forever).
-  const suggestionRows = ((): JSX.Element[] | null => {
+  // load — but nothing once unpaired (no fetch is coming, so don't shimmer forever),
+  // and a still-waiting note once the shimmer has outlived a reasonable fetch.
+  const suggestionRows = ((): JSX.Element[] | JSX.Element | null => {
     if (sess.suggestions)
       return sess.suggestions
         .slice(0, 3)
         .map((q) => <OptionRow key={q} label={q} onAsk={() => ask(q)} disabled={inputDisabled} />);
     if (blocked) return null;
+    if (suggestSlow)
+      return (
+        <p className="px-1 py-0.5 text-xs text-muted-foreground">
+          Suggestions are taking a while — the session may be busy. They&apos;ll show up when ready.
+        </p>
+      );
     return [0, 1, 2].map((index) => <div key={index} className="kvasir-srow kvasir-skel" />);
   })();
 
@@ -508,6 +530,13 @@ function Thread({ sess }: Readonly<{ sess: ChatSession }>): JSX.Element {
                 Retry
               </button>
             </span>
+          </div>
+        )}
+        {/* transient citation-miss note (ref:missing) — a clicked file:line whose file
+            isn't on this page must say so instead of the click doing nothing */}
+        {chatStore.refNotice() && (
+          <div className="kvasir-msg kvasir-msg-bot kvasir-msg-note">
+            <span>ⓘ {chatStore.refNotice()}</span>
           </div>
         )}
       </div>
