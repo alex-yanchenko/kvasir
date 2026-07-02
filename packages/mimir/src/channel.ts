@@ -26,7 +26,7 @@
  *                 reflected). The extension's worker isn't CORS-bound, so this is
  *                 normally unset. NEVER set it to a multi-tenant origin such as
  *                 https://github.com: that would let any script on that origin reach
- *                 the token-less routes (/history, /review, DELETE /entries).
+ *                 the token-less mailbox routes (/history, /review, /push).
  *   ASK_TIMEOUT_MS        how long /ask and /suggest wait for you (default 120000)
  */
 

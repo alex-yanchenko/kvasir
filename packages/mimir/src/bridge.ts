@@ -114,10 +114,10 @@ function handleDeleteEntry({ request, url, deps }: Context): Response {
 }
 
 // Hard-wipe the whole mailbox — every stored entry AND the in-memory specs map, so
-// a running channel stops serving immediately (no restart). Token-less by design,
-// like the rest of the mailbox: it must work even when unpaired, and never depend
-// on the token the Settings wipe button is about to drop. (Pairing sessions are
-// NOT touched here — that is the wipe-all script's job.)
+// a running channel stops serving immediately (no restart). Token-GATED (unlike the
+// rest of the mailbox): it is the one destructive route, so it requires pairing and
+// is refused to an unpaired caller. Unpaired recovery / full reset (pairing sessions
+// included) is the wipeDb.ts script's job, not this route.
 function handleWipeEntries({ request, deps }: Context): Response {
   deps.guides.wipe();
   deps.specs.clear();
@@ -327,6 +327,9 @@ const ROUTES: Record<string, (context: Context) => Response | Promise<Response>>
   "POST /ask": handleAsk,
   "GET /poll": handlePoll,
   "POST /suggest": handleSuggest,
+  // Destructive: the full mailbox wipe requires pairing (the rest of the mailbox is
+  // token-less same-machine trust; this one route isn't, because it is irreversible).
+  "DELETE /entries": handleWipeEntries,
 };
 
 // Token-less routes, dispatched the same way but BEFORE the pairing gate: /pair
@@ -339,7 +342,6 @@ const PUBLIC_ROUTES: Record<string, (context: Context) => Response | Promise<Res
   "GET /history": handleHistory,
   "GET /review": handleReview,
   "DELETE /entry": handleDeleteEntry,
-  "DELETE /entries": handleWipeEntries,
 };
 
 export function createFetchHandler(deps: BridgeDeps): (request: Request) => Promise<Response> {

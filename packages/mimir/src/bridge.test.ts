@@ -532,10 +532,17 @@ describe("/push + history mailbox (token-less)", () => {
     expect((await call("/review?id=rev-1")).status).toBe(200);
   });
 
-  it("DELETE /entries hard-wipes the store AND the in-memory specs, even unpaired", async () => {
-    deps.pairing.verify.mockReturnValue(false); // token-less: works while unpaired
+  it("DELETE /entries (destructive full-wipe) requires the token — 401 unpaired, wipes when paired", async () => {
     deps.guides.put(reviewToRecord({ ...mkReview(), id: "rev-1" }));
     deps.specs.set("acme/widget-api#7", mkSpec());
+    // Unpaired: the destructive wipe is refused. A local process can't trigger it
+    // without pairing; unpaired recovery goes through the wipeDb.ts script instead.
+    deps.pairing.verify.mockReturnValue(false);
+    expect((await call("/entries", { method: "DELETE" })).status).toBe(401);
+    expect(deps.specs.size).toBe(1); // nothing wiped
+    expect(deps.guides.get("rev-1")).not.toBeNull();
+    // Paired: wipes both the durable store and the in-memory specs.
+    deps.pairing.verify.mockReturnValue(true);
     expect(await (await call("/entries", { method: "DELETE" })).json()).toEqual({ ok: true });
     expect(await (await call("/history")).json()).toEqual({ entries: [] });
     expect(deps.specs.size).toBe(0);
