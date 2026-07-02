@@ -125,16 +125,29 @@ function Connection(): JSX.Element {
   );
 }
 
+// The Debug row's explainer, by state. The wipe DELETEs the channel store, which
+// only accepts a paired request — while unpaired the button is disabled and the
+// text says why (an unpaired full reset is the wipe script's job, not the button's).
+function wipeHint(wiped: boolean, blocked: boolean): string {
+  if (wiped) return "Wiped — reload the page";
+  if (blocked) return "Pair to wipe — the channel store only accepts a paired delete.";
+  return "Clear all stored extension data";
+}
+
 function Debug(): JSX.Element {
   const [confirming, setConfirming] = useState(false);
   const [wiped, setWiped] = useState(false);
+  const blocked = pairingStore.needsPairing();
   return (
     <div className="flex flex-col gap-2">
       <span className="text-sm font-medium">Debug</span>
       <div className="flex items-center gap-2">
-        <span className="text-sm text-muted-foreground">
-          {wiped ? "Wiped — reload the page" : "Clear all stored extension data"}
-        </span>
+        <span className="text-sm text-muted-foreground">{wipeHint(wiped, blocked)}</span>
+        {wiped && (
+          <Button size="sm" variant="outline" className="ml-auto" onClick={() => location.reload()}>
+            Reload
+          </Button>
+        )}
         {confirming ? (
           <div className="ml-auto flex gap-1">
             <Button
@@ -154,17 +167,20 @@ function Debug(): JSX.Element {
             </Button>
           </div>
         ) : (
-          <Button
-            size="sm"
-            variant="outline"
-            className="ml-auto text-destructive hover:text-destructive"
-            onClick={() => {
-              setConfirming(true);
-              setWiped(false);
-            }}
-          >
-            Wipe data
-          </Button>
+          !wiped && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="ml-auto text-destructive hover:text-destructive"
+              disabled={blocked}
+              onClick={() => {
+                setConfirming(true);
+                setWiped(false);
+              }}
+            >
+              Wipe data
+            </Button>
+          )
         )}
       </div>
     </div>

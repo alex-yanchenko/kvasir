@@ -2,7 +2,7 @@
 import type { WalkthroughSpec } from "@kvasir/runes/spec";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
-vi.mock("../api", () => ({ api: vi.fn() }));
+vi.mock(import("../api"), async (importOriginal) => ({ ...(await importOriginal()), api: vi.fn() }));
 vi.mock("../muninn", () => ({ storeGet: vi.fn(), storeSet: vi.fn(), storeRemove: vi.fn() }));
 
 import { api } from "../api";
@@ -127,6 +127,48 @@ describe("requestGenerate → poll → spec lands", () => {
     expect(launcherStore.generating()).toBe(false);
     expect(state.spec).toEqual(unchanged);
     expect(vi.mocked(storeRemove)).toHaveBeenCalledWith(`kvasir:gen:${PR}`);
+    // the run-out isn't silent: the tab names the state instead of reverting to Empty
+    expect(launcherStore.genError()).toMatch(/took too long/);
+  });
+
+  it("a failed generate request surfaces an inline error; retry re-issues the same request", async () => {
+    vi.mocked(api).mockResolvedValue({ ok: false, error: "failed to fetch" });
+    await launcherStore.requestGenerate("incremental", "abc1234");
+    expect(launcherStore.generating()).toBe(false);
+    expect(launcherStore.genError()).toMatch(/Can't reach the channel/);
+
+    const fresh = mkSpec({ generatedAt: "2026-04-04T00:00:00Z" });
+    vi.mocked(api).mockImplementation(async (path: string) =>
+      path.startsWith("/walkthrough") ? { ok: true, data: fresh } : { ok: true },
+    );
+    await launcherStore.retryGenerate(); // re-issues with the same mode + sinceSha
+    expect(vi.mocked(api)).toHaveBeenLastCalledWith(
+      "/generate",
+      "POST",
+      expect.objectContaining({ mode: "incremental", sinceSha: "abc1234" }),
+    );
+    expect(launcherStore.genError()).toBeNull(); // a fresh request clears the error
+    await vi.advanceTimersByTimeAsync(GEN_POLL_INTERVAL_MS); // drain the poll
+  });
+
+  it("a 401 generate failure leaves the error to the pair banner (no duplicate message)", async () => {
+    vi.mocked(api).mockResolvedValue({ ok: false, status: 401 });
+    await launcherStore.requestGenerate("new");
+    expect(launcherStore.generating()).toBe(false);
+    expect(launcherStore.genError()).toBeNull();
+  });
+
+  it("dismissGenError clears the message; a PR switch clears it too", async () => {
+    vi.mocked(api).mockResolvedValue({ ok: false, error: "failed to fetch" });
+    await launcherStore.requestGenerate("new");
+    expect(launcherStore.genError()).not.toBeNull();
+    launcherStore.dismissGenError();
+    expect(launcherStore.genError()).toBeNull();
+
+    await launcherStore.requestGenerate("new");
+    expect(launcherStore.genError()).not.toBeNull();
+    launcherStore.resetForPr();
+    expect(launcherStore.genError()).toBeNull();
   });
 
   it("does nothing off a PR page", async () => {

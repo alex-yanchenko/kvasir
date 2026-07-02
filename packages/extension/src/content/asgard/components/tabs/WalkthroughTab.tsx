@@ -47,6 +47,28 @@ function Generating(): JSX.Element {
   );
 }
 
+/** Inline outcome of the last failed generate attempt (request refused, channel
+ * unreachable, or the poll ran out) — shown above whatever the tab renders, so a
+ * failed regenerate never silently reverts to the previous state. */
+function GenErrorBar({ message }: Readonly<{ message: string }>): JSX.Element {
+  return (
+    <div className="flex items-center gap-2 border-b border-border bg-secondary px-3 py-1.5 text-xs">
+      <span className="text-destructive">⚠ {message}</span>
+      <Button
+        size="sm"
+        variant="outline"
+        className="ml-auto h-6"
+        onClick={() => void launcherStore.retryGenerate()}
+      >
+        Retry
+      </Button>
+      <Button variant="ghost" size="sm" className="h-6" onClick={() => launcherStore.dismissGenError()}>
+        Dismiss
+      </Button>
+    </div>
+  );
+}
+
 function Empty(): JSX.Element {
   // Pairing is surfaced globally by the panel's PairBanner (so any 401 anywhere
   // prompts it), so this just offers the review action.
@@ -358,7 +380,12 @@ function Steps({ spec }: Readonly<{ spec: WalkthroughSpec }>): JSX.Element {
 export function WalkthroughTab(): JSX.Element {
   useSyncExternalStore(subscribe, getSnapshot);
   if (launcherStore.generating()) return <Generating />;
+  const genError = launcherStore.genError();
   const spec = launcherStore.spec();
-  if (!spec?.steps.length) return <Empty />;
-  return <Steps spec={spec} />;
+  return (
+    <div className="flex h-full min-h-0 flex-col">
+      {genError && <GenErrorBar message={genError} />}
+      <div className="min-h-0 flex-1">{spec?.steps.length ? <Steps spec={spec} /> : <Empty />}</div>
+    </div>
+  );
 }

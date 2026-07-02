@@ -5,7 +5,7 @@ import { HISTORY_KEY } from "../keys";
 import { storeSet } from "../muninn";
 import { wipeStoredData } from "./debug";
 
-vi.mock("../api", () => ({ api: vi.fn() }));
+vi.mock(import("../api"), async (importOriginal) => ({ ...(await importOriginal()), api: vi.fn() }));
 vi.mock("../muninn", () => ({ storeSet: vi.fn() }));
 
 beforeEach(() => {

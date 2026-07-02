@@ -51,8 +51,15 @@ chrome.runtime.onMessage.addListener(
         };
         if (message.body) options.body = JSON.stringify(message.body);
         const resolve = await fetch(target, options);
-        const data: unknown = await resolve.json();
-        sendResponse({ ok: resolve.ok, status: resolve.status, data });
+        try {
+          const data: unknown = await resolve.json();
+          sendResponse({ ok: resolve.ok, status: resolve.status, data });
+        } catch (error) {
+          // A non-JSON body on a real HTTP response (e.g. the runtime's default
+          // 500 page from a throwing route) must keep its status — a status-less
+          // reply reads as "channel down" to the client (isUnreachable).
+          sendResponse({ ok: false, status: resolve.status, error: String(error) });
+        }
       } catch (error) {
         sendResponse({ ok: false, error: String(error) });
       }

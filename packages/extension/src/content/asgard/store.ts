@@ -61,6 +61,10 @@ export const state: {
    * navigation that follows — drives a loading state so the nav doesn't feel like
    * an unexplained flash. Reset on every fresh page load. */
   reviewNavigating: boolean;
+  /** Why a ?kvasir link produced no review: "notfound" = the channel answered but
+   * has no such walkthrough (links are machine-local); "down" = the channel itself
+   * is unreachable. Null when nothing is missing (including cached renders). */
+  reviewMissing: "notfound" | "down" | null;
   /** Review nav: true = advance the panel only once the page lands (loading in
    * between); false = advance immediately. Default true. */
   reviewSync: boolean;
@@ -97,6 +101,7 @@ export const state: {
   review: null,
   reviewStep: 0,
   reviewNavigating: false,
+  reviewMissing: null,
   reviewSync: localStorage.getItem("kvasirReviewSync") !== "false", // default on
   reviewMode: localStorage.getItem("kvasirReviewMode") || "heavy", // default heavy
   reviewReposRoot: localStorage.getItem("kvasirReviewReposRoot") || "~/code",
