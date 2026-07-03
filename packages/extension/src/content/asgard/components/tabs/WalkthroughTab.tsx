@@ -69,6 +69,17 @@ function GenErrorBar({ message }: Readonly<{ message: string }>): JSX.Element {
   );
 }
 
+/** Shown while the spec probe (cache + live) is still in flight — loading is not
+ * "none", so a PR that HAS a walkthrough never flashes the empty state. */
+function Checking(): JSX.Element {
+  return (
+    <div className="flex flex-col items-center gap-3 p-8 text-center">
+      <Loader2 className="size-6 animate-spin text-muted-foreground" />
+      <p className="text-sm text-muted-foreground">Checking this PR for a walkthrough…</p>
+    </div>
+  );
+}
+
 function Empty(): JSX.Element {
   // Pairing is surfaced globally by the panel's PairBanner (so any 401 anywhere
   // prompts it), so this just offers the generate action.
@@ -379,15 +390,23 @@ function Steps({ spec }: Readonly<{ spec: WalkthroughSpec }>): JSX.Element {
   );
 }
 
+function Body(): JSX.Element {
+  const spec = launcherStore.spec();
+  if (spec?.steps.length) return <Steps spec={spec} />;
+  if (launcherStore.specLoading()) return <Checking />;
+  return <Empty />;
+}
+
 export function WalkthroughTab(): JSX.Element {
   useSyncExternalStore(subscribe, getSnapshot);
   if (launcherStore.generating()) return <Generating />;
   const genError = launcherStore.genError();
-  const spec = launcherStore.spec();
   return (
     <div className="flex h-full min-h-0 flex-col">
       {genError && <GenErrorBar message={genError} />}
-      <div className="min-h-0 flex-1">{spec?.steps.length ? <Steps spec={spec} /> : <Empty />}</div>
+      <div className="min-h-0 flex-1">
+        <Body />
+      </div>
     </div>
   );
 }

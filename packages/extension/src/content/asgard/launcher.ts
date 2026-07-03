@@ -47,6 +47,9 @@ const isGenMarker = (x: unknown): x is GenMarker => typeof x === "object" && x !
 const isSha = (s: string | null | undefined): s is string => !!s && /^[0-9a-f]{7,40}$/i.test(s);
 
 let generating = false;
+/** True until the first live/cache probe for this PR settles — lets the tab
+ * render "checking" instead of the empty state (loading ≠ none). */
+let specLoading = true;
 let newCommits = false;
 let currentHead: string | null = null;
 let genPoll: ReturnType<typeof setInterval> | null = null;
@@ -98,21 +101,27 @@ function pollForSpec(pr: string, previousSig: string): void {
   }, GEN_POLL_INTERVAL_MS);
 }
 
-/** Load the live spec (and cache it), else fall back to the cached one. */
+/** Cache-then-refresh: render the cached spec the moment it reads (no empty-state
+ * flash on a PR that HAS a walkthrough), then swap in the live one and re-cache it.
+ * The live result still wins; the cache only bridges the network round-trip. */
 async function loadSpec(pr: string): Promise<void> {
+  const stored = await storeGet(specKey(pr));
+  const cached = isWalkthroughSpec(stored) ? stored : null;
+  // The instant render only fills a blank tab (a PR switch nulls state.spec first);
+  // a same-PR refresh keeps whatever is on screen until the live answer lands.
+  if (cached && !state.spec && prUrl() === pr) {
+    state.spec = cached;
+    touch();
+  }
   const r = noteAuth(await api(`/walkthrough?pr=${encodeURIComponent(pr)}`));
   const fresh = r.ok && isWalkthroughSpec(r.data) ? r.data : null;
-  const cached = fresh ? null : await storeGet(specKey(pr));
   // GitHub PRs are an SPA: the user can switch PRs while a fetch is in flight. One
-  // currency check after both awaits, before the write, so a stale PR's spec can't
+  // currency check after the awaits, before the write, so a stale PR's spec can't
   // clobber (and persist over) the current PR's state.
   if (prUrl() !== pr) return;
-  if (fresh) {
-    state.spec = fresh;
-    storeSet(specKey(pr), fresh); // cache the fresh live spec
-  } else {
-    state.spec = isWalkthroughSpec(cached) ? cached : null;
-  }
+  state.spec = fresh ?? cached;
+  if (fresh) storeSet(specKey(pr), fresh); // cache the fresh live spec
+  specLoading = false;
   touch();
 }
 
@@ -150,6 +159,7 @@ async function detectNewCommits(pr: string): Promise<void> {
 
 export const launcherStore = {
   generating: (): boolean => generating,
+  specLoading: (): boolean => specLoading,
   genStartAt: (): number => genStartAt,
   newCommits: (): boolean => newCommits,
   spec: (): WalkthroughSpec | null => state.spec,
@@ -229,6 +239,7 @@ export const launcherStore = {
     if (genPoll) clearInterval(genPoll);
     genPoll = null;
     generating = false;
+    specLoading = true;
     genError = null;
     newCommits = false;
     currentHead = null;

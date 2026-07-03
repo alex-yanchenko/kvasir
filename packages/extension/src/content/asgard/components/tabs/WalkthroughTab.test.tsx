@@ -43,6 +43,7 @@ beforeEach(() => {
   state.tourState = { step: 0, pos: null, size: null };
   state.panel = { open: true, tab: PANEL_TABS.WALKTHROUGH, pos: null, size: null };
   pairingStore.reset(); // "unknown" → backend actions enabled unless a test sets unpaired
+  vi.spyOn(launcherStore, "specLoading").mockReturnValue(false); // probes are done unless a test says otherwise
   if (tourStore.open()) tourStore.close();
   tourStore.setDetailOpen(false); // detail state is module-level now — reset per test
   panelStore.setSidebarOpen(false); // sidebar state lives in panelStore — reset per test
@@ -83,6 +84,13 @@ describe("WalkthroughTab", () => {
     render(<WalkthroughTab />);
     fireEvent.click(screen.getByRole("button", { name: "Run walkthrough" }));
     expect(gen).toHaveBeenCalledWith("new");
+  });
+
+  it("shows a checking state, not the empty state, while the spec probe is in flight", () => {
+    vi.mocked(launcherStore.specLoading).mockReturnValue(true);
+    render(<WalkthroughTab />);
+    expect(screen.getByText("Checking this PR for a walkthrough…")).toBeTruthy();
+    expect(screen.queryByText("No walkthrough yet for this PR.")).toBeNull();
   });
 
   it("disables backend actions while unpaired", () => {
