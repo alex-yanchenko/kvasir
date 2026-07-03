@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
-vi.mock("../api", () => ({ api: vi.fn() }));
+vi.mock(import("../api"), async (importOriginal) => ({ ...(await importOriginal()), api: vi.fn() }));
 vi.mock("../muninn", () => ({ storeGet: vi.fn(), storeSet: vi.fn(), storeRemove: vi.fn() }));
 
 import { api } from "../api";
@@ -128,6 +128,53 @@ describe("pairingStore", () => {
     expect(pairingStore.state().phase).toBe("waiting"); // recheck backed off
     await vi.advanceTimersByTimeAsync(CLAIM_POLL_MS * (CLAIM_POLL_TRIES + 1)); // let pair() settle
     await pairing;
+  });
+
+  it("recheck bails when pair() completes during the /auth round-trip — the fresh token survives", async () => {
+    vi.mocked(storeGet).mockResolvedValue("stale");
+    let releaseAuth!: (v: BridgeResponse) => void;
+    vi.mocked(api).mockImplementation(async (path: string) => {
+      if (path === "/auth") return new Promise<BridgeResponse>((r) => (releaseAuth = r));
+      if (path === "/pair") return { ok: true, data: { requestId: "r", code: "ABC234" } };
+      if (path.startsWith("/pair/claim")) return { ok: true, data: { token: "fresh" } };
+      return { ok: true, data: { ok: true } };
+    });
+    const rechecking = pairingStore.recheck(); // health + token resolve; suspends on /auth
+    await vi.advanceTimersByTimeAsync(0);
+    const pairing = pairingStore.pair();
+    await vi.advanceTimersByTimeAsync(CLAIM_POLL_MS); // claim lands → paired, fresh token stored
+    await pairing;
+    expect(pairingStore.state()).toEqual({ phase: "paired" });
+    vi.mocked(storeRemove).mockClear();
+    releaseAuth({ ok: false, status: 401 }); // the stale probe finally answers
+    await rechecking;
+    expect(pairingStore.state()).toEqual({ phase: "paired" }); // the completed pairing wins
+    expect(vi.mocked(storeRemove)).not.toHaveBeenCalled(); // the fresh token survives
+  });
+
+  it("recheck bails if markUnpaired lands while /auth is in flight (no clobber to paired)", async () => {
+    vi.mocked(storeGet).mockResolvedValue("tok");
+    let releaseAuth!: (v: BridgeResponse) => void;
+    vi.mocked(api).mockImplementation(async (path: string) =>
+      path === "/auth"
+        ? new Promise<BridgeResponse>((r) => (releaseAuth = r))
+        : { ok: true, data: { ok: true } },
+    );
+    const rechecking = pairingStore.recheck();
+    await vi.advanceTimersByTimeAsync(0); // suspend on /auth
+    pairingStore.markUnpaired();
+    releaseAuth({ ok: true, data: { paired: true } });
+    await rechecking;
+    expect(pairingStore.state()).toEqual({ phase: "unpaired" }); // not overwritten to paired
+  });
+
+  it("an orphaned content script (extension reloaded) reads as refresh-the-page, not down", async () => {
+    vi.mocked(api).mockResolvedValue({ ok: false, error: "extension reloaded — refresh the page" });
+    await pairingStore.recheck();
+    expect(pairingStore.state()).toEqual({
+      phase: "error",
+      message: "Extension was reloaded — refresh the page, then retry.",
+    });
   });
 
   it("recheck bails if a pairing starts while the token read is in flight", async () => {

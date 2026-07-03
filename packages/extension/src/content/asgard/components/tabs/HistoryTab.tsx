@@ -110,8 +110,21 @@ export function HistoryTab(): JSX.Element {
     );
   }
 
+  const lastError = historyStore.error();
   return (
     <div className="flex h-full min-h-0 flex-col gap-2 p-3">
+      {lastError && (
+        <div className="flex items-center gap-2 rounded-md border border-border bg-secondary px-2 py-1 text-xs">
+          <span className="text-destructive">⚠ {lastError}</span>
+          <button
+            type="button"
+            onClick={() => historyStore.dismissError()}
+            className="ml-auto rounded-md px-1.5 py-0.5 text-muted-foreground hover:bg-background"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
       <div className="flex items-center gap-2">
         <input
           type="search"

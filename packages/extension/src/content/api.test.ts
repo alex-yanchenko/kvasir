@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { api } from "./api";
+import { api, isUnreachable } from "./api";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -74,5 +74,15 @@ describe("api", () => {
       },
     });
     expect(await api("/ping")).toEqual({ ok: false, error: "extension messaging error" });
+  });
+});
+
+describe("isUnreachable", () => {
+  it("is true only for a status-less failure — any HTTP status means something answered", () => {
+    expect(isUnreachable({ ok: false, error: "TypeError: Failed to fetch" })).toBe(true);
+    expect(isUnreachable({ ok: false, error: "no response" })).toBe(true);
+    expect(isUnreachable({ ok: false, status: 401 })).toBe(false);
+    expect(isUnreachable({ ok: false, status: 500 })).toBe(false);
+    expect(isUnreachable({ ok: true, status: 200 })).toBe(false);
   });
 });

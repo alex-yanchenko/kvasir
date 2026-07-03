@@ -10,6 +10,11 @@ export interface BridgeResponse {
   error?: string;
 }
 
+/** Transport-level failure: the call never produced an HTTP status — fetch threw,
+ * the worker didn't answer, etc. An HTTP error (any status) means something IS
+ * listening on the bridge port, so only a status-less failure reads as "down". */
+export const isUnreachable = (r: BridgeResponse): boolean => !r.ok && r.status === undefined;
+
 export const api = (path: string, method = "GET", body: unknown = null): Promise<BridgeResponse> =>
   new Promise((resolve) => {
     // If the extension was reloaded, this content script is orphaned — fail

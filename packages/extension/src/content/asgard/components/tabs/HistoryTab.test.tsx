@@ -6,6 +6,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 vi.mock("../../history", () => ({
   historyStore: {
     all: vi.fn(),
+    error: vi.fn(),
+    dismissError: vi.fn(),
     query: vi.fn(),
     setQuery: vi.fn(),
     facet: vi.fn(),
@@ -39,6 +41,7 @@ const sum = (over: Partial<EntrySummary> = {}): EntrySummary => ({
 });
 
 beforeEach(() => {
+  vi.mocked(historyStore.error).mockReturnValue(null);
   vi.mocked(historyStore.query).mockReturnValue("");
   vi.mocked(historyStore.facet).mockReturnValue("all");
   vi.mocked(historyStore.all).mockReturnValue([]);
@@ -74,6 +77,16 @@ describe("HistoryTab", () => {
     render(<HistoryTab />); // loaded [] + both sections empty
     expect(screen.getAllByText(/Channel not running/).length).toBeGreaterThan(0);
     expect(screen.queryByText("None yet.")).toBeNull();
+  });
+
+  it("surfaces a failed delete above the list, with a dismiss", () => {
+    vi.mocked(historyStore.error).mockReturnValue(
+      "Can't reach the channel — is your Claude session running?",
+    );
+    render(<HistoryTab />);
+    expect(screen.getByText(/Can't reach the channel/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+    expect(historyStore.dismissError).toHaveBeenCalledTimes(1);
   });
 
   it("renders both sections; a row opens its entry; step count + source format", () => {

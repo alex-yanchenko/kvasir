@@ -50,6 +50,31 @@ beforeEach(() => {
 });
 afterEach(() => {
   cleanup();
+  vi.restoreAllMocks(); // drop per-test launcherStore/pairingStore spies
+});
+
+describe("generate errors", () => {
+  it("a failed generate shows the inline error; Retry re-issues, Dismiss clears", () => {
+    vi.spyOn(launcherStore, "genError").mockReturnValue(
+      "Can't reach the channel — is your Claude session running?",
+    );
+    const retry = vi.spyOn(launcherStore, "retryGenerate").mockResolvedValue();
+    const dismiss = vi.spyOn(launcherStore, "dismissGenError").mockImplementation(() => {});
+    render(<WalkthroughTab />);
+    expect(screen.getByText(/Can't reach the channel/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(retry).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+    expect(dismiss).toHaveBeenCalledTimes(1);
+  });
+
+  it("the error renders above an existing walkthrough too (a failed regenerate)", () => {
+    state.spec = mkSpec();
+    vi.spyOn(launcherStore, "genError").mockReturnValue("This took too long — check your terminal.");
+    render(<WalkthroughTab />);
+    expect(screen.getByText(/took too long/)).toBeTruthy();
+    expect(screen.getByText("First step")).toBeTruthy(); // the steps stay usable
+  });
 });
 
 describe("WalkthroughTab", () => {

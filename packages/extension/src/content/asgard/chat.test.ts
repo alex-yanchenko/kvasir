@@ -1,13 +1,13 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
-vi.mock("../api", () => ({ api: vi.fn() }));
+vi.mock(import("../api"), async (importOriginal) => ({ ...(await importOriginal()), api: vi.fn() }));
 vi.mock("../muninn", () => ({ storeGet: vi.fn(), storeSet: vi.fn(), storeRemove: vi.fn() }));
 
 import { api } from "../api";
 import { bifrost } from "../bifrost";
 import { storeSet } from "../muninn";
-import { chatStore, connectChat, POLL_MS } from "./chat";
+import { chatStore, connectChat, POLL_MS, REF_NOTICE_MS } from "./chat";
 import { pairingStore } from "./pairing";
 import { state, subscribe } from "./store";
 import { tourStore } from "./tour";
@@ -407,8 +407,48 @@ describe("ensureSuggestions", () => {
 
 describe("connectChat", () => {
   it("opens a selection chat when the grip reports an ask", () => {
-    connectChat(bifrost);
+    const off = connectChat(bifrost);
     bifrost.report("selection:ask", { ...payload, withStep: false });
     expect(chatStore.active()?.key).toBe(payload.selectionId);
+    off();
+  });
+
+  it("a citation miss raises a note scoped to the active session, then clears itself", async () => {
+    vi.useFakeTimers();
+    const sess = mkSession("a");
+    state.chatHistory = [sess];
+    chatStore.open(sess);
+    const off = connectChat(bifrost);
+    bifrost.report("ref:missing", { file: "src/gone.ts" });
+    expect(chatStore.refNotice()).toEqual({ key: "a", text: "src/gone.ts isn't in this PR's diff" });
+    await vi.advanceTimersByTimeAsync(REF_NOTICE_MS);
+    expect(chatStore.refNotice()).toBeNull();
+    off();
+    vi.useRealTimers();
+  });
+
+  it("a newer miss re-arms the clear timer instead of leaving the first one to fire", async () => {
+    vi.useFakeTimers();
+    const sess = mkSession("a");
+    state.chatHistory = [sess];
+    chatStore.open(sess);
+    const off = connectChat(bifrost);
+    bifrost.report("ref:missing", { file: "src/gone.ts" });
+    await vi.advanceTimersByTimeAsync(REF_NOTICE_MS - 1000); // 4s of the first note's 5s window
+    bifrost.report("ref:missing", { file: "src/other.ts" }); // resets the clock
+    // 4s since the reset — the FIRST timer's original deadline has passed by now
+    await vi.advanceTimersByTimeAsync(REF_NOTICE_MS - 1000);
+    expect(chatStore.refNotice()).toEqual({ key: "a", text: "src/other.ts isn't in this PR's diff" });
+    await vi.advanceTimersByTimeAsync(1000); // the full window since the reset
+    expect(chatStore.refNotice()).toBeNull();
+    off();
+    vi.useRealTimers();
+  });
+
+  it("a citation miss with no active session is ignored", () => {
+    const off = connectChat(bifrost);
+    bifrost.report("ref:missing", { file: "src/gone.ts" });
+    expect(chatStore.refNotice()).toBeNull();
+    off();
   });
 });

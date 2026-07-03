@@ -2,7 +2,7 @@
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
-vi.mock("../../../api", () => ({ api: vi.fn() }));
+vi.mock(import("../../../api"), async (importOriginal) => ({ ...(await importOriginal()), api: vi.fn() }));
 vi.mock("../../../muninn", () => ({ storeGet: vi.fn(), storeSet: vi.fn(), storeRemove: vi.fn() }));
 vi.mock("../../debug", () => ({ wipeStoredData: vi.fn() }));
 
@@ -33,6 +33,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   off();
+  vi.restoreAllMocks(); // drop per-test pairingStore spies even when an assertion throws
 });
 
 describe("SettingsTab", () => {
@@ -125,12 +126,24 @@ describe("SettingsTab", () => {
     expect(screen.queryByRole("button", { name: "Pair" })).toBeNull();
   });
 
-  it("Debug: Wipe asks to confirm, runs the wipe, and shows the reload hint", () => {
+  it("Debug: Wipe asks to confirm, runs the wipe, and offers the reload", () => {
+    const reload = vi.fn();
+    Object.defineProperty(window, "location", { value: { reload }, writable: true });
     render(<SettingsTab />);
     fireEvent.click(screen.getByRole("button", { name: "Wipe data" }));
     fireEvent.click(screen.getByRole("button", { name: "Confirm wipe" }));
     expect(wipeStoredData).toHaveBeenCalledTimes(1);
     expect(screen.getByText("Wiped — reload the page")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Reload" }));
+    expect(reload).toHaveBeenCalledTimes(1);
+  });
+
+  it("Debug: Wipe is disabled until paired (the backend store only accepts a paired delete)", () => {
+    vi.spyOn(pairingStore, "needsPairing").mockReturnValue(true);
+    render(<SettingsTab />);
+    const wipe = screen.getByRole("button", { name: "Wipe data" });
+    expect(wipe.hasAttribute("disabled")).toBe(true);
+    expect(screen.getByText(/Pair to wipe/)).toBeTruthy();
   });
 
   it("Debug: Cancel backs out without wiping", () => {
