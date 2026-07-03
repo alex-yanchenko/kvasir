@@ -296,7 +296,9 @@ function StepTools({
         size="icon"
         className={"h-7 w-7" + (newCommits ? " text-primary" : "")}
         aria-label={newCommits ? "Update" : "Regenerate"}
-        data-kvasir-tip={newCommits ? "Update — new commits since this walkthrough" : "Regenerate walkthrough"}
+        data-kvasir-tip={
+          newCommits ? "Update — new commits since this walkthrough" : "Regenerate walkthrough"
+        }
         disabled={pairingStore.needsPairing()}
         onClick={onRegen}
       >
