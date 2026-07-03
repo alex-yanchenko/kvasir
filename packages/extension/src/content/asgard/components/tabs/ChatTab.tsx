@@ -125,8 +125,10 @@ export function linkifyReferences(root: HTMLElement): void {
 export const closeFences = (text: string): string =>
   text.split("```").length % 2 === 0 ? text + "\n```" : text;
 
-/** How long the suggestion skeleton may shimmer before it reads as stalled. */
-export const SUGGEST_SLOW_MS = 20_000;
+/** How long the suggestion skeleton may shimmer before it reads as stalled. Well
+ * past a normal slow /suggest round-trip, well short of the channel's 120s wait
+ * (mimir ASK_TIMEOUT_MS) — the note should mean "stuck", not "thinking". */
+export const SUGGEST_SLOW_MS = 45_000;
 
 /** Rendered assistant markdown: escape-first renderMarkdown HTML, then a ref
  * effect adds per-code-block copy buttons and the citation links. */

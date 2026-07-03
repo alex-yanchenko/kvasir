@@ -62,9 +62,10 @@ export const state: {
    * an unexplained flash. Reset on every fresh page load. */
   reviewNavigating: boolean;
   /** Why a ?kvasir link produced no review: "notfound" = the channel answered but
-   * has no such walkthrough (links are machine-local); "down" = the channel itself
-   * is unreachable. Null when nothing is missing (including cached renders). */
-  reviewMissing: "notfound" | "down" | null;
+   * has no such walkthrough (links are machine-local). An unreachable channel is
+   * NOT tracked here — the connection banner (pairing phase) owns that message.
+   * Null when nothing is missing (including cached renders). */
+  reviewMissing: "notfound" | null;
   /** Review nav: true = advance the panel only once the page lands (loading in
    * between); false = advance immediately. Default true. */
   reviewSync: boolean;

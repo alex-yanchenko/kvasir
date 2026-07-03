@@ -495,11 +495,13 @@ describe("Panel", () => {
     expect(state.reviewMissing).toBeNull();
   });
 
-  it("a ?kvasir link with the channel down says start the channel, not 'broken link'", () => {
-    state.reviewMissing = "down";
+  it("a machine-local miss never doubles up with the connection banner's down message", () => {
+    vi.spyOn(pairingStore, "state").mockReturnValue({ phase: "down" });
+    state.reviewMissing = "notfound";
     render(<Panel />);
     act(() => panelStore.open());
-    expect(screen.getByText(/channel isn't running/)).toBeTruthy();
+    expect(screen.getAllByText(/in your terminal/)).toHaveLength(1); // PairBanner only
+    expect(screen.getByText(/only open on the machine that built them/)).toBeTruthy();
   });
 
   it("restores persisted geometry as inline styles", () => {

@@ -12,6 +12,7 @@ import { storeGet, storeSet } from "../muninn";
 import { chatStore } from "./chat";
 import { awaitSoftNav, softNavigate } from "./lib/nav";
 import { stripHtml } from "./lib/strip";
+import { pairingStore } from "./pairing";
 import { parseReviewCache } from "./persisted";
 import { panelStore, PANEL_TABS, settingsStore, state, touch } from "./store";
 
@@ -74,7 +75,7 @@ export const reviewStore = {
   },
   steps: (): ReviewStep[] => state.review?.steps ?? [],
   /** Why a ?kvasir link produced nothing (see state.reviewMissing), or null. */
-  missing: (): "notfound" | "down" | null => state.reviewMissing,
+  missing: (): "notfound" | null => state.reviewMissing,
   dismissMissing(): void {
     state.reviewMissing = null;
     touch();
@@ -102,10 +103,12 @@ export const reviewStore = {
       storeSet(reviewKey(id), { step: state.reviewStep, review: r.data });
     } else if (!state.review) {
       // Neither the cache nor the mailbox produced a walk — the link must not die
-      // silently. An unreachable channel is "start the channel"; anything the
-      // channel answered (404, invalid payload) means this machine doesn't have
-      // the walkthrough — the link is machine-local, say so.
-      state.reviewMissing = isUnreachable(r) ? "down" : "notfound";
+      // silently. An unreachable channel is the connection banner's story (recheck
+      // tells "start the channel" apart from "refresh the page"), so just refresh
+      // it; anything the channel answered (404, invalid payload) means this machine
+      // doesn't have the walkthrough — the link is machine-local, say so.
+      if (isUnreachable(r)) void pairingStore.recheck();
+      else state.reviewMissing = "notfound";
       panelStore.open(PANEL_TABS.WALKTHROUGH);
     }
     touch();

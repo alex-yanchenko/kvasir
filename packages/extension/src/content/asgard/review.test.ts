@@ -8,6 +8,7 @@ vi.mock("../muninn", () => ({ storeGet: vi.fn(), storeSet: vi.fn(), storeRemove:
 import { api } from "../api";
 import { storeGet, storeSet } from "../muninn";
 import { chatStore } from "./chat";
+import { pairingStore } from "./pairing";
 import { reviewStore } from "./review";
 import { state } from "./store";
 
@@ -198,11 +199,13 @@ describe("reviewStore.load", () => {
     expect(reviewStore.missing()).toBe("notfound");
   });
 
-  it("an unreachable channel reads as down, not not-found", async () => {
+  it("an unreachable channel defers to the connection banner instead of a second notice", async () => {
+    const recheck = vi.spyOn(pairingStore, "recheck").mockResolvedValue(undefined);
     vi.mocked(api).mockResolvedValue({ ok: false, error: "failed to fetch" });
     await reviewStore.load("rev-1");
     expect(state.panel.open).toBe(true);
-    expect(reviewStore.missing()).toBe("down");
+    expect(reviewStore.missing()).toBeNull();
+    expect(recheck).toHaveBeenCalledTimes(1);
   });
 
   it("a cached walk suppresses the missing state; a later successful load clears it", async () => {

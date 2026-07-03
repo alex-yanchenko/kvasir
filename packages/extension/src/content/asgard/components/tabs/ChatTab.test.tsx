@@ -532,8 +532,15 @@ describe("suggestions + input", () => {
     render(<ChatTab />);
     openSession(mkSession("a", { suggestions: null }));
     expect(document.querySelector(".kvasir-skel")).toBeTruthy();
+    // 30s is a normal slow /suggest round-trip (the backend itself waits 120s) —
+    // the note is for genuinely stuck sessions, so it must not have fired yet.
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(SUGGEST_SLOW_MS);
+      await vi.advanceTimersByTimeAsync(30_000);
+    });
+    expect(document.querySelector(".kvasir-skel")).toBeTruthy();
+    expect(screen.queryByText(/Suggestions are taking a while/)).toBeNull();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(SUGGEST_SLOW_MS - 30_000);
     });
     expect(document.querySelector(".kvasir-skel")).toBeNull(); // shimmer ends
     expect(screen.getByText(/Suggestions are taking a while/)).toBeTruthy();
