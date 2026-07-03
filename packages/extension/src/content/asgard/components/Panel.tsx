@@ -294,6 +294,29 @@ function PanelWindow(): JSX.Element {
     void pairingStore.recheck();
   }, []);
 
+  // Escape closes the panel. Bound to the document AND the shadow root (the hotkey
+  // shield keeps shadow-origin keys off the document); skips editable fields, and
+  // yields to an open modal (RegenDialog binds its own Escape — one press must not
+  // close both layers). PanelWindow mounts only while open, so no closed-state work.
+  useEffect(() => {
+    const onKey = (event: Event): void => {
+      if (!(event instanceof KeyboardEvent) || event.key !== "Escape") return;
+      const t = event.target;
+      if (t instanceof HTMLElement && (/^(?:TEXTAREA|INPUT|SELECT)$/.test(t.tagName) || t.isContentEditable))
+        return;
+      const root = document.querySelector("#kvasir-root")?.shadowRoot ?? document;
+      if (root.querySelector(".kvasir-dialog-back")) return;
+      panelStore.close();
+    };
+    const root = document.querySelector("#kvasir-root")?.shadowRoot ?? document;
+    document.addEventListener("keydown", onKey);
+    if (root !== document) root.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      if (root !== document) root.removeEventListener("keydown", onKey);
+    };
+  }, []);
+
   const pos = panelStore.pos();
   const size = panelStore.size();
   // Review-mode (a pushed cross-repo review opened via ?kvasir) swaps the walkthrough

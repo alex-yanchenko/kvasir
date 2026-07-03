@@ -506,6 +506,63 @@ describe("Panel", () => {
     expect(screen.getByText(/only open on the machine that built them/)).toBeTruthy();
   });
 
+  it("Escape closes the panel; other keys don't", () => {
+    render(<Panel />);
+    act(() => panelStore.open());
+    fireEvent.keyDown(document, { key: "a" });
+    expect(state.panel.open).toBe(true);
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(state.panel.open).toBe(false);
+  });
+
+  it("Escape from inside the shadow root also closes the panel", () => {
+    const host = document.createElement("div");
+    host.id = "kvasir-root";
+    document.body.append(host);
+    const shadow = host.attachShadow({ mode: "open" });
+    const mount = document.createElement("div");
+    shadow.append(mount);
+    render(<Panel />, { container: mount });
+    act(() => panelStore.open());
+    act(() => {
+      shadow.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    });
+    expect(state.panel.open).toBe(false);
+    cleanup();
+    host.remove();
+  });
+
+  it("Escape in a text field or with a modal open leaves the panel alone", () => {
+    render(<Panel />);
+    act(() => panelStore.open());
+    const input = document.createElement("input");
+    document.body.append(input);
+    fireEvent.keyDown(input, { key: "Escape" });
+    expect(state.panel.open).toBe(true);
+    input.remove();
+
+    const editable = document.createElement("div");
+    Object.defineProperty(editable, "isContentEditable", { value: true });
+    document.body.append(editable);
+    fireEvent.keyDown(editable, { key: "Escape" });
+    expect(state.panel.open).toBe(true);
+    editable.remove();
+
+    const plain = document.createElement("div");
+    document.body.append(plain); // a non-editable element target still closes
+    fireEvent.keyDown(plain, { key: "Escape" });
+    expect(state.panel.open).toBe(false);
+    act(() => panelStore.open());
+    plain.remove();
+
+    const modal = document.createElement("div");
+    modal.className = "kvasir-dialog-back";
+    document.body.append(modal);
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(state.panel.open).toBe(true); // the modal owns Escape
+    modal.remove();
+  });
+
   it("restores persisted geometry as inline styles", () => {
     state.panel = {
       open: true,

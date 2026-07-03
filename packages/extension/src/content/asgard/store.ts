@@ -22,6 +22,11 @@ export interface TourState {
   overview?: boolean;
   pos: { left: number; top: number } | null;
   size: { w: number; h: number } | null;
+  /** Step ids the user has opened — the outline's "visited" dots. Rides the
+   * persisted tour state so a reload keeps them; `visitedStamp` pins them to the
+   * spec's generatedAt, so a regenerated walkthrough starts with fresh dots. */
+  visited?: string[];
+  visitedStamp?: string;
 }
 
 /** The consolidated panel's tabs (the redesign IA). History lists the durable
