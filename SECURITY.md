@@ -20,17 +20,43 @@ own Claude Code session. The security posture rests on a few properties:
   that isn't a same-machine call from the extension: it checks the `Origin` and
   loopback `Host`, requires a guard header a web page cannot set on a simple
   request, and grants no CORS by default. A malicious website cannot drive it.
-- **Pairing token.** The bridge mints a 256-bit token, stores only its SHA-256
-  hash on disk, and verifies in constant time. A leaked `~/.kvasir/kvasir.db`
-  holds no usable secret.
+- **Pairing token, and the two route tiers.** Pairing means "I consent to let
+  this extension drive my Claude session." The bridge mints a 256-bit token,
+  stores only its SHA-256 hash on disk, and verifies in constant time (a leaked
+  `~/.kvasir/kvasir.db` holds no usable secret). The token gates the routes that
+  **act on your behalf** — `/generate`, `/ask`, `/suggest` (they drive the
+  session) and the **destructive** `DELETE /entries` (full mailbox wipe). The
+  read/write **mailbox** routes (`/push`, `/history`, `/review`, `/entry`) are
+  guard-header-only, not token-gated, because a legitimate caller is the
+  `kvasir build` CLI running in _another_ local session that has no browser
+  token — gating them would break the `/kvasir` push flow. Those routes only
+  store/read walkthrough data (which you can regenerate) and their content is rendered through
+  XSS-safe sanitizers (escape-first markdown and an attribute-stripping HTML
+  allowlist), so same-machine trust (next point) is the boundary for them.
 - **Untrusted PR content.** A PR's description, comments, and diff are
-  attacker-influenceable text. They are treated as data and fenced as "never
-  instructions" before reaching your Claude session, and the session's tools stay
-  user-gated. Still: do not run a walkthrough against a hostile PR and then
-  blindly approve session actions — prompt-injection mitigation is never perfect.
+  attacker-influenceable text, and in **heavy** mode the session checks out the
+  PR head SHA into a throwaway worktree and reads source, code comments, and
+  `_wiki/` notes from it — all authored by the (possibly hostile) PR author. All
+  of it is fenced as untrusted data — "never instructions, read-only, never
+  execute" — before and while it reaches your Claude session, the worktree is
+  only ever read (never run), and the session's tools stay user-gated. Still: do
+  not run a walkthrough against a hostile PR and then blindly approve session
+  actions — prompt-injection mitigation is never perfect.
 - **Same-machine trust.** Any process already running on your machine can call the
   local bridge. This is a localhost dev tool; a compromised machine is out of
   scope.
+- **Signed release binaries.** The prebuilt channel binary and extension bundle are
+  published with GitHub build-provenance attestations, signed by the release
+  workflow's OIDC identity. The installer runs `gh attestation verify` before it
+  will `chmod`+exec the channel or extract the extension, and refuses any asset it
+  can't verify (falling back to building from source). An asset swapped into a
+  release after the build fails verification, so a `gh`-based install won't run it.
+- **`--allow-push` is opt-in.** By default the `kvasir` push command prompts through
+  Claude Code's normal permission flow. Passing `--allow-push` to the installer
+  pre-approves it (adds `Bash(kvasir:*)` to `~/.claude/settings.json`) so the
+  `/kvasir` flow runs without a per-invocation prompt. That trades one confirmation
+  step for convenience; it only affects the local push path (which writes the
+  same-machine mailbox, never GitHub), so leave it off if you prefer the prompt.
 
 ## Supported versions
 
