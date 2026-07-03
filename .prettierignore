@@ -17,6 +17,3 @@ CHANGELOG.md
 # (short arrays expanded to multi-line) in a shape prettier rejects. MV3 manifests must be
 # comment-free JSON, so the line-annotation updater isn't an option — exclude it from the check.
 packages/extension/manifest.json
-
-# session working docs (git-excluded via .git/info/exclude) — hand-written notes, not prettier-shaped
-.kvasir-audit/
