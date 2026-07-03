@@ -64,8 +64,8 @@ class InvalidSpecError extends Error {
 
 // ── State ────────────────────────────────────────────────────────────────────
 
-/** Published specs, keyed by `owner/repo#number`. In-memory for now; a restart
- * drops them and you'd re-run start_walkthrough. (TODO: optional disk cache.) */
+/** Published specs, keyed by `owner/repo#number` — the in-memory copy serving
+ * /walkthrough reads; PR specs survive a restart via the rehydrate loop below. */
 const specs = new Map<string, WalkthroughSpec>();
 
 /** Durable history of stored walkthroughs (pr + code) — one SQLite db with soft

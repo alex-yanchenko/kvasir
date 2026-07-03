@@ -1,9 +1,10 @@
 // The Bifrost — the ONLY way between Asgard (the panel UI) and Midgard (the
 // GitHub-page controller). Everything that crosses is plain data: DOM nodes
-// never leave Midgard. Three message kinds, one discipline:
+// never leave Midgard. Two message kinds, one discipline:
 //   commands  (Asgard → Midgard)  cause page writes
 //   reports   (Midgard → Asgard)  state facts that happened on the page
-//   queries   (sync, data-only)   pure reads Midgard exposes — see MidgardQuery
+// (Synchronous reads don't cross here: Asgard imports Midgard's pure readers
+// in midgard/diff directly — the one lint-boundary exception.)
 // Handlers are isolated: one throwing handler never blocks the others (a content
 // script has no global error UI, so a single bad listener must not take down the
 // bridge), and the error is logged for debugging.

@@ -1,6 +1,6 @@
-// Pure helpers shared by the store and the (shrinking) vanilla world: the
-// per-PR storage keys and the location readers. Keys embed the PR url so every
-// PR keeps its own chats/spec/tour/generation marker.
+// Pure helpers shared across realms: the per-PR storage keys and the location
+// readers. Keys embed the PR url so every PR keeps its own chats/spec/tour/
+// generation marker.
 
 export const prUrl = (): string | null => {
   const m = /(https:\/\/github\.com\/[^/]+\/[^/]+\/pull\/\d+)/.exec(location.href);

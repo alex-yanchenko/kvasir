@@ -35,7 +35,7 @@ export function RegenDialog({ onClose }: Readonly<{ onClose: () => void }>): JSX
         className="kvasir-dialog w-[380px] max-w-[92vw] rounded-xl border border-border bg-background p-4 text-foreground shadow-2xl"
       >
         <div id="kvasir-regen-title" className="mb-1 text-base font-semibold">
-          {newCommits ? "New commits since this review" : "Regenerate this review"}
+          {newCommits ? "New commits since this walkthrough" : "Regenerate this walkthrough"}
         </div>
         <p className="mb-3 text-sm text-muted-foreground">
           Regenerating runs in your Claude session and blocks chat while it thinks. Choose how:
@@ -47,7 +47,7 @@ export function RegenDialog({ onClose }: Readonly<{ onClose: () => void }>): JSX
           >
             <b className="block text-sm font-semibold">Incremental update</b>
             <span className="block text-xs text-muted-foreground">
-              Add steps covering only what changed since the last review.
+              Add steps covering only what changed since the last walkthrough.
             </span>
           </button>
         )}

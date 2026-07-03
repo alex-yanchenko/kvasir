@@ -78,10 +78,10 @@ describe("generate errors", () => {
 });
 
 describe("WalkthroughTab", () => {
-  it("empty state runs a review", () => {
+  it("empty state runs a walkthrough", () => {
     const gen = vi.spyOn(launcherStore, "requestGenerate").mockResolvedValue();
     render(<WalkthroughTab />);
-    fireEvent.click(screen.getByRole("button", { name: "Run review" }));
+    fireEvent.click(screen.getByRole("button", { name: "Run walkthrough" }));
     expect(gen).toHaveBeenCalledWith("new");
   });
 
@@ -101,7 +101,7 @@ describe("WalkthroughTab", () => {
     vi.spyOn(launcherStore, "genStartAt").mockReturnValue(Date.now() - 5000);
     const dismiss = vi.spyOn(launcherStore, "dismissGen").mockImplementation(() => {});
     render(<WalkthroughTab />);
-    expect(screen.getByText("Generating review…")).toBeTruthy();
+    expect(screen.getByText("Generating walkthrough…")).toBeTruthy();
     expect(screen.getByText(/^0:05/)).toBeTruthy();
     // the 1s interval fires its updater, re-rendering with the next elapsed value
     act(() => {
@@ -236,9 +236,9 @@ describe("WalkthroughTab", () => {
     state.spec = mkSpec();
     render(<WalkthroughTab />);
     fireEvent.click(screen.getByRole("button", { name: /Regenerate|Update/ }));
-    expect(screen.getByText(/Regenerate this review|New commits/)).toBeTruthy();
+    expect(screen.getByText(/Regenerate this walkthrough|New commits/)).toBeTruthy();
     fireEvent.click(screen.getByText("Cancel"));
-    expect(screen.queryByText(/Regenerate this review|New commits/)).toBeNull();
+    expect(screen.queryByText(/Regenerate this walkthrough|New commits/)).toBeNull();
   });
 
   it("re-scroll redraws the current step", () => {
@@ -250,18 +250,18 @@ describe("WalkthroughTab", () => {
     expect(goto).toHaveBeenCalledWith(0);
   });
 
-  it("shows the changes-since-review button only when there are new commits, and it opens the range diff", () => {
+  it("shows the changes-since button only when there are new commits, and it opens the range diff", () => {
     state.spec = mkSpec();
     const open = vi.spyOn(launcherStore, "openChangesSinceReview").mockImplementation(() => {});
 
     vi.spyOn(launcherStore, "newCommits").mockReturnValue(false);
     const view = render(<WalkthroughTab />);
-    expect(screen.queryByLabelText("View changes since this review")).toBeNull();
+    expect(screen.queryByLabelText("View changes since this walkthrough")).toBeNull();
     view.unmount();
 
     vi.spyOn(launcherStore, "newCommits").mockReturnValue(true);
     render(<WalkthroughTab />);
-    fireEvent.click(screen.getByLabelText("View changes since this review"));
+    fireEvent.click(screen.getByLabelText("View changes since this walkthrough"));
     expect(open).toHaveBeenCalledTimes(1);
   });
 

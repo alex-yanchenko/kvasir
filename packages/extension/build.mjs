@@ -1,6 +1,6 @@
 // esbuild pipeline for the extension. Two bundles ship to dist/: the content
-// script (entry content/index.tsx — boots Heimdall/Asgard and, until the islands
-// finish landing, the legacy vanilla world) and Huginn, the background worker.
+// script (entry content/index.tsx — boots Heimdall/Asgard) and Huginn, the
+// background worker.
 // midgard.css (light-DOM row styles) is copied alongside and loaded via the
 // manifest; Asgard's panel styles are *imported as text* (see the css loader) and
 // injected into the shadow root at runtime.

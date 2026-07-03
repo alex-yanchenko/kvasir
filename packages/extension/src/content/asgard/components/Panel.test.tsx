@@ -331,7 +331,7 @@ describe("Panel", () => {
     render(<Panel />);
     act(() => panelStore.open());
     expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual([
-      "Review",
+      "Walkthrough",
       "Chat",
       "History",
       "Settings",

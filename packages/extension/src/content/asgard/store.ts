@@ -69,7 +69,7 @@ export const state: {
   /** Review nav: true = advance the panel only once the page lands (loading in
    * between); false = advance immediately. Default true. */
   reviewSync: boolean;
-  /** Review depth: "heavy" has the session check out the PR's local clone (a
+  /** Walkthrough depth: "heavy" has the session check out the PR's local clone (a
    * worktree at the PR head) and read the surrounding code for correctness;
    * "light" authors from the PR diff alone (gh only). Default heavy. */
   reviewMode: string; // "heavy" | "light"

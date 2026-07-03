@@ -51,18 +51,19 @@ Three one-time steps:
 Then make a walkthrough — you drive it from the extension, not the terminal:
 
 - **From a PR:** open the PR's **Files** tab, click the **Kvasir** launcher, and hit
-  **Run review**. The panel asks your running session to generate the walkthrough and
-  renders it; **Regenerate/Update** live in the panel too. Two depths (Settings →
-  **Review depth**): **Heavy** (default) checks out the PR's local clone — a throwaway
-  worktree at the PR head — and reads the surrounding code so the review reasons about
-  correctness, not just the diff; **Light** authors from the PR diff alone via `gh`
-  (no checkout). Heavy looks for the repo under your **Local repos root** (default
-  `~/code`) and silently falls back to Light if it isn't there.
+  **Run walkthrough**. The panel asks your running session to generate the walkthrough
+  and renders it; **Regenerate/Update** live in the panel too. Two depths (Settings →
+  **Walkthrough depth**): **Heavy** (default) checks out the PR's local clone — a
+  throwaway worktree at the PR head — and reads the surrounding code for context: what
+  the feature is and how the change flows, not just the diff; **Light** authors from
+  the PR diff alone via `gh` (no checkout). Heavy looks for the repo under your
+  **Local repos root** (default `~/code`) and falls back to Light if it isn't there.
 - **From any chat (cross-repo):** after you've explained code across one or more
   **locally-cloned** repos, run the **`/kvasir`** skill — it builds the walkthrough
   from those repos on disk and prints a link to open.
 
-On any walkthrough, **select code → Ask** to ask questions in place.
+On a PR diff, **select code → Ask** to ask questions in place. (Plain file/blob
+pages render walkthroughs but don't have the selection affordance.)
 
 ## Why "Kvasir"
 
@@ -82,20 +83,18 @@ of wisdom — here, the local channel your Claude session answers through.
 Both produce the same artifact — a stepped walkthrough rendered in Kvasir's
 panel — and differ only in where the steps come from:
 
-1. **PR tour (from the panel).** Open the PR's **Files** tab and click **Run review**
-   in the Kvasir panel. That asks your running session to read the PR, author a spec,
-   and publish it. **Review depth** (Settings) decides how much it reads: **Heavy**
-   (default) adds a local-repo pass — it finds the clone under your **Local repos root**
-   (default `~/code`), adds a worktree at the PR head, and reads callers / called
-   definitions / types to judge correctness, then removes the worktree; if the repo
-   isn't found it falls back to **Light**, which authors from the `gh` diff alone.
-   Heavy needs `git` and the repo cloned locally. Generated once per commit and cached,
-   so reopening costs nothing. (You can also just ask the session _"Build a walkthrough
-   for `<PR url>`"_ by hand, but the button is the point.) After it publishes, the panel's
-   **Copy build log** button grabs _how_ it was built — the change/coverage facts plus the
-   session's own rationale (for heavy: what it read, any correctness concerns) — to paste
-   for a quality review. It's also saved under `~/.kvasir/logs/`, so any session can read it
-   when you ask _"how was this walkthrough built?"_.
+1. **PR tour (from the panel).** Open the PR's **Files** tab and click **Run
+   walkthrough** in the Kvasir panel. That asks your running session to read the PR,
+   author a spec, and publish it. **Walkthrough depth** (Settings) decides how much it
+   reads: **Heavy** (default) adds a local-repo pass — it finds the clone under your
+   **Local repos root** (default `~/code`), adds a worktree at the PR head, and reads
+   callers / called definitions / types for context on how the change flows, then
+   removes the worktree; if the repo isn't found it falls back to **Light**, which
+   authors from the `gh` diff alone. Heavy needs `git` and the repo cloned locally.
+   One walkthrough is cached per PR, so reopening costs nothing; when new commits land
+   past the head it was generated for, the panel flags them and offers an incremental
+   **Update** or a full regenerate. (You can also just ask the session _"Build a
+   walkthrough for `<PR url>`"_ by hand, but the button is the point.)
 
 2. **Push / capture (from any chat).** After you've explained some code — often
    across several repos — run the **`/kvasir`** skill. It drafts the steps, the
@@ -104,8 +103,15 @@ panel — and differ only in where the steps come from:
    renders the same panel. Not tied to a single PR — spans repos and works on
    plain file pages.
 
-On any open walkthrough: **select code → Ask** → your Claude session answers in
-place, through the same channel.
+On a PR diff: **select code → Ask** → your Claude session answers in place,
+through the same channel.
+
+> **One vocabulary, two voices.** The generated artifact is always a
+> **walkthrough** — an explainer, not a code review. The conversation side (Ask,
+> chat, suggested questions) is deliberately **reviewer-voiced**: you're usually
+> on a PR deciding whether to approve, so the chat serves that decision. The
+> split is intentional — the artifact is never called a "review", and the chat
+> never pretends to be a walkthrough.
 
 ## Components
 
@@ -135,7 +141,7 @@ watches the URL; all realms share the Runes._
 ```
 kvasir/
 ├── packages/
-│   ├── runes/       Pure, dependency-free contract: spec types, PR-URL parsing,
+│   ├── runes/       Pure shared contract (zod-validated): spec types, PR-URL parsing,
 │   │                diff anchors, markdown rendering (imported by Mimir + extension)
 │   ├── mimir/       Claude Code channel + localhost HTTP bridge (Bun + TypeScript)
 │   └── extension/   Chrome MV3 extension (React in a shadow root), bundled with
@@ -175,8 +181,8 @@ consumes them. Either side can change independently.
 
 ## Why this shape
 
-- **Cheap & stable at runtime.** A spec is generated once per PR commit and
-  cached. Opening the tour again costs nothing — no model call, no Claude.
+- **Cheap & stable at runtime.** A spec is generated on demand and cached (one
+  per PR). Opening the tour again costs nothing — no model call, no Claude.
 - **No credentials.** PR data comes from `gh` (your existing auth); answers come
   from your running Claude session through the channel. No GitHub PAT, no API key.
 - **Robust highlighting.** The extension highlights by GitHub's stable per-line

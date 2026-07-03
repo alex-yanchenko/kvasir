@@ -61,10 +61,10 @@ describe("SettingsTab", () => {
     expect(state.reviewSync).toBe(true);
   });
 
-  it("review-depth toggle flips reviewMode and shows the repos-root input only on heavy", () => {
+  it("walkthrough-depth toggle flips reviewMode and shows the repos-root input only on heavy", () => {
     render(<SettingsTab />);
-    // "Light" also names a Theme option, so scope the clicks to the Review depth group.
-    const depth = screen.getByRole("group", { name: "Review depth" });
+    // "Light" also names a Theme option, so scope the clicks to the Walkthrough depth group.
+    const depth = screen.getByRole("group", { name: "Walkthrough depth" });
     expect(screen.getByLabelText("Local repos root")).toBeTruthy(); // heavy default
     fireEvent.click(within(depth).getByRole("button", { name: "Light" }));
     expect(state.reviewMode).toBe("light");
@@ -100,10 +100,10 @@ describe("SettingsTab", () => {
 
   it("explains each setting with a hint; the repos-root hint shows only on heavy", () => {
     render(<SettingsTab />);
-    expect(screen.getByText(/Heavy reads the locally-cloned repo/)).toBeTruthy();
+    expect(screen.getByText(/Heavy reads the locally-cloned repo for context/)).toBeTruthy();
     expect(screen.getByText(/Preload three AI-suggested questions/)).toBeTruthy();
     expect(screen.getByText(/Where Heavy looks for the clone/)).toBeTruthy(); // heavy default
-    const depth = screen.getByRole("group", { name: "Review depth" });
+    const depth = screen.getByRole("group", { name: "Walkthrough depth" });
     fireEvent.click(within(depth).getByRole("button", { name: "Light" }));
     expect(screen.queryByText(/Where Heavy looks for the clone/)).toBeNull(); // gone on light
   });
