@@ -148,11 +148,39 @@ describe("navigation", () => {
     tourStore.goto(1); // s2 visited
     expect(tourStore.isVisited("s1")).toBe(true);
     expect(tourStore.isVisited("s2")).toBe(true);
+    // the marks ride the persisted tour state, so a page reload restores the dots
+    expect(state.tourState.visited).toEqual(["s1", "s2"]);
+    expect(state.tourState.visitedStamp).toBe("2026-01-01T00:00:00Z");
+    expect(vi.mocked(storeSet)).toHaveBeenLastCalledWith(`kvasir:tour:${PR}`, state.tourState);
     // a regenerated spec carries a new generatedAt → the next goto resets the visited set
     state.spec = { ...mkSpec(), generatedAt: "2026-02-02T00:00:00Z" };
     tourStore.goto(1);
     expect(tourStore.isVisited("s1")).toBe(false); // not visited in the new session
     expect(tourStore.isVisited("s2")).toBe(true);
+  });
+
+  it("a restored tour state is the source of truth for the visited dots", () => {
+    expect(tourStore.isVisited("s1")).toBe(false); // nothing recorded yet
+    state.tourState = {
+      step: 1,
+      pos: null,
+      size: null,
+      visited: ["s2"],
+      visitedStamp: "2026-01-01T00:00:00Z",
+    };
+    expect(tourStore.isVisited("s1")).toBe(false);
+    expect(tourStore.isVisited("s2")).toBe(true);
+  });
+
+  it("revisiting a step doesn't duplicate its mark; a stamp without marks starts empty", () => {
+    tourStore.start(); // s1
+    tourStore.goto(1); // s2
+    tourStore.goto(0); // back to s1 — already marked
+    expect(state.tourState.visited).toEqual(["s1", "s2"]);
+    // a matching stamp with no visited list (partial old persistence) reads as empty
+    state.tourState = { step: 0, pos: null, size: null, visitedStamp: "2026-01-01T00:00:00Z" };
+    tourStore.goto(1);
+    expect(state.tourState.visited).toEqual(["s2"]);
   });
 });
 

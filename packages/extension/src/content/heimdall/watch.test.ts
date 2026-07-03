@@ -49,6 +49,8 @@ describe("loadPersisted", () => {
       overview: false,
       pos: { left: 1, top: 2 },
       size: { w: 3, h: 4 },
+      visited: [],
+      visitedStamp: "",
     });
   });
 
@@ -57,7 +59,31 @@ describe("loadPersisted", () => {
       key.startsWith("kvasir:chats:") ? [] : { step: 3, overview: true, pos: null, size: null },
     );
     await loadPersisted();
-    expect(state.tourState).toEqual({ step: 3, overview: true, pos: null, size: null });
+    expect(state.tourState).toEqual({
+      step: 3,
+      overview: true,
+      pos: null,
+      size: null,
+      visited: [],
+      visitedStamp: "",
+    });
+  });
+
+  it("restores the visited dots with the tour state", async () => {
+    vi.mocked(storeGet).mockImplementation(async (key: string) =>
+      key.startsWith("kvasir:chats:")
+        ? []
+        : { step: 1, pos: null, size: null, visited: ["s2"], visitedStamp: "g1" },
+    );
+    await loadPersisted();
+    expect(state.tourState).toEqual({
+      step: 1,
+      overview: false,
+      pos: null,
+      size: null,
+      visited: ["s2"],
+      visitedStamp: "g1",
+    });
   });
 
   it("keeps in-memory chats, tolerates empty storage, defaults sparse tour fields", async () => {
@@ -68,7 +94,14 @@ describe("loadPersisted", () => {
     );
     await loadPersisted();
     expect(state.chatHistory).toEqual(live);
-    expect(state.tourState).toEqual({ step: 0, overview: false, pos: null, size: null });
+    expect(state.tourState).toEqual({
+      step: 0,
+      overview: false,
+      pos: null,
+      size: null,
+      visited: [],
+      visitedStamp: "",
+    });
   });
 
   it("does not touch panel state off a PR page (panel is per-tab, hydrated at boot)", async () => {
@@ -91,7 +124,14 @@ describe("loadPersisted", () => {
     vi.mocked(storeGet).mockResolvedValue(null);
     await loadPersisted();
     expect(state.chatHistory).toEqual([]);
-    expect(state.tourState).toEqual({ step: 0, overview: false, pos: null, size: null });
+    expect(state.tourState).toEqual({
+      step: 0,
+      overview: false,
+      pos: null,
+      size: null,
+      visited: [],
+      visitedStamp: "",
+    });
   });
 });
 
