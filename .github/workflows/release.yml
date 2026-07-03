@@ -20,6 +20,12 @@ concurrency:
 permissions:
   contents: write
   pull-requests: write
+  # Build-provenance attestation for the release assets: id-token mints the OIDC
+  # identity the attestation is signed with; attestations writes it to the store the
+  # installer's `gh attestation verify` checks. Lets a downloader confirm a binary
+  # was built by THIS workflow, not swapped into the release afterward.
+  id-token: write
+  attestations: write
 
 jobs:
   release:
@@ -70,6 +76,16 @@ jobs:
         run: |
           pnpm build
           tar -czf packages/mimir/dist/extension-dist.tgz -C packages/extension dist
+      # Sign build provenance for every asset the installer later downloads and runs,
+      # so `gh attestation verify` can prove they came from this workflow. Runs before
+      # upload — it attests the artifact bytes, independent of the release itself.
+      - name: Attest build provenance for the release assets
+        if: ${{ steps.release.outputs.release_created }}
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            packages/mimir/dist/kvasir-channel-*
+            packages/mimir/dist/extension-dist.tgz
       - name: Attach binaries to the draft release
         if: ${{ steps.release.outputs.release_created }}
         env:
