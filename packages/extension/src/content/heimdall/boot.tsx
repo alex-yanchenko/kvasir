@@ -18,7 +18,7 @@ import { connectGrip } from "../midgard/grip";
 import { initTooltips } from "../midgard/tooltip";
 import { onStored } from "../muninn";
 import { shieldHotkeys } from "./shield";
-import { applyTheme, loadPersisted, watchUrl } from "./watch";
+import { applyTheme, loadPersisted, waitForRelevantPage, watchUrl } from "./watch";
 // Compiled Tailwind + legacy panel CSS (build.mjs produces this from tailwind.css).
 
 export function boot(): void {
@@ -28,16 +28,11 @@ export function boot(): void {
   const reviewId = reviewIdFromUrl();
   if (!prUrl() && !reviewId) {
     // A matched-but-not-yet-relevant page (e.g. a /blob/ page with no ?kvasir).
-    // Don't mount, but poll for an SPA navigation INTO a PR/review — a soft nav
+    // Don't mount, but watch for an SPA navigation INTO a PR/review — a soft nav
     // doesn't re-run the content script, so without this a blob→PR transition would
     // never raise the panel until a hard refresh. boot()'s #kvasir-root guard makes
     // the re-entry idempotent, and boot() starts watchUrl() to take over from there.
-    const poll = setInterval(() => {
-      if (prUrl() || reviewIdFromUrl()) {
-        clearInterval(poll);
-        boot();
-      }
-    }, 500);
+    waitForRelevantPage(boot);
     return;
   }
 
