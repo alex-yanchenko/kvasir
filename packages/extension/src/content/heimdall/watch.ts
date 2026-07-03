@@ -5,7 +5,7 @@ import { launcherStore } from "../asgard/launcher";
 import { isChatSessionArray, parseTourState } from "../asgard/persisted";
 import { state, touch } from "../asgard/store";
 import { bifrost } from "../bifrost";
-import { chatsKey, prUrl, tourKey } from "../keys";
+import { chatsKey, prUrl, reviewIdFromUrl, tourKey } from "../keys";
 import { storeGet } from "../muninn";
 
 /** Per-PR state restore (survives refresh and browser restart). */
@@ -27,15 +27,25 @@ export function applyTheme(): void {
   bifrost.send("theme:apply", { theme: state.theme, hlStyle: state.hlStyle });
 }
 
-/** Poll for SPA navigation; on a PR switch, drop the old PR's state and load the
- * new one's. Returns a stop function; it also stops itself when the extension is
- * reloaded out from under the page (orphaned content script). */
+/** The Navigation API's event target (Chrome 102+) — an event the moment the SPA
+ * router lands, instead of waiting out a poll tick. Optional: jsdom and browsers
+ * without it return null and callers fall back to polling. */
+const navigationTarget = (): EventTarget | null => {
+  if (!("navigation" in globalThis)) return null;
+  const nav: unknown = Reflect.get(globalThis, "navigation");
+  return nav instanceof EventTarget ? nav : null;
+};
+
+/** Watch for SPA navigation; on a PR switch, drop the old PR's state and load the
+ * new one's. Reacts instantly via the Navigation API when present; the poll stays
+ * as the fallback. Returns a stop function; it also stops itself when the
+ * extension is reloaded out from under the page (orphaned content script). */
 export function watchUrl(intervalMs = 1500): () => void {
   let lastUrl = location.href;
   let currentPr = prUrl();
-  const poll = setInterval(() => {
+  const onChange = (): void => {
     if (!chrome.runtime?.id) {
-      clearInterval(poll);
+      stop();
       return;
     }
     if (location.href === lastUrl) return;
@@ -54,6 +64,42 @@ export function watchUrl(intervalMs = 1500): () => void {
       // tour state to land — same ordering the boot path relies on (see boot.tsx).
       void loadPersisted().then(() => launcherStore.refresh());
     }
-  }, intervalMs);
-  return () => clearInterval(poll);
+  };
+  const nav = navigationTarget();
+  nav?.addEventListener("navigatesuccess", onChange);
+  const poll = setInterval(onChange, intervalMs);
+  function stop(): void {
+    clearInterval(poll);
+    nav?.removeEventListener("navigatesuccess", onChange);
+  }
+  return stop;
+}
+
+/** A matched-but-not-yet-relevant page (e.g. a /blob/ page with no ?kvasir): wait
+ * for an SPA navigation INTO a PR/review, fire onEnter once, and disarm. The
+ * Navigation API path fires instantly; the fallback poll starts at baseMs and
+ * doubles up to a 10s ceiling, so an abandoned background tab isn't polled at
+ * 500ms forever. */
+export function waitForRelevantPage(onEnter: () => void, baseMs = 500): () => void {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  const nav = navigationTarget();
+  const check = (): void => {
+    if (!prUrl() && !reviewIdFromUrl()) return;
+    stop();
+    onEnter();
+  };
+  nav?.addEventListener("navigatesuccess", check);
+  const schedule = (delayMs: number): void => {
+    timer = setTimeout(() => {
+      check();
+      if (timer) schedule(Math.min(delayMs * 2, 10_000)); // stop() nulled it if we fired
+    }, delayMs);
+  };
+  schedule(baseMs);
+  function stop(): void {
+    if (timer) clearTimeout(timer);
+    timer = null;
+    nav?.removeEventListener("navigatesuccess", check);
+  }
+  return stop;
 }
