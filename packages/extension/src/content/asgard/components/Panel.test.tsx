@@ -4,6 +4,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 vi.mock("../../muninn", () => ({ storeGet: vi.fn(), storeSet: vi.fn(), storeRemove: vi.fn() }));
 
+import { launcherStore } from "../launcher";
 import { pairingStore } from "../pairing";
 import * as store from "../store";
 import { PANEL_TABS, panelStore, state } from "../store";
@@ -46,6 +47,7 @@ beforeEach(() => {
   // The panel rechecks the connection on open; neutralize the bridge round-trip so
   // unrelated tests don't drift to "down" (the stubbed chrome has no messaging).
   vi.spyOn(pairingStore, "recheck").mockResolvedValue(undefined);
+  vi.spyOn(launcherStore, "specLoading").mockReturnValue(false); // spec probes are done in these tests
 });
 afterEach(() => {
   cleanup();

@@ -5,7 +5,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 vi.mock(import("../api"), async (importOriginal) => ({ ...(await importOriginal()), api: vi.fn() }));
 vi.mock("../muninn", () => ({ storeGet: vi.fn(), storeSet: vi.fn(), storeRemove: vi.fn() }));
 
-import { api } from "../api";
+import { api, type BridgeResponse } from "../api";
 import { storeGet, storeRemove, storeSet } from "../muninn";
 import { GEN_MAX_TRIES, GEN_POLL_INTERVAL_MS, fmtElapsed, launcherStore, specSig } from "./launcher";
 import { state } from "./store";
@@ -252,6 +252,45 @@ describe("refresh", () => {
     vi.mocked(storeGet).mockResolvedValue(undefined);
     await launcherStore.refresh();
     expect(state.spec).toBeNull();
+  });
+
+  it("renders the cached walkthrough before the live probe answers, then swaps in the live one", async () => {
+    const cached = mkSpec();
+    const fresh = mkSpec({ generatedAt: "2026-03-03T00:00:00Z" });
+    vi.mocked(storeGet).mockImplementation(async (k: string) =>
+      k.startsWith("kvasir:spec:") ? cached : undefined,
+    );
+    let resolveLive!: (r: BridgeResponse) => void;
+    vi.mocked(api).mockImplementation((path: string) =>
+      path.startsWith("/walkthrough")
+        ? new Promise((res) => {
+            resolveLive = res;
+          })
+        : Promise.resolve({ ok: false }),
+    );
+    const refreshing = launcherStore.refresh();
+    await vi.advanceTimersByTimeAsync(0); // flush the cache read; the live probe stays pending
+    expect(state.spec).toEqual(cached);
+    expect(launcherStore.specLoading()).toBe(true);
+    resolveLive({ ok: true, data: fresh });
+    await refreshing;
+    expect(state.spec).toEqual(fresh);
+    expect(launcherStore.specLoading()).toBe(false);
+    expect(vi.mocked(storeSet)).toHaveBeenCalledWith(`kvasir:spec:${PR}`, fresh);
+  });
+
+  it("specLoading turns false after the probe even when nothing is found", async () => {
+    expect(launcherStore.specLoading()).toBe(true); // probe not yet run for this PR
+    await launcherStore.refresh();
+    expect(state.spec).toBeNull();
+    expect(launcherStore.specLoading()).toBe(false);
+  });
+
+  it("resetForPr re-arms specLoading for the next PR", async () => {
+    await launcherStore.refresh();
+    expect(launcherStore.specLoading()).toBe(false);
+    launcherStore.resetForPr();
+    expect(launcherStore.specLoading()).toBe(true);
   });
 
   it("retires a prior-shape cached spec on the client — one that fails validation drops to null", async () => {
