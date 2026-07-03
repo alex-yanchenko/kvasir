@@ -1,5 +1,4 @@
-// The launcher's generate state machine — Asgard-owned.
-// Run/poll/resume semantics are ported verbatim from the vanilla launcher:
+// The launcher's generate state machine — Asgard-owned. Run/poll/resume:
 // generation runs in the maintainer's Claude session; we persist a marker so a
 // page refresh keeps waiting, and poll until a spec with a NEW signature lands.
 
@@ -162,7 +161,7 @@ export const launcherStore = {
   /** Re-issue the request that just failed (same mode + range). */
   retryGenerate: (): Promise<void> => launcherStore.requestGenerate(lastGen.mode, lastGen.sinceSha),
 
-  /** Whether a "changes since this review" range diff can be opened — true once
+  /** Whether a "changes since this walkthrough" range diff can be opened — true once
    * commits landed past the head the walkthrough was generated for. */
   canShowChangesSinceReview: (): boolean =>
     isSha(state.spec?.pr?.headSha) && isSha(currentHead) && state.spec?.pr?.headSha !== currentHead,

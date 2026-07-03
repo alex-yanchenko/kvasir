@@ -11,7 +11,7 @@ afterEach(() => cleanup());
 describe("SettingsNav", () => {
   it("renders a jump link for every settings section", () => {
     render(<SettingsNav />);
-    for (const label of ["Appearance", "Review", "Generation", "Connection", "Debug"]) {
+    for (const label of ["Appearance", "Walkthrough", "Generation", "Connection", "Debug"]) {
       expect(screen.getByRole("button", { name: label })).toBeTruthy();
     }
   });
@@ -23,7 +23,7 @@ describe("SettingsNav", () => {
     section.scrollIntoView = scrollIntoView;
     document.body.append(section);
     render(<SettingsNav />);
-    fireEvent.click(screen.getByRole("button", { name: "Review" }));
+    fireEvent.click(screen.getByRole("button", { name: "Walkthrough" }));
     expect(scrollIntoView).toHaveBeenCalledWith({ behavior: "smooth", block: "start" });
     expect(scrollIntoView).toHaveBeenCalledTimes(1);
     section.remove();

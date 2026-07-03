@@ -10,8 +10,8 @@ import { getSnapshot, settingsStore, subscribe } from "../../store";
 import { Button } from "../../ui/button";
 
 // Every setting carries a one-line `hint` describing what it does — users can't
-// infer "Review depth" or "Highlight" from the label alone. Required, so a new
-// setting can't ship unexplained.
+// infer "Walkthrough depth" or "Highlight" from the label alone. Required, so a
+// new setting can't ship unexplained.
 function Segmented({
   label,
   value,
@@ -53,7 +53,7 @@ function Segmented({
 // which jumps to each by its data-settings-section id.
 export const SETTINGS_SECTIONS = [
   { id: "appearance", label: "Appearance" },
-  { id: "review", label: "Review" },
+  { id: "review", label: "Walkthrough" },
   { id: "generation", label: "Generation" },
   { id: "connection", label: "Connection" },
   { id: "debug", label: "Debug" },
@@ -214,7 +214,7 @@ export function SettingsTab(): JSX.Element {
           onChange={(v) => settingsStore.setHlStyle(v)}
         />
       </Section>
-      <Section id="review" title="Review">
+      <Section id="review" title="Walkthrough">
         <Segmented
           label="Step nav"
           hint="On load = scroll the page to your saved step when a walkthrough opens; Instant = only when you pick a step."
@@ -226,8 +226,8 @@ export function SettingsTab(): JSX.Element {
           onChange={(v) => settingsStore.setReviewSync(v === "synced")}
         />
         <Segmented
-          label="Review depth"
-          hint="Heavy reads the locally-cloned repo for correctness (falls back to Light if it isn't found); Light uses only the PR diff."
+          label="Walkthrough depth"
+          hint="Heavy reads the locally-cloned repo for context — what the feature is and how the change flows (falls back to Light if it isn't found); Light uses only the PR diff."
           value={settingsStore.reviewMode()}
           options={[
             { value: "heavy", label: "Heavy" },

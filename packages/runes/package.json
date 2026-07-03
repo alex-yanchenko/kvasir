@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Pure, dependency-free contract shared by the server and the extension: walkthrough spec types, PR-URL parsing, and diff anchors.",
+  "description": "Pure shared contract between the server and the extension: zod-validated walkthrough spec types, PR-URL parsing, and diff anchors.",
   "exports": {
     ".": "./src/index.ts",
     "./*": "./src/*.ts"

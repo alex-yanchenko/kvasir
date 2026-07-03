@@ -387,7 +387,7 @@ function PanelWindow(): JSX.Element {
             <TabsList className="justify-between">
               {TAB_LABELS.map((t) => (
                 <TabsTrigger key={t.value} value={t.value} className="flex-1">
-                  {t.value === PANEL_TABS.WALKTHROUGH && isReview ? "Review" : t.label}
+                  {t.label}
                   {t.value === PANEL_TABS.HISTORY && staleHistory > 0 ? (
                     <span
                       aria-label={`${staleHistory} need sync`}

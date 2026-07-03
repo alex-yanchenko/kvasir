@@ -17,7 +17,7 @@ describe("RegenDialog", () => {
     vi.spyOn(launcherStore, "newCommits").mockReturnValue(false);
     const onClose = vi.fn();
     render(<RegenDialog onClose={onClose} />);
-    expect(screen.getByText(/Regenerate this review/)).toBeTruthy();
+    expect(screen.getByText(/Regenerate this walkthrough/)).toBeTruthy();
     fireEvent.click(screen.getByText("Regenerate as new"));
     expect(gen).toHaveBeenCalledWith("new", undefined);
     expect(gen).toHaveBeenCalledTimes(1);
@@ -34,7 +34,7 @@ describe("RegenDialog", () => {
     });
     const onClose = vi.fn();
     render(<RegenDialog onClose={onClose} />);
-    expect(screen.getByText(/New commits since this review/)).toBeTruthy();
+    expect(screen.getByText(/New commits since this walkthrough/)).toBeTruthy();
     fireEvent.click(screen.getByText("Incremental update"));
     expect(gen).toHaveBeenCalledWith("incremental", "abc");
     expect(gen).toHaveBeenCalledTimes(1);

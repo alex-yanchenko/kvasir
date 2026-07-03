@@ -1,5 +1,5 @@
 // Walkthrough tab — replaces the launcher block + the floating tour card. Three
-// states: no spec (run a review), generating (status), or the step walkthrough.
+// states: no spec (run a walkthrough), generating (status), or the step walkthrough.
 // tourStore drives the page highlights; the tab mount/unmount starts/stops the
 // tour so switching tabs or closing the panel clears the highlight.
 import type { WalkthroughSpec, WalkthroughStep } from "@kvasir/runes/spec";
@@ -36,7 +36,7 @@ function Generating(): JSX.Element {
   return (
     <div className="flex flex-col items-center gap-3 p-8 text-center">
       <Loader2 className="size-6 animate-spin text-primary" />
-      <div className="text-sm font-medium">Generating review…</div>
+      <div className="text-sm font-medium">Generating walkthrough…</div>
       <div className="text-xs text-muted-foreground">
         {fmtElapsed(Date.now() - launcherStore.genStartAt())} · runs in your Claude session, blocks chat
       </div>
@@ -71,7 +71,7 @@ function GenErrorBar({ message }: Readonly<{ message: string }>): JSX.Element {
 
 function Empty(): JSX.Element {
   // Pairing is surfaced globally by the panel's PairBanner (so any 401 anywhere
-  // prompts it), so this just offers the review action.
+  // prompts it), so this just offers the generate action.
   return (
     <div className="flex flex-col items-center gap-3 p-8 text-center">
       <p className="text-sm text-muted-foreground">No walkthrough yet for this PR.</p>
@@ -79,7 +79,7 @@ function Empty(): JSX.Element {
         disabled={pairingStore.needsPairing()}
         onClick={() => void launcherStore.requestGenerate("new")}
       >
-        <Play /> Run review
+        <Play /> Run walkthrough
       </Button>
     </div>
   );
@@ -284,8 +284,8 @@ function StepTools({
           variant="ghost"
           size="icon"
           className="h-7 w-7"
-          aria-label="View changes since this review"
-          data-kvasir-tip="View changes since this review — the combined diff of all new commits"
+          aria-label="View changes since this walkthrough"
+          data-kvasir-tip="View changes since this walkthrough — the combined diff of all new commits"
           onClick={() => launcherStore.openChangesSinceReview()}
         >
           <GitCompare />
@@ -296,7 +296,7 @@ function StepTools({
         size="icon"
         className={"h-7 w-7" + (newCommits ? " text-primary" : "")}
         aria-label={newCommits ? "Update" : "Regenerate"}
-        data-kvasir-tip={newCommits ? "Update — new commits since this review" : "Regenerate review"}
+        data-kvasir-tip={newCommits ? "Update — new commits since this walkthrough" : "Regenerate walkthrough"}
         disabled={pairingStore.needsPairing()}
         onClick={onRegen}
       >

@@ -1,7 +1,6 @@
 // The walkthrough tour machine — Asgard-owned. The card is a React component;
 // this holds the step state, the page commands (highlight + grip context), the
-// per-PR persistence, and the "ask about this step" payload. Ported verbatim
-// from the vanilla tour.
+// per-PR persistence, and the "ask about this step" payload.
 import type { WalkthroughStep } from "@kvasir/runes/spec";
 import { bifrost } from "../bifrost";
 import { onFilesTab, prUrl, tourKey } from "../keys";
