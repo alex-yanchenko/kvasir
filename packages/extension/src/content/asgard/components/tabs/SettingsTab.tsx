@@ -77,7 +77,7 @@ function Section({
 function Connection(): JSX.Element {
   const p = pairingStore.state();
   useEffect(() => {
-    void pairingStore.refresh();
+    void pairingStore.recheck();
   }, []);
   return (
     <div className="flex flex-col gap-2">
@@ -86,6 +86,16 @@ function Connection(): JSX.Element {
         <span className="inline-flex items-center gap-1.5 text-sm text-primary">
           <Check className="size-4" /> Paired with your Claude session
         </span>
+      )}
+      {p.phase === "down" && (
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">
+            Channel not running — run <b className="font-mono">kvasir</b> in your terminal to start it.
+          </span>
+          <Button size="sm" variant="outline" className="ml-auto" onClick={() => void pairingStore.recheck()}>
+            Retry
+          </Button>
+        </div>
       )}
       {(p.phase === "unknown" || p.phase === "unpaired") && (
         <div className="flex items-center gap-2">

@@ -2,8 +2,10 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
+vi.mock("../../api", () => ({ api: vi.fn() })); // newChat rechecks the connection via /health
 vi.mock("../../muninn", () => ({ storeGet: vi.fn(), storeSet: vi.fn(), storeRemove: vi.fn() }));
 
+import { api } from "../../api";
 import { chatStore } from "../chat";
 import { state } from "../store";
 import type { ChatSession } from "../types";
@@ -26,6 +28,7 @@ beforeEach(() => {
   });
   state.chatHistory = [];
   chatStore.deleteActive();
+  vi.mocked(api).mockResolvedValue({ ok: true, data: { ok: true } });
 });
 afterEach(() => cleanup());
 

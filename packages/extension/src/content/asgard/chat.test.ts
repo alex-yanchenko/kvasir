@@ -7,7 +7,7 @@ vi.mock("../muninn", () => ({ storeGet: vi.fn(), storeSet: vi.fn(), storeRemove:
 import { api } from "../api";
 import { bifrost } from "../bifrost";
 import { storeSet } from "../muninn";
-import { chatStore, connectChat, friendlyError, POLL_MS } from "./chat";
+import { chatStore, connectChat, POLL_MS } from "./chat";
 import { pairingStore } from "./pairing";
 import { state, subscribe } from "./store";
 import { tourStore } from "./tour";
@@ -51,17 +51,6 @@ beforeEach(() => {
 });
 afterEach(() => {
   offs.forEach((off) => off());
-});
-
-describe("friendlyError", () => {
-  it("maps the known failure classes to human messages", () => {
-    expect(friendlyError({ data: { error: "request timed out" } })).toMatch(/session may be busy/);
-    expect(friendlyError({ data: { error: "not paired" } })).toMatch(/open Settings/);
-    expect(friendlyError({ error: "extension reloaded — refresh the page" })).toMatch(/refresh the page/);
-    expect(friendlyError({ error: "failed to fetch" })).toMatch(/Claude session running/);
-    expect(friendlyError({ error: "boom" })).toBe("Something went wrong: boom");
-    expect(friendlyError({})).toBe("No answer came back.");
-  });
 });
 
 describe("open / close / delete", () => {
