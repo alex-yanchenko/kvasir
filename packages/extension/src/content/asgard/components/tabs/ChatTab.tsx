@@ -204,7 +204,7 @@ function Message({
   const [copied, setCopied] = useState(false);
   if (message.role === "user") {
     return (
-      <div className="kvasir-message kvasir-message-user">
+      <div className="kvasir-msg kvasir-msg-user">
         <span>{message.content}</span>
       </div>
     );
@@ -223,13 +223,13 @@ function Message({
     }
   };
   return (
-    <div className="kvasir-message kvasir-message-bot" ref={bodyRef}>
+    <div className="kvasir-msg kvasir-msg-bot" ref={bodyRef}>
       {streaming ? (
         <Typewriter text={message.content} onDone={onStreamed} />
       ) : (
         <Markdown text={message.content} />
       )}
-      <div className="kvasir-message-actions">
+      <div className="kvasir-msg-actions">
         <button
           className="kvasir-iconbtn"
           data-kvasir-tip="Regenerate answer"
@@ -482,7 +482,7 @@ function Thread({ sess }: Readonly<{ sess: ChatSession }>): JSX.Element {
           />
         ))}
         {busy && (
-          <div className="kvasir-message kvasir-message-bot">
+          <div className="kvasir-msg kvasir-msg-bot">
             {liveAsk?.note && <div className="kvasir-live-note">⚙ {liveAsk.note}</div>}
             {liveAsk?.text && (
               <span className="kvasir-live-text">
@@ -498,7 +498,7 @@ function Thread({ sess }: Readonly<{ sess: ChatSession }>): JSX.Element {
           </div>
         )}
         {error && (
-          <div className="kvasir-message kvasir-message-bot kvasir-message-note">
+          <div className="kvasir-msg kvasir-msg-bot kvasir-msg-note">
             <span>
               ⚠ {error.message}{" "}
               <button
