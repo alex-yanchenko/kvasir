@@ -19,6 +19,7 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import type { JSX } from "react";
 import { sanitizeSpecHtml } from "../../../sanitize";
 import { chatStore } from "../../chat";
+import { useShadowAwareKeydown } from "../../hooks/useShadowAwareKeydown";
 import { fmtElapsed, launcherStore } from "../../launcher";
 import { pairingStore } from "../../pairing";
 import { getSnapshot, PANEL_TABS, panelStore, subscribe } from "../../store";
@@ -175,32 +176,18 @@ function MainView({
   return <StepBody step={step} />;
 }
 
-// Arrow keys navigate steps; bound to the document AND the shadow root (the hotkey
-// shield keeps shadow-origin keys off the document), skipping editable fields.
-// Extracted from Steps so that component stays under the cognitive-complexity bar.
+// Arrow keys navigate steps. Extracted from Steps so that component stays under
+// the cognitive-complexity bar; the shadow-aware binding lives in the shared hook.
 function useArrowKeyNav(): void {
-  useEffect(() => {
-    const keys = (event: Event): void => {
-      if (!(event instanceof KeyboardEvent)) return;
-      const t = event.target;
-      if (t instanceof HTMLElement && (/^(?:TEXTAREA|INPUT|SELECT)$/.test(t.tagName) || t.isContentEditable))
-        return;
-      if (event.key === "ArrowRight" && tourStore.canNext()) {
-        event.preventDefault();
-        tourStore.next();
-      } else if (event.key === "ArrowLeft" && tourStore.canBack()) {
-        event.preventDefault();
-        tourStore.back();
-      }
-    };
-    const root = document.querySelector("#kvasir-root")?.shadowRoot ?? document;
-    document.addEventListener("keydown", keys);
-    if (root !== document) root.addEventListener("keydown", keys);
-    return () => {
-      document.removeEventListener("keydown", keys);
-      if (root !== document) root.removeEventListener("keydown", keys);
-    };
-  }, []);
+  useShadowAwareKeydown((event) => {
+    if (event.key === "ArrowRight" && tourStore.canNext()) {
+      event.preventDefault();
+      tourStore.next();
+    } else if (event.key === "ArrowLeft" && tourStore.canBack()) {
+      event.preventDefault();
+      tourStore.back();
+    }
+  });
 }
 
 // The "ask" button: on a code step it opens that step's chat; on the overview "step
@@ -363,13 +350,16 @@ function Steps({ spec }: Readonly<{ spec: WalkthroughSpec }>): JSX.Element {
   const index = tourStore.stepIndex();
   const count = tourStore.stepCount();
 
-  // Start (resume) the tour when this tab opens. We deliberately do NOT close on
-  // unmount: leaving for Settings/Chat keeps the page highlight up — so the
-  // highlight-style toggle is testable against a real selection. The panel close
-  // clears it (Panel's unmount), and start() is idempotent on re-entry.
+  // Start (resume) the tour when this tab opens, and re-start when the displayed
+  // spec's identity changes — the cache-first load can swap a regenerated live
+  // spec under a mounted Steps, and start() re-clamps the step index and re-issues
+  // the highlight against it. We deliberately do NOT close on unmount: leaving for
+  // Settings/Chat keeps the page highlight up — so the highlight-style toggle is
+  // testable against a real selection. The panel close clears it (Panel's
+  // unmount), and start() is idempotent on re-entry.
   useEffect(() => {
     tourStore.start();
-  }, []);
+  }, [spec.generatedAt]);
   useArrowKeyNav();
 
   if (!step) return <Empty />;

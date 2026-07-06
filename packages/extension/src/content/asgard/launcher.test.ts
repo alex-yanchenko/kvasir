@@ -279,6 +279,46 @@ describe("refresh", () => {
     expect(vi.mocked(storeSet)).toHaveBeenCalledWith(`kvasir:spec:${PR}`, fresh);
   });
 
+  it("a same-PR refresh keeps what's on screen until the live answer lands", async () => {
+    const onScreen = mkSpec({ generatedAt: "2026-05-05T00:00:00Z" });
+    const staleCached = mkSpec({ generatedAt: "2020-01-01T00:00:00Z" });
+    state.spec = onScreen;
+    vi.mocked(storeGet).mockImplementation(async (k: string) =>
+      k.startsWith("kvasir:spec:") ? staleCached : undefined,
+    );
+    let resolveLive!: (r: BridgeResponse) => void;
+    vi.mocked(api).mockImplementation((path: string) =>
+      path.startsWith("/walkthrough")
+        ? new Promise((res) => {
+            resolveLive = res;
+          })
+        : Promise.resolve({ ok: false }),
+    );
+    const refreshing = launcherStore.refresh();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(state.spec).toEqual(onScreen); // the cache never clobbers a rendered spec mid-probe
+    resolveLive({ ok: false });
+    await refreshing;
+    expect(state.spec).toEqual(staleCached); // live miss → cache wins at the end, as before
+  });
+
+  it("a PR switch during the cache read skips the instant render for the old PR", async () => {
+    let resolveStore!: (v: unknown) => void;
+    vi.mocked(storeGet).mockReturnValueOnce(
+      new Promise((res) => {
+        resolveStore = res;
+      }),
+    );
+    const refreshing = launcherStore.refresh(); // captured pr = PR
+    Object.defineProperty(window, "location", {
+      value: new URL("https://github.com/acme/widget-api/pull/999/files"),
+      writable: true,
+    });
+    resolveStore(mkSpec()); // PR 7's cache resolves after the SPA switch
+    await refreshing;
+    expect(state.spec).toBeNull(); // the stale PR's cache never flashed onto the new PR
+  });
+
   it("specLoading turns false after the probe even when nothing is found", async () => {
     expect(launcherStore.specLoading()).toBe(true); // probe not yet run for this PR
     await launcherStore.refresh();
