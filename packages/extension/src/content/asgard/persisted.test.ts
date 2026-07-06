@@ -1,6 +1,6 @@
 import type { Review } from "@kvasir/runes/review";
 import { describe, it, expect } from "vitest";
-import { parsePanelPrefs, parsePanelState, parseReviewCache } from "./persisted";
+import { parsePanelPrefs, parsePanelState, parseReviewCache, parseTourState } from "./persisted";
 
 const review: Review = {
   version: 1,
@@ -8,6 +8,30 @@ const review: Review = {
   title: "Auth flow",
   steps: [{ id: "a", title: "Guard", body: "b", repo: { owner: "acme", name: "web" }, file: "src/a.ts" }],
 };
+
+describe("parseTourState", () => {
+  it("drops a visited array with non-string elements", () => {
+    expect(parseTourState({ visited: [1, 2], visitedStamp: "g1" })).toEqual({
+      step: 0,
+      overview: false,
+      pos: null,
+      size: null,
+      visited: [],
+      visitedStamp: "g1",
+    });
+  });
+
+  it("drops a non-array visited value and a non-string stamp", () => {
+    expect(parseTourState({ visited: "s1,s2", visitedStamp: 7 })).toEqual({
+      step: 0,
+      overview: false,
+      pos: null,
+      size: null,
+      visited: [],
+      visitedStamp: "",
+    });
+  });
+});
 
 describe("parsePanelState", () => {
   it("reads open + sidebarOpen + tab + geometry, dropping mismatches and non-records", () => {

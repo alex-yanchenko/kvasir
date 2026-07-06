@@ -71,12 +71,13 @@ export const state: {
    * NOT tracked here — the connection banner (pairing phase) owns that message.
    * Null when nothing is missing (including cached renders). */
   reviewMissing: "notfound" | null;
-  /** Review nav: true = advance the panel only once the page lands (loading in
+  /** Step nav: true = advance the panel only once the page lands (loading in
    * between); false = advance immediately. Default true. */
   reviewSync: boolean;
   /** Walkthrough depth: "heavy" has the session check out the PR's local clone (a
-   * worktree at the PR head) and read the surrounding code for correctness;
-   * "light" authors from the PR diff alone (gh only). Default heavy. */
+   * worktree at the PR head) and read the surrounding code for context — what the
+   * feature is and how the change flows; "light" authors from the PR diff alone
+   * (gh only). Default heavy. */
   reviewMode: string; // "heavy" | "light"
   /** Filesystem root the session searches for the PR's local clone in heavy mode;
    * if the repo isn't found under it, heavy degrades to light. */
