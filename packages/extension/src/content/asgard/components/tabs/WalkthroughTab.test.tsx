@@ -12,7 +12,7 @@ vi.mock("../../mermaidLoader", () => ({
 import { chatStore } from "../../chat";
 import { launcherStore } from "../../launcher";
 import { pairingStore } from "../../pairing";
-import { PANEL_TABS, panelStore, state } from "../../store";
+import { PANEL_TABS, panelStore, state, touch } from "../../store";
 import { tourStore } from "../../tour";
 import { WalkthroughTab } from "./WalkthroughTab";
 
@@ -314,6 +314,24 @@ describe("WalkthroughTab", () => {
     expect(mount.textContent).toContain("Second step"); // screen can't see into the shadow
     cleanup();
     host.remove();
+  });
+
+  it("re-syncs the tour when the live probe swaps in a different spec under a mounted tab", () => {
+    state.spec = mkSpec(); // the cached spec renders first (cache-first load)
+    render(<WalkthroughTab />);
+    fireEvent.click(screen.getByLabelText("Next step")); // stepIndex → 1
+    const fresh: WalkthroughSpec = {
+      ...mkSpec(),
+      generatedAt: "2026-09-09T00:00:00Z",
+      steps: [{ id: "n1", title: "Only step", body: "b", file: "f.ts", anchor: "d9" }],
+    };
+    act(() => {
+      state.spec = fresh; // the live probe lands a regenerated, shorter spec
+      touch();
+    });
+    expect(screen.getByText("Only step")).toBeTruthy(); // not the empty state
+    expect(screen.queryByText("No walkthrough yet for this PR.")).toBeNull();
+    expect(tourStore.stepIndex()).toBe(0); // re-clamped against the new spec
   });
 
   it("shows the Update label when there are new commits", () => {

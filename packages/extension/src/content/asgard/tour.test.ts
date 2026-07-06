@@ -159,6 +159,17 @@ describe("navigation", () => {
     expect(tourStore.isVisited("s2")).toBe(true);
   });
 
+  it("a regenerated spec shows no stale dots even before any goto (the overview path)", () => {
+    tourStore.start(); // s1 visited on the old spec
+    tourStore.goto(1); // s2 visited
+    state.spec = { ...mkSpec(), generatedAt: "2026-02-02T00:00:00Z", overview: "<p>what changed</p>" };
+    tourStore.gotoOverview(); // a regenerate lands on the overview — no goto, no stamp reconcile
+    expect(tourStore.isVisited("s1")).toBe(false);
+    expect(tourStore.isVisited("s2")).toBe(false);
+    state.spec = null; // and no spec at all can never match a stamp
+    expect(tourStore.isVisited("s1")).toBe(false);
+  });
+
   it("a restored tour state is the source of truth for the visited dots", () => {
     expect(tourStore.isVisited("s1")).toBe(false); // nothing recorded yet
     state.tourState = {
@@ -170,6 +181,9 @@ describe("navigation", () => {
     };
     expect(tourStore.isVisited("s1")).toBe(false);
     expect(tourStore.isVisited("s2")).toBe(true);
+    // a matching stamp with no visited list (partial old persistence) reads as none
+    state.tourState = { step: 0, pos: null, size: null, visitedStamp: "2026-01-01T00:00:00Z" };
+    expect(tourStore.isVisited("s1")).toBe(false);
   });
 
   it("revisiting a step doesn't duplicate its mark; a stamp without marks starts empty", () => {

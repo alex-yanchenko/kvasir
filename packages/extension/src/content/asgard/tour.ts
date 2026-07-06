@@ -45,8 +45,12 @@ export const tourStore = {
     touch();
   },
   // The outline's "visited" dots live in state.tourState (persisted per PR, so a
-  // reload keeps them); visitedStamp pins them to the spec that earned them.
-  isVisited: (stepId: string): boolean => (state.tourState.visited ?? []).includes(stepId),
+  // reload keeps them). The stamp guard makes the reader authoritative: marks
+  // earned on a different spec (a regenerate that hasn't hit goto() yet, or a
+  // restored stale pair) never render as visited.
+  isVisited: (stepId: string): boolean =>
+    state.tourState.visitedStamp === state.spec?.generatedAt &&
+    (state.tourState.visited ?? []).includes(stepId),
 
   /** Whether this spec carries an overview (and so has a "step 0"). */
   hasOverview: (): boolean => (state.spec ? !!state.spec.overview : false),

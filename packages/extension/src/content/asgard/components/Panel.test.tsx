@@ -515,6 +515,24 @@ describe("Panel", () => {
     expect(state.panel.open).toBe(false);
   });
 
+  it("Escape with the real regen dialog open closes only the dialog, not the panel", () => {
+    state.spec = {
+      version: 1,
+      pr: { url: "https://github.com/acme/widget-api/pull/7", owner: "acme", repo: "widget-api", number: 7 },
+      generatedAt: "t",
+      steps: [{ id: "s1", title: "First step", body: "b", file: "f.ts", anchor: "d1" }],
+    };
+    render(<Panel />);
+    act(() => panelStore.open());
+    fireEvent.click(screen.getByRole("button", { name: "Regenerate" }));
+    expect(screen.getByText(/Regenerate this walkthrough/)).toBeTruthy();
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByText(/Regenerate this walkthrough/)).toBeNull(); // dialog closed
+    expect(state.panel.open).toBe(true); // panel survived the first press
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(state.panel.open).toBe(false); // the second press closes the panel
+  });
+
   it("Escape from inside the shadow root also closes the panel", () => {
     const host = document.createElement("div");
     host.id = "kvasir-root";
