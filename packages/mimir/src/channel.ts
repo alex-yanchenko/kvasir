@@ -41,7 +41,12 @@ import { z } from "zod";
 
 import { createFetchHandler } from "./bridge";
 import { createAskBroker } from "./broker";
-import { gcContextWorktrees, prepareContextWorktree, removeContextWorktree } from "./contextWorktree";
+import {
+  errorMessage,
+  gcContextWorktrees,
+  prepareContextWorktree,
+  removeContextWorktree,
+} from "./contextWorktree";
 import { getManifest, getHeadSha, type PrManifest } from "./diff";
 import { specToRecord } from "./guideStore";
 import { createSqliteGuideStore } from "./guideStore.sqlite";
@@ -79,11 +84,6 @@ const guides = createSqliteGuideStore(path.join(KVASIR_DIR, "kvasir.db"));
 // result would overflow the MCP token cap; the author Reads the file per covered file.
 const MANIFESTS_DIR = path.join(KVASIR_DIR, "manifests");
 mkdirSync(MANIFESTS_DIR, { recursive: true });
-
-// A heavy pass that died before its remove_context_worktree call leaves a worktree
-// in the user's repo — sweep day-old leftovers on every boot. The catch keeps a GC
-// failure from ever failing the channel start.
-await gcContextWorktrees().catch(() => {});
 
 // Specs are in-memory for fast /walkthrough render; rehydrate the PR ones from the
 // durable store on boot so a restart doesn't drop every PR walkthrough's render
@@ -287,9 +287,8 @@ server.registerTool(
     try {
       return text(`Worktree ready: ${await prepareContextWorktree(repoPath, sha)}`);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
       return text(
-        `prepare_context_worktree failed: ${message}. Author from the diff manifest alone — do NOT fall back to running git commands yourself.`,
+        `prepare_context_worktree failed: ${errorMessage(error)}. Author from the diff manifest alone — do NOT fall back to running git commands yourself.`,
       );
     }
   },
@@ -310,8 +309,9 @@ server.registerTool(
       await removeContextWorktree(repoPath, worktreePath);
       return text("Worktree removed.");
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      return text(`remove_context_worktree failed: ${message}. Leave it — the boot sweep reclaims it.`);
+      return text(
+        `remove_context_worktree failed: ${errorMessage(error)}. Leave it — the boot sweep reclaims it.`,
+      );
     }
   },
 );
@@ -365,3 +365,9 @@ server.registerTool(
 
 await server.connect(new StdioServerTransport());
 console.error(`[kvasir] channel connected; HTTP bridge on http://localhost:${PORT}`);
+
+// A heavy pass that died before its remove_context_worktree call leaves a worktree
+// in the user's repo — sweep day-old leftovers on every boot. Runs LAST (it shells
+// out to git, so it must never delay the bridge or the channel coming up), and a
+// failure is logged rather than swallowed so a stuck sweep is discoverable.
+await gcContextWorktrees().catch((error) => console.error("[kvasir] worktree sweep failed:", error));

@@ -8,6 +8,7 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import {
   ContextWorktreeError,
+  errorMessage,
   gcContextWorktrees,
   prepareContextWorktree,
   removeContextWorktree,
@@ -75,11 +76,38 @@ describe("prepareContextWorktree", () => {
     expect(git(wt, ["rev-parse", "HEAD"])).toBe(shaA);
   });
 
-  it("rebuilds over a leftover worktree from an interrupted prior run", async () => {
+  it("a repeat prepare for the same sha REUSES the live worktree instead of destroying it", async () => {
     const first = await prepareContextWorktree(clone, shaB, worktrees);
+    await Bun.write(path.join(first, "marker.txt"), "reading\n"); // a concurrent pass's state
     const second = await prepareContextWorktree(clone, shaB, worktrees);
     expect(second).toBe(first);
+    expect(existsSync(path.join(first, "marker.txt"))).toBe(true); // not yanked from under a reader
     expect(git(second, ["rev-parse", "HEAD"])).toBe(shaB);
+  });
+
+  it("two truly concurrent prepares for the same sha both succeed on one worktree", async () => {
+    const [first, second] = await Promise.all([
+      prepareContextWorktree(clone, shaB, worktrees),
+      prepareContextWorktree(clone, shaB, worktrees),
+    ]);
+    expect(second).toBe(first);
+    expect(git(first, ["rev-parse", "HEAD"])).toBe(shaB);
+  });
+
+  it("recovers when a fallback rm left a stale registration behind (missing-but-registered)", async () => {
+    const wt = await prepareContextWorktree(clone, shaB, worktrees);
+    rmSync(wt, { recursive: true, force: true }); // what the rm fallback does: disk gone, registration stays
+    const rebuilt = await prepareContextWorktree(clone, shaB, worktrees);
+    expect(rebuilt).toBe(wt);
+    expect(git(rebuilt, ["rev-parse", "HEAD"])).toBe(shaB);
+  });
+
+  it("rejects cleanly when the sha is missing AND origin is unreachable — no partial worktree", async () => {
+    rmSync(origin, { recursive: true, force: true });
+    expect(await rejection(prepareContextWorktree(clone, shaB, worktrees))).toBeInstanceOf(
+      ContextWorktreeError,
+    );
+    expect(existsSync(path.join(worktrees, `clone-${shaB}`))).toBe(false);
   });
 
   it("refuses a non-sha and a non-repo path", async () => {
@@ -124,7 +152,39 @@ describe("gcContextWorktrees", () => {
     expect(git(clone, ["worktree", "list"])).not.toContain(stale);
   });
 
+  it("reclaims a stale worktree whose parent repo is gone", async () => {
+    const stale = await prepareContextWorktree(clone, shaA, worktrees);
+    const old = new Date(Date.now() - 48 * 60 * 60 * 1000);
+    utimesSync(stale, old, old);
+    rmSync(clone, { recursive: true, force: true });
+    expect(await gcContextWorktrees(24 * 60 * 60 * 1000, worktrees)).toEqual([`clone-${shaA}`]);
+    expect(existsSync(stale)).toBe(false);
+  });
+
+  it("reclaims a stale worktree with an unreadable .git pointer", async () => {
+    const stale = await prepareContextWorktree(clone, shaA, worktrees);
+    rmSync(path.join(stale, ".git"), { force: true }); // corrupt FIRST — deleting bumps the dir mtime
+    const old = new Date(Date.now() - 48 * 60 * 60 * 1000);
+    utimesSync(stale, old, old);
+    expect(await gcContextWorktrees(24 * 60 * 60 * 1000, worktrees)).toEqual([`clone-${shaA}`]);
+    expect(existsSync(stale)).toBe(false);
+  });
+
+  it("skips a stray non-directory entry instead of crashing the sweep", async () => {
+    await prepareContextWorktree(clone, shaA, worktrees); // ensures the dir exists
+    await Bun.write(path.join(worktrees, "stray.txt"), "x");
+    expect(await gcContextWorktrees(0, worktrees)).toEqual([`clone-${shaA}`]); // stray skipped, real one swept
+    expect(existsSync(path.join(worktrees, "stray.txt"))).toBe(true);
+  });
+
   it("is a no-op when the dir does not exist", async () => {
     expect(await gcContextWorktrees(0, path.join(sandbox, "absent"))).toEqual([]);
+  });
+});
+
+describe("errorMessage", () => {
+  it("extracts an Error's message and stringifies anything else", () => {
+    expect(errorMessage(new ContextWorktreeError("boom"))).toBe("boom");
+    expect(errorMessage("plain")).toBe("plain");
   });
 });

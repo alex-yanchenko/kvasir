@@ -248,8 +248,9 @@ describe("/generate", () => {
     expect(content).toContain("prepare_context_worktree");
     expect(content).toContain("ALWAYS call remove_context_worktree");
     expect(content).toMatch(/do NOT run git fetch/i);
-    expect(content).not.toContain("git -C <repo> fetch"); // no raw fetch instruction survives
-    expect(content).not.toContain("worktree add"); // nor a raw worktree command
+    // No code-fenced git command of any wording — the prompt names tools, never commands
+    // to run (the prose prohibition above legitimately mentions "git fetch" unfenced).
+    expect(content).not.toMatch(/`git[^`]*`/);
   });
 
   it("strips newline injection out of the repos root", async () => {

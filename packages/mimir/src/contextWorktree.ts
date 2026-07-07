@@ -11,12 +11,20 @@ import path from "node:path";
 
 const WORKTREES_DIR = path.join(homedir(), ".kvasir", "worktrees");
 
+/** A worktree-tool precondition failed (bad sha, not a git repo, a path outside
+ * the worktrees dir) or the underlying git subprocess exited non-zero — named so
+ * channel.ts's tool handlers can discriminate it when building the caller-facing
+ * failure text. */
 export class ContextWorktreeError extends Error {
-  constructor(message: string) {
-    super(message);
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
     this.name = "ContextWorktreeError";
   }
 }
+
+/** The message a tool handler should surface for any thrown value. */
+export const errorMessage = (error: unknown): string =>
+  error instanceof Error ? error.message : String(error);
 
 const SHA_RE = /^[0-9a-f]{7,40}$/i;
 
@@ -36,10 +44,14 @@ async function git(repo: string, args: string[]): Promise<string> {
 /** True when `worktreePath` resolves strictly INSIDE the worktrees directory —
  * never the directory itself, never anything outside it. The one guard between
  * "remove a kvasir worktree" and "remove an arbitrary directory the agent named". */
-function insideWorktreesDirectory(worktreePath: string, directory: string): boolean {
+function isInsideWorktreesDirectory(worktreePath: string, directory: string): boolean {
   const resolved = path.resolve(worktreePath);
   return resolved.startsWith(path.resolve(directory) + path.sep);
 }
+
+/** In-flight prepares keyed by target path: a concurrent call for the same
+ * repo+sha joins the first instead of racing it on the shared directory. */
+const inFlight = new Map<string, Promise<string>>();
 
 /** Materialize `sha` as a throwaway detached worktree of the clone at `repoPath`.
  * Fetches the commit only when missing, and only ever as a plain full fetch —
@@ -50,23 +62,37 @@ export async function prepareContextWorktree(
   directory = WORKTREES_DIR,
 ): Promise<string> {
   if (!SHA_RE.test(sha)) throw new ContextWorktreeError(`not a commit sha: ${sha}`);
-  await git(repoPath, ["rev-parse", "--is-inside-work-tree"]).catch(() => {
-    throw new ContextWorktreeError(`${repoPath} is not a git repository`);
+  const target = path.join(directory, `${path.basename(repoPath)}-${sha}`);
+  const pending = inFlight.get(target);
+  if (pending) return pending;
+  const job = materialize(repoPath, sha, target).finally(() => inFlight.delete(target));
+  inFlight.set(target, job);
+  return job;
+}
+
+async function materialize(repoPath: string, sha: string, target: string): Promise<string> {
+  await git(repoPath, ["rev-parse", "--is-inside-work-tree"]).catch((error: unknown) => {
+    throw new ContextWorktreeError(`${repoPath} is not a usable git repository`, { cause: error });
   });
   const present = await git(repoPath, ["cat-file", "-e", `${sha}^{commit}`]).then(
     () => true,
     () => false,
   );
   if (!present) await git(repoPath, ["fetch", "origin", sha]);
-  const target = path.join(directory, `${path.basename(repoPath)}-${sha}`);
-  // A leftover from an interrupted prior run occupies the target — rebuild it so
-  // prepare is idempotent instead of failing on "already exists".
   if (existsSync(target)) {
-    await git(repoPath, ["worktree", "remove", "--force", target]).catch(() => {
+    // Already materialized at the right sha (a sibling pass, or a clean leftover) —
+    // reuse it; a remove+re-add here would yank files out from under a live reader.
+    const head = await git(target, ["rev-parse", "HEAD"]).catch(() => null);
+    if (head !== null && head.toLowerCase().startsWith(sha.toLowerCase())) return target;
+    await git(repoPath, ["worktree", "remove", "--force", target]).catch(async () => {
       rmSync(target, { recursive: true, force: true });
+      await git(repoPath, ["worktree", "prune"]).catch(() => {});
     });
   }
-  await git(repoPath, ["worktree", "add", "--detach", target, sha]);
+  // --force: a fallback rm (here, in gc, or an interrupted run) can leave the path
+  // registered in the parent repo while gone from disk, and a plain `worktree add`
+  // then refuses forever ("missing but already registered") — --force re-registers.
+  await git(repoPath, ["worktree", "add", "--force", "--detach", target, sha]);
   return target;
 }
 
@@ -77,7 +103,7 @@ export async function removeContextWorktree(
   worktreePath: string,
   directory = WORKTREES_DIR,
 ): Promise<void> {
-  if (!insideWorktreesDirectory(worktreePath, directory)) {
+  if (!isInsideWorktreesDirectory(worktreePath, directory)) {
     throw new ContextWorktreeError(`refusing to remove ${worktreePath}: not under ${directory}`);
   }
   await git(repoPath, ["worktree", "remove", "--force", path.resolve(worktreePath)]);
@@ -111,11 +137,15 @@ export async function gcContextWorktrees(
     } catch {
       repo = null; // pointer unreadable — fall through to the plain rm below
     }
-    try {
-      if (repo === null) throw new ContextWorktreeError("no parent repo");
-      await git(repo, ["worktree", "remove", "--force", worktree]);
-    } catch {
-      rmSync(worktree, { recursive: true, force: true }); // parent gone/refuses — reclaim the disk
+    if (repo === null) {
+      rmSync(worktree, { recursive: true, force: true }); // parent unknown — reclaim the disk
+    } else {
+      await git(repo, ["worktree", "remove", "--force", worktree]).catch(async () => {
+        // Parent gone or refusing: reclaim the disk, then best-effort prune the
+        // parent's now-stale registration so a future add at this path isn't blocked.
+        rmSync(worktree, { recursive: true, force: true });
+        await git(repo, ["worktree", "prune"]).catch(() => {});
+      });
     }
     removed.push(name);
   }
