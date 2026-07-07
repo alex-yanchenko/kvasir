@@ -41,6 +41,12 @@ import { z } from "zod";
 
 import { createFetchHandler } from "./bridge";
 import { createAskBroker } from "./broker";
+import {
+  errorMessage,
+  gcContextWorktrees,
+  prepareContextWorktree,
+  removeContextWorktree,
+} from "./contextWorktree";
 import { getManifest, getHeadSha, type PrManifest } from "./diff";
 import { specToRecord } from "./guideStore";
 import { createSqliteGuideStore } from "./guideStore.sqlite";
@@ -268,6 +274,49 @@ server.registerTool(
 );
 
 server.registerTool(
+  "prepare_context_worktree",
+  {
+    description:
+      "Heavy-pass helper: safely materialize a PR head commit as a throwaway detached worktree of a LOCAL clone. Verifies the commit is present (fetching it with a plain FULL fetch only when missing — never shallow, which would graft the clone and break git blame/log) and returns the worktree path under ~/.kvasir/worktrees. NEVER run git fetch / git worktree yourself for this; always pair with remove_context_worktree when done.",
+    inputSchema: {
+      repoPath: z.string().describe("absolute path of the PR's local clone"),
+      sha: z.string().describe("the full head commit SHA from start_walkthrough"),
+    },
+  },
+  async ({ repoPath, sha }) => {
+    try {
+      return text(`Worktree ready: ${await prepareContextWorktree(repoPath, sha)}`);
+    } catch (error) {
+      return text(
+        `prepare_context_worktree failed: ${errorMessage(error)}. Author from the diff manifest alone — do NOT fall back to running git commands yourself.`,
+      );
+    }
+  },
+);
+
+server.registerTool(
+  "remove_context_worktree",
+  {
+    description:
+      "Remove a worktree created by prepare_context_worktree (pass the same repoPath and the returned worktree path). ALWAYS call this before finishing a heavy pass, even after an error.",
+    inputSchema: {
+      repoPath: z.string().describe("absolute path of the PR's local clone"),
+      worktreePath: z.string().describe("the path prepare_context_worktree returned"),
+    },
+  },
+  async ({ repoPath, worktreePath }) => {
+    try {
+      await removeContextWorktree(repoPath, worktreePath);
+      return text("Worktree removed.");
+    } catch (error) {
+      return text(
+        `remove_context_worktree failed: ${errorMessage(error)}. Leave it — the boot sweep reclaims it.`,
+      );
+    }
+  },
+);
+
+server.registerTool(
   "approve_pairing",
   {
     description:
@@ -316,3 +365,9 @@ server.registerTool(
 
 await server.connect(new StdioServerTransport());
 console.error(`[kvasir] channel connected; HTTP bridge on http://localhost:${PORT}`);
+
+// A heavy pass that died before its remove_context_worktree call leaves a worktree
+// in the user's repo — sweep day-old leftovers on every boot. Runs LAST (it shells
+// out to git, so it must never delay the bridge or the channel coming up), and a
+// failure is logged rather than swallowed so a stuck sweep is discoverable.
+await gcContextWorktrees().catch((error) => console.error("[kvasir] worktree sweep failed:", error));

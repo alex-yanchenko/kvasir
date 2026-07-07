@@ -242,12 +242,15 @@ describe("/generate", () => {
     expect(deps.pushEvent.mock.lastCall![0]).toContain("under ~/code");
   });
 
-  it("heavy forbids shallow fetches of the user's clone and mandates worktree cleanup", async () => {
+  it("heavy routes all git ops through the worktree tools — no raw git in the prompt", async () => {
     await call("/generate", { method: "POST", body: { pr: PR, reposRoot: "/home/me/src" } });
     const content = deps.pushEvent.mock.lastCall![0];
-    expect(content).toMatch(/never[^.]*--depth/i);
-    expect(content).toContain("git blame");
-    expect(content).toContain("ALWAYS remove the worktree");
+    expect(content).toContain("prepare_context_worktree");
+    expect(content).toContain("ALWAYS call remove_context_worktree");
+    expect(content).toMatch(/do NOT run git fetch/i);
+    // No code-fenced git command of any wording — the prompt names tools, never commands
+    // to run (the prose prohibition above legitimately mentions "git fetch" unfenced).
+    expect(content).not.toMatch(/`git[^`]*`/);
   });
 
   it("strips newline injection out of the repos root", async () => {
