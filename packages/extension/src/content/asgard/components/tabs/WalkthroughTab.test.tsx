@@ -12,7 +12,7 @@ vi.mock("../../mermaidLoader", () => ({
 import { chatStore } from "../../chat";
 import { launcherStore } from "../../launcher";
 import { pairingStore } from "../../pairing";
-import { PANEL_TABS, panelStore, state } from "../../store";
+import { PANEL_TABS, panelStore, state, touch } from "../../store";
 import { tourStore } from "../../tour";
 import { WalkthroughTab } from "./WalkthroughTab";
 
@@ -43,6 +43,7 @@ beforeEach(() => {
   state.tourState = { step: 0, pos: null, size: null };
   state.panel = { open: true, tab: PANEL_TABS.WALKTHROUGH, pos: null, size: null };
   pairingStore.reset(); // "unknown" → backend actions enabled unless a test sets unpaired
+  vi.spyOn(launcherStore, "specLoading").mockReturnValue(false); // probes are done unless a test says otherwise
   if (tourStore.open()) tourStore.close();
   tourStore.setDetailOpen(false); // detail state is module-level now — reset per test
   panelStore.setSidebarOpen(false); // sidebar state lives in panelStore — reset per test
@@ -50,14 +51,46 @@ beforeEach(() => {
 });
 afterEach(() => {
   cleanup();
+  vi.restoreAllMocks(); // drop per-test launcherStore/pairingStore spies
+});
+
+describe("generate errors", () => {
+  it("a failed generate shows the inline error; Retry re-issues, Dismiss clears", () => {
+    vi.spyOn(launcherStore, "genError").mockReturnValue(
+      "Can't reach the channel — is your Claude session running?",
+    );
+    const retry = vi.spyOn(launcherStore, "retryGenerate").mockResolvedValue();
+    const dismiss = vi.spyOn(launcherStore, "dismissGenError").mockImplementation(() => {});
+    render(<WalkthroughTab />);
+    expect(screen.getByText(/Can't reach the channel/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(retry).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+    expect(dismiss).toHaveBeenCalledTimes(1);
+  });
+
+  it("the error renders above an existing walkthrough too (a failed regenerate)", () => {
+    state.spec = mkSpec();
+    vi.spyOn(launcherStore, "genError").mockReturnValue("This took too long — check your terminal.");
+    render(<WalkthroughTab />);
+    expect(screen.getByText(/took too long/)).toBeTruthy();
+    expect(screen.getByText("First step")).toBeTruthy(); // the steps stay usable
+  });
 });
 
 describe("WalkthroughTab", () => {
-  it("empty state runs a review", () => {
+  it("empty state runs a walkthrough", () => {
     const gen = vi.spyOn(launcherStore, "requestGenerate").mockResolvedValue();
     render(<WalkthroughTab />);
-    fireEvent.click(screen.getByRole("button", { name: "Run review" }));
+    fireEvent.click(screen.getByRole("button", { name: "Run walkthrough" }));
     expect(gen).toHaveBeenCalledWith("new");
+  });
+
+  it("shows a checking state, not the empty state, while the spec probe is in flight", () => {
+    vi.mocked(launcherStore.specLoading).mockReturnValue(true);
+    render(<WalkthroughTab />);
+    expect(screen.getByText("Checking this PR for a walkthrough…")).toBeTruthy();
+    expect(screen.queryByText("No walkthrough yet for this PR.")).toBeNull();
   });
 
   it("disables backend actions while unpaired", () => {
@@ -76,7 +109,7 @@ describe("WalkthroughTab", () => {
     vi.spyOn(launcherStore, "genStartAt").mockReturnValue(Date.now() - 5000);
     const dismiss = vi.spyOn(launcherStore, "dismissGen").mockImplementation(() => {});
     render(<WalkthroughTab />);
-    expect(screen.getByText("Generating review…")).toBeTruthy();
+    expect(screen.getByText("Generating walkthrough…")).toBeTruthy();
     expect(screen.getByText(/^0:05/)).toBeTruthy();
     // the 1s interval fires its updater, re-rendering with the next elapsed value
     act(() => {
@@ -211,9 +244,9 @@ describe("WalkthroughTab", () => {
     state.spec = mkSpec();
     render(<WalkthroughTab />);
     fireEvent.click(screen.getByRole("button", { name: /Regenerate|Update/ }));
-    expect(screen.getByText(/Regenerate this review|New commits/)).toBeTruthy();
+    expect(screen.getByText(/Regenerate this walkthrough|New commits/)).toBeTruthy();
     fireEvent.click(screen.getByText("Cancel"));
-    expect(screen.queryByText(/Regenerate this review|New commits/)).toBeNull();
+    expect(screen.queryByText(/Regenerate this walkthrough|New commits/)).toBeNull();
   });
 
   it("re-scroll redraws the current step", () => {
@@ -225,18 +258,18 @@ describe("WalkthroughTab", () => {
     expect(goto).toHaveBeenCalledWith(0);
   });
 
-  it("shows the changes-since-review button only when there are new commits, and it opens the range diff", () => {
+  it("shows the changes-since button only when there are new commits, and it opens the range diff", () => {
     state.spec = mkSpec();
     const open = vi.spyOn(launcherStore, "openChangesSinceReview").mockImplementation(() => {});
 
     vi.spyOn(launcherStore, "newCommits").mockReturnValue(false);
     const view = render(<WalkthroughTab />);
-    expect(screen.queryByLabelText("View changes since this review")).toBeNull();
+    expect(screen.queryByLabelText("View changes since this walkthrough")).toBeNull();
     view.unmount();
 
     vi.spyOn(launcherStore, "newCommits").mockReturnValue(true);
     render(<WalkthroughTab />);
-    fireEvent.click(screen.getByLabelText("View changes since this review"));
+    fireEvent.click(screen.getByLabelText("View changes since this walkthrough"));
     expect(open).toHaveBeenCalledTimes(1);
   });
 
@@ -281,6 +314,24 @@ describe("WalkthroughTab", () => {
     expect(mount.textContent).toContain("Second step"); // screen can't see into the shadow
     cleanup();
     host.remove();
+  });
+
+  it("re-syncs the tour when the live probe swaps in a different spec under a mounted tab", () => {
+    state.spec = mkSpec(); // the cached spec renders first (cache-first load)
+    render(<WalkthroughTab />);
+    fireEvent.click(screen.getByLabelText("Next step")); // stepIndex → 1
+    const fresh: WalkthroughSpec = {
+      ...mkSpec(),
+      generatedAt: "2026-09-09T00:00:00Z",
+      steps: [{ id: "n1", title: "Only step", body: "b", file: "f.ts", anchor: "d9" }],
+    };
+    act(() => {
+      state.spec = fresh; // the live probe lands a regenerated, shorter spec
+      touch();
+    });
+    expect(screen.getByText("Only step")).toBeTruthy(); // not the empty state
+    expect(screen.queryByText("No walkthrough yet for this PR.")).toBeNull();
+    expect(tourStore.stepIndex()).toBe(0); // re-clamped against the new spec
   });
 
   it("shows the Update label when there are new commits", () => {

@@ -1,7 +1,6 @@
 // The walkthrough tour machine — Asgard-owned. The card is a React component;
 // this holds the step state, the page commands (highlight + grip context), the
-// per-PR persistence, and the "ask about this step" payload. Ported verbatim
-// from the vanilla tour.
+// per-PR persistence, and the "ask about this step" payload.
 import type { WalkthroughStep } from "@kvasir/runes/spec";
 import { bifrost } from "../bifrost";
 import { onFilesTab, prUrl, tourKey } from "../keys";
@@ -27,13 +26,6 @@ let detailOpen = false;
 // detailOpen (survives a tab switch). The sidebar's open state + width are panel
 // geometry and live in panelStore (so this machine's close() can't collapse them).
 let diagramOpen = false;
-// Steps the user has actually opened this walkthrough (by id) — drives the outline's
-// "visited" dots. Reset when the spec is regenerated (generatedAt changes), tracked
-// here rather than recomputed from stepIndex so a visited mark persists after you
-// navigate back.
-let visited = new Set<string>();
-let visitedStamp = "";
-
 const clamp = (index: number, length: number): number => Math.min(Math.max(index, 0), length - 1);
 
 export const tourStore = {
@@ -52,7 +44,13 @@ export const tourStore = {
     diagramOpen = value;
     touch();
   },
-  isVisited: (stepId: string): boolean => visited.has(stepId),
+  // The outline's "visited" dots live in state.tourState (persisted per PR, so a
+  // reload keeps them). The stamp guard makes the reader authoritative: marks
+  // earned on a different spec (a regenerate that hasn't hit goto() yet, or a
+  // restored stale pair) never render as visited.
+  isVisited: (stepId: string): boolean =>
+    state.tourState.visitedStamp === state.spec?.generatedAt &&
+    (state.tourState.visited ?? []).includes(stepId),
 
   /** Whether this spec carries an overview (and so has a "step 0"). */
   hasOverview: (): boolean => (state.spec ? !!state.spec.overview : false),
@@ -105,17 +103,15 @@ export const tourStore = {
     if (!state.spec) return;
     atOverview = false; // navigating to a real step always leaves the overview
     stepIndex = clamp(index, state.spec.steps.length);
-    // remember where we are (and that we're off the overview)
-    state.tourState = { ...state.tourState, step: stepIndex, overview: false };
-    storeSet(tourKey(prUrl()), state.tourState);
     const s = state.spec.steps[stepIndex];
+    // Visited dots: a regenerated spec (new generatedAt) starts fresh; landing on a
+    // step marks it. Remember where we are (and that we're off the overview).
+    const stamp = state.spec.generatedAt;
+    const prior = stamp === state.tourState.visitedStamp ? (state.tourState.visited ?? []) : [];
+    const visited = s && !prior.includes(s.id) ? [...prior, s.id] : prior;
+    state.tourState = { ...state.tourState, step: stepIndex, overview: false, visited, visitedStamp: stamp };
+    storeSet(tourKey(prUrl()), state.tourState);
     if (!s) return; // empty spec / out-of-range — nothing to highlight
-    // Reset the visited set when the walkthrough is regenerated, then mark this step.
-    if (state.spec.generatedAt !== visitedStamp) {
-      visited = new Set<string>();
-      visitedStamp = state.spec.generatedAt;
-    }
-    visited.add(s.id);
     state.activeStep = s; // current step → available as chat context
     bifrost.send("grip:context", { hasActiveStep: true });
     bifrost.send("highlight:step", {

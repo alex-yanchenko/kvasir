@@ -8,7 +8,7 @@
       "project": "src/**"
     },
     "packages/mimir": {
-      "entry": ["src/channel.ts", "scripts/buildReview.ts", "src/**/*.buntest.ts"],
+      "entry": ["scripts/buildReview.ts", "src/**/*.buntest.ts"],
       "project": "src/**"
     },
     "packages/runes": { "project": "src/**" }

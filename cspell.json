@@ -41,6 +41,7 @@
     "noopener",
     "noreferrer",
     "noselect",
+    "navigatesuccess",
     "pointerdown",
     "pollable",
     "preflights",
@@ -88,6 +89,7 @@
     "worktrees",
     "pids",
     "pipefail",
-    "esac"
+    "esac",
+    "yanchenko"
   ]
 }

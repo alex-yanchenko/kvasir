@@ -1,5 +1,5 @@
-// Observe a panel's size and persist it, debounced — the React port of the
-// vanilla ResizeObserver + 300ms timer pattern.
+// Observe a panel's size and persist it — a ResizeObserver debounced by a
+// 300ms timer, so mid-drag intermediate sizes never hit storage.
 import { useEffect, useRef } from "react";
 import type { RefObject } from "react";
 

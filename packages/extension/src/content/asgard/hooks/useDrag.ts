@@ -1,7 +1,7 @@
 // Drag a panel by a handle: mouse events + direct style writes through a ref —
 // zero re-renders during the drag; one onEnd with the final position for the
-// store to persist. (Mouse, not pointer, events: identical to the vanilla
-// behavior and constructible in jsdom.)
+// store to persist. (Mouse, not pointer, events — constructible in jsdom, so
+// the drag is testable.)
 import type { MouseEvent as ReactMouseEvent, RefObject } from "react";
 
 interface DragOptions {

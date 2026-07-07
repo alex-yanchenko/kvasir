@@ -10,6 +10,7 @@ import { prKey } from "@kvasir/runes/prUrl";
 import { api } from "../api";
 import { HISTORY_KEY, isGithubHttpsUrl, reviewKey, SEEN_KEY, specKey } from "../keys";
 import { storeGet, storeRemove, storeSet } from "../muninn";
+import { friendlyError } from "./friendly";
 import { state, touch } from "./store";
 
 /** Drift of one entry vs what the FE last caught up to. */
@@ -40,6 +41,11 @@ const writeSeen = (next: Record<string, number>): void => {
   storeSet(SEEN_KEY, next);
 };
 
+/** Why the last backend write (delete) failed — rendered above the list until
+ * dismissed or a later write succeeds. Module-level like the machine's other
+ * ephemera; never persisted. */
+let lastError: string | null = null;
+
 const matchesTerm = (entry: EntrySummary, term: string): boolean =>
   `${entry.title} ${entry.source ?? ""} ${entry.repos.join(" ")}`.toLowerCase().includes(term);
 
@@ -68,6 +74,11 @@ const invalidateActiveGuide = (live: readonly EntrySummary[]): void => {
 export const historyStore = {
   /** The loaded list, or null before the first load completes. */
   all: (): EntrySummary[] | null => state.history,
+  error: (): string | null => lastError,
+  dismissError(): void {
+    lastError = null;
+    touch();
+  },
   query: (): string => state.historyQuery,
   setQuery(value: string): void {
     state.historyQuery = value;
@@ -158,7 +169,12 @@ export const historyStore = {
   async remove(id: string): Promise<void> {
     const entry = (state.history ?? []).find((row) => row.id === id);
     const response = await api(`/entry?id=${encodeURIComponent(id)}`, "DELETE");
-    if (!response.ok) return;
+    if (!response.ok) {
+      lastError = friendlyError(response, "the delete didn't go through — try again");
+      touch();
+      return;
+    }
+    lastError = null;
     state.history = (state.history ?? []).filter((row) => row.id !== id);
     storeSet(HISTORY_KEY, state.history);
     if (entry) clearEntryCache(entry);

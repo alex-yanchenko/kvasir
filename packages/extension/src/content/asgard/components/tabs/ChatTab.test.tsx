@@ -22,7 +22,7 @@ vi.mock("react", async () => {
   };
 });
 
-vi.mock("../../../api", () => ({ api: vi.fn() }));
+vi.mock(import("../../../api"), async (importOriginal) => ({ ...(await importOriginal()), api: vi.fn() }));
 vi.mock("../../../muninn", () => ({ storeGet: vi.fn(), storeSet: vi.fn(), storeRemove: vi.fn() }));
 
 import { api } from "../../../api";
@@ -32,7 +32,7 @@ import { chatStore } from "../../chat";
 import { pairingStore } from "../../pairing";
 import { PANEL_TABS, state } from "../../store";
 import type { ChatSession } from "../../types";
-import { ChatTab, closeFences, linkifyReferences, REF_RE } from "./ChatTab";
+import { ChatTab, closeFences, linkifyReferences, REF_RE, SUGGEST_SLOW_MS } from "./ChatTab";
 
 const PR = "https://github.com/acme/widget-api/pull/7";
 
@@ -78,6 +78,7 @@ afterEach(() => {
   document.getElementById("kvasir-root")?.remove();
   offs.forEach((off) => off());
   vi.unstubAllGlobals();
+  vi.restoreAllMocks(); // drop per-test chatStore/tourStore spies even when an assertion throws
 });
 
 const openSession = (sess: ChatSession) => {
@@ -518,6 +519,44 @@ describe("suggestions + input", () => {
     expect(document.querySelector(".kvasir-srow")).toBeNull();
     openSession(mkSession("a", { suggestions: [] })); // selection chat, no suggestions
     expect(document.querySelector(".kvasir-ai")?.className).not.toContain("kvasir-has");
+  });
+
+  it("a stalled suggest swaps the shimmer for a still-waiting note instead of shimmering forever", async () => {
+    vi.useFakeTimers();
+    state.preloadQuestions = true;
+    vi.mocked(api).mockImplementation((path: string) =>
+      path === "/suggest"
+        ? new Promise(() => {}) // never resolves — the session is stuck
+        : Promise.resolve({ ok: true, data: { id: "q" } }),
+    );
+    render(<ChatTab />);
+    openSession(mkSession("a", { suggestions: null }));
+    expect(document.querySelector(".kvasir-skel")).toBeTruthy();
+    // 30s is a normal slow /suggest round-trip (the backend itself waits 120s) —
+    // the note is for genuinely stuck sessions, so it must not have fired yet.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30_000);
+    });
+    expect(document.querySelector(".kvasir-skel")).toBeTruthy();
+    expect(screen.queryByText(/Suggestions are taking a while/)).toBeNull();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(SUGGEST_SLOW_MS - 30_000);
+    });
+    expect(document.querySelector(".kvasir-skel")).toBeNull(); // shimmer ends
+    expect(screen.getByText(/Suggestions are taking a while/)).toBeTruthy();
+    vi.useRealTimers();
+  });
+
+  it("shows the citation-miss note only in the session that raised it", () => {
+    vi.spyOn(chatStore, "refNotice").mockReturnValue({
+      key: "a",
+      text: "src/gone.ts isn't in this PR's diff",
+    });
+    render(<ChatTab />);
+    openSession(mkSession("a"));
+    expect(screen.getByText(/src\/gone\.ts isn't in this PR's diff/)).toBeTruthy();
+    openSession(mkSession("b")); // a different session must not inherit the note
+    expect(screen.queryByText(/isn't in this PR's diff/)).toBeNull();
   });
 
   it("Enter sends, ⌘+Enter inserts a newline, Shift+Enter is native, empty is a no-op, input autosizes", async () => {

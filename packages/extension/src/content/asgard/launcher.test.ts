@@ -2,10 +2,10 @@
 import type { WalkthroughSpec } from "@kvasir/runes/spec";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
-vi.mock("../api", () => ({ api: vi.fn() }));
+vi.mock(import("../api"), async (importOriginal) => ({ ...(await importOriginal()), api: vi.fn() }));
 vi.mock("../muninn", () => ({ storeGet: vi.fn(), storeSet: vi.fn(), storeRemove: vi.fn() }));
 
-import { api } from "../api";
+import { api, type BridgeResponse } from "../api";
 import { storeGet, storeRemove, storeSet } from "../muninn";
 import { GEN_MAX_TRIES, GEN_POLL_INTERVAL_MS, fmtElapsed, launcherStore, specSig } from "./launcher";
 import { state } from "./store";
@@ -127,6 +127,48 @@ describe("requestGenerate → poll → spec lands", () => {
     expect(launcherStore.generating()).toBe(false);
     expect(state.spec).toEqual(unchanged);
     expect(vi.mocked(storeRemove)).toHaveBeenCalledWith(`kvasir:gen:${PR}`);
+    // the run-out isn't silent: the tab names the state instead of reverting to Empty
+    expect(launcherStore.genError()).toMatch(/took too long/);
+  });
+
+  it("a failed generate request surfaces an inline error; retry re-issues the same request", async () => {
+    vi.mocked(api).mockResolvedValue({ ok: false, error: "failed to fetch" });
+    await launcherStore.requestGenerate("incremental", "abc1234");
+    expect(launcherStore.generating()).toBe(false);
+    expect(launcherStore.genError()).toMatch(/Can't reach the channel/);
+
+    const fresh = mkSpec({ generatedAt: "2026-04-04T00:00:00Z" });
+    vi.mocked(api).mockImplementation(async (path: string) =>
+      path.startsWith("/walkthrough") ? { ok: true, data: fresh } : { ok: true },
+    );
+    await launcherStore.retryGenerate(); // re-issues with the same mode + sinceSha
+    expect(vi.mocked(api)).toHaveBeenLastCalledWith(
+      "/generate",
+      "POST",
+      expect.objectContaining({ mode: "incremental", sinceSha: "abc1234" }),
+    );
+    expect(launcherStore.genError()).toBeNull(); // a fresh request clears the error
+    await vi.advanceTimersByTimeAsync(GEN_POLL_INTERVAL_MS); // drain the poll
+  });
+
+  it("a 401 generate failure leaves the error to the pair banner (no duplicate message)", async () => {
+    vi.mocked(api).mockResolvedValue({ ok: false, status: 401 });
+    await launcherStore.requestGenerate("new");
+    expect(launcherStore.generating()).toBe(false);
+    expect(launcherStore.genError()).toBeNull();
+  });
+
+  it("dismissGenError clears the message; a PR switch clears it too", async () => {
+    vi.mocked(api).mockResolvedValue({ ok: false, error: "failed to fetch" });
+    await launcherStore.requestGenerate("new");
+    expect(launcherStore.genError()).not.toBeNull();
+    launcherStore.dismissGenError();
+    expect(launcherStore.genError()).toBeNull();
+
+    await launcherStore.requestGenerate("new");
+    expect(launcherStore.genError()).not.toBeNull();
+    launcherStore.resetForPr();
+    expect(launcherStore.genError()).toBeNull();
   });
 
   it("does nothing off a PR page", async () => {
@@ -210,6 +252,85 @@ describe("refresh", () => {
     vi.mocked(storeGet).mockResolvedValue(undefined);
     await launcherStore.refresh();
     expect(state.spec).toBeNull();
+  });
+
+  it("renders the cached walkthrough before the live probe answers, then swaps in the live one", async () => {
+    const cached = mkSpec();
+    const fresh = mkSpec({ generatedAt: "2026-03-03T00:00:00Z" });
+    vi.mocked(storeGet).mockImplementation(async (k: string) =>
+      k.startsWith("kvasir:spec:") ? cached : undefined,
+    );
+    let resolveLive!: (r: BridgeResponse) => void;
+    vi.mocked(api).mockImplementation((path: string) =>
+      path.startsWith("/walkthrough")
+        ? new Promise((res) => {
+            resolveLive = res;
+          })
+        : Promise.resolve({ ok: false }),
+    );
+    const refreshing = launcherStore.refresh();
+    await vi.advanceTimersByTimeAsync(0); // flush the cache read; the live probe stays pending
+    expect(state.spec).toEqual(cached);
+    expect(launcherStore.specLoading()).toBe(true);
+    resolveLive({ ok: true, data: fresh });
+    await refreshing;
+    expect(state.spec).toEqual(fresh);
+    expect(launcherStore.specLoading()).toBe(false);
+    expect(vi.mocked(storeSet)).toHaveBeenCalledWith(`kvasir:spec:${PR}`, fresh);
+  });
+
+  it("a same-PR refresh keeps what's on screen until the live answer lands", async () => {
+    const onScreen = mkSpec({ generatedAt: "2026-05-05T00:00:00Z" });
+    const staleCached = mkSpec({ generatedAt: "2020-01-01T00:00:00Z" });
+    state.spec = onScreen;
+    vi.mocked(storeGet).mockImplementation(async (k: string) =>
+      k.startsWith("kvasir:spec:") ? staleCached : undefined,
+    );
+    let resolveLive!: (r: BridgeResponse) => void;
+    vi.mocked(api).mockImplementation((path: string) =>
+      path.startsWith("/walkthrough")
+        ? new Promise((res) => {
+            resolveLive = res;
+          })
+        : Promise.resolve({ ok: false }),
+    );
+    const refreshing = launcherStore.refresh();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(state.spec).toEqual(onScreen); // the cache never clobbers a rendered spec mid-probe
+    resolveLive({ ok: false });
+    await refreshing;
+    expect(state.spec).toEqual(staleCached); // live miss → cache wins at the end, as before
+  });
+
+  it("a PR switch during the cache read skips the instant render for the old PR", async () => {
+    let resolveStore!: (v: unknown) => void;
+    vi.mocked(storeGet).mockReturnValueOnce(
+      new Promise((res) => {
+        resolveStore = res;
+      }),
+    );
+    const refreshing = launcherStore.refresh(); // captured pr = PR
+    Object.defineProperty(window, "location", {
+      value: new URL("https://github.com/acme/widget-api/pull/999/files"),
+      writable: true,
+    });
+    resolveStore(mkSpec()); // PR 7's cache resolves after the SPA switch
+    await refreshing;
+    expect(state.spec).toBeNull(); // the stale PR's cache never flashed onto the new PR
+  });
+
+  it("specLoading turns false after the probe even when nothing is found", async () => {
+    expect(launcherStore.specLoading()).toBe(true); // probe not yet run for this PR
+    await launcherStore.refresh();
+    expect(state.spec).toBeNull();
+    expect(launcherStore.specLoading()).toBe(false);
+  });
+
+  it("resetForPr re-arms specLoading for the next PR", async () => {
+    await launcherStore.refresh();
+    expect(launcherStore.specLoading()).toBe(false);
+    launcherStore.resetForPr();
+    expect(launcherStore.specLoading()).toBe(true);
   });
 
   it("retires a prior-shape cached spec on the client — one that fails validation drops to null", async () => {

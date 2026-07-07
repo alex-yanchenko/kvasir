@@ -6,12 +6,13 @@
 // State (which review, which step) is re-derived on every page load from ?kvasir +
 // stored step, because that navigation is a full page load that re-runs boot.
 import { isReview, type Review, type ReviewStep, stepBlobUrl } from "@kvasir/runes/review";
-import { api } from "../api";
+import { api, isUnreachable } from "../api";
 import { reviewIdFromUrl, reviewKey, reviewSessionKey } from "../keys";
 import { storeGet, storeSet } from "../muninn";
 import { chatStore } from "./chat";
 import { awaitSoftNav, softNavigate } from "./lib/nav";
 import { stripHtml } from "./lib/strip";
+import { pairingStore } from "./pairing";
 import { parseReviewCache } from "./persisted";
 import { panelStore, PANEL_TABS, settingsStore, state, touch } from "./store";
 
@@ -73,6 +74,12 @@ export const reviewStore = {
     if (state.panel.tab !== PANEL_TABS.HISTORY) state.panel.tab = PANEL_TABS.WALKTHROUGH;
   },
   steps: (): ReviewStep[] => state.review?.steps ?? [],
+  /** Why a ?kvasir link produced nothing (see state.reviewMissing), or null. */
+  missing: (): "notfound" | null => state.reviewMissing,
+  dismissMissing(): void {
+    state.reviewMissing = null;
+    touch();
+  },
   stepIndex: (): number => state.reviewStep,
   stepCount: (): number => state.review?.steps.length ?? 0,
   step: (): ReviewStep | null => state.review?.steps[state.reviewStep] ?? null,
@@ -91,8 +98,18 @@ export const reviewStore = {
     // restarted) leaves the cached walk in place.
     const r = await api(`/review?id=${encodeURIComponent(id)}`);
     if (r.ok && isReview(r.data)) {
+      state.reviewMissing = null;
       applyReview(r.data);
       storeSet(reviewKey(id), { step: state.reviewStep, review: r.data });
+    } else if (!state.review) {
+      // Neither the cache nor the mailbox produced a walk — the link must not die
+      // silently. An unreachable channel is the connection banner's story (recheck
+      // tells "start the channel" apart from "refresh the page"), so just refresh
+      // it; anything the channel answered (404, invalid payload) means this machine
+      // doesn't have the walkthrough — the link is machine-local, say so.
+      if (isUnreachable(r)) void pairingStore.recheck();
+      else state.reviewMissing = "notfound";
+      panelStore.open(PANEL_TABS.WALKTHROUGH);
     }
     touch();
   },

@@ -2,13 +2,13 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 vi.mock("../muninn", () => ({ storeGet: vi.fn(), storeSet: vi.fn(), storeRemove: vi.fn() }));
-vi.mock("../api", () => ({ api: vi.fn() }));
+vi.mock(import("../api"), async (importOriginal) => ({ ...(await importOriginal()), api: vi.fn() }));
 
 import { launcherStore } from "../asgard/launcher";
 import { state } from "../asgard/store";
 import { bifrost } from "../bifrost";
 import { storeGet } from "../muninn";
-import { applyTheme, loadPersisted, watchUrl } from "./watch";
+import { applyTheme, loadPersisted, waitForRelevantPage, watchUrl } from "./watch";
 
 const PR = "https://github.com/acme/widget-api/pull/7";
 const OTHER = "https://github.com/acme/widget-api/pull/8";
@@ -49,6 +49,8 @@ describe("loadPersisted", () => {
       overview: false,
       pos: { left: 1, top: 2 },
       size: { w: 3, h: 4 },
+      visited: [],
+      visitedStamp: "",
     });
   });
 
@@ -57,7 +59,31 @@ describe("loadPersisted", () => {
       key.startsWith("kvasir:chats:") ? [] : { step: 3, overview: true, pos: null, size: null },
     );
     await loadPersisted();
-    expect(state.tourState).toEqual({ step: 3, overview: true, pos: null, size: null });
+    expect(state.tourState).toEqual({
+      step: 3,
+      overview: true,
+      pos: null,
+      size: null,
+      visited: [],
+      visitedStamp: "",
+    });
+  });
+
+  it("restores the visited dots with the tour state", async () => {
+    vi.mocked(storeGet).mockImplementation(async (key: string) =>
+      key.startsWith("kvasir:chats:")
+        ? []
+        : { step: 1, pos: null, size: null, visited: ["s2"], visitedStamp: "g1" },
+    );
+    await loadPersisted();
+    expect(state.tourState).toEqual({
+      step: 1,
+      overview: false,
+      pos: null,
+      size: null,
+      visited: ["s2"],
+      visitedStamp: "g1",
+    });
   });
 
   it("keeps in-memory chats, tolerates empty storage, defaults sparse tour fields", async () => {
@@ -68,7 +94,14 @@ describe("loadPersisted", () => {
     );
     await loadPersisted();
     expect(state.chatHistory).toEqual(live);
-    expect(state.tourState).toEqual({ step: 0, overview: false, pos: null, size: null });
+    expect(state.tourState).toEqual({
+      step: 0,
+      overview: false,
+      pos: null,
+      size: null,
+      visited: [],
+      visitedStamp: "",
+    });
   });
 
   it("does not touch panel state off a PR page (panel is per-tab, hydrated at boot)", async () => {
@@ -91,7 +124,14 @@ describe("loadPersisted", () => {
     vi.mocked(storeGet).mockResolvedValue(null);
     await loadPersisted();
     expect(state.chatHistory).toEqual([]);
-    expect(state.tourState).toEqual({ step: 0, overview: false, pos: null, size: null });
+    expect(state.tourState).toEqual({
+      step: 0,
+      overview: false,
+      pos: null,
+      size: null,
+      visited: [],
+      visitedStamp: "",
+    });
   });
 });
 
@@ -139,6 +179,36 @@ describe("watchUrl", () => {
     expect(vi.mocked(storeGet)).toHaveBeenCalledWith(`kvasir:chats:${OTHER}`);
   });
 
+  it("reacts to a navigatesuccess event immediately — no poll-tick wait", () => {
+    const nav = new EventTarget();
+    vi.stubGlobal("navigation", nav);
+    const refresh = vi.spyOn(launcherStore, "refresh").mockResolvedValue();
+    stop = watchUrl(1500);
+    setUrl(`${PR}/commits`);
+    nav.dispatchEvent(new Event("navigatesuccess"));
+    expect(refresh).toHaveBeenCalledTimes(1); // fired without advancing any timer
+  });
+
+  it("the stop function also detaches the navigation listener", () => {
+    const nav = new EventTarget();
+    vi.stubGlobal("navigation", nav);
+    const refresh = vi.spyOn(launcherStore, "refresh").mockResolvedValue();
+    const stopNow = watchUrl(1500);
+    stopNow();
+    setUrl(`${PR}/commits`);
+    nav.dispatchEvent(new Event("navigatesuccess"));
+    expect(refresh).not.toHaveBeenCalled();
+  });
+
+  it("ignores a non-EventTarget window.navigation (falls back to the poll)", () => {
+    vi.stubGlobal("navigation", {});
+    const refresh = vi.spyOn(launcherStore, "refresh").mockResolvedValue();
+    stop = watchUrl(1500);
+    setUrl(`${PR}/commits`);
+    vi.advanceTimersByTime(1500);
+    expect(refresh).toHaveBeenCalledTimes(1);
+  });
+
   it("stops itself when the extension is reloaded out from under the page", () => {
     const refresh = vi.spyOn(launcherStore, "refresh").mockResolvedValue();
     stop = watchUrl(1500);
@@ -155,5 +225,62 @@ describe("watchUrl", () => {
     setUrl(`${OTHER}/files`);
     vi.advanceTimersByTime(3000);
     expect(refresh).not.toHaveBeenCalled();
+  });
+});
+
+describe("waitForRelevantPage", () => {
+  const BLOB = "https://github.com/acme/widget-api/blob/main/src/a.ts";
+
+  it("fires onEnter the moment a navigatesuccess lands on a PR, then disarms", () => {
+    const nav = new EventTarget();
+    vi.stubGlobal("navigation", nav);
+    setUrl(BLOB);
+    const enter = vi.fn();
+    stop = waitForRelevantPage(enter);
+    nav.dispatchEvent(new Event("navigatesuccess")); // still on the blob page — no fire
+    expect(enter).not.toHaveBeenCalled();
+    setUrl(`${PR}/files`);
+    nav.dispatchEvent(new Event("navigatesuccess"));
+    expect(enter).toHaveBeenCalledTimes(1);
+    nav.dispatchEvent(new Event("navigatesuccess")); // disarmed — no re-fire
+    vi.advanceTimersByTime(60_000);
+    expect(enter).toHaveBeenCalledTimes(1);
+  });
+
+  it("falls back to a poll that backs off instead of ticking at 500ms forever", () => {
+    setUrl(BLOB);
+    const enter = vi.fn();
+    stop = waitForRelevantPage(enter, 500);
+    vi.advanceTimersByTime(500 + 1000 + 2000); // three misses — delays double
+    expect(enter).not.toHaveBeenCalled();
+    setUrl(`${PR}/files`);
+    vi.advanceTimersByTime(3999); // the next tick is 4s out, not another 500ms
+    expect(enter).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
+    expect(enter).toHaveBeenCalledTimes(1);
+    vi.advanceTimersByTime(60_000); // disarmed after firing
+    expect(enter).toHaveBeenCalledTimes(1);
+  });
+
+  it("a ?kvasir review link counts as a relevant page", () => {
+    setUrl(BLOB);
+    const enter = vi.fn();
+    stop = waitForRelevantPage(enter, 500);
+    setUrl(`${BLOB}?kvasir=rev-1`);
+    vi.advanceTimersByTime(500);
+    expect(enter).toHaveBeenCalledTimes(1);
+  });
+
+  it("the stop function cancels both the poll and the navigation listener", () => {
+    const nav = new EventTarget();
+    vi.stubGlobal("navigation", nav);
+    setUrl(BLOB);
+    const enter = vi.fn();
+    const stopNow = waitForRelevantPage(enter, 500);
+    stopNow();
+    setUrl(`${PR}/files`);
+    nav.dispatchEvent(new Event("navigatesuccess"));
+    vi.advanceTimersByTime(60_000);
+    expect(enter).not.toHaveBeenCalled();
   });
 });

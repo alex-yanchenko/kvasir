@@ -22,6 +22,11 @@ export interface TourState {
   overview?: boolean;
   pos: { left: number; top: number } | null;
   size: { w: number; h: number } | null;
+  /** Step ids the user has opened — the outline's "visited" dots. Rides the
+   * persisted tour state so a reload keeps them; `visitedStamp` pins them to the
+   * spec's generatedAt, so a regenerated walkthrough starts with fresh dots. */
+  visited?: string[];
+  visitedStamp?: string;
 }
 
 /** The consolidated panel's tabs (the redesign IA). History lists the durable
@@ -61,10 +66,15 @@ export const state: {
    * navigation that follows — drives a loading state so the nav doesn't feel like
    * an unexplained flash. Reset on every fresh page load. */
   reviewNavigating: boolean;
+  /** Why a ?kvasir link produced no review: "notfound" = the channel answered but
+   * has no such walkthrough (links are machine-local). An unreachable channel is
+   * NOT tracked here — the connection banner (pairing phase) owns that message.
+   * Null when nothing is missing (including cached renders). */
+  reviewMissing: "notfound" | null;
   /** Review nav: true = advance the panel only once the page lands (loading in
    * between); false = advance immediately. Default true. */
   reviewSync: boolean;
-  /** Review depth: "heavy" has the session check out the PR's local clone (a
+  /** Walkthrough depth: "heavy" has the session check out the PR's local clone (a
    * worktree at the PR head) and read the surrounding code for correctness;
    * "light" authors from the PR diff alone (gh only). Default heavy. */
   reviewMode: string; // "heavy" | "light"
@@ -97,6 +107,7 @@ export const state: {
   review: null,
   reviewStep: 0,
   reviewNavigating: false,
+  reviewMissing: null,
   reviewSync: localStorage.getItem("kvasirReviewSync") !== "false", // default on
   reviewMode: localStorage.getItem("kvasirReviewMode") || "heavy", // default heavy
   reviewReposRoot: localStorage.getItem("kvasirReviewReposRoot") || "~/code",

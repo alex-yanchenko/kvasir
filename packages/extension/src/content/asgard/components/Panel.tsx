@@ -10,8 +10,10 @@ import { historyStore } from "../history";
 import { useDrag } from "../hooks/useDrag";
 import { useResizePersist } from "../hooks/useResizePersist";
 import { useScrollLock } from "../hooks/useScrollLock";
+import { useShadowAwareKeydown } from "../hooks/useShadowAwareKeydown";
 import { launcherStore } from "../launcher";
 import { pairingStore } from "../pairing";
+import type { PairingPhase } from "../pairing";
 import { reviewStore } from "../review";
 import { getSnapshot, isPanelTab, PANEL_TABS, panelStore, subscribe, type PanelTab } from "../store";
 import { tourStore } from "../tour";
@@ -33,29 +35,97 @@ const TAB_LABELS: Array<{ value: PanelTab; label: string }> = [
 ];
 
 /** Shown on every tab (except Settings, which has its own Connection block)
- * whenever the extension isn't paired — so ANY 401 from the bridge (regenerate,
- * chat, suggestions, head) surfaces a way to pair, not just the no-spec empty
- * state. The 401 handlers flip pairingStore to unpaired; this reacts to it. */
+ * whenever the bridge can't be used — the channel itself is down, or the token
+ * is absent/stale — so ANY 401 from the bridge (regenerate, chat, suggestions,
+ * head) surfaces a way to pair, and a dead channel says "start it" instead of
+ * offering a Pair that can't succeed. */
+function bannerBody(p: PairingPhase): JSX.Element {
+  if (p.phase === "waiting") {
+    return (
+      <span className="text-muted-foreground">
+        Confirm code <b className="font-mono tracking-widest text-foreground">{p.code}</b> in your Claude
+        session
+      </span>
+    );
+  }
+  if (p.phase === "down") {
+    return (
+      <>
+        <span className="text-muted-foreground">
+          Channel not running — run <b className="font-mono text-foreground">kvasir</b> in your terminal to
+          start it.
+        </span>
+        <Button
+          size="sm"
+          variant="outline"
+          className="ml-auto h-6"
+          onClick={() => void pairingStore.recheck()}
+        >
+          Retry
+        </Button>
+      </>
+    );
+  }
+  return (
+    <>
+      <span className={p.phase === "error" ? "text-destructive" : "text-muted-foreground"}>
+        {p.phase === "error" ? p.message : "Not paired — connect to your Claude session to continue."}
+      </span>
+      <Button size="sm" className="ml-auto h-6" onClick={() => void pairingStore.pair()}>
+        Pair
+      </Button>
+    </>
+  );
+}
+
 function PairBanner(): JSX.Element | null {
   const p = pairingStore.state();
   if (p.phase === "paired" || p.phase === "unknown" || panelStore.tab() === PANEL_TABS.SETTINGS) return null;
   return (
     <div className="flex items-center gap-2 border-b border-border bg-secondary px-3 py-1.5 text-xs">
-      {p.phase === "waiting" ? (
-        <span className="text-muted-foreground">
-          Confirm code <b className="font-mono tracking-widest text-foreground">{p.code}</b> in your Claude
-          session
-        </span>
-      ) : (
-        <>
-          <span className={p.phase === "error" ? "text-destructive" : "text-muted-foreground"}>
-            {p.phase === "error" ? p.message : "Not paired — connect to your Claude session to continue."}
-          </span>
-          <Button size="sm" className="ml-auto h-6" onClick={() => void pairingStore.pair()}>
-            Pair
-          </Button>
-        </>
-      )}
+      {bannerBody(p)}
+    </div>
+  );
+}
+
+/** Title-bar connection dot — the always-visible one-glance answer to "is this
+ * thing connected", independent of which tab is open (the banner hides on
+ * Settings; the dot never does). Hover names the phase via the shared tooltip. */
+const CONNECTION_DOT: Record<PairingPhase["phase"], { className: string; label: string }> = {
+  unknown: { className: "bg-muted-foreground/40", label: "Checking connection…" },
+  down: { className: "bg-destructive", label: "Channel not running" },
+  unpaired: { className: "bg-amber-500", label: "Not paired" },
+  waiting: { className: "bg-amber-500", label: "Pairing…" },
+  error: { className: "bg-amber-500", label: "Pairing failed" },
+  paired: { className: "bg-emerald-500", label: "Connected to your Claude session" },
+};
+
+function ConnectionDot(): JSX.Element {
+  const { className, label } = CONNECTION_DOT[pairingStore.state().phase];
+  return (
+    <span
+      role="status"
+      aria-label={label}
+      data-kvasir-tip={label}
+      className={`size-2 shrink-0 rounded-full ${className}`}
+    />
+  );
+}
+
+/** Shown when a ?kvasir link produced nothing although the channel answered: it
+ * doesn't have the walkthrough (links are machine-local — say so instead of
+ * reading as a broken link). An unreachable channel is the PairBanner's story. */
+function ReviewMissingBanner(): JSX.Element | null {
+  if (!reviewStore.missing()) return null;
+  return (
+    <div className="flex items-center gap-2 border-b border-border bg-secondary px-3 py-1.5 text-xs">
+      <span className="text-muted-foreground">
+        This walkthrough isn&apos;t on this machine&apos;s channel — Kvasir links are machine-local and only
+        open on the machine that built them.
+      </span>
+      <Button variant="ghost" size="sm" className="ml-auto h-6" onClick={() => reviewStore.dismissMissing()}>
+        Dismiss
+      </Button>
     </div>
   );
 }
@@ -219,6 +289,21 @@ function PanelWindow(): JSX.Element {
   useEffect(() => {
     void historyStore.load();
   }, []);
+  // Re-probe the connection on every open (channel state can change any time the
+  // panel is closed) — feeds the banner, the title-bar dot, and needsPairing gates.
+  useEffect(() => {
+    void pairingStore.recheck();
+  }, []);
+
+  // Escape closes the panel — unless a modal is open (RegenDialog binds its own
+  // shadow-aware Escape; one press must never close both layers). PanelWindow
+  // mounts only while open, so no closed-state work.
+  useShadowAwareKeydown((event) => {
+    if (event.key !== "Escape") return;
+    const root = document.querySelector("#kvasir-root")?.shadowRoot ?? document;
+    if (root.querySelector(".kvasir-dialog-back")) return;
+    panelStore.close();
+  });
 
   const pos = panelStore.pos();
   const size = panelStore.size();
@@ -283,6 +368,7 @@ function PanelWindow(): JSX.Element {
             <ListTree />
           </Button>
           <KvasirMark className="size-4 shrink-0 text-primary" />
+          <ConnectionDot />
           <span className="truncate text-[13px] font-semibold tracking-tight" title={title}>
             {title}
           </span>
@@ -298,6 +384,7 @@ function PanelWindow(): JSX.Element {
         </div>
 
         <PairBanner />
+        <ReviewMissingBanner />
         <GuideDeletedBanner />
 
         <Tabs
@@ -311,7 +398,7 @@ function PanelWindow(): JSX.Element {
             <TabsList className="justify-between">
               {TAB_LABELS.map((t) => (
                 <TabsTrigger key={t.value} value={t.value} className="flex-1">
-                  {t.value === PANEL_TABS.WALKTHROUGH && isReview ? "Review" : t.label}
+                  {t.label}
                   {t.value === PANEL_TABS.HISTORY && staleHistory > 0 ? (
                     <span
                       aria-label={`${staleHistory} need sync`}

@@ -8,6 +8,7 @@ import { Loader2, RefreshCw, Trash2 } from "lucide-react";
 import { useEffect, useSyncExternalStore } from "react";
 import type { JSX } from "react";
 import { historyStore } from "../../history";
+import { pairingStore } from "../../pairing";
 import { getSnapshot, subscribe } from "../../store";
 
 function HistoryRow({ entry }: Readonly<{ entry: EntrySummary }>): JSX.Element {
@@ -50,12 +51,15 @@ function HistoryRow({ entry }: Readonly<{ entry: EntrySummary }>): JSX.Element {
   );
 }
 
-// Empty-state copy: distinguish a search miss, "never saved any", and "the active
-// filter excludes them all" — so a facet that empties a non-empty kind isn't "None yet."
+const CHANNEL_DOWN_COPY = "Channel not running — run kvasir in your terminal to start it.";
+
+// Empty-state copy: distinguish a search miss, "never saved any", "the active
+// filter excludes them all", and "the channel is down" — so a facet that empties
+// a non-empty kind isn't "None yet.", and neither is an unreachable backend.
 function emptyCopy(facet: string): string {
   if (historyStore.query().trim()) return "No matches.";
-  if (facet === "all") return "None yet.";
-  return "None in this filter.";
+  if (facet !== "all") return "None in this filter.";
+  return pairingStore.state().phase === "down" ? CHANNEL_DOWN_COPY : "None yet.";
 }
 
 function HistorySection({
@@ -90,16 +94,37 @@ export function HistoryTab(): JSX.Element {
   const stale = historyStore.staleCount();
   const facet = historyStore.facet();
 
+  // A down channel can never deliver the list — name that instead of spinning
+  // forever (load() leaves `all` null when the fetch fails and nothing is cached).
   if (loaded === null) {
     return (
       <div className="flex items-center gap-2 p-3 text-sm text-muted-foreground">
-        <Loader2 className="size-4 animate-spin" /> Loading history…
+        {pairingStore.state().phase === "down" ? (
+          CHANNEL_DOWN_COPY
+        ) : (
+          <>
+            <Loader2 className="size-4 animate-spin" /> Loading history…
+          </>
+        )}
       </div>
     );
   }
 
+  const lastError = historyStore.error();
   return (
     <div className="flex h-full min-h-0 flex-col gap-2 p-3">
+      {lastError && (
+        <div className="flex items-center gap-2 rounded-md border border-border bg-secondary px-2 py-1 text-xs">
+          <span className="text-destructive">⚠ {lastError}</span>
+          <button
+            type="button"
+            onClick={() => historyStore.dismissError()}
+            className="ml-auto rounded-md px-1.5 py-0.5 text-muted-foreground hover:bg-background"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
       <div className="flex items-center gap-2">
         <input
           type="search"

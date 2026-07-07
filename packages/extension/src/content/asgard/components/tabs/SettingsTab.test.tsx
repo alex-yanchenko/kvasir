@@ -2,7 +2,7 @@
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
-vi.mock("../../../api", () => ({ api: vi.fn() }));
+vi.mock(import("../../../api"), async (importOriginal) => ({ ...(await importOriginal()), api: vi.fn() }));
 vi.mock("../../../muninn", () => ({ storeGet: vi.fn(), storeSet: vi.fn(), storeRemove: vi.fn() }));
 vi.mock("../../debug", () => ({ wipeStoredData: vi.fn() }));
 
@@ -33,6 +33,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   off();
+  vi.restoreAllMocks(); // drop per-test pairingStore spies even when an assertion throws
 });
 
 describe("SettingsTab", () => {
@@ -60,10 +61,10 @@ describe("SettingsTab", () => {
     expect(state.reviewSync).toBe(true);
   });
 
-  it("review-depth toggle flips reviewMode and shows the repos-root input only on heavy", () => {
+  it("walkthrough-depth toggle flips reviewMode and shows the repos-root input only on heavy", () => {
     render(<SettingsTab />);
-    // "Light" also names a Theme option, so scope the clicks to the Review depth group.
-    const depth = screen.getByRole("group", { name: "Review depth" });
+    // "Light" also names a Theme option, so scope the clicks to the Walkthrough depth group.
+    const depth = screen.getByRole("group", { name: "Walkthrough depth" });
     expect(screen.getByLabelText("Local repos root")).toBeTruthy(); // heavy default
     fireEvent.click(within(depth).getByRole("button", { name: "Light" }));
     expect(state.reviewMode).toBe("light");
@@ -99,10 +100,10 @@ describe("SettingsTab", () => {
 
   it("explains each setting with a hint; the repos-root hint shows only on heavy", () => {
     render(<SettingsTab />);
-    expect(screen.getByText(/Heavy reads the locally-cloned repo/)).toBeTruthy();
+    expect(screen.getByText(/Heavy reads the locally-cloned repo for context/)).toBeTruthy();
     expect(screen.getByText(/Preload three AI-suggested questions/)).toBeTruthy();
     expect(screen.getByText(/Where Heavy looks for the clone/)).toBeTruthy(); // heavy default
-    const depth = screen.getByRole("group", { name: "Review depth" });
+    const depth = screen.getByRole("group", { name: "Walkthrough depth" });
     fireEvent.click(within(depth).getByRole("button", { name: "Light" }));
     expect(screen.queryByText(/Where Heavy looks for the clone/)).toBeNull(); // gone on light
   });
@@ -125,12 +126,24 @@ describe("SettingsTab", () => {
     expect(screen.queryByRole("button", { name: "Pair" })).toBeNull();
   });
 
-  it("Debug: Wipe asks to confirm, runs the wipe, and shows the reload hint", () => {
+  it("Debug: Wipe asks to confirm, runs the wipe, and offers the reload", () => {
+    const reload = vi.fn();
+    Object.defineProperty(window, "location", { value: { reload }, writable: true });
     render(<SettingsTab />);
     fireEvent.click(screen.getByRole("button", { name: "Wipe data" }));
     fireEvent.click(screen.getByRole("button", { name: "Confirm wipe" }));
     expect(wipeStoredData).toHaveBeenCalledTimes(1);
     expect(screen.getByText("Wiped — reload the page")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Reload" }));
+    expect(reload).toHaveBeenCalledTimes(1);
+  });
+
+  it("Debug: Wipe is disabled until paired (the backend store only accepts a paired delete)", () => {
+    vi.spyOn(pairingStore, "needsPairing").mockReturnValue(true);
+    render(<SettingsTab />);
+    const wipe = screen.getByRole("button", { name: "Wipe data" });
+    expect(wipe.hasAttribute("disabled")).toBe(true);
+    expect(screen.getByText(/Pair to wipe/)).toBeTruthy();
   });
 
   it("Debug: Cancel backs out without wiping", () => {
@@ -143,14 +156,26 @@ describe("SettingsTab", () => {
 
   it("surfaces a pairing error with a Retry", async () => {
     vi.mocked(storeGet).mockResolvedValue(undefined);
-    vi.mocked(api).mockResolvedValue({
-      ok: false,
-      data: { error: "another pairing request is already pending" },
-    });
+    vi.mocked(api).mockImplementation(async (path: string) =>
+      path === "/health"
+        ? { ok: true, data: { ok: true } }
+        : { ok: false, status: 409, data: { error: "another pairing request is already pending" } },
+    );
     render(<SettingsTab />);
     fireEvent.click(await screen.findByRole("button", { name: "Pair" }));
     await screen.findByText(/already pending/);
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
     expect(await screen.findByText(/already pending/)).toBeTruthy();
+  });
+
+  it("shows the channel-down state and recovers via Retry once the channel answers", async () => {
+    vi.mocked(storeGet).mockResolvedValue(undefined);
+    vi.mocked(api).mockResolvedValue({ ok: false, error: "TypeError: Failed to fetch" });
+    render(<SettingsTab />);
+    await screen.findByText(/Channel not running/);
+    expect(screen.queryByRole("button", { name: "Pair" })).toBeNull(); // pairing can't help a dead channel
+    vi.mocked(api).mockResolvedValue({ ok: true, data: { ok: true } });
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    await screen.findByText("Not paired"); // channel back, token still absent
   });
 });

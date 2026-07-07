@@ -14,19 +14,26 @@ const isPos = (v: unknown): v is Pos =>
   isRecord(v) && typeof v.left === "number" && typeof v.top === "number";
 const isSize = (v: unknown): v is Size => isRecord(v) && typeof v.w === "number" && typeof v.h === "number";
 
+const isStringArray = (v: unknown): v is string[] =>
+  Array.isArray(v) && v.every((entry) => typeof entry === "string");
+
 /** Restore a persisted TourState, dropping any field that doesn't match. */
 export function parseTourState(v: unknown): {
   step: number;
   overview: boolean;
   pos: Pos | null;
   size: Size | null;
+  visited: string[];
+  visitedStamp: string;
 } {
-  if (!isRecord(v)) return { step: 0, overview: false, pos: null, size: null };
+  if (!isRecord(v)) return { step: 0, overview: false, pos: null, size: null, visited: [], visitedStamp: "" };
   return {
     step: typeof v.step === "number" ? v.step : 0,
     overview: v.overview === true,
     pos: isPos(v.pos) ? v.pos : null,
     size: isSize(v.size) ? v.size : null,
+    visited: isStringArray(v.visited) ? v.visited : [],
+    visitedStamp: typeof v.visitedStamp === "string" ? v.visitedStamp : "",
   };
 }
 

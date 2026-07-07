@@ -6,6 +6,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 vi.mock("../../history", () => ({
   historyStore: {
     all: vi.fn(),
+    error: vi.fn(),
+    dismissError: vi.fn(),
     query: vi.fn(),
     setQuery: vi.fn(),
     facet: vi.fn(),
@@ -22,6 +24,7 @@ vi.mock("../../history", () => ({
 }));
 
 import { historyStore } from "../../history";
+import { pairingStore } from "../../pairing";
 import { HistoryTab } from "./HistoryTab";
 
 const sum = (over: Partial<EntrySummary> = {}): EntrySummary => ({
@@ -38,6 +41,7 @@ const sum = (over: Partial<EntrySummary> = {}): EntrySummary => ({
 });
 
 beforeEach(() => {
+  vi.mocked(historyStore.error).mockReturnValue(null);
   vi.mocked(historyStore.query).mockReturnValue("");
   vi.mocked(historyStore.facet).mockReturnValue("all");
   vi.mocked(historyStore.all).mockReturnValue([]);
@@ -45,8 +49,12 @@ beforeEach(() => {
   vi.mocked(historyStore.codeItems).mockReturnValue([]);
   vi.mocked(historyStore.driftFor).mockReturnValue("current");
   vi.mocked(historyStore.staleCount).mockReturnValue(0);
+  pairingStore.reset(); // module singleton — "unknown" unless a test sets the phase
 });
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks(); // drop per-test pairingStore.state spies
+});
 
 describe("HistoryTab", () => {
   it("loads on mount and shows a loading state until the list arrives", () => {
@@ -54,6 +62,31 @@ describe("HistoryTab", () => {
     render(<HistoryTab />);
     expect(screen.getByText(/Loading history/)).toBeTruthy();
     expect(historyStore.load).toHaveBeenCalledTimes(1);
+  });
+
+  it("names a down channel instead of loading forever when nothing is cached", () => {
+    vi.mocked(historyStore.all).mockReturnValue(null);
+    vi.spyOn(pairingStore, "state").mockReturnValue({ phase: "down" });
+    render(<HistoryTab />);
+    expect(screen.getByText(/Channel not running/)).toBeTruthy();
+    expect(screen.queryByText(/Loading history/)).toBeNull();
+  });
+
+  it("names a down channel in the empty state instead of claiming None yet", () => {
+    vi.spyOn(pairingStore, "state").mockReturnValue({ phase: "down" });
+    render(<HistoryTab />); // loaded [] + both sections empty
+    expect(screen.getAllByText(/Channel not running/).length).toBeGreaterThan(0);
+    expect(screen.queryByText("None yet.")).toBeNull();
+  });
+
+  it("surfaces a failed delete above the list, with a dismiss", () => {
+    vi.mocked(historyStore.error).mockReturnValue(
+      "Can't reach the channel — is your Claude session running?",
+    );
+    render(<HistoryTab />);
+    expect(screen.getByText(/Can't reach the channel/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+    expect(historyStore.dismissError).toHaveBeenCalledTimes(1);
   });
 
   it("renders both sections; a row opens its entry; step count + source format", () => {

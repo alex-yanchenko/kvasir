@@ -4,6 +4,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 vi.mock("../../muninn", () => ({ storeGet: vi.fn(), storeSet: vi.fn(), storeRemove: vi.fn() }));
 
+import { launcherStore } from "../launcher";
 import { pairingStore } from "../pairing";
 import * as store from "../store";
 import { PANEL_TABS, panelStore, state } from "../store";
@@ -36,16 +37,22 @@ beforeEach(() => {
   state.spec = null;
   state.review = null;
   state.reviewStep = 0;
+  state.reviewMissing = null;
   state.panel = { open: false, tab: PANEL_TABS.WALKTHROUGH, pos: null, size: null };
   state.history = null;
   state.seen = {};
   state.guideDeleted = false;
   panelStore.setSidebarOpen(false); // module-level rail state — reset so the panel width is clean
   pairingStore.reset(); // "unknown" → no banner unless a test sets the phase
+  // The panel rechecks the connection on open; neutralize the bridge round-trip so
+  // unrelated tests don't drift to "down" (the stubbed chrome has no messaging).
+  vi.spyOn(pairingStore, "recheck").mockResolvedValue(undefined);
+  vi.spyOn(launcherStore, "specLoading").mockReturnValue(false); // spec probes are done in these tests
 });
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
 });
 
 describe("Panel", () => {
@@ -326,7 +333,7 @@ describe("Panel", () => {
     render(<Panel />);
     act(() => panelStore.open());
     expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual([
-      "Review",
+      "Walkthrough",
       "Chat",
       "History",
       "Settings",
@@ -400,6 +407,43 @@ describe("Panel", () => {
     expect(screen.getByText("channel down")).toBeTruthy();
   });
 
+  it("rechecks the connection when the panel opens", () => {
+    render(<Panel />);
+    expect(pairingStore.recheck).not.toHaveBeenCalled(); // closed → no probe
+    act(() => panelStore.open());
+    expect(pairingStore.recheck).toHaveBeenCalledTimes(1);
+  });
+
+  it("the banner names a down channel and Retry re-probes it", () => {
+    render(<Panel />);
+    act(() => panelStore.open());
+    vi.spyOn(pairingStore, "state").mockReturnValue({ phase: "down" });
+    act(() => panelStore.setTab(PANEL_TABS.CHAT)); // any non-settings tab; forces a re-render
+    expect(screen.getByText(/Channel not running/)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Pair" })).toBeNull(); // pairing can't help a dead channel
+    vi.mocked(pairingStore.recheck).mockClear();
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(pairingStore.recheck).toHaveBeenCalledTimes(1);
+  });
+
+  it("the title-bar status dot names each connection phase", () => {
+    render(<Panel />);
+    act(() => panelStore.open());
+    const stateSpy = vi.spyOn(pairingStore, "state");
+    for (const [phase, label] of [
+      [{ phase: "paired" }, "Connected to your Claude session"],
+      [{ phase: "down" }, "Channel not running"],
+      [{ phase: "unpaired" }, "Not paired"],
+      [{ phase: "waiting", code: "ABC234" }, "Pairing…"],
+      [{ phase: "error", message: "x" }, "Pairing failed"],
+      [{ phase: "unknown" }, "Checking connection…"],
+    ] as const) {
+      stateSpy.mockReturnValue(phase);
+      act(() => store.touch());
+      expect(screen.getByLabelText(label)).toBeTruthy();
+    }
+  });
+
   it("the close button hides the panel", () => {
     render(<Panel />);
     act(() => panelStore.open());
@@ -442,6 +486,99 @@ describe("Panel", () => {
     expect(screen.getByText("This walkthrough was deleted.")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
     expect(screen.queryByText("This walkthrough was deleted.")).toBeNull();
+  });
+
+  it("explains a ?kvasir link this channel doesn't have (machine-local links)", () => {
+    state.reviewMissing = "notfound";
+    render(<Panel />);
+    act(() => panelStore.open());
+    expect(screen.getByText(/only open on the machine that built them/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+    expect(state.reviewMissing).toBeNull();
+  });
+
+  it("a machine-local miss never doubles up with the connection banner's down message", () => {
+    vi.spyOn(pairingStore, "state").mockReturnValue({ phase: "down" });
+    state.reviewMissing = "notfound";
+    render(<Panel />);
+    act(() => panelStore.open());
+    expect(screen.getAllByText(/in your terminal/)).toHaveLength(1); // PairBanner only
+    expect(screen.getByText(/only open on the machine that built them/)).toBeTruthy();
+  });
+
+  it("Escape closes the panel; other keys don't", () => {
+    render(<Panel />);
+    act(() => panelStore.open());
+    fireEvent.keyDown(document, { key: "a" });
+    expect(state.panel.open).toBe(true);
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(state.panel.open).toBe(false);
+  });
+
+  it("Escape with the real regen dialog open closes only the dialog, not the panel", () => {
+    state.spec = {
+      version: 1,
+      pr: { url: "https://github.com/acme/widget-api/pull/7", owner: "acme", repo: "widget-api", number: 7 },
+      generatedAt: "t",
+      steps: [{ id: "s1", title: "First step", body: "b", file: "f.ts", anchor: "d1" }],
+    };
+    render(<Panel />);
+    act(() => panelStore.open());
+    fireEvent.click(screen.getByRole("button", { name: "Regenerate" }));
+    expect(screen.getByText(/Regenerate this walkthrough/)).toBeTruthy();
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByText(/Regenerate this walkthrough/)).toBeNull(); // dialog closed
+    expect(state.panel.open).toBe(true); // panel survived the first press
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(state.panel.open).toBe(false); // the second press closes the panel
+  });
+
+  it("Escape from inside the shadow root also closes the panel", () => {
+    const host = document.createElement("div");
+    host.id = "kvasir-root";
+    document.body.append(host);
+    const shadow = host.attachShadow({ mode: "open" });
+    const mount = document.createElement("div");
+    shadow.append(mount);
+    render(<Panel />, { container: mount });
+    act(() => panelStore.open());
+    act(() => {
+      shadow.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    });
+    expect(state.panel.open).toBe(false);
+    cleanup();
+    host.remove();
+  });
+
+  it("Escape in a text field or with a modal open leaves the panel alone", () => {
+    render(<Panel />);
+    act(() => panelStore.open());
+    const input = document.createElement("input");
+    document.body.append(input);
+    fireEvent.keyDown(input, { key: "Escape" });
+    expect(state.panel.open).toBe(true);
+    input.remove();
+
+    const editable = document.createElement("div");
+    Object.defineProperty(editable, "isContentEditable", { value: true });
+    document.body.append(editable);
+    fireEvent.keyDown(editable, { key: "Escape" });
+    expect(state.panel.open).toBe(true);
+    editable.remove();
+
+    const plain = document.createElement("div");
+    document.body.append(plain); // a non-editable element target still closes
+    fireEvent.keyDown(plain, { key: "Escape" });
+    expect(state.panel.open).toBe(false);
+    act(() => panelStore.open());
+    plain.remove();
+
+    const modal = document.createElement("div");
+    modal.className = "kvasir-dialog-back";
+    document.body.append(modal);
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(state.panel.open).toBe(true); // the modal owns Escape
+    modal.remove();
   });
 
   it("restores persisted geometry as inline styles", () => {

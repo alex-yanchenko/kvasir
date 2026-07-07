@@ -10,8 +10,8 @@ import { getSnapshot, settingsStore, subscribe } from "../../store";
 import { Button } from "../../ui/button";
 
 // Every setting carries a one-line `hint` describing what it does — users can't
-// infer "Review depth" or "Highlight" from the label alone. Required, so a new
-// setting can't ship unexplained.
+// infer "Walkthrough depth" or "Highlight" from the label alone. Required, so a
+// new setting can't ship unexplained.
 function Segmented({
   label,
   value,
@@ -53,7 +53,7 @@ function Segmented({
 // which jumps to each by its data-settings-section id.
 export const SETTINGS_SECTIONS = [
   { id: "appearance", label: "Appearance" },
-  { id: "review", label: "Review" },
+  { id: "review", label: "Walkthrough" },
   { id: "generation", label: "Generation" },
   { id: "connection", label: "Connection" },
   { id: "debug", label: "Debug" },
@@ -77,7 +77,7 @@ function Section({
 function Connection(): JSX.Element {
   const p = pairingStore.state();
   useEffect(() => {
-    void pairingStore.refresh();
+    void pairingStore.recheck();
   }, []);
   return (
     <div className="flex flex-col gap-2">
@@ -86,6 +86,16 @@ function Connection(): JSX.Element {
         <span className="inline-flex items-center gap-1.5 text-sm text-primary">
           <Check className="size-4" /> Paired with your Claude session
         </span>
+      )}
+      {p.phase === "down" && (
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">
+            Channel not running — run <b className="font-mono">kvasir</b> in your terminal to start it.
+          </span>
+          <Button size="sm" variant="outline" className="ml-auto" onClick={() => void pairingStore.recheck()}>
+            Retry
+          </Button>
+        </div>
       )}
       {(p.phase === "unknown" || p.phase === "unpaired") && (
         <div className="flex items-center gap-2">
@@ -115,16 +125,29 @@ function Connection(): JSX.Element {
   );
 }
 
+// The Debug row's explainer, by state. The wipe DELETEs the channel store, which
+// only accepts a paired request — while unpaired the button is disabled and the
+// text says why (an unpaired full reset is the wipe script's job, not the button's).
+function wipeHint(wiped: boolean, blocked: boolean): string {
+  if (wiped) return "Wiped — reload the page";
+  if (blocked) return "Pair to wipe — the channel store only accepts a paired delete.";
+  return "Clear all stored extension data";
+}
+
 function Debug(): JSX.Element {
   const [confirming, setConfirming] = useState(false);
   const [wiped, setWiped] = useState(false);
+  const blocked = pairingStore.needsPairing();
   return (
     <div className="flex flex-col gap-2">
       <span className="text-sm font-medium">Debug</span>
       <div className="flex items-center gap-2">
-        <span className="text-sm text-muted-foreground">
-          {wiped ? "Wiped — reload the page" : "Clear all stored extension data"}
-        </span>
+        <span className="text-sm text-muted-foreground">{wipeHint(wiped, blocked)}</span>
+        {wiped && (
+          <Button size="sm" variant="outline" className="ml-auto" onClick={() => location.reload()}>
+            Reload
+          </Button>
+        )}
         {confirming ? (
           <div className="ml-auto flex gap-1">
             <Button
@@ -144,17 +167,20 @@ function Debug(): JSX.Element {
             </Button>
           </div>
         ) : (
-          <Button
-            size="sm"
-            variant="outline"
-            className="ml-auto text-destructive hover:text-destructive"
-            onClick={() => {
-              setConfirming(true);
-              setWiped(false);
-            }}
-          >
-            Wipe data
-          </Button>
+          !wiped && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="ml-auto text-destructive hover:text-destructive"
+              disabled={blocked}
+              onClick={() => {
+                setConfirming(true);
+                setWiped(false);
+              }}
+            >
+              Wipe data
+            </Button>
+          )
         )}
       </div>
     </div>
@@ -188,7 +214,7 @@ export function SettingsTab(): JSX.Element {
           onChange={(v) => settingsStore.setHlStyle(v)}
         />
       </Section>
-      <Section id="review" title="Review">
+      <Section id="review" title="Walkthrough">
         <Segmented
           label="Step nav"
           hint="On load = scroll the page to your saved step when a walkthrough opens; Instant = only when you pick a step."
@@ -200,8 +226,8 @@ export function SettingsTab(): JSX.Element {
           onChange={(v) => settingsStore.setReviewSync(v === "synced")}
         />
         <Segmented
-          label="Review depth"
-          hint="Heavy reads the locally-cloned repo for correctness (falls back to Light if it isn't found); Light uses only the PR diff."
+          label="Walkthrough depth"
+          hint="Heavy reads the locally-cloned repo for context — what the feature is and how the change flows (falls back to Light if it isn't found); Light uses only the PR diff."
           value={settingsStore.reviewMode()}
           options={[
             { value: "heavy", label: "Heavy" },

@@ -1,5 +1,5 @@
 // Walkthrough tab — replaces the launcher block + the floating tour card. Three
-// states: no spec (run a review), generating (status), or the step walkthrough.
+// states: no spec (run a walkthrough), generating (status), or the step walkthrough.
 // tourStore drives the page highlights; the tab mount/unmount starts/stops the
 // tour so switching tabs or closing the panel clears the highlight.
 import type { WalkthroughSpec, WalkthroughStep } from "@kvasir/runes/spec";
@@ -19,6 +19,7 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import type { JSX } from "react";
 import { sanitizeSpecHtml } from "../../../sanitize";
 import { chatStore } from "../../chat";
+import { useShadowAwareKeydown } from "../../hooks/useShadowAwareKeydown";
 import { fmtElapsed, launcherStore } from "../../launcher";
 import { pairingStore } from "../../pairing";
 import { getSnapshot, PANEL_TABS, panelStore, subscribe } from "../../store";
@@ -36,7 +37,7 @@ function Generating(): JSX.Element {
   return (
     <div className="flex flex-col items-center gap-3 p-8 text-center">
       <Loader2 className="size-6 animate-spin text-primary" />
-      <div className="text-sm font-medium">Generating review…</div>
+      <div className="text-sm font-medium">Generating walkthrough…</div>
       <div className="text-xs text-muted-foreground">
         {fmtElapsed(Date.now() - launcherStore.genStartAt())} · runs in your Claude session, blocks chat
       </div>
@@ -47,9 +48,42 @@ function Generating(): JSX.Element {
   );
 }
 
+/** Inline outcome of the last failed generate attempt (request refused, channel
+ * unreachable, or the poll ran out) — shown above whatever the tab renders, so a
+ * failed regenerate never silently reverts to the previous state. */
+function GenErrorBar({ message }: Readonly<{ message: string }>): JSX.Element {
+  return (
+    <div className="flex items-center gap-2 border-b border-border bg-secondary px-3 py-1.5 text-xs">
+      <span className="text-destructive">⚠ {message}</span>
+      <Button
+        size="sm"
+        variant="outline"
+        className="ml-auto h-6"
+        onClick={() => void launcherStore.retryGenerate()}
+      >
+        Retry
+      </Button>
+      <Button variant="ghost" size="sm" className="h-6" onClick={() => launcherStore.dismissGenError()}>
+        Dismiss
+      </Button>
+    </div>
+  );
+}
+
+/** Shown while the spec probe (cache + live) is still in flight — loading is not
+ * "none", so a PR that HAS a walkthrough never flashes the empty state. */
+function Checking(): JSX.Element {
+  return (
+    <div className="flex flex-col items-center gap-3 p-8 text-center">
+      <Loader2 className="size-6 animate-spin text-muted-foreground" />
+      <p className="text-sm text-muted-foreground">Checking this PR for a walkthrough…</p>
+    </div>
+  );
+}
+
 function Empty(): JSX.Element {
   // Pairing is surfaced globally by the panel's PairBanner (so any 401 anywhere
-  // prompts it), so this just offers the review action.
+  // prompts it), so this just offers the generate action.
   return (
     <div className="flex flex-col items-center gap-3 p-8 text-center">
       <p className="text-sm text-muted-foreground">No walkthrough yet for this PR.</p>
@@ -57,7 +91,7 @@ function Empty(): JSX.Element {
         disabled={pairingStore.needsPairing()}
         onClick={() => void launcherStore.requestGenerate("new")}
       >
-        <Play /> Run review
+        <Play /> Run walkthrough
       </Button>
     </div>
   );
@@ -142,32 +176,18 @@ function MainView({
   return <StepBody step={step} />;
 }
 
-// Arrow keys navigate steps; bound to the document AND the shadow root (the hotkey
-// shield keeps shadow-origin keys off the document), skipping editable fields.
-// Extracted from Steps so that component stays under the cognitive-complexity bar.
+// Arrow keys navigate steps. Extracted from Steps so that component stays under
+// the cognitive-complexity bar; the shadow-aware binding lives in the shared hook.
 function useArrowKeyNav(): void {
-  useEffect(() => {
-    const keys = (event: Event): void => {
-      if (!(event instanceof KeyboardEvent)) return;
-      const t = event.target;
-      if (t instanceof HTMLElement && (/^(?:TEXTAREA|INPUT|SELECT)$/.test(t.tagName) || t.isContentEditable))
-        return;
-      if (event.key === "ArrowRight" && tourStore.canNext()) {
-        event.preventDefault();
-        tourStore.next();
-      } else if (event.key === "ArrowLeft" && tourStore.canBack()) {
-        event.preventDefault();
-        tourStore.back();
-      }
-    };
-    const root = document.querySelector("#kvasir-root")?.shadowRoot ?? document;
-    document.addEventListener("keydown", keys);
-    if (root !== document) root.addEventListener("keydown", keys);
-    return () => {
-      document.removeEventListener("keydown", keys);
-      if (root !== document) root.removeEventListener("keydown", keys);
-    };
-  }, []);
+  useShadowAwareKeydown((event) => {
+    if (event.key === "ArrowRight" && tourStore.canNext()) {
+      event.preventDefault();
+      tourStore.next();
+    } else if (event.key === "ArrowLeft" && tourStore.canBack()) {
+      event.preventDefault();
+      tourStore.back();
+    }
+  });
 }
 
 // The "ask" button: on a code step it opens that step's chat; on the overview "step
@@ -262,8 +282,8 @@ function StepTools({
           variant="ghost"
           size="icon"
           className="h-7 w-7"
-          aria-label="View changes since this review"
-          data-kvasir-tip="View changes since this review — the combined diff of all new commits"
+          aria-label="View changes since this walkthrough"
+          data-kvasir-tip="View changes since this walkthrough — the combined diff of all new commits"
           onClick={() => launcherStore.openChangesSinceReview()}
         >
           <GitCompare />
@@ -274,7 +294,9 @@ function StepTools({
         size="icon"
         className={"h-7 w-7" + (newCommits ? " text-primary" : "")}
         aria-label={newCommits ? "Update" : "Regenerate"}
-        data-kvasir-tip={newCommits ? "Update — new commits since this review" : "Regenerate review"}
+        data-kvasir-tip={
+          newCommits ? "Update — new commits since this walkthrough" : "Regenerate walkthrough"
+        }
         disabled={pairingStore.needsPairing()}
         onClick={onRegen}
       >
@@ -328,13 +350,16 @@ function Steps({ spec }: Readonly<{ spec: WalkthroughSpec }>): JSX.Element {
   const index = tourStore.stepIndex();
   const count = tourStore.stepCount();
 
-  // Start (resume) the tour when this tab opens. We deliberately do NOT close on
-  // unmount: leaving for Settings/Chat keeps the page highlight up — so the
-  // highlight-style toggle is testable against a real selection. The panel close
-  // clears it (Panel's unmount), and start() is idempotent on re-entry.
+  // Start (resume) the tour when this tab opens, and re-start when the displayed
+  // spec's identity changes — the cache-first load can swap a regenerated live
+  // spec under a mounted Steps, and start() re-clamps the step index and re-issues
+  // the highlight against it. We deliberately do NOT close on unmount: leaving for
+  // Settings/Chat keeps the page highlight up — so the highlight-style toggle is
+  // testable against a real selection. The panel close clears it (Panel's
+  // unmount), and start() is idempotent on re-entry.
   useEffect(() => {
     tourStore.start();
-  }, []);
+  }, [spec.generatedAt]);
   useArrowKeyNav();
 
   if (!step) return <Empty />;
@@ -355,10 +380,23 @@ function Steps({ spec }: Readonly<{ spec: WalkthroughSpec }>): JSX.Element {
   );
 }
 
+function Body(): JSX.Element {
+  const spec = launcherStore.spec();
+  if (spec?.steps.length) return <Steps spec={spec} />;
+  if (launcherStore.specLoading()) return <Checking />;
+  return <Empty />;
+}
+
 export function WalkthroughTab(): JSX.Element {
   useSyncExternalStore(subscribe, getSnapshot);
   if (launcherStore.generating()) return <Generating />;
-  const spec = launcherStore.spec();
-  if (!spec?.steps.length) return <Empty />;
-  return <Steps spec={spec} />;
+  const genError = launcherStore.genError();
+  return (
+    <div className="flex h-full min-h-0 flex-col">
+      {genError && <GenErrorBar message={genError} />}
+      <div className="min-h-0 flex-1">
+        <Body />
+      </div>
+    </div>
+  );
 }

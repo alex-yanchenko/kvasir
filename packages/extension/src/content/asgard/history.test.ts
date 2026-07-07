@@ -2,7 +2,7 @@
 import type { EntrySummary } from "@kvasir/runes/history";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-vi.mock("../api", () => ({ api: vi.fn() }));
+vi.mock(import("../api"), async (importOriginal) => ({ ...(await importOriginal()), api: vi.fn() }));
 vi.mock("../muninn", () => ({ storeGet: vi.fn(), storeSet: vi.fn(), storeRemove: vi.fn() }));
 
 import { api } from "../api";
@@ -35,6 +35,7 @@ beforeEach(() => {
   state.guideDeleted = false;
   vi.mocked(storeGet).mockResolvedValue(undefined);
   vi.mocked(api).mockResolvedValue({ ok: false });
+  historyStore.dismissError(); // module-level error slot — start each test clean
 });
 
 describe("historyStore filter, query, and kind split", () => {
@@ -203,11 +204,22 @@ describe("historyStore.remove", () => {
     expect(state.guideDeleted).toBe(true);
   });
 
-  it("leaves the list untouched when the delete fails", async () => {
+  it("a failed delete keeps the list and surfaces an error; success and dismiss clear it", async () => {
     state.history = [sum({ id: "a" })];
-    vi.mocked(api).mockResolvedValue({ ok: false });
+    vi.mocked(api).mockResolvedValue({ ok: false, error: "failed to fetch" });
     await historyStore.remove("a");
     expect(historyStore.all()?.map((entry) => entry.id)).toEqual(["a"]);
+    expect(historyStore.error()).toMatch(/Can't reach the channel/);
+
+    historyStore.dismissError();
+    expect(historyStore.error()).toBeNull();
+
+    vi.mocked(api).mockResolvedValue({ ok: false, status: 500, data: { error: "boom" } });
+    await historyStore.remove("a");
+    expect(historyStore.error()).toMatch(/boom/);
+    vi.mocked(api).mockResolvedValue({ ok: true, data: { ok: true } });
+    await historyStore.remove("a"); // a later success clears the stale error
+    expect(historyStore.error()).toBeNull();
   });
 });
 

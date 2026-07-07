@@ -2,12 +2,13 @@
 import type { Review } from "@kvasir/runes/review";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
-vi.mock("../api", () => ({ api: vi.fn() }));
+vi.mock(import("../api"), async (importOriginal) => ({ ...(await importOriginal()), api: vi.fn() }));
 vi.mock("../muninn", () => ({ storeGet: vi.fn(), storeSet: vi.fn(), storeRemove: vi.fn() }));
 
 import { api } from "../api";
 import { storeGet, storeSet } from "../muninn";
 import { chatStore } from "./chat";
+import { pairingStore } from "./pairing";
 import { reviewStore } from "./review";
 import { state } from "./store";
 
@@ -108,6 +109,7 @@ beforeEach(() => {
   state.review = null;
   state.reviewStep = 0;
   state.reviewNavigating = false;
+  state.reviewMissing = null;
   state.reviewSync = true; // synced is the default
   state.panel = { open: false, tab: "walkthrough", pos: null, size: null };
   vi.mocked(storeGet).mockResolvedValue(null);
@@ -184,14 +186,39 @@ describe("reviewStore.load", () => {
     expect(reviewStore.title()).toBe("Auth flow");
   });
 
-  it("stays closed when the mailbox returns nothing or an invalid review", async () => {
-    vi.mocked(api).mockResolvedValue({ ok: false });
+  it("an unknown id opens the panel and says the walkthrough isn't on this channel", async () => {
+    vi.mocked(api).mockResolvedValue({ ok: false, status: 404 });
     await reviewStore.load("rev-1");
-    expect(state.panel.open).toBe(false);
+    expect(state.panel.open).toBe(true);
+    expect(reviewStore.missing()).toBe("notfound");
+    expect(reviewStore.steps()).toEqual([]);
+
+    // an invalid payload also reads as not-found (nothing usable on this channel)
     vi.mocked(api).mockResolvedValue({ ok: true, data: { not: "a review" } });
     await reviewStore.load("rev-1");
-    expect(state.panel.open).toBe(false);
-    expect(reviewStore.steps()).toEqual([]);
+    expect(reviewStore.missing()).toBe("notfound");
+  });
+
+  it("an unreachable channel defers to the connection banner instead of a second notice", async () => {
+    const recheck = vi.spyOn(pairingStore, "recheck").mockResolvedValue(undefined);
+    vi.mocked(api).mockResolvedValue({ ok: false, error: "failed to fetch" });
+    await reviewStore.load("rev-1");
+    expect(state.panel.open).toBe(true);
+    expect(reviewStore.missing()).toBeNull();
+    expect(recheck).toHaveBeenCalledTimes(1);
+  });
+
+  it("a cached walk suppresses the missing state; a later successful load clears it", async () => {
+    vi.mocked(api).mockResolvedValue({ ok: false, status: 404 });
+    await reviewStore.load("rev-1");
+    expect(reviewStore.missing()).toBe("notfound");
+    await loadOk(); // mailbox answers now
+    expect(reviewStore.missing()).toBeNull();
+
+    vi.mocked(storeGet).mockResolvedValue({ step: 0, review: mkReview() });
+    vi.mocked(api).mockResolvedValue({ ok: false, status: 404 });
+    await reviewStore.load("rev-1");
+    expect(reviewStore.missing()).toBeNull(); // the cached walk renders — nothing is "missing"
   });
 });
 

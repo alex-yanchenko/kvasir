@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach, type MockInstance } from "vitest";
+import { shieldHotkeys } from "../../heimdall/shield";
 import { launcherStore } from "../launcher";
 import { RegenDialog } from "./RegenDialog";
 
@@ -17,7 +18,7 @@ describe("RegenDialog", () => {
     vi.spyOn(launcherStore, "newCommits").mockReturnValue(false);
     const onClose = vi.fn();
     render(<RegenDialog onClose={onClose} />);
-    expect(screen.getByText(/Regenerate this review/)).toBeTruthy();
+    expect(screen.getByText(/Regenerate this walkthrough/)).toBeTruthy();
     fireEvent.click(screen.getByText("Regenerate as new"));
     expect(gen).toHaveBeenCalledWith("new", undefined);
     expect(gen).toHaveBeenCalledTimes(1);
@@ -34,7 +35,7 @@ describe("RegenDialog", () => {
     });
     const onClose = vi.fn();
     render(<RegenDialog onClose={onClose} />);
-    expect(screen.getByText(/New commits since this review/)).toBeTruthy();
+    expect(screen.getByText(/New commits since this walkthrough/)).toBeTruthy();
     fireEvent.click(screen.getByText("Incremental update"));
     expect(gen).toHaveBeenCalledWith("incremental", "abc");
     expect(gen).toHaveBeenCalledTimes(1);
@@ -68,5 +69,23 @@ describe("RegenDialog", () => {
     expect(onClose).not.toHaveBeenCalled();
     fireEvent.keyDown(document, { key: "Escape" });
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("Escape from inside the shielded shadow root (the production case) still closes", () => {
+    vi.spyOn(launcherStore, "newCommits").mockReturnValue(false);
+    const host = document.createElement("div");
+    host.id = "kvasir-root";
+    document.body.append(host);
+    const stopShield = shieldHotkeys(host); // stops shadow-origin keys before document
+    const shadow = host.attachShadow({ mode: "open" });
+    const mount = document.createElement("div");
+    shadow.append(mount);
+    const onClose = vi.fn();
+    render(<RegenDialog onClose={onClose} />, { container: mount });
+    shadow.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    expect(onClose).toHaveBeenCalledTimes(1);
+    cleanup();
+    stopShield();
+    host.remove();
   });
 });
