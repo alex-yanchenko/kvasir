@@ -126,6 +126,7 @@ describe("navigation", () => {
     tourStore.start(); // opens, goto(0) → no step at the clamped index → guarded no-op
     expect(tourStore.step()).toBeNull();
     expect(sent.some((s) => s.kind === "highlight:step")).toBe(false);
+    expect(state.tourState.visited).toEqual([]); // an out-of-range goto marks nothing
 
     state.spec = null;
     expect(() => tourStore.next()).not.toThrow(); // no-spec guard in next() → no-op

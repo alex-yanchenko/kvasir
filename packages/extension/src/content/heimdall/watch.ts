@@ -1,6 +1,7 @@
 // Heimdall's watch — the logic half of the watchman. Restores a PR's persisted
-// state (chats, tour), pushes the theme across the Bifrost, and polls the URL:
-// GitHub is a SPA, so PR navigation never re-runs the content script.
+// state (chats, tour), pushes the theme across the Bifrost, and watches the URL
+// (Navigation API events when available, else polling): GitHub is a SPA, so PR
+// navigation never re-runs the content script.
 import { launcherStore } from "../asgard/launcher";
 import { isChatSessionArray, parseTourState } from "../asgard/persisted";
 import { state, touch } from "../asgard/store";
