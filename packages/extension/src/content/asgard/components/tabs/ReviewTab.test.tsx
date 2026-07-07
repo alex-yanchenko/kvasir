@@ -48,10 +48,10 @@ afterEach(() => {
 });
 
 describe("ReviewTab", () => {
-  it("renders an empty state when no review is loaded", () => {
+  it("renders an empty state when no walkthrough is loaded", () => {
     state.review = null;
     render(<ReviewTab />);
-    expect(screen.getByText("No review loaded.")).toBeTruthy();
+    expect(screen.getByText("No walkthrough loaded.")).toBeTruthy();
   });
 
   it("renders the current step, its position, repo/file, and body", () => {

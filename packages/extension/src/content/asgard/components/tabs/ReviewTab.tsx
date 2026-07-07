@@ -24,7 +24,7 @@ export function ReviewTab(): JSX.Element {
   if (!step) {
     return (
       <div className="flex flex-col items-center gap-3 p-8 text-center">
-        <p className="text-sm text-muted-foreground">No review loaded.</p>
+        <p className="text-sm text-muted-foreground">No walkthrough loaded.</p>
       </div>
     );
   }
