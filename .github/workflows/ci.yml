@@ -34,9 +34,9 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm test:coverage
-      # bun:sqlite store can't run under vitest/node — verify it on Bun directly.
+      # bun:sqlite / Bun.spawn modules can't run under vitest/node — verify on Bun directly.
       - uses: oven-sh/setup-bun@v2
-      - run: cd packages/mimir && bun test ./src/guideStore.sqlite.buntest.ts ./src/sessionStore.sqlite.buntest.ts
+      - run: cd packages/mimir && bun test ./src/guideStore.sqlite.buntest.ts ./src/sessionStore.sqlite.buntest.ts ./src/contextWorktree.buntest.ts
 
   build:
     runs-on: ubuntu-latest

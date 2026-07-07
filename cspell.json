@@ -41,6 +41,7 @@
     "noopener",
     "noreferrer",
     "noselect",
+    "gitdir",
     "navigatesuccess",
     "pointerdown",
     "pollable",

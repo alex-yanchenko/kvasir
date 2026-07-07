@@ -41,6 +41,7 @@ import { z } from "zod";
 
 import { createFetchHandler } from "./bridge";
 import { createAskBroker } from "./broker";
+import { gcContextWorktrees, prepareContextWorktree, removeContextWorktree } from "./contextWorktree";
 import { getManifest, getHeadSha, type PrManifest } from "./diff";
 import { specToRecord } from "./guideStore";
 import { createSqliteGuideStore } from "./guideStore.sqlite";
@@ -78,6 +79,11 @@ const guides = createSqliteGuideStore(path.join(KVASIR_DIR, "kvasir.db"));
 // result would overflow the MCP token cap; the author Reads the file per covered file.
 const MANIFESTS_DIR = path.join(KVASIR_DIR, "manifests");
 mkdirSync(MANIFESTS_DIR, { recursive: true });
+
+// A heavy pass that died before its remove_context_worktree call leaves a worktree
+// in the user's repo — sweep day-old leftovers on every boot. The catch keeps a GC
+// failure from ever failing the channel start.
+await gcContextWorktrees().catch(() => {});
 
 // Specs are in-memory for fast /walkthrough render; rehydrate the PR ones from the
 // durable store on boot so a restart doesn't drop every PR walkthrough's render
@@ -264,6 +270,49 @@ server.registerTool(
     publishNudges.delete(outcome.key); // published — reset for the next regenerate
     console.error(`[kvasir] published ${outcome.key} (${outcome.spec.steps.length} steps)`);
     return text(outcome.message);
+  },
+);
+
+server.registerTool(
+  "prepare_context_worktree",
+  {
+    description:
+      "Heavy-pass helper: safely materialize a PR head commit as a throwaway detached worktree of a LOCAL clone. Verifies the commit is present (fetching it with a plain FULL fetch only when missing — never shallow, which would graft the clone and break git blame/log) and returns the worktree path under ~/.kvasir/worktrees. NEVER run git fetch / git worktree yourself for this; always pair with remove_context_worktree when done.",
+    inputSchema: {
+      repoPath: z.string().describe("absolute path of the PR's local clone"),
+      sha: z.string().describe("the full head commit SHA from start_walkthrough"),
+    },
+  },
+  async ({ repoPath, sha }) => {
+    try {
+      return text(`Worktree ready: ${await prepareContextWorktree(repoPath, sha)}`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return text(
+        `prepare_context_worktree failed: ${message}. Author from the diff manifest alone — do NOT fall back to running git commands yourself.`,
+      );
+    }
+  },
+);
+
+server.registerTool(
+  "remove_context_worktree",
+  {
+    description:
+      "Remove a worktree created by prepare_context_worktree (pass the same repoPath and the returned worktree path). ALWAYS call this before finishing a heavy pass, even after an error.",
+    inputSchema: {
+      repoPath: z.string().describe("absolute path of the PR's local clone"),
+      worktreePath: z.string().describe("the path prepare_context_worktree returned"),
+    },
+  },
+  async ({ repoPath, worktreePath }) => {
+    try {
+      await removeContextWorktree(repoPath, worktreePath);
+      return text("Worktree removed.");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return text(`remove_context_worktree failed: ${message}. Leave it — the boot sweep reclaims it.`);
+    }
   },
 );
 

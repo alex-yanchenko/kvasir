@@ -44,6 +44,9 @@ export default defineConfig({
         // guideStore.sqlite.buntest.ts under `bun test`.
         "packages/mimir/src/guideStore.sqlite.ts",
         "packages/mimir/src/sessionStore.sqlite.ts",
+        // Bun.spawn git ops (can't import under vitest); verified against real git
+        // repos by contextWorktree.buntest.ts under `bun test`.
+        "packages/mimir/src/contextWorktree.ts",
         "packages/mimir/src/**/*.buntest.ts",
       ],
       thresholds: {
