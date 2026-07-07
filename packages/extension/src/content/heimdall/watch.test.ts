@@ -262,6 +262,20 @@ describe("waitForRelevantPage", () => {
     expect(enter).toHaveBeenCalledTimes(1);
   });
 
+  it("caps the backoff delay at 10s instead of doubling indefinitely", () => {
+    setUrl(BLOB);
+    const enter = vi.fn();
+    stop = waitForRelevantPage(enter, 500);
+    // 500 → 1000 → 2000 → 4000 → 8000 all miss; the next delay is capped at 10s, not 16s
+    vi.advanceTimersByTime(500 + 1000 + 2000 + 4000 + 8000);
+    expect(enter).not.toHaveBeenCalled();
+    setUrl(`${PR}/files`);
+    vi.advanceTimersByTime(9999);
+    expect(enter).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
+    expect(enter).toHaveBeenCalledTimes(1);
+  });
+
   it("a ?kvasir review link counts as a relevant page", () => {
     setUrl(BLOB);
     const enter = vi.fn();
