@@ -9,19 +9,29 @@
  */
 import { z } from "zod";
 
+/** No "." / ".." / empty path segment — blocks "../" traversal out of the repo
+ * when the value is interpolated into a github.com URL (mirrors the guard
+ * parsePrUrl applies to PR URLs). Shared by the core `file` and the blob
+ * locator's `ref`. */
+export const noTraversal = (value: string): boolean =>
+  !value.split("/").some((segment) => [".", "..", ""].includes(segment));
+
 /** Fields every guide step carries, regardless of how its code is located. */
 export const StepCoreSchema = z.object({
-  /** Stable id, e.g. "controller-roles". Used by the extension for state. */
+  /** Stable id, e.g. "controller-roles" or "auth-guard". The walkthrough keys
+   * extension state off it (visited dots, the step chat); the review artifact
+   * carries it for identity but reads it only server-side. */
   id: z.string(),
   title: z.string(),
   /** Markdown/HTML body — the summary/explanation shown by default. */
   body: z.string(),
   /** Optional deeper, in-depth details revealed when the step is expanded. */
   detail: z.string().optional(),
-  /** Repo-relative file path, e.g. "src/middleware/rate-limit.ts". Artifacts
-   * whose file interpolates into a URL (blob steps) override this with a
-   * traversal-guarded refinement. */
-  file: z.string(),
+  /** Repo-relative file path, e.g. "src/middleware/rate-limit.ts". Traversal-guarded
+   * in the CORE, fail closed: git itself forbids "."/".."/empty path segments, so no
+   * legitimate step is rejected — and a locator whose file interpolates into a URL
+   * (blob steps, any future base..compare locator) can't forget the guard. */
+  file: z.string().refine(noTraversal, "file must not contain '.'/'..' path segments"),
   /** Fallback highlight: substrings to match if line ids aren't available. */
   highlight: z.array(z.string()).optional(),
   /** Quick-hint questions shown as clickable chips for this step. */

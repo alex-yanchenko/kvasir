@@ -16,6 +16,7 @@ import {
   stepBlobUrl,
   type WalkthroughSpec,
 } from "@kvasir/runes";
+import { isRecord } from "./guard";
 
 /** What a caller hands the store to upsert — the display fields plus the full
  * payload (Review | WalkthroughSpec) the store hashes for idempotency + drift. */
@@ -48,10 +49,30 @@ export interface GuideStore {
   wipe(): void;
 }
 
-/** sha256 of the canonical JSON payload: equal hash ⇒ unchanged ⇒ no version bump
- * (so a re-push of identical content raises no false drift on the client). */
+/** Sort object keys recursively (arrays keep their order — step order IS content)
+ * so the hash sees content, not serialization byte order. Zod's parsed output
+ * orders keys by SCHEMA shape, so a schema recomposition would otherwise change
+ * every stored payload's bytes and false-bump versions for unchanged content. */
+function canonicalize(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map((entry) => canonicalize(entry));
+  if (isRecord(value)) {
+    const sorted: Record<string, unknown> = {};
+    // Alphabetical is exactly the point: any stable total order over keys works.
+    for (const key of Object.keys(value).toSorted((a, b) => a.localeCompare(b))) {
+      sorted[key] = canonicalize(value[key]);
+    }
+    return sorted;
+  }
+  return value;
+}
+
+/** sha256 of the canonical (key-order-independent) JSON payload: equal hash ⇒
+ * unchanged ⇒ no version bump (so a re-push of identical content raises no false
+ * drift on the client). */
 export function contentHash(payload: unknown): string {
-  return createHash("sha256").update(JSON.stringify(payload)).digest("hex");
+  return createHash("sha256")
+    .update(JSON.stringify(canonicalize(payload)))
+    .digest("hex");
 }
 
 // ── pure record builders (kind mappers) ──────────────────────────────────────

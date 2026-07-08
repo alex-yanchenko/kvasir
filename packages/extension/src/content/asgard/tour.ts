@@ -186,7 +186,7 @@ export const tourStore = {
       head,
       state.spec.steps.map((st) => ({
         title: st.title,
-        where: whereText(st.file, st.lines ?? null),
+        where: whereText(st.file, st.lines),
         body: st.body,
       })),
     );
@@ -198,7 +198,7 @@ export const tourStore = {
     const s = state.activeStep;
     return stepContextText({
       title: s.title,
-      where: whereText(s.file, s.lines ?? null),
+      where: whereText(s.file, s.lines),
       body: s.body,
       detail: s.detail,
     });

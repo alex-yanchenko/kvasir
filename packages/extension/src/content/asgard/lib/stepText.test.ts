@@ -24,6 +24,12 @@ describe("stepContextText", () => {
     );
     expect(stepContextText({ title: "T", where: "", body: "x" })).toBe("Step: T\nx");
   });
+
+  it("covers the remaining where×detail combinations (empty where + detail; empty detail)", () => {
+    expect(stepContextText({ title: "T", where: "", body: "x", detail: "d" })).toBe("Step: T\nx\nd");
+    expect(stepContextText({ title: "T", where: " (a.ts)", body: "x" })).toBe("Step: T (a.ts)\nx");
+    expect(stepContextText({ title: "T", where: "", body: "x", detail: "" })).toBe("Step: T\nx");
+  });
 });
 
 describe("guideBackgroundText", () => {
@@ -36,5 +42,9 @@ describe("guideBackgroundText", () => {
     ).toBe("Head\n\n• A (a.ts)\n  one\n• B\n  two");
     const long = guideBackgroundText("", [{ title: "T", where: "", body: "x".repeat(20_000) }]);
     expect(long.length).toBe(12_000);
+  });
+
+  it("returns just the head when there are no steps", () => {
+    expect(guideBackgroundText("Head\n\n", [])).toBe("Head\n\n");
   });
 });

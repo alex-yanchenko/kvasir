@@ -10,7 +10,7 @@
  * validates against them, so the wire contract can't drift from its runtime check.
  */
 import { z } from "zod";
-import { LINE_RANGE_FIELDS, ORDERED_RANGE_MESSAGE, orderedRange, StepCoreSchema } from "./step";
+import { LINE_RANGE_FIELDS, noTraversal, ORDERED_RANGE_MESSAGE, orderedRange, StepCoreSchema } from "./step";
 
 // owner/name interpolate raw into the github.com blob URL, so constrain them to
 // GitHub's charset and reject "."/".." — otherwise a value like "a/../../evil" or
@@ -21,11 +21,6 @@ const ghName = z
   .regex(/^[\w.-]+$/, "invalid GitHub owner/name")
   .refine((s) => s !== "." && s !== "..", "owner/name must not be '.' or '..'");
 
-/** No "." / ".." / empty path segment — blocks "../" traversal out of the repo
- * when a ref or file is interpolated into the blob URL. */
-const noTraversal = (value: string): boolean =>
-  !value.split("/").some((segment) => [".", "..", ""].includes(segment));
-
 export const RepoRefSchema = z.object({
   owner: ghName,
   name: ghName,
@@ -35,8 +30,7 @@ export const ReviewLinesSchema = z.object(LINE_RANGE_FIELDS).refine(orderedRange
 
 /** The shared step core (see ./step) + the blob locator: this artifact's steps
  * live on plain GitHub blob pages, located by repo + ref, possibly across repos.
- * `file` is overridden with a traversal guard because it interpolates into the
- * blob URL (the core's plain string never reaches a URL). */
+ * The core's `file` is already traversal-guarded for the blob URL it lands in. */
 export const ReviewStepSchema = StepCoreSchema.extend({
   /** The repo this step's code lives in (steps may span repos). */
   repo: RepoRefSchema,
@@ -46,8 +40,6 @@ export const ReviewStepSchema = StepCoreSchema.extend({
     .regex(/^\w[\w./-]*$/, "invalid ref")
     .refine(noTraversal, "ref must not traverse")
     .optional(),
-  /** Repo-relative file path, e.g. "src/auth/guard.ts". */
-  file: z.string().refine(noTraversal, "file must not contain '.'/'..' path segments"),
   /** New-side line range to highlight (GitHub `#L<start>-L<end>`). */
   lines: ReviewLinesSchema.optional(),
 });

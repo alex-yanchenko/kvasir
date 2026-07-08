@@ -15,13 +15,18 @@ export const whereText = (path: string, lines: { start: number; end: number } | 
   return ` (${path}${range})`;
 };
 
-/** Compact text of one step for the chat's step-context banner. */
-export const stepContextText = (step: {
+/** The step parts the text builders consume. `where` is whereText's output (it
+ * owns the whole suffix, including its leading space and the empty-path case) —
+ * don't hand-build one. */
+export interface GuideStepText {
   title: string;
   where: string;
   body: string;
   detail?: string | undefined;
-}): string =>
+}
+
+/** Compact text of one step for the chat's step-context banner. */
+export const stepContextText = (step: GuideStepText): string =>
   `Step: ${step.title}${step.where}\n${stripHtml(step.body)}${
     step.detail ? "\n" + stripHtml(step.detail) : ""
   }`;
@@ -30,7 +35,7 @@ export const stepContextText = (step: {
  * fresh session gets grounding without blowing the /ask budget. */
 export const guideBackgroundText = (
   head: string,
-  steps: Array<{ title: string; where: string; body: string }>,
+  steps: Array<Pick<GuideStepText, "title" | "where" | "body">>,
 ): string => {
   const bullets = steps.map((step) => `• ${step.title}${step.where}\n  ${stripHtml(step.body)}`).join("\n");
   return (head + bullets).slice(0, 12_000);
