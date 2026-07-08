@@ -8,6 +8,7 @@ import { stepCode } from "../midgard/diff";
 import { storeSet } from "../muninn";
 import { chatStore } from "./chat";
 import { awaitSoftNav, softNavigate } from "./lib/nav";
+import { clampIndex, guideBackgroundText, stepContextText, whereText } from "./lib/stepText";
 import { stripHtml } from "./lib/strip";
 import { state, touch } from "./store";
 // chat.ts imports tourStore.stepContext and we call chatStore here — a runtime-
@@ -26,8 +27,6 @@ let detailOpen = false;
 // detailOpen (survives a tab switch). The sidebar's open state + width are panel
 // geometry and live in panelStore (so this machine's close() can't collapse them).
 let diagramOpen = false;
-const clamp = (index: number, length: number): number => Math.min(Math.max(index, 0), length - 1);
-
 export const tourStore = {
   kind: "walkthrough" as const,
   open: (): boolean => open,
@@ -102,7 +101,7 @@ export const tourStore = {
   goto(index: number): void {
     if (!state.spec) return;
     atOverview = false; // navigating to a real step always leaves the overview
-    stepIndex = clamp(index, state.spec.steps.length);
+    stepIndex = clampIndex(index, state.spec.steps.length);
     const s = state.spec.steps[stepIndex];
     // Visited dots: a regenerated spec (new generatedAt) starts fresh; landing on a
     // step marks it. Remember where we are (and that we're off the overview).
@@ -182,33 +181,27 @@ export const tourStore = {
    * to /ask so even a fresh session understands the PR. */
   backgroundContext(): string {
     if (!state.spec) return "";
-    const head = state.spec.overview
-      ? `Overview: ${state.spec.overview
-          .replaceAll(/<[^>]+>/g, "")
-          .replaceAll(/\s+/g, " ")
-          .trim()}\n\n`
-      : "";
-    const steps = state.spec.steps
-      .map((st) => {
-        const lineSuffix = st.lines ? `:${st.lines.start}-${st.lines.end}` : "";
-        const where = st.file ? ` (${st.file}${lineSuffix})` : "";
-        const body = st.body
-          .replaceAll(/<[^>]+>/g, "")
-          .replaceAll(/\s+/g, " ")
-          .trim();
-        return `• ${st.title}${where}\n  ${body}`;
-      })
-      .join("\n");
-    return (head + steps).slice(0, 12_000);
+    const head = state.spec.overview ? `Overview: ${stripHtml(state.spec.overview)}\n\n` : "";
+    return guideBackgroundText(
+      head,
+      state.spec.steps.map((st) => ({
+        title: st.title,
+        where: whereText(st.file, st.lines ?? null),
+        body: st.body,
+      })),
+    );
   },
 
   /** Compact text of the current step — passed to chat so answers are framed by it. */
   stepContext(): string {
     if (!state.activeStep) return "";
     const s = state.activeStep;
-    const lineSuffix = s.lines ? `:${s.lines.start}-${s.lines.end}` : "";
-    const where = s.file ? ` (${s.file}${lineSuffix})` : "";
-    return `Step: ${s.title}${where}\n${stripHtml(s.body)}${s.detail ? "\n" + stripHtml(s.detail) : ""}`;
+    return stepContextText({
+      title: s.title,
+      where: whereText(s.file, s.lines ?? null),
+      body: s.body,
+      detail: s.detail,
+    });
   },
 
   /** "Ask about this step": build a selection payload for the step's own code

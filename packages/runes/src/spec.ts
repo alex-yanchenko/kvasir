@@ -9,6 +9,7 @@
  * the server and the extension.
  */
 import { z } from "zod";
+import { LINE_RANGE_FIELDS, ORDERED_RANGE_MESSAGE, orderedRange, StepCoreSchema } from "./step";
 
 export const PrRefSchema = z.object({
   url: z.string(),
@@ -25,29 +26,17 @@ export const StepLinesSchema = z
   .object({
     /** "R" = the new/right side of the diff (added lines), "L" = old/left side. */
     side: z.enum(["R", "L"]),
-    start: z.number().int().positive(),
-    end: z.number().int().positive(),
+    ...LINE_RANGE_FIELDS,
   })
-  .refine(({ start, end }) => start <= end, { message: "start must be <= end" });
+  .refine(orderedRange, ORDERED_RANGE_MESSAGE);
 
-export const WalkthroughStepSchema = z.object({
-  /** Stable id, e.g. "controller-roles". Used by the extension for state. */
-  id: z.string(),
-  title: z.string(),
-  /** Markdown/HTML body — the summary/explanation shown by default. */
-  body: z.string(),
-  /** Optional deeper, in-depth details revealed when the step is expanded. */
-  detail: z.string().optional(),
-  /** Repo-relative file path, e.g. "src/middleware/rate-limit.ts". */
-  file: z.string(),
+/** The shared step core (see ./step) + the diff-anchor locator: this artifact's
+ * steps live on a PR's Files tab, located by GitHub's per-file diff anchor. */
+export const WalkthroughStepSchema = StepCoreSchema.extend({
   /** GitHub diff anchor: "diff-" + sha256(path). See ./anchor. */
   anchor: z.string(),
   /** Preferred way to highlight — exact line range via GitHub's per-line ids. */
   lines: StepLinesSchema.optional(),
-  /** Fallback highlight: substrings to match if line ids aren't available. */
-  highlight: z.array(z.string()).optional(),
-  /** Quick-hint questions shown as clickable chips for this step. */
-  suggestions: z.array(z.string()).optional(),
   /** Optional logical phase this step belongs to, e.g. "Foundation", "The control",
    * "Consumers". Steps sharing a label render under one outline header in authoring
    * order (non-adjacent steps with the same label still merge). Absent on every step

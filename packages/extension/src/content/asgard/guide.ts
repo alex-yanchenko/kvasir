@@ -1,9 +1,10 @@
 // The shared parent both the walkthrough (tour) and the review implement, so the
 // panel and chat treat them identically. Chat reads step + background context
 // through activeGuide() — never a concrete store — so it behaves the same no
-// matter how the panel was opened. Only the polymorphic seams differ per source
-// (revealing a step's code, building "ask about this step"); those live on each
-// implementation, not in chat.
+// matter how the panel was opened. The context TEXT pipeline both guides share
+// lives in lib/stepText (clamp, step context, background bullets); only the
+// polymorphic seams differ per source (revealing a step's code, building "ask
+// about this step") and those live on each implementation, not in chat.
 import { reviewIdFromUrl } from "../keys";
 import { reviewStore } from "./review";
 import { tourStore } from "./tour";
