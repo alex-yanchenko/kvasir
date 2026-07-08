@@ -44,6 +44,7 @@ beforeEach(() => {
   state.panel = { open: true, tab: PANEL_TABS.WALKTHROUGH, pos: null, size: null };
   pairingStore.reset(); // "unknown" → backend actions enabled unless a test sets unpaired
   vi.spyOn(launcherStore, "specLoading").mockReturnValue(false); // probes are done unless a test says otherwise
+  state.firstRun = false; // onboarding dismissed unless a test opts in
   if (tourStore.open()) tourStore.close();
   tourStore.setDetailOpen(false); // detail state is module-level now — reset per test
   panelStore.setSidebarOpen(false); // sidebar state lives in panelStore — reset per test
@@ -84,6 +85,24 @@ describe("WalkthroughTab", () => {
     render(<WalkthroughTab />);
     fireEvent.click(screen.getByRole("button", { name: "Run walkthrough" }));
     expect(gen).toHaveBeenCalledWith("new");
+  });
+
+  it("first run: the empty state shows the three-step card until dismissed forever", () => {
+    state.firstRun = true;
+    render(<WalkthroughTab />);
+    expect(screen.getByText(/Start the channel/)).toBeTruthy();
+    expect(screen.getByText(/Settings → Pair/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Run walkthrough" })).toBeTruthy(); // step 3 is the real button
+    fireEvent.click(screen.getByRole("button", { name: "Got it" }));
+    expect(screen.queryByText(/Start the channel/)).toBeNull();
+    expect(screen.getByText("No walkthrough yet for this PR.")).toBeTruthy();
+    expect(localStorage.getItem("kvasirFirstRunDone")).toBe("true"); // never comes back
+  });
+
+  it("after the first run the empty state is the plain one", () => {
+    render(<WalkthroughTab />);
+    expect(screen.queryByText(/Start the channel/)).toBeNull();
+    expect(screen.getByText("No walkthrough yet for this PR.")).toBeTruthy();
   });
 
   it("shows a checking state, not the empty state, while the spec probe is in flight", () => {

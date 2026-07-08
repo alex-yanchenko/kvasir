@@ -82,6 +82,9 @@ export const state: {
   /** Filesystem root the session searches for the PR's local clone in heavy mode;
    * if the repo isn't found under it, heavy degrades to light. */
   reviewReposRoot: string;
+  /** True until the user dismisses the one-time first-run card (channel → pair →
+   * run) shown in the walkthrough tab's empty state. Persisted per machine. */
+  firstRun: boolean;
   /** Preload 3 AI-suggested questions when a code/step chat opens. Default off. */
   preloadQuestions: boolean;
   /** Ask the session to author a mermaid flow diagram into the spec. Default off
@@ -112,6 +115,7 @@ export const state: {
   reviewSync: localStorage.getItem("kvasirReviewSync") !== "false", // default on
   reviewMode: localStorage.getItem("kvasirReviewMode") || "heavy", // default heavy
   reviewReposRoot: localStorage.getItem("kvasirReviewReposRoot") || "~/code",
+  firstRun: localStorage.getItem("kvasirFirstRunDone") !== "true", // shows until dismissed once
   preloadQuestions: localStorage.getItem("kvasirPreloadQuestions") === "true", // default off
   generateDiagram: localStorage.getItem("kvasirGenerateDiagram") === "true", // default off
   theme: localStorage.getItem("kvasirTheme") || "auto",
@@ -172,6 +176,12 @@ export const settingsStore = {
   setReviewReposRoot(root: string): void {
     state.reviewReposRoot = root;
     localStorage.setItem("kvasirReviewReposRoot", root);
+    touch();
+  },
+  firstRun: (): boolean => state.firstRun,
+  dismissFirstRun(): void {
+    state.firstRun = false;
+    localStorage.setItem("kvasirFirstRunDone", "true");
     touch();
   },
   preloadQuestions: (): boolean => state.preloadQuestions,
