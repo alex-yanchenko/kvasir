@@ -1,5 +1,45 @@
 # Changelog
 
+## [0.4.0](https://github.com/alex-yanchenko/kvasir/compare/v0.3.0...v0.4.0) (2026-07-09)
+
+
+### Features
+
+* **asgard:** add a connection tri-state (channel down / unpaired / paired) ([#35](https://github.com/alex-yanchenko/kvasir/issues/35)) ([51e8c75](https://github.com/alex-yanchenko/kvasir/commit/51e8c75347890c2de3c16623ea17c9a41ea1dff3))
+* **asgard:** Escape closes the panel; visited dots survive a reload ([#40](https://github.com/alex-yanchenko/kvasir/issues/40)) ([b056fbc](https://github.com/alex-yanchenko/kvasir/commit/b056fbc2813d7cd625c38dfcb2ef894626f7018d))
+* **asgard:** group walkthrough outline steps into logical phases ([#26](https://github.com/alex-yanchenko/kvasir/issues/26)) ([6c0a4a4](https://github.com/alex-yanchenko/kvasir/commit/6c0a4a4025fe1d50643e82806d4b894264ca4266))
+* **asgard:** replace the step background tint with a left rail (+ rail+gutter option) ([#32](https://github.com/alex-yanchenko/kvasir/issues/32)) ([153d69e](https://github.com/alex-yanchenko/kvasir/commit/153d69e718b29d93e8cb2dc1f90fdd5392c71cec))
+* **asgard:** show the step count on the walkthrough overview ([#25](https://github.com/alex-yanchenko/kvasir/issues/25)) ([de8f5a9](https://github.com/alex-yanchenko/kvasir/commit/de8f5a9261b7020976ab538dc76befaf07f407fd))
+* **asgard:** smoother diff navigation for incremental review ([#23](https://github.com/alex-yanchenko/kvasir/issues/23)) ([df8295b](https://github.com/alex-yanchenko/kvasir/commit/df8295bd3ed7ed66bc932764a36cada24ad929fd))
+* **mimir:** worktree MCP tools — heavy-pass git ops become code, not prompt ([#44](https://github.com/alex-yanchenko/kvasir/issues/44)) ([5b3f822](https://github.com/alex-yanchenko/kvasir/commit/5b3f822bc794f4878533da09235484a77479c42b))
+
+
+### Bug Fixes
+
+* **asgard:** cache-first spec load — no empty-state flash, loading is not none ([#38](https://github.com/alex-yanchenko/kvasir/issues/38)) ([68dbfb1](https://github.com/alex-yanchenko/kvasir/commit/68dbfb14d61022db652c183b560663c645208483))
+* **asgard:** give every silent failure path words ([#36](https://github.com/alex-yanchenko/kvasir/issues/36)) ([d5a122a](https://github.com/alex-yanchenko/kvasir/commit/d5a122a2f953512900238b3d820e9b88f1b71d02))
+* **asgard:** hide the outline while generating so stale steps aren't clickable ([#28](https://github.com/alex-yanchenko/kvasir/issues/28)) ([1fb126a](https://github.com/alex-yanchenko/kvasir/commit/1fb126a1ef90fad7e09bb1c123045f0e5466aef0))
+* **asgard:** highlight a modification's removed lines, not just the added half ([#31](https://github.com/alex-yanchenko/kvasir/issues/31)) ([fa8665a](https://github.com/alex-yanchenko/kvasir/commit/fa8665a16edca92e685e55cd2809cc9fb31e29e3))
+* **asgard:** make Escape reach the regen dialog, pin visited dots to their spec, re-sync the tour on spec swap ([#41](https://github.com/alex-yanchenko/kvasir/issues/41)) ([82f5b58](https://github.com/alex-yanchenko/kvasir/commit/82f5b58b91d9b877d7aada5e5a1318736b989227))
+* **asgard:** persist panel shape globally + open at a larger default size ([#30](https://github.com/alex-yanchenko/kvasir/issues/30)) ([ecacc3b](https://github.com/alex-yanchenko/kvasir/commit/ecacc3b09702acfe15b1dff6205cbc80d76dbe77))
+* **asgard:** restore chat styling by aligning class names to the stylesheet ([#34](https://github.com/alex-yanchenko/kvasir/issues/34)) ([33c2474](https://github.com/alex-yanchenko/kvasir/commit/33c24749baa29d5de8ae3ef516e692bfd156dd14))
+* **asgard:** tidy walkthrough output and relocate the changes-since-review button ([#24](https://github.com/alex-yanchenko/kvasir/issues/24)) ([d0a7422](https://github.com/alex-yanchenko/kvasir/commit/d0a74226f4e16be04e966457964939243c3ab214))
+* call the generated artifact a walkthrough everywhere + correct stale claims ([#37](https://github.com/alex-yanchenko/kvasir/issues/37)) ([8c5dc86](https://github.com/alex-yanchenko/kvasir/commit/8c5dc866d9ead8f8240645ba323403da55d67b82))
+* highlight removed-line walkthrough steps (thread diff side) ([#29](https://github.com/alex-yanchenko/kvasir/issues/29)) ([6c18dca](https://github.com/alex-yanchenko/kvasir/commit/6c18dcacdc69635e137885fc30532e3d72d15e3f))
+* **mimir:** stop heavy-pass shallow-fetching the user's clone ([#43](https://github.com/alex-yanchenko/kvasir/issues/43)) ([5199ce3](https://github.com/alex-yanchenko/kvasir/commit/5199ce37b5393c245897c30ecc281ed7c275e4ed))
+* security hardening — injection fence, destructive-wipe gating, installer provenance ([#33](https://github.com/alex-yanchenko/kvasir/issues/33)) ([af46e94](https://github.com/alex-yanchenko/kvasir/commit/af46e94a702f17d89445d73be942c4de7456d13e))
+
+
+### Performance Improvements
+
+* **heimdall:** react to SPA navigation events instead of waiting out a poll tick ([#39](https://github.com/alex-yanchenko/kvasir/issues/39)) ([3df1148](https://github.com/alex-yanchenko/kvasir/commit/3df1148c086f49a2b5c01599ff25bfb17756b5c2))
+
+
+### Code Refactoring
+
+* one step core + one guide text pipeline (plan 7.1, wire unchanged) ([#45](https://github.com/alex-yanchenko/kvasir/issues/45)) ([ded9498](https://github.com/alex-yanchenko/kvasir/commit/ded9498aae1aef5e75d34cd329878764d061d1ea))
+* retire prior-shape data instead of carrying back-compat ([#27](https://github.com/alex-yanchenko/kvasir/issues/27)) ([48c6d44](https://github.com/alex-yanchenko/kvasir/commit/48c6d44cbe26667cad01340e89ad9ac018f60846))
+
 ## [0.3.0](https://github.com/alex-yanchenko/kvasir/compare/v0.2.1...v0.3.0) (2026-06-23)
 
 The first feature release of Kvasir as a code-comprehension tool: a full in-page
