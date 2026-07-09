@@ -179,7 +179,10 @@ export const settingsStore = {
     touch();
   },
   firstRun: (): boolean => state.firstRun,
+  /** Fired by "Got it" AND by every Run-walkthrough click (completing the steps
+   * is a dismissal too), so a repeat must be a no-op, not a version bump. */
   dismissFirstRun(): void {
+    if (!state.firstRun) return;
     state.firstRun = false;
     localStorage.setItem("kvasirFirstRunDone", "true");
     touch();

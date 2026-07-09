@@ -98,6 +98,16 @@ describe("useScrollLock", () => {
     expect(wheel(zoomedTop, -40).defaultPrevented).toBe(true); // up: sub-pixel above the top
   });
 
+  it("lets the wheel through once real room exceeds the 1px tolerance (pins the boundary)", () => {
+    const r = mount();
+    const nearBottom = r.appendChild(document.createElement("div"));
+    scrollable(nearBottom, { scrollTop: 298, scrollHeight: 816, clientHeight: 516 }); // room = 2px
+    expect(wheel(nearBottom, 40).defaultPrevented).toBe(false);
+    const nearTop = r.appendChild(document.createElement("div"));
+    scrollable(nearTop, { scrollTop: 2 });
+    expect(wheel(nearTop, -40).defaultPrevented).toBe(false);
+  });
+
   it("ignores a non-overflowing element and a content-shorter-than-box one", () => {
     const r = mount();
     const short = r.appendChild(document.createElement("div"));

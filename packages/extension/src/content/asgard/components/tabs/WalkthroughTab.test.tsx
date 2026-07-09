@@ -99,10 +99,21 @@ describe("WalkthroughTab", () => {
     expect(localStorage.getItem("kvasirFirstRunDone")).toBe("true"); // never comes back
   });
 
+  it("running the first walkthrough retires the card too — completing the steps IS the dismissal", () => {
+    state.firstRun = true;
+    localStorage.removeItem("kvasirFirstRunDone");
+    vi.spyOn(launcherStore, "requestGenerate").mockResolvedValue();
+    render(<WalkthroughTab />);
+    fireEvent.click(screen.getByRole("button", { name: "Run walkthrough" }));
+    expect(localStorage.getItem("kvasirFirstRunDone")).toBe("true");
+    expect(screen.queryByText(/Start the channel/)).toBeNull();
+  });
+
   it("after the first run the empty state is the plain one", () => {
     render(<WalkthroughTab />);
     expect(screen.queryByText(/Start the channel/)).toBeNull();
     expect(screen.getByText("No walkthrough yet for this PR.")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Got it" })).toBeNull();
   });
 
   it("shows a checking state, not the empty state, while the spec probe is in flight", () => {

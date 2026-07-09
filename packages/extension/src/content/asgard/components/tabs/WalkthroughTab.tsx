@@ -105,7 +105,8 @@ function FirstRunSteps(): JSX.Element {
 
 function Empty(): JSX.Element {
   // Pairing is surfaced globally by the panel's PairBanner (so any 401 anywhere
-  // prompts it), so this just offers the generate action.
+  // prompts it), so this offers the generate action — plus the one-time first-run
+  // card coaching toward it.
   const firstRun = settingsStore.firstRun();
   return (
     <div className="flex flex-col items-center gap-3 p-8 text-center">
@@ -116,7 +117,10 @@ function Empty(): JSX.Element {
       )}
       <Button
         disabled={pairingStore.needsPairing()}
-        onClick={() => void launcherStore.requestGenerate("new")}
+        onClick={() => {
+          settingsStore.dismissFirstRun(); // completing the card's steps retires it — no "Got it" needed
+          void launcherStore.requestGenerate("new");
+        }}
       >
         <Play /> Run walkthrough
       </Button>

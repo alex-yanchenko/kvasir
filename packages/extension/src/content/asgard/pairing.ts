@@ -64,6 +64,42 @@ const tokenOf = (data: unknown): string | null =>
 /** True while pair() owns the phase — recheck must never stomp an active pairing. */
 const pairingActive = (): boolean => state.phase === "waiting" || state.phase === "error";
 
+/** The running probe, if any — concurrent recheck() callers join it instead of
+ * firing parallel /health+/auth chains (Panel probes on open, and the Settings
+ * Connection block probes on mount, so opening onto Settings calls twice). */
+let probing: Promise<void> | null = null;
+
+async function probe(): Promise<void> {
+  // Identity snapshot: every transition replaces the phase object, so a change
+  // during any await below means something else — pair() starting OR completing,
+  // markUnpaired — owns the phase now; this probe's result is stale, drop it.
+  // (A completed pair() is the dangerous case: applying a stale /auth 401 after
+  // it would delete the freshly-earned token.)
+  const entered = state;
+  const health = await api("/health");
+  if (state !== entered) return;
+  if (isUnreachable(health)) {
+    // An orphaned content script (extension reloaded) also fails without a
+    // status, but its remedy is refreshing the PAGE — don't tell the user to
+    // restart a channel that may be running fine.
+    if (/refresh the page/i.test(health.error ?? "")) {
+      set({ phase: "error", message: friendlyError(health) });
+      return;
+    }
+    set({ phase: "down" }); // keep any stored token — a stale one is /auth's 401 to report
+    return;
+  }
+  const token = await storeGet(TOKEN_KEY);
+  if (state !== entered) return;
+  if (typeof token !== "string" || !token) {
+    set({ phase: "unpaired" });
+    return;
+  }
+  const r = await api("/auth");
+  if (state !== entered) return;
+  set(authToPhase(r));
+}
+
 export const pairingStore = {
   state: (): PairingPhase => state,
 
@@ -72,8 +108,11 @@ export const pairingStore = {
    * "unknown" (pre-boot-check) stays enabled; it resolves within a moment of load. */
   needsPairing: (): boolean => state.phase !== "paired" && state.phase !== "unknown",
 
-  /** Back to square one (tests; the machine is a module singleton). */
+  /** Back to square one (tests; the machine is a module singleton). A probe left
+   * hanging by a prior test must not capture the next test's recheck() into its
+   * join, so the in-flight slot clears too. */
   reset(): void {
+    probing = null;
     set({ phase: "unknown" });
   },
 
@@ -91,37 +130,13 @@ export const pairingStore = {
    * bridge holds tokens in memory, so a session restart leaves a stale token on
    * disk -> 401 -> "unpaired"). Local actions like "New chat" never 401 on their
    * own, so without this the pair prompt wouldn't appear until the first failed
-   * send. Never interrupts an in-flight pairing. */
+   * send. Never interrupts an in-flight pairing; concurrent callers share one probe. */
   async recheck(): Promise<void> {
     if (pairingActive()) return;
-    // Identity snapshot: every transition replaces the phase object, so a change
-    // during any await below means something else — pair() starting OR completing,
-    // markUnpaired — owns the phase now; this probe's result is stale, drop it.
-    // (A completed pair() is the dangerous case: applying a stale /auth 401 after
-    // it would delete the freshly-earned token.)
-    const entered = state;
-    const health = await api("/health");
-    if (state !== entered) return;
-    if (isUnreachable(health)) {
-      // An orphaned content script (extension reloaded) also fails without a
-      // status, but its remedy is refreshing the PAGE — don't tell the user to
-      // restart a channel that may be running fine.
-      if (/refresh the page/i.test(health.error ?? "")) {
-        set({ phase: "error", message: friendlyError(health) });
-        return;
-      }
-      set({ phase: "down" }); // keep any stored token — a stale one is /auth's 401 to report
-      return;
-    }
-    const token = await storeGet(TOKEN_KEY);
-    if (state !== entered) return;
-    if (typeof token !== "string" || !token) {
-      set({ phase: "unpaired" });
-      return;
-    }
-    const r = await api("/auth");
-    if (state !== entered) return;
-    set(authToPhase(r));
+    probing ??= probe().finally(() => {
+      probing = null;
+    });
+    return probing;
   },
 
   /** Ask the bridge to pair, show the code, poll the claim until the token lands. */

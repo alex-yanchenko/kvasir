@@ -79,6 +79,28 @@ describe("settingsStore", () => {
     expect(getSnapshot()).toBe(before + 1);
   });
 
+  it("dismissFirstRun persists + bumps the version once — a repeat is a no-op", () => {
+    state.firstRun = true;
+    const before = getSnapshot();
+    settingsStore.dismissFirstRun();
+    expect(settingsStore.firstRun()).toBe(false);
+    expect(localStorage.getItem("kvasirFirstRunDone")).toBe("true");
+    expect(getSnapshot()).toBe(before + 1);
+    settingsStore.dismissFirstRun(); // already dismissed (the Run button fires it every click)
+    expect(getSnapshot()).toBe(before + 1);
+  });
+
+  it("firstRun reads the persisted dismissal on module load — the card never comes back", async () => {
+    localStorage.setItem("kvasirFirstRunDone", "true");
+    vi.resetModules();
+    const fresh = await import("./store");
+    expect(fresh.settingsStore.firstRun()).toBe(false);
+    localStorage.removeItem("kvasirFirstRunDone");
+    vi.resetModules();
+    const untouched = await import("./store");
+    expect(untouched.settingsStore.firstRun()).toBe(true); // default: show the card
+  });
+
   it("preloadQuestions defaults off, and setPreloadQuestions persists + bumps the version", () => {
     expect(settingsStore.preloadQuestions()).toBe(false);
     const before = getSnapshot();

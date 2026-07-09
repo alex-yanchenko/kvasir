@@ -38,6 +38,17 @@ describe("pairingStore", () => {
     expect(vi.mocked(api)).toHaveBeenCalledTimes(1); // no token -> /auth never consulted
   });
 
+  it("concurrent rechecks join one probe (panel open onto Settings mounts two callers)", async () => {
+    const outcomes = await Promise.all([pairingStore.recheck(), pairingStore.recheck()]);
+    expect(outcomes).toEqual([undefined, undefined]);
+    expect(pairingStore.state()).toEqual({ phase: "unpaired" });
+    expect(vi.mocked(api)).toHaveBeenCalledTimes(1); // one /health probe, not two
+
+    vi.mocked(api).mockClear();
+    await pairingStore.recheck(); // the join releases once the probe settles
+    expect(vi.mocked(api)).toHaveBeenCalledTimes(1);
+  });
+
   it("recheck verifies a stored token against the bridge and lands paired", async () => {
     vi.mocked(storeGet).mockResolvedValue("tok");
     vi.mocked(api).mockResolvedValue({ ok: true, data: { paired: true } });

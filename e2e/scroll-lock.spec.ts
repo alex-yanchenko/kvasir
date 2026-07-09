@@ -23,7 +23,11 @@ test.describe("panel scroll lock", () => {
     await page.evaluate(() => {
       document.documentElement.style.zoom = "1.1";
     });
-    const box = (await page.getByRole("dialog", { name: "Kvasir" }).boundingBox())!;
+    // toBeVisible first so a panel that failed to render reads as "dialog not
+    // visible", not a null boundingBox exploding mid-test.
+    const dialog = page.getByRole("dialog", { name: "Kvasir" });
+    await expect(dialog).toBeVisible();
+    const box = (await dialog.boundingBox())!;
     await page.mouse.move(box.x + box.width / 2, box.y + box.height * 0.5);
 
     // Wheel far past the settings scroller's end, then probe several positions.
