@@ -7,12 +7,11 @@
 import { api } from "../api";
 import { bifrost } from "../bifrost";
 import type { Bifrost, SelectionPayload } from "../bifrost";
-import { chatScope, chatsKey, prUrl } from "../keys";
-import { storeSet } from "../muninn";
+import { prUrl } from "../keys";
 import { friendlyError } from "./friendly";
 import { activeGuide } from "./guide";
 import { pairingStore } from "./pairing";
-import { chatsStore, PANEL_TABS, panelStore, settingsStore, state, touch } from "./store";
+import { chatsStore, PANEL_TABS, panelStore, persistChats, settingsStore, state, touch } from "./store";
 import type { ChatMessage, ChatSession } from "./types";
 
 export type AskOutcome = { ok: true; streamed: boolean } | { ok: false; error: string };
@@ -40,14 +39,9 @@ let refNoticeTimer: ReturnType<typeof setTimeout> | null = null;
 /** Stable key for the overview "step 0" chat, so re-asking reopens it. */
 const OVERVIEW_CHAT_KEY = "overview";
 
-const persist = (): void => {
-  const scope = chatScope();
-  if (scope) storeSet(chatsKey(scope), state.chatHistory);
-};
-
 const update = (key: string, fn: (s: ChatSession) => ChatSession): void => {
   state.chatHistory = state.chatHistory.map((s) => (s.key === key ? fn(s) : s));
-  persist();
+  persistChats();
   touch();
 };
 
@@ -192,7 +186,7 @@ export const chatStore = {
         ...(p.stepId ? { stepId: p.stepId } : {}),
       };
       state.chatHistory = [sess, ...state.chatHistory];
-      persist();
+      persistChats();
     }
     if (withStep) {
       update(sess.key, (s) => ({ ...s, step: activeGuide().stepContext() }));
@@ -219,7 +213,7 @@ export const chatStore = {
         messages: [],
       };
       state.chatHistory = [sess, ...state.chatHistory];
-      persist();
+      persistChats();
     }
     chatStore.open(sess);
   },
@@ -238,7 +232,7 @@ export const chatStore = {
       messages: [],
     };
     state.chatHistory = [sess, ...state.chatHistory];
-    persist();
+    persistChats();
     chatStore.open(sess);
   },
 
@@ -267,7 +261,7 @@ export const chatStore = {
     bifrost.send("pick:clear", undefined);
     if (key) {
       state.chatHistory = state.chatHistory.filter((s) => s.key !== key);
-      persist();
+      persistChats();
     }
     touch();
   },

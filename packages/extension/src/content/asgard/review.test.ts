@@ -141,6 +141,8 @@ describe("reviewStore getters", () => {
     expect(reviewStore.stepIndex()).toBe(0);
     expect(reviewStore.step()).toBeNull();
     expect(reviewStore.title()).toBe("");
+    expect(reviewStore.canNext()).toBe(false);
+    expect(reviewStore.canBack()).toBe(false);
   });
 
   it("expose the loaded steps", async () => {
@@ -163,7 +165,7 @@ describe("reviewStore.load", () => {
     expect(storeSet).toHaveBeenCalledWith("kvasir:review:rev-1", {
       step: 0,
       review: mkReview(),
-      visited: [],
+      visited: ["a"], // the landing step counts as seen
     });
     expect(storeSet).toHaveBeenCalledTimes(1); // only the review cache (panel state persists to sessionStorage)
   });
@@ -272,7 +274,7 @@ describe("reviewStore navigation", () => {
     expect(storeSet).toHaveBeenCalledWith("kvasir:review:rev-1", {
       step: 1,
       review: mkReview(),
-      visited: ["b"], // the jump marks the target
+      visited: ["a", "b"], // the landing step, then the jump's target
     }); // target cached
     expect(assign).not.toHaveBeenCalled(); // deferred so the loading state paints first
     vi.runAllTimers();
@@ -335,7 +337,7 @@ describe("reviewStore navigation", () => {
     reviewStore.goto(1); // cross-file
     const snap: unknown = JSON.parse(sessionStorage.getItem("kvasir:session:rev-1") ?? "null");
     // geometry lives in the per-tab panel state
-    expect(snap).toEqual({ step: 1, review: mkReview(), visited: ["b"] });
+    expect(snap).toEqual({ step: 1, review: mkReview(), visited: ["a", "b"] });
   });
 
   it("goto survives a sessionStorage write failure", async () => {
@@ -348,38 +350,72 @@ describe("reviewStore navigation", () => {
 });
 
 describe("reviewStore visited", () => {
-  it("goto marks the target step visited and persists it with the cache", async () => {
+  it("load marks the landing step, and goto marks its target + persists with the cache", async () => {
     await loadOk(sameFileReview());
-    expect(reviewStore.isVisited("b")).toBe(false); // nothing visited until a goto
+    expect(reviewStore.isVisited("a")).toBe(true); // the step you land on counts as seen
+    expect(reviewStore.isVisited("b")).toBe(false);
     reviewStore.goto(1);
     expect(reviewStore.isVisited("b")).toBe(true);
     expect(reviewStore.isVisited("c")).toBe(false);
     expect(storeSet).toHaveBeenLastCalledWith("kvasir:review:rev-1", {
       step: 1,
       review: sameFileReview(),
-      visited: ["b"],
+      visited: ["a", "b"],
+    });
+  });
+
+  it("re-visiting an already-visited step does not duplicate it in the visited list", async () => {
+    await loadOk(sameFileReview());
+    reviewStore.goto(1);
+    reviewStore.goto(2);
+    reviewStore.goto(1); // back to b — already in the list
+    expect(storeSet).toHaveBeenLastCalledWith("kvasir:review:rev-1", {
+      step: 1,
+      review: sameFileReview(),
+      visited: ["a", "b", "c"],
     });
   });
 
   it("restores visited dots from the cached walk", async () => {
     await loadOk(mkReview(), { step: 1, review: mkReview(), visited: ["a"] });
     expect(reviewStore.isVisited("a")).toBe(true);
-    expect(reviewStore.isVisited("b")).toBe(false);
+    expect(reviewStore.isVisited("b")).toBe(true); // the restored landing step counts as seen too
   });
 
   it("a re-pushed review (new generatedAt) starts the visited dots fresh", async () => {
     await loadOk(mkReview({ generatedAt: "t2" }), {
       step: 0,
       review: mkReview({ generatedAt: "t1" }),
-      visited: ["a"],
+      visited: ["b"],
     });
-    expect(reviewStore.isVisited("a")).toBe(false);
+    expect(reviewStore.isVisited("b")).toBe(false); // the old generation's dots are gone
+    expect(reviewStore.isVisited("a")).toBe(true); // only the fresh landing step is marked
   });
 
   it("the same generation refreshed from the mailbox keeps the visited dots", async () => {
     await loadOk(mkReview({ generatedAt: "t1" }), {
       step: 0,
       review: mkReview({ generatedAt: "t1" }),
+      visited: ["b"],
+    });
+    expect(reviewStore.isVisited("b")).toBe(true);
+  });
+
+  it("keeps the dots when neither the cached nor the fresh review carries a generatedAt stamp", async () => {
+    // Review.generatedAt is optional (a server that never stamps it is a legal
+    // producer) — an unstamped re-fetch must read as the same generation.
+    await loadOk(mkReview(), { step: 0, review: mkReview(), visited: ["b"] });
+    expect(reviewStore.isVisited("b")).toBe(true);
+  });
+
+  it("the cached visited list survives even when hydrate left a DIFFERENT generation in state", async () => {
+    // Cross-tab race: this tab's sessionStorage snapshot (hydrate) holds an old
+    // generation while another tab re-cached a fresh one. The cached visited list
+    // was written WITH the cached review, so applying that pair must not wipe it.
+    state.review = mkReview({ generatedAt: "t1" });
+    await loadOk(mkReview({ generatedAt: "t2" }), {
+      step: 1,
+      review: mkReview({ generatedAt: "t2" }),
       visited: ["a"],
     });
     expect(reviewStore.isVisited("a")).toBe(true);
@@ -389,7 +425,7 @@ describe("reviewStore visited", () => {
     await loadOk();
     reviewStore.goto(1); // cross-repo → full load; the next page hydrates from the snapshot
     const snap: unknown = JSON.parse(sessionStorage.getItem("kvasir:session:rev-1") ?? "null");
-    expect(snap).toEqual({ step: 1, review: mkReview(), visited: ["b"] });
+    expect(snap).toEqual({ step: 1, review: mkReview(), visited: ["a", "b"] });
   });
 });
 

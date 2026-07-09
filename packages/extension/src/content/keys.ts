@@ -1,6 +1,6 @@
-// Pure helpers shared across realms: the per-PR storage keys and the location
-// readers. Keys embed the PR url so every PR keeps its own chats/spec/tour/
-// generation marker.
+// Pure helpers shared across realms: storage keys and the location readers.
+// spec/tour/gen keys embed the PR url so every PR keeps its own state; chats key
+// off the broader chatScope (the PR url, or a pushed review's id on blob pages).
 
 export const prUrl = (): string | null => {
   const m = /(https:\/\/github\.com\/[^/]+\/[^/]+\/pull\/\d+)/.exec(location.href);
@@ -10,7 +10,7 @@ export const prUrl = (): string | null => {
 // GitHub's newer PR UI serves the diff at /changes; older at /files. Accept both.
 export const onFilesTab = (): boolean => /\/pull\/\d+\/(?:files|changes)/.test(location.href);
 
-export const chatsKey = (pr: string | null): string => `kvasir:chats:${pr}`;
+export const chatsKey = (scope: string | null): string => `kvasir:chats:${scope}`;
 export const specKey = (pr: string | null): string => `kvasir:spec:${pr}`;
 export const tourKey = (pr: string | null): string => `kvasir:tour:${pr}`;
 export const genKey = (pr: string | null): string => `kvasir:gen:${pr}`;
@@ -47,11 +47,13 @@ export const reviewIdFromUrl = (): string | null => {
   }
 };
 
-/** The active guide's chat-storage scope: the PR url on PR pages, the pushed
- * review's id on `?kvasir=` blob pages, else null. Null means there is no guide
- * to key chats under — persist NOTHING rather than write a shared
- * "kvasir:chats:null" bucket no page ever reads back. */
-export const chatScope = (): string | null => prUrl() ?? reviewIdFromUrl();
+/** The active guide's chat-storage scope: the pushed review's id on `?kvasir=`
+ * pages, else the PR url, else null — the review wins so the precedence matches
+ * activeGuide() (which renders the review guide whenever the id is present, even
+ * on a URL that is also a PR page). Null means there is no guide to key chats
+ * under — persist NOTHING rather than write a shared "kvasir:chats:null" bucket
+ * no page ever reads back. */
+export const chatScope = (): string | null => reviewIdFromUrl() ?? prUrl();
 
 /** Per-review cache key (survives the page loads a review walks through). */
 export const reviewKey = (id: string): string => `kvasir:review:${id}`;

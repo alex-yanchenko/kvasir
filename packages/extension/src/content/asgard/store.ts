@@ -220,7 +220,10 @@ export const settingsStore = {
 
 // ── chats slice ────────────────────────────────────────────────────────────────
 
-const persistChats = (): void => {
+/** Persist the chat history under the active guide's scope (PR url or review id);
+ * with no scope there is no guide to key it under, so nothing is written. Shared
+ * with chat.ts — the one place the scope-guarded write lives. */
+export const persistChats = (): void => {
   const scope = chatScope();
   if (scope) storeSet(chatsKey(scope), state.chatHistory);
 };

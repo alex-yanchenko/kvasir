@@ -7,33 +7,16 @@ import { renderMarkdown } from "@kvasir/runes/markdown";
 import { ChevronLeft, ChevronRight, Loader2, MessageSquare } from "lucide-react";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import type { JSX } from "react";
-import { useShadowAwareKeydown } from "../../hooks/useShadowAwareKeydown";
+import { useArrowKeyNav } from "../../hooks/useArrowKeyNav";
 import { pairingStore } from "../../pairing";
 import { reviewStore } from "../../review";
 import { getSnapshot, PANEL_TABS, panelStore, subscribe } from "../../store";
 import { Button } from "../../ui/button";
 
-// Arrow keys navigate review steps (mirrors the walkthrough's useArrowKeyNav).
-// Guarded by the same edges as the Back/Next buttons, and quiet while a
-// cross-file navigation is in flight so keys can't stack a second one.
-function useArrowKeyNav(): void {
-  useShadowAwareKeydown((event) => {
-    if (reviewStore.navigating()) return;
-    const index = reviewStore.stepIndex();
-    if (event.key === "ArrowRight" && index < reviewStore.stepCount() - 1) {
-      event.preventDefault();
-      reviewStore.next();
-    } else if (event.key === "ArrowLeft" && index > 0) {
-      event.preventDefault();
-      reviewStore.back();
-    }
-  });
-}
-
 export function ReviewTab(): JSX.Element {
   useSyncExternalStore(subscribe, getSnapshot);
   const [showDetail, setShowDetail] = useState(false);
-  useArrowKeyNav();
+  useArrowKeyNav(reviewStore); // canNext/canBack gate the edges + in-flight navigation
   const step = reviewStore.step();
   const index = reviewStore.stepIndex();
   const count = reviewStore.stepCount();

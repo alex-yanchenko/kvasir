@@ -19,7 +19,7 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import type { JSX } from "react";
 import { sanitizeSpecHtml } from "../../../sanitize";
 import { chatStore } from "../../chat";
-import { useShadowAwareKeydown } from "../../hooks/useShadowAwareKeydown";
+import { useArrowKeyNav } from "../../hooks/useArrowKeyNav";
 import { fmtElapsed, launcherStore } from "../../launcher";
 import { pairingStore } from "../../pairing";
 import { getSnapshot, PANEL_TABS, panelStore, settingsStore, subscribe } from "../../store";
@@ -212,20 +212,6 @@ function MainView({
   return <StepBody step={step} />;
 }
 
-// Arrow keys navigate steps. Extracted from Steps so that component stays under
-// the cognitive-complexity bar; the shadow-aware binding lives in the shared hook.
-function useArrowKeyNav(): void {
-  useShadowAwareKeydown((event) => {
-    if (event.key === "ArrowRight" && tourStore.canNext()) {
-      event.preventDefault();
-      tourStore.next();
-    } else if (event.key === "ArrowLeft" && tourStore.canBack()) {
-      event.preventDefault();
-      tourStore.back();
-    }
-  });
-}
-
 // The "ask" button: on a code step it opens that step's chat; on the overview "step
 // 0" it opens the whole-PR overview chat. Split out of StepTools so the label/click
 // branching stays out of the JSX (and StepTools under the cognitive-complexity bar).
@@ -396,7 +382,7 @@ function Steps({ spec }: Readonly<{ spec: WalkthroughSpec }>): JSX.Element {
   useEffect(() => {
     tourStore.start();
   }, [spec.generatedAt]);
-  useArrowKeyNav();
+  useArrowKeyNav(tourStore);
 
   if (!step) return <Empty />;
   const diagramOpen = tourStore.diagramOpen();

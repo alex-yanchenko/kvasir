@@ -161,18 +161,6 @@ describe("ReviewTab", () => {
     expect(next).toHaveBeenCalledTimes(1); // unchanged
   });
 
-  it("arrow keys are ignored while typing in an editable target", () => {
-    const next = vi.spyOn(reviewStore, "next").mockImplementation(() => {});
-    render(<ReviewTab />);
-    const input = document.createElement("input");
-    document.body.append(input);
-    act(() => {
-      input.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
-    });
-    expect(next).not.toHaveBeenCalled();
-    input.remove();
-  });
-
   it("names each step's dot by its title", () => {
     render(<ReviewTab />);
     expect(screen.getByRole("button", { name: "Go to step 1: Guard" })).toBeTruthy();

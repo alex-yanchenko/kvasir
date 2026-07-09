@@ -33,6 +33,7 @@ beforeEach(() => {
   state.review = null;
   state.reviewStep = 0;
   state.reviewVisited = [];
+  state.reviewNavigating = false;
   if (tourStore.open()) tourStore.close();
 });
 afterEach(() => {
@@ -217,5 +218,16 @@ describe("ReviewOutlineRail", () => {
     expect(buttons[2]!.getAttribute("aria-current")).toBe("step");
     fireEvent.click(within(rail).getByText("Client"));
     expect(goto).toHaveBeenCalledWith(2); // GLOBAL index, not the position within the group
+  });
+
+  it("rows disable while a navigation is in flight — a click must not stack a second goto", () => {
+    state.review = review();
+    state.reviewNavigating = true;
+    const goto = vi.spyOn(reviewStore, "goto").mockImplementation(() => {});
+    render(<ReviewOutlineRail />);
+    const row = within(screen.getByTestId("outline")).getAllByRole("button")[0] as HTMLButtonElement;
+    expect(row.disabled).toBe(true);
+    fireEvent.click(row);
+    expect(goto).not.toHaveBeenCalled();
   });
 });

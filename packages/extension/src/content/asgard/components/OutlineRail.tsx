@@ -22,8 +22,14 @@ type OutlineItem = { step: OutlineStep; index: number };
 type OutlineGroup = { label: string; items: OutlineItem[] };
 
 /** How rows act + read state — the walkthrough rail binds tourStore, the review
- * rail reviewStore; the tree rendering in between is shared. */
-type OutlineNav = { onStep: (index: number) => void; isVisited: (stepId: string) => boolean };
+ * rail reviewStore; the tree rendering in between is shared. `navigating` disables
+ * the rows while a cross-file navigation is in flight (review only — a walkthrough
+ * jump never leaves the page), so a rail click can't stack a second navigation. */
+type OutlineNav = {
+  onStep: (index: number) => void;
+  isVisited: (stepId: string) => boolean;
+  navigating?: boolean;
+};
 
 const STEP_BTN_CLASS =
   "flex min-w-full items-center gap-1.5 whitespace-nowrap py-1.5 pl-3 pr-3 text-left text-sm hover:bg-muted ";
@@ -85,9 +91,10 @@ function fileGroups(steps: readonly WalkthroughStep[]): OutlineGroup[] {
   return groups;
 }
 
-// A single step row: connector, status dot, title, and — in logical grouping — the
-// file path as a dim caption so the location stays visible (the group header is the
-// phase, not the file). In file grouping showFile is false (the header is the file).
+// A single step row: connector, status dot, title, and — when showFile is set — the
+// file path as a dim caption so the location stays visible (the group header is a
+// phase or a repo, not the file). showFile is false only in the legacy per-file
+// grouping, where the header IS the file.
 function StepRow({
   item,
   isLast,
@@ -109,6 +116,7 @@ function StepRow({
       <button
         className={STEP_BTN_CLASS + (isCurrent ? "font-medium text-primary" : "text-foreground/90")}
         aria-current={isCurrent ? "step" : undefined}
+        disabled={nav.navigating}
         onClick={() => nav.onStep(item.index)}
       >
         <span className="select-none font-mono text-[11px] text-muted-foreground/40">
@@ -132,8 +140,8 @@ function StepRow({
   );
 }
 
-// The list of groups: a header per group (the phase label, or the file path in
-// legacy mode) with its steps nested and connectors running within the group.
+// The list of groups: a header per group (a phase label, a repo, or the file path
+// in legacy mode) with its steps nested and connectors running within the group.
 function GroupList({
   groups,
   current,
@@ -245,7 +253,11 @@ export function ReviewOutlineRail(): JSX.Element | null {
           current={reviewStore.stepIndex()}
           onOverview={false}
           showFile
-          nav={{ onStep: (index) => reviewStore.goto(index), isVisited: reviewStore.isVisited }}
+          nav={{
+            onStep: (index) => reviewStore.goto(index),
+            isVisited: reviewStore.isVisited,
+            navigating: reviewStore.navigating(),
+          }}
         />
       </div>
     </div>
