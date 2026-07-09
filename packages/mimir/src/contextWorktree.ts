@@ -70,6 +70,21 @@ export async function prepareContextWorktree(
   return job;
 }
 
+/** The remote to fetch a missing commit from: origin when the clone has one,
+ * else its first remote — a rename (origin -> upstream) must not strand the
+ * heavy pass. No remote at all is its own error; git's would blame "origin". */
+async function fetchRemote(repoPath: string, sha: string): Promise<string> {
+  const listed = await git(repoPath, ["remote"]);
+  const remotes = listed.split("\n").filter(Boolean);
+  const remote = remotes.includes("origin") ? "origin" : remotes[0];
+  if (remote === undefined) {
+    throw new ContextWorktreeError(
+      `commit ${sha} is not in ${repoPath}, and the clone has no remote to fetch it from`,
+    );
+  }
+  return remote;
+}
+
 async function materialize(repoPath: string, sha: string, target: string): Promise<string> {
   await git(repoPath, ["rev-parse", "--is-inside-work-tree"]).catch((error: unknown) => {
     throw new ContextWorktreeError(`${repoPath} is not a usable git repository`, { cause: error });
@@ -78,7 +93,7 @@ async function materialize(repoPath: string, sha: string, target: string): Promi
     () => true,
     () => false,
   );
-  if (!present) await git(repoPath, ["fetch", "origin", sha]);
+  if (!present) await git(repoPath, ["fetch", await fetchRemote(repoPath, sha), sha]);
   if (existsSync(target)) {
     // Already materialized at the right sha (a sibling pass, or a clean leftover) —
     // reuse it; a remove+re-add here would yank files out from under a live reader.

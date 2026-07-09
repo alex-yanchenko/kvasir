@@ -8,14 +8,18 @@ name: Release
 # draft:false is load-bearing, not convenience: a draft carries NO git tag, so the
 # same run's next-release computation can't anchor on the new version and emits an
 # all-history changelog — and a manually published duplicate then coexists with a
-# stale empty draft under the same tag name.
+# stale empty draft under the same tag name. Accepted trade-off: the release is
+# public for the few minutes between publish and `gh release upload`, so a
+# download attempted in that window 404s — the installer verifies attestations
+# anyway, so a partial release fails loudly rather than serving a wrong binary.
 on:
   push:
     branches: [main]
 
 # Serialize releases: only one run at a time. A second push while a run is mid-flight queues
-# behind it (cancel-in-progress: false) rather than racing on the release PR / draft. We do NOT
-# cancel the in-progress run — killing it mid-compile could leave a half-built draft.
+# behind it (cancel-in-progress: false) rather than racing on the release PR. We do NOT cancel
+# the in-progress run — the release publishes before the compile/attach steps, so killing it
+# mid-compile would leave a live public release permanently missing its binaries.
 concurrency:
   group: release
   cancel-in-progress: false
@@ -49,7 +53,8 @@ jobs:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
 
-      # The rest runs ONLY when a release PR was just merged (a draft release now exists).
+      # The rest runs ONLY when a release PR was just merged (the release is published;
+      # these steps build and attach its assets).
       - uses: actions/checkout@v4
         if: ${{ steps.release.outputs.release_created }}
       - uses: oven-sh/setup-bun@v2
@@ -89,27 +94,10 @@ jobs:
           subject-path: |
             packages/mimir/dist/kvasir-channel-*
             packages/mimir/dist/extension-dist.tgz
-      - name: Attach binaries to the draft release
+      - name: Attach binaries to the release
         if: ${{ steps.release.outputs.release_created }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release upload "${{ steps.release.outputs.tag_name }}" \
             packages/mimir/dist/kvasir-channel-* packages/mimir/dist/extension-dist.tgz --clobber
-      # Keep exactly one unpublished draft. Merging successive release PRs without publishing the
-      # prior draft would otherwise leave a stack of stale drafts; delete every draft except the one
-      # just created. Drafts carry no git tag, so this never deletes a tag or a published release.
-      - name: Prune stale draft releases (keep only the new one)
-        if: ${{ steps.release.outputs.release_created }}
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          new_tag="${{ steps.release.outputs.tag_name }}"
-          gh release list --limit 100 --json tagName,isDraft \
-            --jq '.[] | select(.isDraft) | .tagName' \
-          | while read -r tag; do
-              if [ "$tag" != "$new_tag" ]; then
-                echo "Deleting stale draft $tag"
-                gh release delete "$tag" --yes
-              fi
-            done

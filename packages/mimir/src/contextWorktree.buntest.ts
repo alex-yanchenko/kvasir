@@ -102,6 +102,21 @@ describe("prepareContextWorktree", () => {
     expect(git(rebuilt, ["rev-parse", "HEAD"])).toBe(shaB);
   });
 
+  it("fetches from a clone whose remote is not named origin", async () => {
+    git(clone, ["remote", "rename", "origin", "upstream"]);
+    const wt = await prepareContextWorktree(clone, shaB, worktrees);
+    expect(git(wt, ["rev-parse", "HEAD"])).toBe(shaB);
+    expect(existsSync(path.join(clone, ".git", "shallow"))).toBe(false);
+  });
+
+  it("names the real problem when the sha is missing and the clone has no remote at all", async () => {
+    git(clone, ["remote", "remove", "origin"]);
+    const error = await rejection(prepareContextWorktree(clone, shaB, worktrees));
+    expect(error).toBeInstanceOf(ContextWorktreeError);
+    expect(errorMessage(error)).toContain("no remote");
+    expect(existsSync(path.join(worktrees, `clone-${shaB}`))).toBe(false);
+  });
+
   it("rejects cleanly when the sha is missing AND origin is unreachable — no partial worktree", async () => {
     rmSync(origin, { recursive: true, force: true });
     expect(await rejection(prepareContextWorktree(clone, shaB, worktrees))).toBeInstanceOf(
