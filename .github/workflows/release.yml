@@ -2,10 +2,13 @@ name: Release
 
 # release-please maintains a "chore: release X.Y.Z" PR off main: it bumps every
 # version file (root + extension package.json + the MV3 manifest) and writes the
-# CHANGELOG from Conventional Commit messages. Merging that PR creates a DRAFT GitHub
-# release; this same job then cross-compiles the channel for every supported platform
-# and attaches the binaries + the built extension, so the draft is ready to ship.
-# Publishing the draft (a manual click) is what creates the git tag and releases it.
+# CHANGELOG from Conventional Commit messages. Merging that PR PUBLISHES the GitHub
+# release (tag included) in the same run; this job then cross-compiles the channel
+# for every supported platform and attaches the binaries + the built extension.
+# draft:false is load-bearing, not convenience: a draft carries NO git tag, so the
+# same run's next-release computation can't anchor on the new version and emits an
+# all-history changelog — and a manually published duplicate then coexists with a
+# stale empty draft under the same tag name.
 on:
   push:
     branches: [main]
