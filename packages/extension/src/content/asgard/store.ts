@@ -71,6 +71,10 @@ export const state: {
    * NOT tracked here — the connection banner (pairing phase) owns that message.
    * Null when nothing is missing (including cached renders). */
   reviewMissing: "notfound" | null;
+  /** Step ids the reader has navigated to (the outline's visited dots). Scoped to
+   * the current review's generation — a re-push resets it (see applyReview);
+   * persisted inside the per-review cache, so it pairs with the review it counts. */
+  reviewVisited: string[];
   /** Step nav: true = advance the panel only once the page lands (loading in
    * between); false = advance immediately. Default true. */
   reviewSync: boolean;
@@ -112,6 +116,7 @@ export const state: {
   reviewStep: 0,
   reviewNavigating: false,
   reviewMissing: null,
+  reviewVisited: [],
   reviewSync: localStorage.getItem("kvasirReviewSync") !== "false", // default on
   reviewMode: localStorage.getItem("kvasirReviewMode") || "heavy", // default heavy
   reviewReposRoot: localStorage.getItem("kvasirReviewReposRoot") || "~/code",

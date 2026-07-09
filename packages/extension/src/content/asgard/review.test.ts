@@ -110,6 +110,7 @@ beforeEach(() => {
   state.reviewStep = 0;
   state.reviewNavigating = false;
   state.reviewMissing = null;
+  state.reviewVisited = [];
   state.reviewSync = true; // synced is the default
   state.panel = { open: false, tab: "walkthrough", pos: null, size: null };
   vi.mocked(storeGet).mockResolvedValue(null);
@@ -159,7 +160,11 @@ describe("reviewStore.load", () => {
     expect(state.panel.open).toBe(true);
     expect(state.panel.tab).toBe("walkthrough"); // a direct ?kvasir open shows the review
     expect(api).toHaveBeenCalledWith("/review?id=rev-1");
-    expect(storeSet).toHaveBeenCalledWith("kvasir:review:rev-1", { step: 0, review: mkReview() });
+    expect(storeSet).toHaveBeenCalledWith("kvasir:review:rev-1", {
+      step: 0,
+      review: mkReview(),
+      visited: [],
+    });
     expect(storeSet).toHaveBeenCalledTimes(1); // only the review cache (panel state persists to sessionStorage)
   });
 
@@ -264,7 +269,11 @@ describe("reviewStore navigation", () => {
     reviewStore.goto(1);
     expect(reviewStore.stepIndex()).toBe(0); // the current step stays on THIS page
     expect(reviewStore.navigating()).toBe(true);
-    expect(storeSet).toHaveBeenCalledWith("kvasir:review:rev-1", { step: 1, review: mkReview() }); // target cached
+    expect(storeSet).toHaveBeenCalledWith("kvasir:review:rev-1", {
+      step: 1,
+      review: mkReview(),
+      visited: ["b"], // the jump marks the target
+    }); // target cached
     expect(assign).not.toHaveBeenCalled(); // deferred so the loading state paints first
     vi.runAllTimers();
     expect(assign).toHaveBeenCalledWith("https://github.com/acme/api/blob/main/src/b.ts?kvasir=rev-1");
@@ -313,7 +322,11 @@ describe("reviewStore navigation", () => {
     state.review = mkReview({ id: undefined });
     state.reviewStep = 0;
     reviewStore.goto(0);
-    expect(storeSet).toHaveBeenCalledWith("kvasir:review:", { step: 0, review: mkReview({ id: undefined }) });
+    expect(storeSet).toHaveBeenCalledWith("kvasir:review:", {
+      step: 0,
+      review: mkReview({ id: undefined }),
+      visited: ["a"],
+    });
     expect(assign).not.toHaveBeenCalled();
   });
 
@@ -321,7 +334,8 @@ describe("reviewStore navigation", () => {
     await loadOk();
     reviewStore.goto(1); // cross-file
     const snap: unknown = JSON.parse(sessionStorage.getItem("kvasir:session:rev-1") ?? "null");
-    expect(snap).toEqual({ step: 1, review: mkReview() }); // geometry lives in the per-tab panel state
+    // geometry lives in the per-tab panel state
+    expect(snap).toEqual({ step: 1, review: mkReview(), visited: ["b"] });
   });
 
   it("goto survives a sessionStorage write failure", async () => {
@@ -333,19 +347,69 @@ describe("reviewStore navigation", () => {
   });
 });
 
+describe("reviewStore visited", () => {
+  it("goto marks the target step visited and persists it with the cache", async () => {
+    await loadOk(sameFileReview());
+    expect(reviewStore.isVisited("b")).toBe(false); // nothing visited until a goto
+    reviewStore.goto(1);
+    expect(reviewStore.isVisited("b")).toBe(true);
+    expect(reviewStore.isVisited("c")).toBe(false);
+    expect(storeSet).toHaveBeenLastCalledWith("kvasir:review:rev-1", {
+      step: 1,
+      review: sameFileReview(),
+      visited: ["b"],
+    });
+  });
+
+  it("restores visited dots from the cached walk", async () => {
+    await loadOk(mkReview(), { step: 1, review: mkReview(), visited: ["a"] });
+    expect(reviewStore.isVisited("a")).toBe(true);
+    expect(reviewStore.isVisited("b")).toBe(false);
+  });
+
+  it("a re-pushed review (new generatedAt) starts the visited dots fresh", async () => {
+    await loadOk(mkReview({ generatedAt: "t2" }), {
+      step: 0,
+      review: mkReview({ generatedAt: "t1" }),
+      visited: ["a"],
+    });
+    expect(reviewStore.isVisited("a")).toBe(false);
+  });
+
+  it("the same generation refreshed from the mailbox keeps the visited dots", async () => {
+    await loadOk(mkReview({ generatedAt: "t1" }), {
+      step: 0,
+      review: mkReview({ generatedAt: "t1" }),
+      visited: ["a"],
+    });
+    expect(reviewStore.isVisited("a")).toBe(true);
+  });
+
+  it("a cross-repo goto carries visited into the sessionStorage snapshot", async () => {
+    await loadOk();
+    reviewStore.goto(1); // cross-repo → full load; the next page hydrates from the snapshot
+    const snap: unknown = JSON.parse(sessionStorage.getItem("kvasir:session:rev-1") ?? "null");
+    expect(snap).toEqual({ step: 1, review: mkReview(), visited: ["b"] });
+  });
+});
+
 describe("reviewStore.hydrate", () => {
   const atReviewUrl = (): void => {
     globalThis.location.href = "https://github.com/acme/web/blob/main/src/a.ts?kvasir=rev-1";
   };
 
-  it("synchronously restores review + step and opens the panel from the session snapshot", () => {
+  it("synchronously restores review + step + visited and opens the panel from the session snapshot", () => {
     atReviewUrl();
-    sessionStorage.setItem("kvasir:session:rev-1", JSON.stringify({ step: 1, review: mkReview() }));
+    sessionStorage.setItem(
+      "kvasir:session:rev-1",
+      JSON.stringify({ step: 1, review: mkReview(), visited: ["b"] }),
+    );
     reviewStore.hydrate();
     expect(state.panel.open).toBe(true);
     expect(state.panel.tab).toBe("walkthrough"); // a review page shows the review
     expect(reviewStore.stepIndex()).toBe(1);
     expect(reviewStore.title()).toBe("Auth flow");
+    expect(reviewStore.isVisited("b")).toBe(true);
   });
 
   it("keeps the panel on History when hydrate runs after a History-jump hydratePanel", () => {
