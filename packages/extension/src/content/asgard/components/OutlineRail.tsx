@@ -115,9 +115,7 @@ function StepRow({
           {isLast ? "└" : "├"}
         </span>
         <span
-          className={
-            "size-1.5 shrink-0 rounded-full " + dotClass(isCurrent, nav.isVisited(item.step.id))
-          }
+          className={"size-1.5 shrink-0 rounded-full " + dotClass(isCurrent, nav.isVisited(item.step.id))}
         />
         {showFile ? (
           <span className="min-w-0 flex-1">
