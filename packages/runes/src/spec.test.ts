@@ -31,6 +31,24 @@ describe("isWalkthroughSpec", () => {
     expect(isWalkthroughSpec("nope")).toBe(false);
   });
 
+  it("rejects a step missing each core field specifically (id, file)", () => {
+    // Isolate each required core field — a bulk-missing fixture can't tell
+    // WHICH absent field failed, so weakening one in step.ts would go unnoticed.
+    expect(isWalkthroughSpec({ ...valid, steps: [{ ...valid.steps[0], id: undefined }] })).toBe(false);
+    expect(isWalkthroughSpec({ ...valid, steps: [{ ...valid.steps[0], file: undefined }] })).toBe(false);
+  });
+
+  it("rejects a file that would path-traverse (guarded in the shared core)", () => {
+    expect(isWalkthroughSpec({ ...valid, steps: [{ ...valid.steps[0], file: "a/../../evil" }] })).toBe(false);
+    expect(isWalkthroughSpec({ ...valid, steps: [{ ...valid.steps[0], file: "pages/[id].ts" }] })).toBe(true);
+  });
+
+  it("rejects step lines missing a side", () => {
+    expect(isWalkthroughSpec({ ...valid, steps: [{ ...valid.steps[0], lines: { start: 1, end: 2 } }] })).toBe(
+      false,
+    );
+  });
+
   it("accepts an optional step group, and a spec without one (back-compat)", () => {
     expect(isWalkthroughSpec({ ...valid, steps: [{ ...valid.steps[0], group: "Foundation" }] })).toBe(true);
     expect(isWalkthroughSpec(valid)).toBe(true); // no group on any step still validates

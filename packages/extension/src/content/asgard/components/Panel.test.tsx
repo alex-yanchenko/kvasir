@@ -48,6 +48,7 @@ beforeEach(() => {
   // unrelated tests don't drift to "down" (the stubbed chrome has no messaging).
   vi.spyOn(pairingStore, "recheck").mockResolvedValue(undefined);
   vi.spyOn(launcherStore, "specLoading").mockReturnValue(false); // spec probes are done in these tests
+  state.firstRun = false; // onboarding dismissed — Panel tests assert the plain empty state
 });
 afterEach(() => {
   cleanup();

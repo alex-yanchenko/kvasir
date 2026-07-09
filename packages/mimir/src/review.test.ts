@@ -39,6 +39,7 @@ describe("parseReviewInput", () => {
     const result = parseReviewInput({ version: 1, title: "x", steps: [{ id: "s1" }] });
     expect(result.ok).toBe(false);
     const error = result.ok ? "" : result.error;
+    expect(error).toContain("steps.0.title: ");
     expect(error).toContain("steps.0.body: ");
     expect(error).toContain("steps.0.repo: ");
     expect(error).toContain("steps.0.file: ");

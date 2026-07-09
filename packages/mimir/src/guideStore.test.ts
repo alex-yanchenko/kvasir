@@ -42,6 +42,16 @@ describe("contentHash", () => {
     expect(contentHash(mkReview())).toBe(contentHash(mkReview()));
     expect(contentHash(mkReview())).not.toBe(contentHash(mkReview({ title: "Other" })));
   });
+
+  it("is independent of object key order, at every nesting depth", () => {
+    // A schema recomposition reorders zod's parsed-output keys for IDENTICAL content
+    // (extend appends the locator fields) — the hash must see content, not byte order,
+    // or every pre-recomposition row false-bumps its version on the next re-push.
+    expect(contentHash({ a: 1, b: { x: [{ p: 1, q: 2 }] } })).toBe(
+      contentHash({ b: { x: [{ q: 2, p: 1 }] }, a: 1 }),
+    );
+    expect(contentHash({ a: [1, 2] })).not.toBe(contentHash({ a: [2, 1] })); // arrays stay ordered
+  });
 });
 
 describe("reviewToRecord", () => {

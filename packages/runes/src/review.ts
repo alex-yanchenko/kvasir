@@ -10,6 +10,7 @@
  * validates against them, so the wire contract can't drift from its runtime check.
  */
 import { z } from "zod";
+import { LINE_RANGE_FIELDS, noTraversal, ORDERED_RANGE_MESSAGE, orderedRange, StepCoreSchema } from "./step";
 
 // owner/name interpolate raw into the github.com blob URL, so constrain them to
 // GitHub's charset and reject "."/".." — otherwise a value like "a/../../evil" or
@@ -20,31 +21,17 @@ const ghName = z
   .regex(/^[\w.-]+$/, "invalid GitHub owner/name")
   .refine((s) => s !== "." && s !== "..", "owner/name must not be '.' or '..'");
 
-/** No "." / ".." / empty path segment — blocks "../" traversal out of the repo
- * when a ref or file is interpolated into the blob URL. */
-const noTraversal = (value: string): boolean =>
-  !value.split("/").some((segment) => [".", "..", ""].includes(segment));
-
 export const RepoRefSchema = z.object({
   owner: ghName,
   name: ghName,
 });
 
-export const ReviewLinesSchema = z
-  .object({
-    start: z.number().int().positive(),
-    end: z.number().int().positive(),
-  })
-  .refine(({ start, end }) => start <= end, { message: "start must be <= end" });
+export const ReviewLinesSchema = z.object(LINE_RANGE_FIELDS).refine(orderedRange, ORDERED_RANGE_MESSAGE);
 
-export const ReviewStepSchema = z.object({
-  /** Stable id, e.g. "auth-guard". */
-  id: z.string(),
-  title: z.string(),
-  /** Markdown explanation shown for the step. */
-  body: z.string(),
-  /** Optional deeper detail, revealed on expand. */
-  detail: z.string().optional(),
+/** The shared step core (see ./step) + the blob locator: this artifact's steps
+ * live on plain GitHub blob pages, located by repo + ref, possibly across repos.
+ * The core's `file` is already traversal-guarded for the blob URL it lands in. */
+export const ReviewStepSchema = StepCoreSchema.extend({
   /** The repo this step's code lives in (steps may span repos). */
   repo: RepoRefSchema,
   /** Branch or commit sha to pin the blob link; absent → repo default branch. */
@@ -53,14 +40,8 @@ export const ReviewStepSchema = z.object({
     .regex(/^\w[\w./-]*$/, "invalid ref")
     .refine(noTraversal, "ref must not traverse")
     .optional(),
-  /** Repo-relative file path, e.g. "src/auth/guard.ts". */
-  file: z.string().refine(noTraversal, "file must not contain '.'/'..' path segments"),
   /** New-side line range to highlight (GitHub `#L<start>-L<end>`). */
   lines: ReviewLinesSchema.optional(),
-  /** Fallback highlight substrings if line ids aren't available. */
-  highlight: z.array(z.string()).optional(),
-  /** Quick follow-up questions for this step. */
-  suggestions: z.array(z.string()).optional(),
 });
 
 export const ReviewSchema = z.object({

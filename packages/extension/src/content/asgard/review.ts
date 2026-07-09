@@ -11,12 +11,11 @@ import { reviewIdFromUrl, reviewKey, reviewSessionKey } from "../keys";
 import { storeGet, storeSet } from "../muninn";
 import { chatStore } from "./chat";
 import { awaitSoftNav, softNavigate } from "./lib/nav";
+import { clampIndex, guideBackgroundText, stepContextText, whereText } from "./lib/stepText";
 import { stripHtml } from "./lib/strip";
 import { pairingStore } from "./pairing";
 import { parseReviewCache } from "./persisted";
 import { panelStore, PANEL_TABS, settingsStore, state, touch } from "./store";
-
-const clamp = (index: number, length: number): number => Math.min(Math.max(index, 0), length - 1);
 
 /** Snapshot the destination review (content + step) to sessionStorage (sync,
  * survives the same-origin nav) so the next page renders it on first paint. Panel
@@ -32,7 +31,7 @@ const writeSession = (id: string, step: number, review: Review): void => {
 /** Show a review: store it, clamp the step into range, open the panel on the step tab. */
 const applyReview = (review: Review): void => {
   state.review = review;
-  state.reviewStep = clamp(state.reviewStep, review.steps.length);
+  state.reviewStep = clampIndex(state.reviewStep, review.steps.length);
   // A History jump leaves the hydrated tab on History (so the next pick is one click
   // away); a direct ?kvasir open shows the review on the Walkthrough tab.
   panelStore.open(state.panel.tab === PANEL_TABS.HISTORY ? PANEL_TABS.HISTORY : PANEL_TABS.WALKTHROUGH);
@@ -69,7 +68,7 @@ export const reviewStore = {
     // first in boot); here we only restore the review content + open it. Keep the
     // hydrated tab when it's History (a History jump), else show the review.
     state.review = review;
-    state.reviewStep = clamp(step, review.steps.length);
+    state.reviewStep = clampIndex(step, review.steps.length);
     state.panel.open = true;
     if (state.panel.tab !== PANEL_TABS.HISTORY) state.panel.tab = PANEL_TABS.WALKTHROUGH;
   },
@@ -122,7 +121,7 @@ export const reviewStore = {
   goto(index: number): void {
     const review = state.review;
     if (!review) return;
-    const target = clamp(index, review.steps.length);
+    const target = clampIndex(index, review.steps.length);
     const step = review.steps[target]!; // clamp keeps target in range; min(1) guarantees a step
     const id = review.id ?? "";
     storeSet(reviewKey(id), { step: target, review }); // cache the destination
@@ -173,20 +172,19 @@ export const reviewStore = {
   // ── Guide ──────────────────────────────────────────────────────────────────
   backgroundContext(): string {
     if (!state.review) return "";
-    const head = `Review: ${state.review.title}\n\n`;
-    const steps = state.review.steps
-      .map((s) => {
-        const lineSuffix = s.lines ? `:${s.lines.start}-${s.lines.end}` : "";
-        return `• ${s.title} (${s.repo.owner}/${s.repo.name}/${s.file}${lineSuffix})\n  ${stripHtml(s.body)}`;
-      })
-      .join("\n");
-    return (head + steps).slice(0, 12_000);
+    return guideBackgroundText(
+      `Review: ${state.review.title}\n\n`,
+      state.review.steps.map((s) => ({
+        title: s.title,
+        where: whereText(`${s.repo.owner}/${s.repo.name}/${s.file}`, s.lines),
+        body: s.body,
+      })),
+    );
   },
   stepContext(): string {
     const s = reviewStore.step();
     if (!s) return "";
-    const lineSuffix = s.lines ? `:${s.lines.start}-${s.lines.end}` : "";
-    return `Step: ${s.title} (${s.file}${lineSuffix})\n${stripHtml(s.body)}`;
+    return stepContextText({ title: s.title, where: whereText(s.file, s.lines), body: s.body });
   },
   askAboutStep(): void {
     const s = reviewStore.step();

@@ -19,6 +19,10 @@ describe("isReview", () => {
     expect(isReview("nope")).toBe(false);
   });
 
+  it("rejects a step missing id specifically (a required shared-core field)", () => {
+    expect(isReview({ ...valid, steps: [{ ...valid.steps[0], id: undefined }] })).toBe(false);
+  });
+
   it("rejects owner/name/ref/file that would path-traverse out of the repo", () => {
     const step0 = valid.steps[0];
     expect(isReview({ ...valid, steps: [{ ...step0, repo: { owner: "..", name: "web" } }] })).toBe(false);

@@ -22,7 +22,7 @@ import { chatStore } from "../../chat";
 import { useShadowAwareKeydown } from "../../hooks/useShadowAwareKeydown";
 import { fmtElapsed, launcherStore } from "../../launcher";
 import { pairingStore } from "../../pairing";
-import { getSnapshot, PANEL_TABS, panelStore, subscribe } from "../../store";
+import { getSnapshot, PANEL_TABS, panelStore, settingsStore, subscribe } from "../../store";
 import { tourStore } from "../../tour";
 import { Button } from "../../ui/button";
 import { Diagram } from "../Diagram";
@@ -81,18 +81,50 @@ function Checking(): JSX.Element {
   );
 }
 
+/** One-time onboarding shown in the empty state until dismissed: the three steps
+ * between a fresh install and a first walkthrough, ending at the real Run button. */
+function FirstRunSteps(): JSX.Element {
+  return (
+    <>
+      <p className="text-sm font-medium">Three steps to your first walkthrough</p>
+      <ol className="flex max-w-[340px] flex-col gap-2 text-left text-sm text-muted-foreground">
+        <li>
+          <b className="text-foreground">1. Start the channel</b> — run{" "}
+          <b className="font-mono text-foreground">kvasir</b> in your terminal.
+        </li>
+        <li>
+          <b className="text-foreground">2. Pair</b> — Settings → Pair, then approve the code in that session.
+        </li>
+        <li>
+          <b className="text-foreground">3. Run</b> — hit the button below on any PR.
+        </li>
+      </ol>
+    </>
+  );
+}
+
 function Empty(): JSX.Element {
   // Pairing is surfaced globally by the panel's PairBanner (so any 401 anywhere
   // prompts it), so this just offers the generate action.
+  const firstRun = settingsStore.firstRun();
   return (
     <div className="flex flex-col items-center gap-3 p-8 text-center">
-      <p className="text-sm text-muted-foreground">No walkthrough yet for this PR.</p>
+      {firstRun ? (
+        <FirstRunSteps />
+      ) : (
+        <p className="text-sm text-muted-foreground">No walkthrough yet for this PR.</p>
+      )}
       <Button
         disabled={pairingStore.needsPairing()}
         onClick={() => void launcherStore.requestGenerate("new")}
       >
         <Play /> Run walkthrough
       </Button>
+      {firstRun && (
+        <Button variant="ghost" size="sm" onClick={() => settingsStore.dismissFirstRun()}>
+          Got it
+        </Button>
+      )}
     </div>
   );
 }
