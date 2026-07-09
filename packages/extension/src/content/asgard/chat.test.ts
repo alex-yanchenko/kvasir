@@ -134,6 +134,25 @@ describe("openSelection", () => {
     expect(state.chatHistory[0].step).toBe("Step: X\nbody");
   });
 
+  it("on a review blob page (no PR in the URL) chats persist under the review id", () => {
+    Object.defineProperty(window, "location", {
+      value: new URL("https://github.com/acme/widget-api/blob/main/src/app.ts?kvasir=rev42"),
+      writable: true,
+    });
+    chatStore.openSelection(payload, false);
+    expect(vi.mocked(storeSet)).toHaveBeenCalledWith("kvasir:chats:rev42", state.chatHistory);
+  });
+
+  it("with no PR and no review in the URL, chats are not persisted at all (no null bucket)", () => {
+    Object.defineProperty(window, "location", {
+      value: new URL("https://github.com/acme/widget-api/blob/main/src/app.ts"),
+      writable: true,
+    });
+    vi.mocked(storeSet).mockClear(); // drop the beforeEach cleanup's own persist
+    chatStore.openSelection(payload, false);
+    expect(vi.mocked(storeSet)).not.toHaveBeenCalled();
+  });
+
   it("links the session to a step via stepId, found by stepChat", () => {
     chatStore.openSelection({ ...payload, selectionId: "step:s1", stepId: "s1" }, false);
     const sess = chatStore.stepChat("s1");

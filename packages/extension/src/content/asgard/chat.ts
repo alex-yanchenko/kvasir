@@ -7,7 +7,7 @@
 import { api } from "../api";
 import { bifrost } from "../bifrost";
 import type { Bifrost, SelectionPayload } from "../bifrost";
-import { chatsKey, prUrl } from "../keys";
+import { chatScope, chatsKey, prUrl } from "../keys";
 import { storeSet } from "../muninn";
 import { friendlyError } from "./friendly";
 import { activeGuide } from "./guide";
@@ -40,7 +40,10 @@ let refNoticeTimer: ReturnType<typeof setTimeout> | null = null;
 /** Stable key for the overview "step 0" chat, so re-asking reopens it. */
 const OVERVIEW_CHAT_KEY = "overview";
 
-const persist = (): void => storeSet(chatsKey(prUrl()), state.chatHistory);
+const persist = (): void => {
+  const scope = chatScope();
+  if (scope) storeSet(chatsKey(scope), state.chatHistory);
+};
 
 const update = (key: string, fn: (s: ChatSession) => ChatSession): void => {
   state.chatHistory = state.chatHistory.map((s) => (s.key === key ? fn(s) : s));

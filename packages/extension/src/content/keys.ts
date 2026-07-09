@@ -47,6 +47,12 @@ export const reviewIdFromUrl = (): string | null => {
   }
 };
 
+/** The active guide's chat-storage scope: the PR url on PR pages, the pushed
+ * review's id on `?kvasir=` blob pages, else null. Null means there is no guide
+ * to key chats under — persist NOTHING rather than write a shared
+ * "kvasir:chats:null" bucket no page ever reads back. */
+export const chatScope = (): string | null => prUrl() ?? reviewIdFromUrl();
+
 /** Per-review cache key (survives the page loads a review walks through). */
 export const reviewKey = (id: string): string => `kvasir:review:${id}`;
 

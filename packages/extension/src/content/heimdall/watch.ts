@@ -6,17 +6,22 @@ import { launcherStore } from "../asgard/launcher";
 import { isChatSessionArray, parseTourState } from "../asgard/persisted";
 import { state, touch } from "../asgard/store";
 import { bifrost } from "../bifrost";
-import { chatsKey, prUrl, reviewIdFromUrl, tourKey } from "../keys";
+import { chatScope, chatsKey, prUrl, reviewIdFromUrl, tourKey } from "../keys";
 import { storeGet } from "../muninn";
 
-/** Per-PR state restore (survives refresh and browser restart). */
+/** Per-guide state restore (survives refresh and browser restart). Chats key off
+ * the guide's chat scope — the PR url, or a pushed review's id on blob pages —
+ * while the tour is a PR-only concept. */
 export async function loadPersisted(): Promise<void> {
-  const pr = prUrl();
-  if (pr) {
-    const chats = await storeGet(chatsKey(pr));
+  const scope = chatScope();
+  if (scope) {
+    const chats = await storeGet(chatsKey(scope));
     if (isChatSessionArray(chats) && chats.length > 0 && state.chatHistory.length === 0) {
       state.chatHistory = chats;
     }
+  }
+  const pr = prUrl();
+  if (pr) {
     state.tourState = parseTourState(await storeGet(tourKey(pr)));
   }
   // Panel state (open/tab/geometry) is per-tab and hydrated synchronously at boot

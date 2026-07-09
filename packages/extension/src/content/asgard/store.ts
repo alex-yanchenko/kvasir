@@ -10,7 +10,7 @@ import type { EntrySummary } from "@kvasir/runes/history";
 import type { Review } from "@kvasir/runes/review";
 import type { WalkthroughSpec, WalkthroughStep } from "@kvasir/runes/spec";
 import { bifrost } from "../bifrost";
-import { chatsKey, PANEL_STATE_KEY, prUrl } from "../keys";
+import { chatScope, chatsKey, PANEL_STATE_KEY } from "../keys";
 import { storeSet } from "../muninn";
 import { parsePanelPrefs, parsePanelState } from "./persisted";
 import type { ChatSession } from "./types";
@@ -215,7 +215,10 @@ export const settingsStore = {
 
 // ── chats slice ────────────────────────────────────────────────────────────────
 
-const persistChats = (): void => storeSet(chatsKey(prUrl()), state.chatHistory);
+const persistChats = (): void => {
+  const scope = chatScope();
+  if (scope) storeSet(chatsKey(scope), state.chatHistory);
+};
 
 export const chatsStore = {
   sessions: (): ChatSession[] => state.chatHistory,
