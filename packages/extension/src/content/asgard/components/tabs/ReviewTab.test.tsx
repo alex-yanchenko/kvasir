@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import type { Review } from "@kvasir/runes/review";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 vi.mock("../../../muninn", () => ({ storeGet: vi.fn(), storeSet: vi.fn(), storeRemove: vi.fn() }));
@@ -119,11 +119,64 @@ describe("ReviewTab", () => {
     expect(next).toHaveBeenCalledTimes(1);
     fireEvent.click(screen.getByRole("button", { name: "Previous step" }));
     expect(back).toHaveBeenCalledTimes(1);
-    fireEvent.click(screen.getByRole("button", { name: "Go to step 2" }));
+    fireEvent.click(screen.getByRole("button", { name: "Go to step 2: B" }));
     expect(goto).toHaveBeenCalledWith(1);
     fireEvent.click(screen.getByRole("button", { name: "Ask about this step" }));
     expect(ask).toHaveBeenCalledTimes(1);
     expect(panelStore.tab()).toBe(PANEL_TABS.CHAT);
+  });
+
+  it("arrow keys navigate steps, respect the edges, and stay quiet while navigating", () => {
+    const next = vi.spyOn(reviewStore, "next").mockImplementation(() => {});
+    const back = vi.spyOn(reviewStore, "back").mockImplementation(() => {});
+    render(<ReviewTab />); // at the first step: Left must not fire, Right must
+    act(() => {
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowLeft" }));
+    });
+    expect(back).not.toHaveBeenCalled();
+    act(() => {
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight" }));
+    });
+    expect(next).toHaveBeenCalledTimes(1);
+
+    cleanup();
+    state.reviewStep = 1; // at the last step: Right must not fire, Left must
+    render(<ReviewTab />);
+    act(() => {
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight" }));
+    });
+    expect(next).toHaveBeenCalledTimes(1); // unchanged
+    act(() => {
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowLeft" }));
+    });
+    expect(back).toHaveBeenCalledTimes(1);
+
+    cleanup();
+    state.reviewStep = 0;
+    state.reviewNavigating = true; // a cross-file nav is in flight — keys must not stack another
+    render(<ReviewTab />);
+    act(() => {
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight" }));
+    });
+    expect(next).toHaveBeenCalledTimes(1); // unchanged
+  });
+
+  it("arrow keys are ignored while typing in an editable target", () => {
+    const next = vi.spyOn(reviewStore, "next").mockImplementation(() => {});
+    render(<ReviewTab />);
+    const input = document.createElement("input");
+    document.body.append(input);
+    act(() => {
+      input.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
+    });
+    expect(next).not.toHaveBeenCalled();
+    input.remove();
+  });
+
+  it("names each step's dot by its title", () => {
+    render(<ReviewTab />);
+    expect(screen.getByRole("button", { name: "Go to step 1: Guard" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Go to step 2: Server" })).toBeTruthy();
   });
 
   it("shows a loading state on the nav while a cross-file step is navigating", () => {

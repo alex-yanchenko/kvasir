@@ -4,10 +4,11 @@
 // the list aligned with the tab content. Width/scroll only; the resize splitter lives
 // in Panel (it needs the panel size to redistribute width).
 import type { JSX } from "react";
+import { activeGuide } from "../guide";
 import { PANEL_TABS, panelStore, type PanelTab } from "../store";
 import { ChatList } from "./ChatList";
 import { HistoryFacets } from "./HistoryFacets";
-import { OutlineRail } from "./OutlineRail";
+import { OutlineRail, ReviewOutlineRail } from "./OutlineRail";
 import { SettingsNav } from "./SettingsNav";
 
 // The header label per tab — matches the section the sidebar is navigating.
@@ -18,11 +19,13 @@ const SIDEBAR_LABELS: Record<PanelTab, string> = {
   [PANEL_TABS.SETTINGS]: "Settings",
 };
 
-// Per-tab content. Walkthrough → the outline; Chat → the chat list; History → facet
-// filters; Settings → section anchor nav.
+// Per-tab content. Walkthrough → the active guide's outline (the review rail on a
+// ?kvasir page); Chat → the chat list; History → facet filters; Settings → section
+// anchor nav.
 function SidebarContent(): JSX.Element {
   const tab = panelStore.tab();
-  if (tab === PANEL_TABS.WALKTHROUGH) return <OutlineRail />;
+  if (tab === PANEL_TABS.WALKTHROUGH)
+    return activeGuide().kind === "review" ? <ReviewOutlineRail /> : <OutlineRail />;
   if (tab === PANEL_TABS.CHAT) return <ChatList />;
   if (tab === PANEL_TABS.HISTORY) return <HistoryFacets />;
   return <SettingsNav />;
