@@ -83,6 +83,21 @@ describe("useScrollLock", () => {
     expect(wheel(atBottom, 40).defaultPrevented).toBe(true); // down at the bottom
   });
 
+  it("swallows the wheel when only sub-pixel phantom room remains (zoomed layouts)", () => {
+    // Under browser zoom / display scaling, scrollTop is fractional while
+    // scrollHeight/clientHeight round to integers — a scroller at its true end
+    // reports <1px of "room". Counting that as scrollable lets the wheel through,
+    // and the browser (finding nothing that actually moves) chains it to the PAGE.
+    // Metrics reproduced from a real zoomed panel: 816/516 with max scrollTop 299.09….
+    const r = mount();
+    const zoomedBottom = r.appendChild(document.createElement("div"));
+    scrollable(zoomedBottom, { scrollTop: 299.0909, scrollHeight: 816, clientHeight: 516 });
+    expect(wheel(zoomedBottom, 40).defaultPrevented).toBe(true); // down: 0.9px phantom room
+    const zoomedTop = r.appendChild(document.createElement("div"));
+    scrollable(zoomedTop, { scrollTop: 0.4545 });
+    expect(wheel(zoomedTop, -40).defaultPrevented).toBe(true); // up: sub-pixel above the top
+  });
+
   it("ignores a non-overflowing element and a content-shorter-than-box one", () => {
     const r = mount();
     const short = r.appendChild(document.createElement("div"));

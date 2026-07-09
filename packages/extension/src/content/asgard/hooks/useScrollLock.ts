@@ -15,9 +15,14 @@ function canScroll(node: HTMLElement, axis: "x" | "y", delta: number): boolean {
   if (!/auto|scroll/.test(axis === "y" ? style.overflowY : style.overflowX)) return false;
   const size = axis === "y" ? node.scrollHeight : node.scrollWidth;
   const client = axis === "y" ? node.clientHeight : node.clientWidth;
-  if (size <= client) return false;
   const pos = axis === "y" ? node.scrollTop : node.scrollLeft;
-  return delta < 0 ? pos > 0 : pos + client < size;
+  // Room in the wheel's direction, with a 1px sub-pixel tolerance: under browser
+  // zoom / display scaling scrollTop is FRACTIONAL while scrollHeight/clientHeight
+  // round to integers, so a scroller at its true end reports <1px of phantom room.
+  // Counting that as scrollable lets the wheel through, and the browser — finding
+  // nothing that actually moves — chains the scroll to the PAGE behind the panel.
+  const room = delta < 0 ? pos : size - client - pos;
+  return room > 1;
 }
 
 export function useScrollLock(targetRef: RefObject<HTMLElement | null>): void {
