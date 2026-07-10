@@ -77,6 +77,14 @@ export const WalkthroughSpecSchema = z.object({
     .optional(),
 });
 
+/** The spec shape as prose for the publish_walkthrough MCP tool description —
+ * kept HERE, next to the schema it paraphrases, so a schema edit can't silently
+ * strand the text the model authors against (spec.test.ts pins that every
+ * model-authored field is named, and that server-stamped/opt-in fields —
+ * coverage, diagram — are not advertised). */
+export const SPEC_SHAPE_PROSE =
+  "spec = { version:1, pr:{url,owner,repo,number,title,headSha}, generatedAt, overview:'2-4 sentence HTML PR summary (like a step body), shown as the Overview step + fed to chat', steps:[{id,title,body(html summary),detail?(html in-depth, shown on expand),file,anchor,lines?:{side:'R'|'L',start,end},highlight?:string[],suggestions?:string[],group?:'short logical-phase label, reused across the steps of one phase'}] }";
+
 export type PrRef = z.infer<typeof PrRefSchema>;
 export type StepLines = z.infer<typeof StepLinesSchema>;
 export type WalkthroughStep = z.infer<typeof WalkthroughStepSchema>;

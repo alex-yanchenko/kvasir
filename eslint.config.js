@@ -227,6 +227,20 @@ export default [
       // every one must be provably-safe (sanitized markup or a static literal).
       "no-unsanitized/method": "error",
       "no-unsanitized/property": "error",
+      // The runes BARREL re-exports anchor.ts (node:crypto) — importing it from the
+      // browser bundle has broken the build twice. Subpath imports only.
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            {
+              name: "@kvasir/runes",
+              message:
+                "Import a subpath (@kvasir/runes/spec, /review, …) — the barrel pulls in anchor.ts (node:crypto), which the browser bundle can't load.",
+            },
+          ],
+        },
+      ],
       ...importRules,
       ...typeAwareRules,
     },

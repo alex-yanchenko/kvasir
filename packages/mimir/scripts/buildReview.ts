@@ -11,11 +11,12 @@
  */
 import { homedir } from "node:os";
 import path from "node:path";
+import { KVASIR_PORT } from "@kvasir/runes/port";
 import { type Review } from "@kvasir/runes/review";
 import { z } from "zod";
 import { DraftSchema, type RepoContext, resolveStep, ReviewBuildError } from "../src/reviewBuild";
 
-const PORT = Number(process.env.KVASIR_PORT) || 8799;
+const PORT = KVASIR_PORT;
 
 const expandHome = (input: string): string =>
   input.startsWith("~/") ? path.resolve(homedir(), input.slice(2)) : path.resolve(input);

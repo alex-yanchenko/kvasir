@@ -10,11 +10,12 @@
 // answering a question — so the response ENVELOPES can't drift from production.
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { prKey, type WalkthroughSpec } from "../packages/runes/src/index";
+import { KVASIR_PORT } from "../packages/runes/src/port";
 import { createFetchHandler, type BridgeDeps } from "../packages/mimir/src/bridge";
 import { createAskBroker } from "../packages/mimir/src/broker";
 import { createPairing, type Pairing } from "../packages/mimir/src/pairing";
 
-const PORT = 8799;
+const PORT = KVASIR_PORT;
 
 export interface BridgeState {
   answer: string;

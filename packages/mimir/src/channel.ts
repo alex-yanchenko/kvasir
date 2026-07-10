@@ -20,8 +20,11 @@
  * No credentials live here: PR data comes from `gh` (your existing auth) and
  * answers come from your live Claude session via the channel. Nothing to leak.
  *
+ * The port is the shared KVASIR_PORT constant (@kvasir/runes/port), NOT an env
+ * var: the extension's manifest pins its host permission to that exact origin,
+ * so a channel moved to another port would be unreachable by design.
+ *
  * Config (env):
- *   KVASIR_PORT   HTTP port (default 8799)
  *   KVASIR_ORIGIN optional extra CORS allow-origin (default: none — nothing is
  *                 reflected). The extension's worker isn't CORS-bound, so this is
  *                 normally unset. NEVER set it to a multi-tenant origin such as
@@ -34,7 +37,8 @@ import { randomBytes } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
-import { isWalkthroughSpec, prKey, type WalkthroughSpec } from "@kvasir/runes";
+import { isWalkthroughSpec, prKey, SPEC_SHAPE_PROSE, type WalkthroughSpec } from "@kvasir/runes";
+import { KVASIR_PORT } from "@kvasir/runes/port";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
@@ -56,7 +60,7 @@ import { preparePublish } from "./publish";
 import { slugify } from "./reviewBuild";
 import { createSqliteSessionStore } from "./sessionStore.sqlite";
 
-const PORT = Number(process.env.KVASIR_PORT) || 8799;
+const PORT = KVASIR_PORT;
 const ASK_TIMEOUT_MS = Number(process.env.ASK_TIMEOUT_MS) || 120_000;
 
 /** publish_walkthrough was called with a spec that failed schema validation. Named
@@ -239,8 +243,7 @@ server.registerTool(
 server.registerTool(
   "publish_walkthrough",
   {
-    description:
-      "Store the walkthrough spec so the extension can render it. spec = { version:1, pr:{url,owner,repo,number,title,headSha}, generatedAt, overview:'2-4 sentence HTML PR summary (like a step body), shown as the Overview step + fed to chat', steps:[{id,title,body(html summary),detail?(html in-depth, shown on expand),file,anchor,lines?:{side:'R'|'L',start,end},highlight?:string[],suggestions?:string[],group?:'short logical-phase label, reused across the steps of one phase'}] }.",
+    description: `Store the walkthrough spec so the extension can render it. ${SPEC_SHAPE_PROSE}.`,
     // Give the param a concrete type: an untyped z.unknown() serializes to JSON
     // Schema `{}`, and the MCP client then stringifies the object on the wire — so
     // the server received a string, not an object, and rejected every call. A

@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { isWalkthroughSpec } from "./spec";
+import {
+  isWalkthroughSpec,
+  PrRefSchema,
+  SPEC_SHAPE_PROSE,
+  WalkthroughSpecSchema,
+  WalkthroughStepSchema,
+} from "./spec";
 
 const valid = {
   version: 1 as const,
@@ -62,5 +68,23 @@ describe("isWalkthroughSpec", () => {
     });
     expect(isWalkthroughSpec(withLines(5, 3))).toBe(false);
     expect(isWalkthroughSpec(withLines(3, 3))).toBe(true);
+  });
+});
+
+describe("SPEC_SHAPE_PROSE", () => {
+  // Fields the model must NOT author, so the prose must not advertise them:
+  // coverage and pr.author are stamped server-side at publish (never trusted from
+  // the model); diagram is opt-in and prompted separately (bridge.ts appends its
+  // instruction only when the setting is on).
+  const NOT_ADVERTISED = ["coverage", "diagram", "author"];
+
+  it("names every model-authored field of the schema it describes, and only those", () => {
+    const advertised = [
+      ...Object.keys(WalkthroughSpecSchema.shape),
+      ...Object.keys(PrRefSchema.shape),
+      ...Object.keys(WalkthroughStepSchema.shape),
+    ].filter((key) => !NOT_ADVERTISED.includes(key));
+    expect(advertised.filter((key) => !SPEC_SHAPE_PROSE.includes(key))).toEqual([]);
+    expect(NOT_ADVERTISED.filter((key) => SPEC_SHAPE_PROSE.includes(key))).toEqual([]);
   });
 });
