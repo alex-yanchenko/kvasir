@@ -4,9 +4,9 @@
 // harness. The worker's confused-deputy risk is that an in-page script could borrow
 // its pairing token to hit an unintended route or, via a protocol-relative/userinfo
 // path, an off-origin host; bridgeTarget() rejects both.
+import { KVASIR_PORT } from "@kvasir/runes/port";
 
-const PORT = 8799;
-export const BRIDGE_BASE = `http://localhost:${PORT}`;
+export const BRIDGE_BASE = `http://localhost:${KVASIR_PORT}`;
 
 /** The bridge routes the worker is allowed to proxy to. */
 export const ALLOWED_BRIDGE_PATHS = new Set([

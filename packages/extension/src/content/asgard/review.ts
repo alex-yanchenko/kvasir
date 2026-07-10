@@ -10,6 +10,7 @@ import { api, isUnreachable } from "../api";
 import { reviewIdFromUrl, reviewKey, reviewSessionKey } from "../keys";
 import { storeGet, storeSet } from "../muninn";
 import { chatStore } from "./chat";
+import { registerGuide } from "./guide";
 import { awaitSoftNav, softNavigate } from "./lib/nav";
 import { clampIndex, guideBackgroundText, stepContextText, whereText } from "./lib/stepText";
 import { stripHtml } from "./lib/strip";
@@ -236,3 +237,6 @@ export const reviewStore = {
     );
   },
 };
+
+// Self-registration — why is explained at guide.ts's registry and tour.ts's twin call.
+registerGuide(reviewStore);

@@ -11,7 +11,7 @@ Claude Code channel pattern (a stdio server that pushes events into your session
     `gh` (paths, GitHub diff anchors, per-file patches, head SHA).
   - `publish_walkthrough({ spec })` — stores a walkthrough spec to serve.
   - `answer_question({ id, answer })` — answers a pending browser question.
-- Serves the Chrome extension over HTTP (`http://localhost:8799` by default):
+- Serves the Chrome extension over HTTP (`http://localhost:8799`):
   - `GET /health`
   - `GET /walkthrough?pr=<url>` → the stored spec, or `{ status: "absent" }`
   - `POST /ask` `{pr,stepId,file,selection,question}` → an answer from your session
@@ -79,9 +79,13 @@ curl http://localhost:8799/health      # → {"ok":true,"specs":0}
 
 | Var              | Default                   | Purpose                               |
 | ---------------- | ------------------------- | ------------------------------------- |
-| `KVASIR_PORT`    | `8799`                    | HTTP bridge port                      |
 | `KVASIR_ORIGIN`  | unset (nothing reflected) | optional extra CORS origin — see note |
 | `ASK_TIMEOUT_MS` | `120000`                  | how long `/ask` waits for your answer |
+
+The port is fixed at `8799` (the shared `KVASIR_PORT` constant in
+`@kvasir/runes/port`), not configurable: the extension's manifest pins its host
+permission to that exact origin, so a channel on any other port would be
+unreachable by the shipped extension.
 
 ## Security
 

@@ -31,6 +31,9 @@ import { bifrost } from "../../../bifrost";
 import { chatStore } from "../../chat";
 import { pairingStore } from "../../pairing";
 import { PANEL_TABS, state } from "../../store";
+// Registers the walkthrough guide: chat resolves activeGuide() on send, and the
+// registry fills only when a store module loads (boot always loads both).
+import "../../tour";
 import type { ChatSession } from "../../types";
 import { ChatTab, closeFences, linkifyReferences, REF_RE, SUGGEST_SLOW_MS } from "./ChatTab";
 

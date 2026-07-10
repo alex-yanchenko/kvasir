@@ -6,8 +6,6 @@
 // polymorphic seams differ per source (revealing a step's code, building "ask
 // about this step") and those live on each implementation, not in chat.
 import { reviewIdFromUrl } from "../keys";
-import { reviewStore } from "./review";
-import { tourStore } from "./tour";
 
 export interface Guide {
   /** Which source backs the active guide. */
@@ -20,8 +18,32 @@ export interface Guide {
   askAboutStep(): void;
 }
 
+/** activeGuide() was asked for a guide whose store module never loaded — an
+ * import-graph bug (some entry point reached chat without the stores), not a
+ * user-facing state. */
+export class GuideUnregisteredError extends Error {
+  constructor(kind: Guide["kind"]) {
+    super(`no ${kind} guide registered — its store module was never imported`);
+    this.name = "GuideUnregisteredError";
+  }
+}
+
+// The stores register themselves at module eval (tour.ts / review.ts call
+// registerGuide) instead of being imported here: chat.ts needs activeGuide()
+// while BOTH stores call into chatStore, so importing them from this module
+// closes an ESM cycle (chat → guide → tour/review → chat). Every real entry
+// point loads the stores (boot imports the launcher and the review loader), so
+// the registry is full before anything can ask for a guide.
+const guides: Partial<Record<Guide["kind"], Guide>> = {};
+export const registerGuide = (guide: Guide): void => {
+  guides[guide.kind] = guide;
+};
+
 /** The guide backing the current page — review when the URL carries a `?kvasir=<id>`
  * (a pushed review), otherwise the PR walkthrough. */
 export function activeGuide(): Guide {
-  return reviewIdFromUrl() ? reviewStore : tourStore;
+  const kind = reviewIdFromUrl() ? "review" : "walkthrough";
+  const guide = guides[kind];
+  if (!guide) throw new GuideUnregisteredError(kind);
+  return guide;
 }
