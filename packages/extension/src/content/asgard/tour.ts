@@ -7,12 +7,11 @@ import { onFilesTab, prUrl, tourKey } from "../keys";
 import { stepCode } from "../midgard/diff";
 import { storeSet } from "../muninn";
 import { chatStore } from "./chat";
+import { registerGuide } from "./guide";
 import { awaitSoftNav, softNavigate } from "./lib/nav";
 import { clampIndex, guideBackgroundText, stepContextText, whereText } from "./lib/stepText";
 import { stripHtml } from "./lib/strip";
 import { state, touch } from "./store";
-// chat.ts imports tourStore.stepContext and we call chatStore here — a runtime-
-// safe ESM cycle: both references happen inside functions, never at module eval.
 
 let open = false;
 let stepIndex = 0;
@@ -231,3 +230,8 @@ export const tourStore = {
     );
   },
 };
+
+// Self-registration keeps guide.ts import-free of the stores (see its registry
+// comment): chat calls into activeGuide() while this store calls into chatStore,
+// and a direct import in guide.ts would close that ESM cycle.
+registerGuide(tourStore);

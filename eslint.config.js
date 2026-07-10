@@ -2,6 +2,7 @@ import path from "node:path";
 import js from "@eslint/js";
 import tseslint from "typescript-eslint";
 import reactHooks from "eslint-plugin-react-hooks";
+import { createTypeScriptImportResolver } from "eslint-import-resolver-typescript";
 import importX from "eslint-plugin-import-x";
 import * as regexp from "eslint-plugin-regexp";
 import nounsanitized from "eslint-plugin-no-unsanitized";
@@ -60,7 +61,18 @@ const importRules = {
   "import-x/no-useless-path-segments": "error",
   "import-x/no-restricted-paths": ["error", { zones: boundaryZones }],
 };
-const importSettings = { "import-x/resolver": { typescript: true, node: true } };
+// Two settings are load-bearing for no-cycle to see ANYTHING, verified by
+// planting a trivial two-file cycle (without them: no error; with them: error):
+// - resolver-next, not the legacy `resolver: { typescript: true }` shape, which
+//   silently fails to load under import-x v4 + resolver v4;
+// - extensions/parsers including .ts/.tsx — the graph builder only PARSES files
+//   whose extension is listed, and its default list is JS-only, so every .ts
+//   module was a leaf node and the dependency graph had no edges at all.
+const importSettings = {
+  "import-x/resolver-next": [createTypeScriptImportResolver()],
+  "import-x/extensions": [".ts", ".tsx", ".js", ".jsx"],
+  "import-x/parsers": { "@typescript-eslint/parser": [".ts", ".tsx"] },
+};
 
 // Curated TYPE-AWARE rules — the correctness-focused subset of typescript-eslint's
 // type-checked presets (which also bundle opinionated style rules like

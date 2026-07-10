@@ -10,6 +10,7 @@ import { api, isUnreachable } from "../api";
 import { reviewIdFromUrl, reviewKey, reviewSessionKey } from "../keys";
 import { storeGet, storeSet } from "../muninn";
 import { chatStore } from "./chat";
+import { registerGuide } from "./guide";
 import { awaitSoftNav, softNavigate } from "./lib/nav";
 import { clampIndex, guideBackgroundText, stepContextText, whereText } from "./lib/stepText";
 import { stripHtml } from "./lib/strip";
@@ -236,3 +237,8 @@ export const reviewStore = {
     );
   },
 };
+
+// Self-registration keeps guide.ts import-free of the stores (see its registry
+// comment): chat calls into activeGuide() while this store calls into chatStore,
+// and a direct import in guide.ts would close that ESM cycle.
+registerGuide(reviewStore);
