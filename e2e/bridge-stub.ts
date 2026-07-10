@@ -15,8 +15,6 @@ import { createFetchHandler, type BridgeDeps } from "../packages/mimir/src/bridg
 import { createAskBroker } from "../packages/mimir/src/broker";
 import { createPairing, type Pairing } from "../packages/mimir/src/pairing";
 
-const PORT = KVASIR_PORT;
-
 export interface BridgeState {
   answer: string;
   suggestions: string[];
@@ -34,7 +32,7 @@ export interface BridgeStub {
 }
 
 const toRequest = async (req: IncomingMessage): Promise<Request> => {
-  const host = req.headers.host ?? `localhost:${PORT}`;
+  const host = req.headers.host ?? `localhost:${KVASIR_PORT}`;
   const headers = new Headers();
   for (const [key, value] of Object.entries(req.headers)) {
     if (typeof value === "string") headers.set(key, value);
@@ -110,7 +108,7 @@ export async function startBridge(overrides: Partial<BridgeState> = {}): Promise
   });
   await new Promise<void>((resolve, reject) => {
     server.once("error", reject);
-    server.listen(PORT, resolve);
+    server.listen(KVASIR_PORT, resolve);
   });
 
   return {

@@ -16,8 +16,6 @@ import { type Review } from "@kvasir/runes/review";
 import { z } from "zod";
 import { DraftSchema, type RepoContext, resolveStep, ReviewBuildError } from "../src/reviewBuild";
 
-const PORT = KVASIR_PORT;
-
 const expandHome = (input: string): string =>
   input.startsWith("~/") ? path.resolve(homedir(), input.slice(2)) : path.resolve(input);
 
@@ -65,14 +63,14 @@ async function main(): Promise<void> {
 
   let response: Response;
   try {
-    response = await fetch(`http://localhost:${PORT}/push`, {
+    response = await fetch(`http://localhost:${KVASIR_PORT}/push`, {
       method: "POST",
       headers: { "content-type": "application/json", "x-kvasir": "1" },
       body: JSON.stringify(review),
     });
   } catch (error) {
     throw new ReviewBuildError(
-      `cannot reach the mailbox on :${PORT} — is the kvasir channel running? (${String(error)})`,
+      `cannot reach the mailbox on :${KVASIR_PORT} — is the kvasir channel running? (${String(error)})`,
     );
   }
   const text = await response.text();

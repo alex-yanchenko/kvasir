@@ -72,19 +72,33 @@ describe("isWalkthroughSpec", () => {
 });
 
 describe("SPEC_SHAPE_PROSE", () => {
-  // Fields the model must NOT author, so the prose must not advertise them:
-  // coverage and pr.author are stamped server-side at publish (never trusted from
-  // the model); diagram is opt-in and prompted separately (bridge.ts appends its
-  // instruction only when the setting is on).
+  // The partition: advertise what the model MUST author (every field the schema
+  // requires, plus the optional step niceties it may author); withhold what the
+  // server owns — coverage and pr.author are optional in the schema and stamped
+  // at publish, diagram is opt-in and prompted separately (bridge.ts appends its
+  // instruction only when the setting is on). generatedAt is ALSO server-stamped,
+  // but the schema requires it, so the model must still send one — it stays
+  // advertised; dropping it from the prose would make every publish fail closed.
   const NOT_ADVERTISED = ["coverage", "diagram", "author"];
+  const schemaKeys = [
+    ...Object.keys(WalkthroughSpecSchema.shape),
+    ...Object.keys(PrRefSchema.shape),
+    ...Object.keys(WalkthroughStepSchema.shape),
+  ];
+  // Tokenized, not substring, matching: "sha" inside "headSha" or "author" inside
+  // a hypothetical "authoring" must not count as the field being named. Only the
+  // ADDITION direction is machine-checked; a field removed from the schema but
+  // still promised by the prose has no anchor to diff against — adjacency (the
+  // prose lives beside the schema in spec.ts) is the mitigation for that side.
+  const proseTokens = new Set(SPEC_SHAPE_PROSE.split(/[^a-z]+/i));
 
   it("names every model-authored field of the schema it describes, and only those", () => {
-    const advertised = [
-      ...Object.keys(WalkthroughSpecSchema.shape),
-      ...Object.keys(PrRefSchema.shape),
-      ...Object.keys(WalkthroughStepSchema.shape),
-    ].filter((key) => !NOT_ADVERTISED.includes(key));
-    expect(advertised.filter((key) => !SPEC_SHAPE_PROSE.includes(key))).toEqual([]);
-    expect(NOT_ADVERTISED.filter((key) => SPEC_SHAPE_PROSE.includes(key))).toEqual([]);
+    const advertised = schemaKeys.filter((key) => !NOT_ADVERTISED.includes(key));
+    expect(advertised.filter((key) => !proseTokens.has(key))).toEqual([]);
+    expect(NOT_ADVERTISED.filter((key) => proseTokens.has(key))).toEqual([]);
+  });
+
+  it("every withheld field still exists in the schema (the exclusion list can't go stale)", () => {
+    expect(NOT_ADVERTISED.filter((key) => !schemaKeys.includes(key))).toEqual([]);
   });
 });

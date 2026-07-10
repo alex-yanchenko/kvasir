@@ -238,7 +238,5 @@ export const reviewStore = {
   },
 };
 
-// Self-registration keeps guide.ts import-free of the stores (see its registry
-// comment): chat calls into activeGuide() while this store calls into chatStore,
-// and a direct import in guide.ts would close that ESM cycle.
+// Self-registration — why is explained at guide.ts's registry and tour.ts's twin call.
 registerGuide(reviewStore);

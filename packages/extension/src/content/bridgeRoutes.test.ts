@@ -1,5 +1,17 @@
+import { KVASIR_PORT } from "@kvasir/runes/port";
 import { describe, it, expect } from "vitest";
+import manifest from "../../manifest.json";
 import { ALLOWED_BRIDGE_PATHS, BRIDGE_BASE, bridgeTarget } from "./bridgeRoutes";
+
+describe("KVASIR_PORT", () => {
+  it("matches the manifest's host permission — the one 8799 that cannot import the constant", () => {
+    // manifest.json is static JSON, so it holds its own literal; this pin is the
+    // only thing tying it to the shared constant. Changing KVASIR_PORT without
+    // the manifest would ship an extension that cannot dial the channel.
+    expect(manifest.host_permissions).toContain(`http://localhost:${KVASIR_PORT}/*`);
+    expect(BRIDGE_BASE).toBe(`http://localhost:${KVASIR_PORT}`);
+  });
+});
 
 describe("bridgeTarget", () => {
   it("resolves an allowlisted path (with a query) to a same-origin bridge URL", () => {

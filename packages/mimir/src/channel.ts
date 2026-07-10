@@ -60,7 +60,6 @@ import { preparePublish } from "./publish";
 import { slugify } from "./reviewBuild";
 import { createSqliteSessionStore } from "./sessionStore.sqlite";
 
-const PORT = KVASIR_PORT;
 const ASK_TIMEOUT_MS = Number(process.env.ASK_TIMEOUT_MS) || 120_000;
 
 /** publish_walkthrough was called with a spec that failed schema validation. Named
@@ -130,7 +129,7 @@ const pairing = createPairing({
 // Routes + auth + prompts live in ./bridge (unit-tested); this just binds them.
 
 Bun.serve({
-  port: PORT,
+  port: KVASIR_PORT,
   hostname: "127.0.0.1", // loopback only — never exposed to the local network
   fetch: createFetchHandler({
     specs,
@@ -367,7 +366,7 @@ server.registerTool(
 );
 
 await server.connect(new StdioServerTransport());
-console.error(`[kvasir] channel connected; HTTP bridge on http://localhost:${PORT}`);
+console.error(`[kvasir] channel connected; HTTP bridge on http://localhost:${KVASIR_PORT}`);
 
 // A heavy pass that died before its remove_context_worktree call leaves a worktree
 // in the user's repo — sweep day-old leftovers on every boot. Runs LAST (it shells
