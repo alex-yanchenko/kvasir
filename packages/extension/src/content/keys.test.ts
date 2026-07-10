@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect } from "vitest";
 import {
+  chatScope,
   chatsKey,
   genKey,
   isGithubHttpsUrl,
@@ -56,6 +57,24 @@ describe("location readers", () => {
     expect(reviewIdFromUrl()).toBeNull();
     at("https://github.com/acme/web/blob/main/src/a.ts?kvasir=%");
     expect(reviewIdFromUrl()).toBeNull(); // malformed escape — decodeURIComponent throws, swallowed
+  });
+});
+
+describe("chatScope", () => {
+  it("scopes to the review id first, then the PR url, else null — same precedence as activeGuide", () => {
+    const at = (href: string): void => {
+      Object.defineProperty(window, "location", { value: new URL(href), writable: true });
+    };
+    at("https://github.com/acme/web/blob/main/src/a.ts?kvasir=rev-1");
+    expect(chatScope()).toBe("rev-1");
+    at("https://github.com/acme/widget-api/pull/7/files");
+    expect(chatScope()).toBe("https://github.com/acme/widget-api/pull/7");
+    // A PR page carrying a stray ?kvasir renders the REVIEW guide (activeGuide checks
+    // the review id first) — chats must follow the guide that produced them.
+    at("https://github.com/acme/widget-api/pull/7/files?kvasir=rev-1");
+    expect(chatScope()).toBe("rev-1");
+    at("https://github.com/acme/web/blob/main/src/a.ts");
+    expect(chatScope()).toBeNull();
   });
 });
 

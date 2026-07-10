@@ -10,7 +10,7 @@ import type { EntrySummary } from "@kvasir/runes/history";
 import type { Review } from "@kvasir/runes/review";
 import type { WalkthroughSpec, WalkthroughStep } from "@kvasir/runes/spec";
 import { bifrost } from "../bifrost";
-import { chatsKey, PANEL_STATE_KEY, prUrl } from "../keys";
+import { chatScope, chatsKey, PANEL_STATE_KEY } from "../keys";
 import { storeSet } from "../muninn";
 import { parsePanelPrefs, parsePanelState } from "./persisted";
 import type { ChatSession } from "./types";
@@ -71,6 +71,10 @@ export const state: {
    * NOT tracked here — the connection banner (pairing phase) owns that message.
    * Null when nothing is missing (including cached renders). */
   reviewMissing: "notfound" | null;
+  /** Step ids the reader has navigated to (the outline's visited dots). Scoped to
+   * the current review's generation — a re-push resets it (see applyReview);
+   * persisted inside the per-review cache, so it pairs with the review it counts. */
+  reviewVisited: string[];
   /** Step nav: true = advance the panel only once the page lands (loading in
    * between); false = advance immediately. Default true. */
   reviewSync: boolean;
@@ -112,6 +116,7 @@ export const state: {
   reviewStep: 0,
   reviewNavigating: false,
   reviewMissing: null,
+  reviewVisited: [],
   reviewSync: localStorage.getItem("kvasirReviewSync") !== "false", // default on
   reviewMode: localStorage.getItem("kvasirReviewMode") || "heavy", // default heavy
   reviewReposRoot: localStorage.getItem("kvasirReviewReposRoot") || "~/code",
@@ -215,7 +220,13 @@ export const settingsStore = {
 
 // ── chats slice ────────────────────────────────────────────────────────────────
 
-const persistChats = (): void => storeSet(chatsKey(prUrl()), state.chatHistory);
+/** Persist the chat history under the active guide's scope (PR url or review id);
+ * with no scope there is no guide to key it under, so nothing is written. Shared
+ * with chat.ts — the one place the scope-guarded write lives. */
+export const persistChats = (): void => {
+  const scope = chatScope();
+  if (scope) storeSet(chatsKey(scope), state.chatHistory);
+};
 
 export const chatsStore = {
   sessions: (): ChatSession[] => state.chatHistory,

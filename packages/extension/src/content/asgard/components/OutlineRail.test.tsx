@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import type { Review } from "@kvasir/runes/review";
 import type { WalkthroughSpec } from "@kvasir/runes/spec";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
@@ -6,9 +7,10 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 vi.mock("../../muninn", () => ({ storeGet: vi.fn(), storeSet: vi.fn(), storeRemove: vi.fn() }));
 
 import { launcherStore } from "../launcher";
+import { reviewStore } from "../review";
 import { state } from "../store";
 import { tourStore } from "../tour";
-import { OutlineRail } from "./OutlineRail";
+import { OutlineRail, ReviewOutlineRail } from "./OutlineRail";
 
 const spec3 = (generatedAt: string): WalkthroughSpec => ({
   version: 1,
@@ -28,6 +30,10 @@ beforeEach(() => {
   });
   state.spec = null;
   state.tourState = { step: 0, pos: null, size: null };
+  state.review = null;
+  state.reviewStep = 0;
+  state.reviewVisited = [];
+  state.reviewNavigating = false;
   if (tourStore.open()) tourStore.close();
 });
 afterEach(() => {
@@ -172,5 +178,56 @@ describe("OutlineRail", () => {
     expect(within(rail).getByLabelText("Walkthrough coverage of key changed files").textContent).toContain(
       "1/2 key",
     );
+  });
+});
+
+describe("ReviewOutlineRail", () => {
+  const review = (): Review => ({
+    version: 1,
+    id: "rev-1",
+    title: "Auth flow",
+    steps: [
+      { id: "a", title: "Guard", body: "b", repo: { owner: "acme", name: "web" }, file: "src/a.ts" },
+      { id: "b", title: "Server", body: "b", repo: { owner: "acme", name: "api" }, file: "src/b.ts" },
+      { id: "c", title: "Client", body: "b", repo: { owner: "acme", name: "web" }, file: "src/c.ts" },
+    ],
+  });
+
+  it("renders nothing without a review", () => {
+    const { container } = render(<ReviewOutlineRail />);
+    expect(container.innerHTML).toBe("");
+  });
+
+  it("groups steps by repo (merged across gaps) with file captions, dots, and navigation", () => {
+    state.review = review();
+    state.reviewStep = 1; // "Server" is current
+    state.reviewVisited = ["a"]; // "Guard" was visited
+    const goto = vi.spyOn(reviewStore, "goto").mockImplementation(() => {});
+    render(<ReviewOutlineRail />);
+    const rail = screen.getByTestId("outline");
+    // non-adjacent acme/web steps (a + c) merge under ONE repo header, before acme/api
+    const headers = [...rail.querySelectorAll("div.uppercase")].map((node) => node.textContent);
+    expect(headers).toEqual(["acme/web", "acme/api"]);
+    expect(rail.textContent).toContain("src/a.ts"); // the file rides each row as a caption
+    // merged order: Guard (a), Client (c) under acme/web, then Server (b) under acme/api
+    const buttons = within(rail).getAllByRole("button");
+    const dot = (button: HTMLElement): Element | null => button.querySelector("span.rounded-full");
+    expect(dot(buttons[0]!)?.className).toContain("bg-muted-foreground"); // a visited
+    expect(dot(buttons[1]!)?.className).toContain("border"); // c upcoming (hollow)
+    expect(dot(buttons[2]!)?.className).toContain("bg-primary"); // b current
+    expect(buttons[2]!.getAttribute("aria-current")).toBe("step");
+    fireEvent.click(within(rail).getByText("Client"));
+    expect(goto).toHaveBeenCalledWith(2); // GLOBAL index, not the position within the group
+  });
+
+  it("rows disable while a navigation is in flight — a click must not stack a second goto", () => {
+    state.review = review();
+    state.reviewNavigating = true;
+    const goto = vi.spyOn(reviewStore, "goto").mockImplementation(() => {});
+    render(<ReviewOutlineRail />);
+    const row = within(screen.getByTestId("outline")).getAllByRole("button")[0] as HTMLButtonElement;
+    expect(row.disabled).toBe(true);
+    fireEvent.click(row);
+    expect(goto).not.toHaveBeenCalled();
   });
 });

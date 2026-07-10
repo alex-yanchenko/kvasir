@@ -1,20 +1,35 @@
-// The walkthrough's contribution to the global left sidebar: the flow as a tree.
-// Steps group either by their logical `group` label (phases — "Foundation",
-// "Consumers", …) when the spec declares any, or — for legacy specs with no groups
-// — by file adjacency. Each step shows a status dot (upcoming / visited / current)
-// under connector lines; clicking it navigates. The sidebar shell (PanelSidebar)
-// owns the width, scroll and resize; this just renders the content.
+// Both guides' contribution to the global left sidebar: the flow as a tree.
+// Walkthrough steps group either by their logical `group` label (phases —
+// "Foundation", "Consumers", …) when the spec declares any, or — for legacy specs
+// with no groups — by file adjacency; review steps group by the repo they live in.
+// Each step shows a status dot (upcoming / visited / current) under connector
+// lines; clicking it navigates via the guide the rail was built for. The sidebar
+// shell (PanelSidebar) owns the width, scroll and resize; this renders content.
+import type { ReviewStep } from "@kvasir/runes/review";
 import type { WalkthroughStep } from "@kvasir/runes/spec";
 import { FileText } from "lucide-react";
 import type { JSX } from "react";
 import { launcherStore } from "../launcher";
+import { reviewStore } from "../review";
 import { tourStore } from "../tour";
 import { Coverage } from "./Coverage";
 
-// One step plus its GLOBAL index in spec.steps — navigation, current, and visited
-// all key off this index/id, never a per-group position.
-type OutlineItem = { step: WalkthroughStep; index: number };
+/** The step-core fields the rail renders — both artifacts' steps carry them. */
+type OutlineStep = { id: string; title: string; file: string };
+// One step plus its GLOBAL index in the guide's steps — navigation, current, and
+// visited all key off this index/id, never a per-group position.
+type OutlineItem = { step: OutlineStep; index: number };
 type OutlineGroup = { label: string; items: OutlineItem[] };
+
+/** How rows act + read state — the walkthrough rail binds tourStore, the review
+ * rail reviewStore; the tree rendering in between is shared. `navigating` disables
+ * the rows while a cross-file navigation is in flight (review only — a walkthrough
+ * jump never leaves the page), so a rail click can't stack a second navigation. */
+type OutlineNav = {
+  onStep: (index: number) => void;
+  isVisited: (stepId: string) => boolean;
+  navigating?: boolean;
+};
 
 const STEP_BTN_CLASS =
   "flex min-w-full items-center gap-1.5 whitespace-nowrap py-1.5 pl-3 pr-3 text-left text-sm hover:bg-muted ";
@@ -27,15 +42,18 @@ function dotClass(isCurrent: boolean, isVisited: boolean): string {
   return "border border-muted-foreground/50";
 }
 
-// Group steps by their logical `group` label: first-appearance order of labels,
-// authoring order within each, merging non-adjacent steps that share a label so a
-// group is never split. Steps with no label collect into a trailing "Other" bucket.
-function logicalGroups(steps: readonly WalkthroughStep[]): OutlineGroup[] {
+// Group steps by a label: first-appearance order of labels, authoring order within
+// each, merging non-adjacent steps that share a label so a group is never split.
+// Steps with no label collect into a trailing "Other" bucket.
+function mergedGroups<Step extends OutlineStep>(
+  steps: readonly Step[],
+  labelOf: (step: Step) => string | undefined,
+): OutlineGroup[] {
   const groups: OutlineGroup[] = [];
   const byLabel = new Map<string, OutlineItem[]>();
   const ungrouped: OutlineItem[] = [];
   for (const [index, step] of steps.entries()) {
-    const label = step.group?.trim();
+    const label = labelOf(step);
     if (!label) {
       ungrouped.push({ step, index });
       continue;
@@ -54,6 +72,14 @@ function logicalGroups(steps: readonly WalkthroughStep[]): OutlineGroup[] {
   return groups;
 }
 
+// The walkthrough's logical phases ("Foundation", "Consumers", …).
+const logicalGroups = (steps: readonly WalkthroughStep[]): OutlineGroup[] =>
+  mergedGroups(steps, (step) => step.group?.trim());
+
+// A review's steps grouped by the repo they live in (every step has one).
+const repoGroups = (steps: readonly ReviewStep[]): OutlineGroup[] =>
+  mergedGroups(steps, (step) => `${step.repo.owner}/${step.repo.name}`);
+
 // Legacy outline: group consecutive same-file steps under a file header.
 function fileGroups(steps: readonly WalkthroughStep[]): OutlineGroup[] {
   const groups: OutlineGroup[] = [];
@@ -65,21 +91,24 @@ function fileGroups(steps: readonly WalkthroughStep[]): OutlineGroup[] {
   return groups;
 }
 
-// A single step row: connector, status dot, title, and — in logical grouping — the
-// file path as a dim caption so the location stays visible (the group header is the
-// phase, not the file). In file grouping showFile is false (the header is the file).
+// A single step row: connector, status dot, title, and — when showFile is set — the
+// file path as a dim caption so the location stays visible (the group header is a
+// phase or a repo, not the file). showFile is false only in the legacy per-file
+// grouping, where the header IS the file.
 function StepRow({
   item,
   isLast,
   current,
   onOverview,
   showFile,
+  nav,
 }: Readonly<{
   item: OutlineItem;
   isLast: boolean;
   current: number;
   onOverview: boolean;
   showFile: boolean;
+  nav: OutlineNav;
 }>): JSX.Element {
   const isCurrent = !onOverview && item.index === current;
   return (
@@ -87,15 +116,14 @@ function StepRow({
       <button
         className={STEP_BTN_CLASS + (isCurrent ? "font-medium text-primary" : "text-foreground/90")}
         aria-current={isCurrent ? "step" : undefined}
-        onClick={() => tourStore.jumpToStep(item.index)}
+        disabled={nav.navigating}
+        onClick={() => nav.onStep(item.index)}
       >
         <span className="select-none font-mono text-[11px] text-muted-foreground/40">
           {isLast ? "└" : "├"}
         </span>
         <span
-          className={
-            "size-1.5 shrink-0 rounded-full " + dotClass(isCurrent, tourStore.isVisited(item.step.id))
-          }
+          className={"size-1.5 shrink-0 rounded-full " + dotClass(isCurrent, nav.isVisited(item.step.id))}
         />
         {showFile ? (
           <span className="min-w-0 flex-1">
@@ -112,18 +140,20 @@ function StepRow({
   );
 }
 
-// The list of groups: a header per group (the phase label, or the file path in
-// legacy mode) with its steps nested and connectors running within the group.
+// The list of groups: a header per group (a phase label, a repo, or the file path
+// in legacy mode) with its steps nested and connectors running within the group.
 function GroupList({
   groups,
   current,
   onOverview,
   showFile,
+  nav,
 }: Readonly<{
   groups: OutlineGroup[];
   current: number;
   onOverview: boolean;
   showFile: boolean;
+  nav: OutlineNav;
 }>): JSX.Element {
   return (
     <>
@@ -147,6 +177,7 @@ function GroupList({
                 current={current}
                 onOverview={onOverview}
                 showFile={showFile}
+                nav={nav}
               />
             ))}
           </ul>
@@ -196,7 +227,38 @@ export function OutlineRail(): JSX.Element | null {
             <span>Overview</span>
           </button>
         )}
-        <GroupList groups={groups} current={current} onOverview={onOverview} showFile={grouped} />
+        <GroupList
+          groups={groups}
+          current={current}
+          onOverview={onOverview}
+          showFile={grouped}
+          nav={{ onStep: (index) => tourStore.jumpToStep(index), isVisited: tourStore.isVisited }}
+        />
+      </div>
+    </div>
+  );
+}
+
+/** The review guide's rail: steps grouped by the repo they live in, the file as a
+ * per-row caption (the header is the repo), no overview/coverage (a pushed review
+ * has neither). Clicking navigates via reviewStore — possibly to another page. */
+export function ReviewOutlineRail(): JSX.Element | null {
+  const steps = reviewStore.steps();
+  if (steps.length === 0) return null;
+  return (
+    <div data-testid="outline">
+      <div className="py-2">
+        <GroupList
+          groups={repoGroups(steps)}
+          current={reviewStore.stepIndex()}
+          onOverview={false}
+          showFile
+          nav={{
+            onStep: (index) => reviewStore.goto(index),
+            isVisited: reviewStore.isVisited,
+            navigating: reviewStore.navigating(),
+          }}
+        />
       </div>
     </div>
   );

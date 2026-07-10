@@ -23,6 +23,9 @@ beforeEach(() => {
   });
   state.spec = null;
   state.tourState = { step: 0, pos: null, size: null };
+  state.review = null;
+  state.reviewStep = 0;
+  state.reviewVisited = [];
   state.panel = { open: true, tab: PANEL_TABS.WALKTHROUGH, pos: null, size: null };
   if (tourStore.open()) tourStore.close();
 });
@@ -35,6 +38,23 @@ describe("PanelSidebar", () => {
     render(<PanelSidebar />);
     expect(screen.getByTestId("sidebar")).toBeTruthy();
     expect(screen.getByTestId("outline")).toBeTruthy();
+  });
+
+  it("shows the review rail on the walkthrough tab of a ?kvasir page", () => {
+    Object.defineProperty(window, "location", {
+      value: new URL("https://github.com/acme/web/blob/main/src/a.ts?kvasir=rev-1"),
+      writable: true,
+    });
+    state.review = {
+      version: 1,
+      id: "rev-1",
+      title: "Auth flow",
+      steps: [{ id: "a", title: "Guard", body: "b", repo: { owner: "acme", name: "web" }, file: "src/a.ts" }],
+    };
+    render(<PanelSidebar />);
+    const outline = screen.getByTestId("outline");
+    expect(outline.textContent).toContain("acme/web"); // the repo header — the review rail, not the PR one
+    expect(outline.textContent).toContain("Guard");
   });
 
   it("shows the chat list on the chat tab", () => {

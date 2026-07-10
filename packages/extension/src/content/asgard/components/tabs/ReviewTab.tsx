@@ -7,6 +7,7 @@ import { renderMarkdown } from "@kvasir/runes/markdown";
 import { ChevronLeft, ChevronRight, Loader2, MessageSquare } from "lucide-react";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import type { JSX } from "react";
+import { useArrowKeyNav } from "../../hooks/useArrowKeyNav";
 import { pairingStore } from "../../pairing";
 import { reviewStore } from "../../review";
 import { getSnapshot, PANEL_TABS, panelStore, subscribe } from "../../store";
@@ -15,6 +16,7 @@ import { Button } from "../../ui/button";
 export function ReviewTab(): JSX.Element {
   useSyncExternalStore(subscribe, getSnapshot);
   const [showDetail, setShowDetail] = useState(false);
+  useArrowKeyNav(reviewStore); // canNext/canBack gate the edges + in-flight navigation
   const step = reviewStore.step();
   const index = reviewStore.stepIndex();
   const count = reviewStore.stepCount();
@@ -103,11 +105,11 @@ export function ReviewTab(): JSX.Element {
           <ChevronLeft /> Back
         </Button>
         <div className="mx-auto flex items-center gap-1.5">
-          {Array.from({ length: count }, (_unused, dotIndex) => (
+          {reviewStore.steps().map((dotStep, dotIndex) => (
             <button
               key={dotIndex}
-              aria-label={`Go to step ${dotIndex + 1}`}
-              data-kvasir-tip={`Step ${dotIndex + 1}`}
+              aria-label={`Go to step ${dotIndex + 1}: ${dotStep.title}`}
+              data-kvasir-tip={`${dotIndex + 1}. ${dotStep.title}`}
               disabled={navigating}
               onClick={() => reviewStore.goto(dotIndex)}
               className={

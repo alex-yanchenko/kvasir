@@ -65,13 +65,14 @@ export function parsePanelPrefs(v: unknown): { pos: Pos | null; size: Size | nul
   };
 }
 
-/** The cached review walk (content + step), so a fresh page renders the panel
- * instantly from storage instead of waiting on the mailbox fetch. */
-export function parseReviewCache(v: unknown): { step: number; review: Review | null } {
-  if (!isRecord(v)) return { step: 0, review: null };
+/** The cached review walk (content + step + visited dots), so a fresh page renders
+ * the panel instantly from storage instead of waiting on the mailbox fetch. */
+export function parseReviewCache(v: unknown): { step: number; review: Review | null; visited: string[] } {
+  if (!isRecord(v)) return { step: 0, review: null, visited: [] };
   return {
     step: typeof v.step === "number" ? v.step : 0,
     review: isReview(v.review) ? v.review : null,
+    visited: Array.isArray(v.visited) ? v.visited.filter((x): x is string => typeof x === "string") : [],
   };
 }
 

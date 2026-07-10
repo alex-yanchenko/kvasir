@@ -36,6 +36,23 @@ afterEach(() => {
 });
 
 describe("loadPersisted", () => {
+  it("reads no storage at all on a page with neither a PR nor a review", async () => {
+    setUrl("https://github.com/acme/widget-api/blob/main/src/app.ts");
+    await loadPersisted();
+    expect(state.chatHistory).toEqual([]);
+    expect(vi.mocked(storeGet)).not.toHaveBeenCalled();
+  });
+
+  it("restores chats for a review page from the review-id bucket (no PR in the URL)", async () => {
+    setUrl("https://github.com/acme/widget-api/blob/main/src/app.ts?kvasir=rev42");
+    const chats = [{ key: "a", file: "f.ts", lines: null, text: "t", suggestions: [], messages: [] }];
+    vi.mocked(storeGet).mockImplementation(async (key: string) =>
+      key === "kvasir:chats:rev42" ? chats : undefined,
+    );
+    await loadPersisted();
+    expect(state.chatHistory).toEqual(chats);
+  });
+
   it("restores stored chats and tour geometry for the current PR", async () => {
     const chats = [{ key: "a", file: "f.ts", lines: null, text: "t", suggestions: [], messages: [] }];
     vi.mocked(storeGet).mockImplementation(async (key: string) => {

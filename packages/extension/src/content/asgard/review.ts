@@ -17,19 +17,36 @@ import { pairingStore } from "./pairing";
 import { parseReviewCache } from "./persisted";
 import { panelStore, PANEL_TABS, settingsStore, state, touch } from "./store";
 
-/** Snapshot the destination review (content + step) to sessionStorage (sync,
- * survives the same-origin nav) so the next page renders it on first paint. Panel
- * geometry is NOT here — it lives in the per-tab panel state (store.hydratePanel). */
+/** Snapshot the destination review (content + step + visited dots) to sessionStorage
+ * (sync, survives the same-origin nav) so the next page renders it on first paint.
+ * Panel geometry is NOT here — it lives in the per-tab panel state (store.hydratePanel). */
 const writeSession = (id: string, step: number, review: Review): void => {
   try {
-    sessionStorage.setItem(reviewSessionKey(id), JSON.stringify({ step, review }));
+    sessionStorage.setItem(
+      reviewSessionKey(id),
+      JSON.stringify({ step, review, visited: state.reviewVisited }),
+    );
   } catch {
     // sessionStorage unavailable — the async chrome.storage cache still covers it
   }
 };
 
+/** Marks a step's outline dot visited the moment it becomes the current step — at
+ * goto() call time (not page arrival) and on the step a load settles on. */
+const markVisited = (step: ReviewStep | undefined): void => {
+  if (step && !state.reviewVisited.includes(step.id)) {
+    state.reviewVisited = [...state.reviewVisited, step.id];
+  }
+};
+
 /** Show a review: store it, clamp the step into range, open the panel on the step tab. */
 const applyReview = (review: Review): void => {
+  // A re-pushed review (new generatedAt) starts its visited dots fresh; refreshing
+  // the same generation keeps them. Eager reset, not the tour's read-time stamp:
+  // reviewVisited is only ever assigned TOGETHER with the review it was persisted
+  // against (one cache/snapshot object), so pairing holds by construction — but
+  // that means restores must assign visited AFTER this runs, never before.
+  if (state.review && state.review.generatedAt !== review.generatedAt) state.reviewVisited = [];
   state.review = review;
   state.reviewStep = clampIndex(state.reviewStep, review.steps.length);
   // A History jump leaves the hydrated tab on History (so the next pick is one click
@@ -62,13 +79,14 @@ export const reviewStore = {
     } catch {
       return; // no/garbled/unavailable snapshot — fall back to the async load()
     }
-    const { step, review } = parseReviewCache(parsed);
+    const { step, review, visited } = parseReviewCache(parsed);
     if (!review) return;
     // Panel geometry comes from the per-tab panel state (store.hydratePanel, run
     // first in boot); here we only restore the review content + open it. Keep the
     // hydrated tab when it's History (a History jump), else show the review.
     state.review = review;
     state.reviewStep = clampIndex(step, review.steps.length);
+    state.reviewVisited = visited;
     state.panel.open = true;
     if (state.panel.tab !== PANEL_TABS.HISTORY) state.panel.tab = PANEL_TABS.WALKTHROUGH;
   },
@@ -80,6 +98,13 @@ export const reviewStore = {
     touch();
   },
   stepIndex: (): number => state.reviewStep,
+  /** Whether a step's outline dot shows visited (see state.reviewVisited). */
+  isVisited: (stepId: string): boolean => state.reviewVisited.includes(stepId),
+  /** Step-nav gating shared by the buttons and the arrow keys: within bounds AND
+   * no cross-file navigation in flight (keys must not stack a second one). */
+  canNext: (): boolean =>
+    !state.reviewNavigating && state.review !== null && state.reviewStep < state.review.steps.length - 1,
+  canBack: (): boolean => !state.reviewNavigating && state.reviewStep > 0,
   stepCount: (): number => state.review?.steps.length ?? 0,
   step: (): ReviewStep | null => state.review?.steps[state.reviewStep] ?? null,
   title: (): string => state.review?.title ?? "",
@@ -92,14 +117,22 @@ export const reviewStore = {
     // so the panel shows without waiting on the network…
     const cache = parseReviewCache(await storeGet(reviewKey(id)));
     state.reviewStep = cache.step;
-    if (cache.review) applyReview(cache.review);
+    if (cache.review) {
+      applyReview(cache.review);
+      // AFTER applyReview: the cached visited list was written with cache.review in
+      // one object, so it is valid for that review no matter what generation a
+      // sessionStorage hydrate (per-tab, possibly older) left in state.review.
+      state.reviewVisited = cache.visited;
+      markVisited(state.review?.steps[state.reviewStep]); // the landing step counts as seen
+    }
     // …then refresh from the mailbox and re-cache. A failed fetch (e.g. daemon
     // restarted) leaves the cached walk in place.
     const r = await api(`/review?id=${encodeURIComponent(id)}`);
     if (r.ok && isReview(r.data)) {
       state.reviewMissing = null;
       applyReview(r.data);
-      storeSet(reviewKey(id), { step: state.reviewStep, review: r.data });
+      markVisited(state.review?.steps[state.reviewStep]); // the landing step counts as seen
+      storeSet(reviewKey(id), { step: state.reviewStep, review: r.data, visited: state.reviewVisited });
     } else if (!state.review) {
       // Neither the cache nor the mailbox produced a walk — the link must not die
       // silently. An unreachable channel is the connection banner's story (recheck
@@ -124,7 +157,8 @@ export const reviewStore = {
     const target = clampIndex(index, review.steps.length);
     const step = review.steps[target]!; // clamp keeps target in range; min(1) guarantees a step
     const id = review.id ?? "";
-    storeSet(reviewKey(id), { step: target, review }); // cache the destination
+    markVisited(step); // the dot marks on the jump, not on page arrival (mirrors the tour)
+    storeSet(reviewKey(id), { step: target, review, visited: state.reviewVisited }); // cache the destination
 
     const url = new URL(stepBlobUrl(step, id));
     const here = globalThis.location;

@@ -160,6 +160,16 @@ describe("chatsStore", () => {
     });
   });
 
+  it("dropSession on a page with no PR and no review persists nothing (no null bucket)", () => {
+    Object.defineProperty(window, "location", {
+      value: new URL("https://github.com/acme/widget-api/blob/main/src/a.ts"),
+      writable: true,
+    });
+    chatsStore.dropSession("a");
+    expect(state.chatHistory.map((s) => s.key)).toEqual(["b"]); // state still updates
+    expect(setSpy).not.toHaveBeenCalled();
+  });
+
   it("clearSessions empties and persists", () => {
     chatsStore.clearSessions();
     expect(state.chatHistory).toEqual([]);
