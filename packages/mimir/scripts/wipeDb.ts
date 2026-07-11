@@ -14,6 +14,7 @@
  */
 import { homedir } from "node:os";
 import path from "node:path";
+import { openKvasirDb } from "../src/db";
 import { createSqliteGuideStore } from "../src/guideStore.sqlite";
 import { createSqliteSessionStore } from "../src/sessionStore.sqlite";
 
@@ -22,8 +23,9 @@ const dbPath = path.join(homedir(), ".kvasir", "kvasir.db");
 
 function main(): void {
   const apply = process.argv.includes("--apply");
-  const guides = createSqliteGuideStore(dbPath);
-  const sessions = createSqliteSessionStore(dbPath);
+  const db = openKvasirDb(dbPath);
+  const guides = createSqliteGuideStore(db);
+  const sessions = createSqliteSessionStore(db);
   const entryCount = guides.list().length;
   const sessionCount = sessions.all().length;
 

@@ -17,7 +17,9 @@ import {
 import { parseSpecInput } from "./specInput";
 
 export interface PublishState {
-  manifests: Map<string, PrManifest>;
+  /** Reader over the recorded per-PR manifests. Only `get` is needed here, so a
+   * plain Map (tests) and the sqlite-backed store (channel) both satisfy it. */
+  manifests: { get(key: string): PrManifest | undefined };
   /** Per-PR count of coverage rejections so far — to nudge at most maxNudges times. */
   nudges: Map<string, number>;
   maxNudges: number;

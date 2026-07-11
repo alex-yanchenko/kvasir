@@ -2,7 +2,7 @@
 // channel restart reloads them instead of forcing a re-pair. Bun-only (can't be
 // imported under vitest); the logic it mirrors lives in sessionStore.ts and is
 // verified by sessionStore.sqlite.buntest.ts under `bun test`.
-import { Database } from "bun:sqlite";
+import type { Database } from "bun:sqlite";
 import type { SessionRecord, SessionStore } from "./sessionStore";
 
 const CREATE_TABLE = `
@@ -21,9 +21,8 @@ interface SessionRow {
   created_at: number;
 }
 
-export function createSqliteSessionStore(dbPath: string): SessionStore {
-  const db = new Database(dbPath, { create: true });
-  db.run("PRAGMA journal_mode = WAL;");
+/** Store over the shared connection (openKvasirDb — one handle serves every store). */
+export function createSqliteSessionStore(db: Database): SessionStore {
   db.run(CREATE_TABLE);
 
   const insert = db.query(

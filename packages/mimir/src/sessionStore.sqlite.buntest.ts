@@ -4,6 +4,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { openKvasirDb } from "./db";
 import { hashToken, type SessionRecord } from "./sessionStore";
 import { createSqliteSessionStore } from "./sessionStore.sqlite";
 
@@ -17,7 +18,7 @@ const rec = (over: Partial<SessionRecord> = {}): SessionRecord => ({
 
 describe("createSqliteSessionStore (in-memory)", () => {
   it("adds, lists in created order, replaces by id, removes, and clears", () => {
-    const store = createSqliteSessionStore(":memory:");
+    const store = createSqliteSessionStore(openKvasirDb(":memory:"));
     expect(store.all()).toEqual([]);
     store.add(rec({ id: "a", createdAt: 1 }));
     store.add(rec({ id: "b", name: "Firefox", createdAt: 2 }));
@@ -46,19 +47,21 @@ describe("createSqliteSessionStore (file durability)", () => {
 
   it("persists sessions across a fresh store on the same file (restart survives)", () => {
     const dbPath = path.join(directory, "kvasir.db");
-    createSqliteSessionStore(dbPath).add(rec({ id: "s1" }));
-    expect(createSqliteSessionStore(dbPath).all()).toEqual([rec({ id: "s1" })]);
+    createSqliteSessionStore(openKvasirDb(dbPath)).add(rec({ id: "s1" }));
+    expect(createSqliteSessionStore(openKvasirDb(dbPath)).all()).toEqual([rec({ id: "s1" })]);
   });
 
   it("remove + clear write through to the file (a reopened store sees the effect)", () => {
     const dbPath = path.join(directory, "kvasir.db");
-    const store = createSqliteSessionStore(dbPath);
+    const store = createSqliteSessionStore(openKvasirDb(dbPath));
     store.add(rec({ id: "s1" }));
     store.add(rec({ id: "s2", createdAt: 2000 }));
     expect(store.remove("nope")).toBe(false); // a missing id reports no-op, not a throw
     expect(store.remove("s1")).toBe(true);
-    expect(createSqliteSessionStore(dbPath).all()).toEqual([rec({ id: "s2", createdAt: 2000 })]);
+    expect(createSqliteSessionStore(openKvasirDb(dbPath)).all()).toEqual([
+      rec({ id: "s2", createdAt: 2000 }),
+    ]);
     store.clear();
-    expect(createSqliteSessionStore(dbPath).all()).toEqual([]);
+    expect(createSqliteSessionStore(openKvasirDb(dbPath)).all()).toEqual([]);
   });
 });

@@ -51,10 +51,12 @@ import {
   prepareContextWorktree,
   removeContextWorktree,
 } from "./contextWorktree";
-import { getManifest, getHeadSha, type PrManifest } from "./diff";
+import { openKvasirDb } from "./db";
+import { getManifest, getHeadSha } from "./diff";
 import { specToRecord } from "./guideStore";
 import { createSqliteGuideStore } from "./guideStore.sqlite";
 import { COVERAGE_MIN_ADDS, prFileName, renderManifest, significantFiles } from "./manifest";
+import { createSqliteManifestStore } from "./manifestStore.sqlite";
 import { createPairing } from "./pairing";
 import { preparePublish } from "./publish";
 import { slugify } from "./reviewBuild";
@@ -77,11 +79,13 @@ class InvalidSpecError extends Error {
  * /walkthrough reads; PR specs survive a restart via the rehydrate loop below. */
 const specs = new Map<string, WalkthroughSpec>();
 
-/** Durable history of stored walkthroughs (pr + code) — one SQLite db with soft
- * deletes, so a restart keeps them and deleted rows survive for retro analysis. */
+/** Durable state (walkthrough history, paired sessions, PR manifests) — ONE
+ * SQLite connection serves every store; soft deletes keep retired walkthrough
+ * rows around for retro analysis. */
 const KVASIR_DIR = path.join(homedir(), ".kvasir");
 mkdirSync(KVASIR_DIR, { recursive: true }); // bun:sqlite creates the file, not the dir
-const guides = createSqliteGuideStore(path.join(KVASIR_DIR, "kvasir.db"));
+const db = openKvasirDb(path.join(KVASIR_DIR, "kvasir.db"));
+const guides = createSqliteGuideStore(db);
 
 // A diff-heavy PR's patches spill here when inlining them in start_walkthrough's
 // result would overflow the MCP token cap; the author Reads the file per covered file.
@@ -98,8 +102,9 @@ for (const entry of guides.list()) {
 }
 
 /** Last manifest per PR (from start_walkthrough) — lets publish_walkthrough check
- * that the spec actually covers the changed files. */
-const manifests = new Map<string, PrManifest>();
+ * coverage and stamp the author. Persisted: a channel restart between the two
+ * calls used to silently drop both (the spec published unchecked, author-less). */
+const manifests = createSqliteManifestStore(db);
 /** Per-PR count of coverage rejections, so we nudge at most once and never loop. */
 const publishNudges = new Map<string, number>();
 const MAX_COVERAGE_NUDGES = 1;
@@ -122,7 +127,7 @@ const broker = createAskBroker({ timeoutMs: ASK_TIMEOUT_MS, pushEvent });
  * forcing a re-pair. */
 const pairing = createPairing({
   pushEvent,
-  sessions: createSqliteSessionStore(path.join(KVASIR_DIR, "kvasir.db")),
+  sessions: createSqliteSessionStore(db),
 });
 
 // ── HTTP bridge ──────────────────────────────────────────────────────────────
