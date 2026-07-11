@@ -12,6 +12,14 @@ import type { WalkthroughSpec, WalkthroughStep } from "@kvasir/runes/spec";
 import { bifrost } from "../bifrost";
 import { chatScope, chatsKey, PANEL_STATE_KEY } from "../keys";
 import { storeSet } from "../muninn";
+import {
+  readLocal,
+  readLocalJson,
+  readSessionJson,
+  writeLocal,
+  writeLocalJson,
+  writeSessionJson,
+} from "./lib/persist";
 import { parsePanelPrefs, parsePanelState } from "./persisted";
 import type { ChatSession } from "./types";
 
@@ -148,14 +156,14 @@ export const state: {
   reviewNavigating: false,
   reviewMissing: null,
   reviewVisited: [],
-  reviewSync: localStorage.getItem("kvasirReviewSync") !== "false", // default on
-  reviewMode: localStorage.getItem("kvasirReviewMode") || "heavy", // default heavy
-  reviewReposRoot: localStorage.getItem("kvasirReviewReposRoot") || "~/code",
-  firstRun: localStorage.getItem("kvasirFirstRunDone") !== "true", // shows until dismissed once
-  preloadQuestions: localStorage.getItem("kvasirPreloadQuestions") === "true", // default off
-  generateDiagram: localStorage.getItem("kvasirGenerateDiagram") === "true", // default off
-  theme: localStorage.getItem("kvasirTheme") || "auto",
-  hlStyle: validHlStyle(localStorage.getItem("kvasirHl")),
+  reviewSync: readLocal("kvasirReviewSync") !== "false", // default on
+  reviewMode: readLocal("kvasirReviewMode") || "heavy", // default heavy
+  reviewReposRoot: readLocal("kvasirReviewReposRoot") || "~/code",
+  firstRun: readLocal("kvasirFirstRunDone") !== "true", // shows until dismissed once
+  preloadQuestions: readLocal("kvasirPreloadQuestions") === "true", // default off
+  generateDiagram: readLocal("kvasirGenerateDiagram") === "true", // default off
+  theme: readLocal("kvasirTheme") || "auto",
+  hlStyle: validHlStyle(readLocal("kvasirHl")),
   tourState: { step: 0, overview: false, pos: null, size: null },
   chatHistory: [],
   history: null,
@@ -176,7 +184,7 @@ export const state: {
   tour: { open: false, stepIndex: 0, atOverview: false, detailOpen: false, diagramOpen: false },
   panelPrefs: {
     sidebarOpen: false,
-    railWidth: Number(localStorage.getItem("kvasirRailWidth")) || 190,
+    railWidth: Number(readLocal("kvasirRailWidth")) || 190,
   },
 };
 
@@ -213,19 +221,19 @@ export const settingsStore = {
   reviewSync: (): boolean => state.reviewSync,
   setReviewSync(on: boolean): void {
     state.reviewSync = on;
-    localStorage.setItem("kvasirReviewSync", String(on));
+    writeLocal("kvasirReviewSync", String(on));
     touch();
   },
   reviewMode: (): string => state.reviewMode,
   reviewReposRoot: (): string => state.reviewReposRoot,
   setReviewMode(mode: string): void {
     state.reviewMode = mode;
-    localStorage.setItem("kvasirReviewMode", mode);
+    writeLocal("kvasirReviewMode", mode);
     touch();
   },
   setReviewReposRoot(root: string): void {
     state.reviewReposRoot = root;
-    localStorage.setItem("kvasirReviewReposRoot", root);
+    writeLocal("kvasirReviewReposRoot", root);
     touch();
   },
   firstRun: (): boolean => state.firstRun,
@@ -234,30 +242,30 @@ export const settingsStore = {
   dismissFirstRun(): void {
     if (!state.firstRun) return;
     state.firstRun = false;
-    localStorage.setItem("kvasirFirstRunDone", "true");
+    writeLocal("kvasirFirstRunDone", "true");
     touch();
   },
   preloadQuestions: (): boolean => state.preloadQuestions,
   setPreloadQuestions(on: boolean): void {
     state.preloadQuestions = on;
-    localStorage.setItem("kvasirPreloadQuestions", String(on));
+    writeLocal("kvasirPreloadQuestions", String(on));
     touch();
   },
   generateDiagram: (): boolean => state.generateDiagram,
   setGenerateDiagram(on: boolean): void {
     state.generateDiagram = on;
-    localStorage.setItem("kvasirGenerateDiagram", String(on));
+    writeLocal("kvasirGenerateDiagram", String(on));
     touch();
   },
   setTheme(theme: string): void {
     state.theme = theme;
-    localStorage.setItem("kvasirTheme", theme);
+    writeLocal("kvasirTheme", theme);
     applyToPage();
     touch();
   },
   setHlStyle(hlStyle: string): void {
     state.hlStyle = hlStyle;
-    localStorage.setItem("kvasirHl", hlStyle);
+    writeLocal("kvasirHl", hlStyle);
     applyToPage();
     touch();
   },
@@ -306,47 +314,27 @@ const PANEL_PREFS_KEY = "kvasir:panelPrefs";
 // railWidth under its own key — so a fresh tab restores them.
 
 const persistPanel = (): void => {
-  try {
-    sessionStorage.setItem(PANEL_STATE_KEY, JSON.stringify({ open: state.panel.open, tab: state.panel.tab }));
-  } catch {
-    /* sessionStorage unavailable — open/tab just won't persist this session */
-  }
+  writeSessionJson(PANEL_STATE_KEY, { open: state.panel.open, tab: state.panel.tab });
 };
 
 /** Persist the window shape globally (survives across tabs), separate from the per-tab
  * open/tab blob. */
 const persistPrefs = (): void => {
-  try {
-    localStorage.setItem(
-      PANEL_PREFS_KEY,
-      JSON.stringify({
-        pos: state.panel.pos,
-        size: state.panel.size,
-        sidebarOpen: state.panelPrefs.sidebarOpen,
-      }),
-    );
-  } catch {
-    /* localStorage unavailable — window shape just won't persist this session */
-  }
-};
-
-const readJson = (read: () => string | null): unknown => {
-  try {
-    const raw = read();
-    return raw === null ? null : JSON.parse(raw);
-  } catch {
-    return null;
-  }
+  writeLocalJson(PANEL_PREFS_KEY, {
+    pos: state.panel.pos,
+    size: state.panel.size,
+    sidebarOpen: state.panelPrefs.sidebarOpen,
+  });
 };
 
 /** Restore the panel at boot — SYNCHRONOUS so the first paint is already correct (no
  * async flash) and review-mode sees the hydrated tab. open/tab come from the per-tab
  * sessionStorage blob; the window shape (pos/size/sidebar) from the global entry. */
 export function hydratePanel(): void {
-  const perTab = parsePanelState(readJson(() => sessionStorage.getItem(PANEL_STATE_KEY)));
+  const perTab = parsePanelState(readSessionJson(PANEL_STATE_KEY));
   state.panel.open = perTab.open;
   if (perTab.tab && isPanelTab(perTab.tab)) state.panel.tab = perTab.tab;
-  const prefs = parsePanelPrefs(readJson(() => localStorage.getItem(PANEL_PREFS_KEY)));
+  const prefs = parsePanelPrefs(readLocalJson(PANEL_PREFS_KEY));
   state.panel.pos = prefs.pos;
   state.panel.size = prefs.size;
   state.panelPrefs.sidebarOpen = prefs.sidebarOpen;
@@ -368,7 +356,7 @@ export const panelStore = {
     // Bounds mirror the sidebar splitter (Panel) so every caller — the divider AND
     // the bottom-left window-resize corner — stays in range.
     state.panelPrefs.railWidth = Math.min(360, Math.max(130, Math.round(width)));
-    localStorage.setItem("kvasirRailWidth", String(state.panelPrefs.railWidth));
+    writeLocal("kvasirRailWidth", String(state.panelPrefs.railWidth));
     touch();
   },
 

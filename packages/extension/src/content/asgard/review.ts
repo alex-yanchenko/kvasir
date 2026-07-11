@@ -12,6 +12,7 @@ import { storeGet, storeSet } from "../muninn";
 import { chatStore } from "./chat";
 import { registerGuide } from "./guide";
 import { awaitSoftNav, softNavigate } from "./lib/nav";
+import { readSessionJson, writeSessionJson } from "./lib/persist";
 import { clampIndex, guideBackgroundText, stepContextText, whereText } from "./lib/stepText";
 import { stripHtml } from "./lib/strip";
 import { pairingStore } from "./pairing";
@@ -22,14 +23,8 @@ import { panelStore, PANEL_TABS, settingsStore, state, touch } from "./store";
  * (sync, survives the same-origin nav) so the next page renders it on first paint.
  * Panel geometry is NOT here — it lives in the per-tab panel state (store.hydratePanel). */
 const writeSession = (id: string, step: number, review: Review): void => {
-  try {
-    sessionStorage.setItem(
-      reviewSessionKey(id),
-      JSON.stringify({ step, review, visited: state.reviewVisited }),
-    );
-  } catch {
-    // sessionStorage unavailable — the async chrome.storage cache still covers it
-  }
+  // On write failure the async chrome.storage cache still covers the next page.
+  writeSessionJson(reviewSessionKey(id), { step, review, visited: state.reviewVisited });
 };
 
 /** Marks a step's outline dot visited the moment it becomes the current step — at
@@ -72,14 +67,9 @@ export const reviewStore = {
   hydrate(): void {
     const id = reviewIdFromUrl();
     if (!id) return;
-    let parsed: unknown;
-    try {
-      const raw = sessionStorage.getItem(reviewSessionKey(id));
-      if (!raw) return;
-      parsed = JSON.parse(raw);
-    } catch {
-      return; // no/garbled/unavailable snapshot — fall back to the async load()
-    }
+    // null = no/garbled/unavailable snapshot — fall back to the async load()
+    const parsed = readSessionJson(reviewSessionKey(id));
+    if (parsed === null) return;
     const { step, review, visited } = parseReviewCache(parsed);
     if (!review) return;
     // Panel geometry comes from the per-tab panel state (store.hydratePanel, run
