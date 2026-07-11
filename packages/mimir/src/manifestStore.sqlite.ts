@@ -1,22 +1,26 @@
 // bun:sqlite-backed PR-manifest store. The manifest recorded by start_walkthrough
-// feeds publish_walkthrough's coverage gate + author stamp — held only in memory,
-// a channel restart between the two calls silently dropped both (the spec
-// published with no coverage and no author). Persisting it closes that window;
-// rows expire so abandoned PRs don't accumulate forever.
+// feeds publish_walkthrough's coverage gate + author stamp — persisting it keeps
+// the gate intact across a channel restart between the two calls (the whole
+// authoring window). Rows past their TTL are swept once, at channel startup, so
+// abandoned PRs don't accumulate across restarts.
 import type { Database } from "bun:sqlite";
 import type { PrManifest } from "./manifest";
 
 /** How long a recorded manifest stays useful: generous for "authored overnight",
  * short enough that a stale diff (the PR moved on) doesn't gate a fresh publish. */
-export const MANIFEST_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+export const MANIFEST_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 /** What publish/start need — reads mirror Map.get so a plain Map still satisfies
- * the consumer side (publish.ts) in vitest tests. */
+ * the consumer side (publish.ts) in vitest tests; clear() is wipeDb's hook. */
 export interface ManifestStore {
   get(key: string): PrManifest | undefined;
   set(key: string, manifest: PrManifest): void;
+  clear(): void;
 }
 
+// No retire-don't-migrate column check (guideStore's pattern): the row is a
+// (key, json, timestamp) blob, so shape drift lives INSIDE the json and is
+// handled on read by looksLikeManifest — a column change would be a new store.
 const CREATE_TABLE = `
   CREATE TABLE IF NOT EXISTS manifests (
     pr_key     TEXT    PRIMARY KEY,
@@ -43,13 +47,14 @@ const looksLikeManifest = (value: unknown): value is PrManifest =>
 
 export function createSqliteManifestStore(db: Database, now: () => number = () => Date.now()): ManifestStore {
   db.run(CREATE_TABLE);
-  db.query("DELETE FROM manifests WHERE updated_at < ?").run(now() - MANIFEST_MAX_AGE_MS);
+  db.query("DELETE FROM manifests WHERE updated_at < ?").run(now() - MANIFEST_TTL_MS);
 
   const upsert = db.query(
     `INSERT INTO manifests (pr_key, json, updated_at) VALUES ($key, $json, $updatedAt)
      ON CONFLICT(pr_key) DO UPDATE SET json = $json, updated_at = $updatedAt`,
   );
   const selectByKey = db.query<ManifestRow, [string]>("SELECT json FROM manifests WHERE pr_key = ?");
+  const deleteAll = db.query("DELETE FROM manifests");
 
   return {
     get: (key) => {
@@ -64,6 +69,9 @@ export function createSqliteManifestStore(db: Database, now: () => number = () =
     },
     set: (key, manifest) => {
       upsert.run({ $key: key, $json: JSON.stringify(manifest), $updatedAt: now() });
+    },
+    clear: () => {
+      deleteAll.run();
     },
   };
 }

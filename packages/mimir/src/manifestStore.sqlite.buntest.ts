@@ -7,7 +7,7 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { openKvasirDb } from "./db";
 import type { PrManifest } from "./manifest";
-import { createSqliteManifestStore, MANIFEST_MAX_AGE_MS } from "./manifestStore.sqlite";
+import { createSqliteManifestStore, MANIFEST_TTL_MS } from "./manifestStore.sqlite";
 
 const mkManifest = (over: Partial<PrManifest> = {}): PrManifest => ({
   owner: "acme",
@@ -56,12 +56,44 @@ describe("createSqliteManifestStore", () => {
     expect(store.get("pr-shape")).toBeUndefined();
   });
 
+  it("a re-set refreshes the expiry clock — the row outlives its original insert age", () => {
+    const dbPath = path.join(sandbox, "kvasir.db");
+    const db = openKvasirDb(dbPath);
+    createSqliteManifestStore(db, () => 1000).set("pr-1", mkManifest());
+    // Re-record just before the original insert would expire; only a refreshed
+    // updated_at keeps the row alive past that point.
+    const refreshAt = 1000 + MANIFEST_TTL_MS - 1;
+    createSqliteManifestStore(db, () => refreshAt).set("pr-1", mkManifest({ author: "someone-else" }));
+    const afterOriginalExpiry = 1000 + MANIFEST_TTL_MS + 1;
+    const swept = createSqliteManifestStore(openKvasirDb(dbPath), () => afterOriginalExpiry);
+    expect(swept.get("pr-1")).toEqual(mkManifest({ author: "someone-else" }));
+  });
+
+  it("the sweep cutoff is exclusive: a row exactly at max age survives, one past it goes", () => {
+    const db = openKvasirDb(":memory:");
+    createSqliteManifestStore(db, () => 1000).set("pr-at-cutoff", mkManifest());
+    createSqliteManifestStore(db, () => 999).set("pr-past-cutoff", mkManifest());
+    const swept = createSqliteManifestStore(db, () => 1000 + MANIFEST_TTL_MS);
+    expect(swept.get("pr-at-cutoff")).toEqual(mkManifest());
+    expect(swept.get("pr-past-cutoff")).toBeUndefined();
+  });
+
+  it("clear() empties the table — wipeDb's full reset depends on it", () => {
+    const dbPath = path.join(sandbox, "kvasir.db");
+    const store = createSqliteManifestStore(openKvasirDb(dbPath));
+    store.set("pr-1", mkManifest());
+    store.set("pr-2", mkManifest());
+    store.clear();
+    expect(store.get("pr-1")).toBeUndefined();
+    expect(createSqliteManifestStore(openKvasirDb(dbPath)).get("pr-2")).toBeUndefined();
+  });
+
   it("sweeps rows older than the max age at open, keeping fresh ones", () => {
     const dbPath = path.join(sandbox, "kvasir.db");
     const db = openKvasirDb(dbPath);
     const early = createSqliteManifestStore(db, () => 1000);
     early.set("pr-old", mkManifest());
-    const later = 1000 + MANIFEST_MAX_AGE_MS + 1;
+    const later = 1000 + MANIFEST_TTL_MS + 1;
     createSqliteManifestStore(db, () => later).set("pr-fresh", mkManifest());
     const swept = createSqliteManifestStore(openKvasirDb(dbPath), () => later + 1);
     expect(swept.get("pr-old")).toBeUndefined();

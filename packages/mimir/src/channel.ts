@@ -102,8 +102,9 @@ for (const entry of guides.list()) {
 }
 
 /** Last manifest per PR (from start_walkthrough) — lets publish_walkthrough check
- * coverage and stamp the author. Persisted: a channel restart between the two
- * calls used to silently drop both (the spec published unchecked, author-less). */
+ * coverage and stamp the author. Persisted so the gate survives a channel restart
+ * inside the authoring window. Unrelated to MANIFESTS_DIR above (patch spillover
+ * files the author Reads); this is the coverage-gate record. */
 const manifests = createSqliteManifestStore(db);
 /** Per-PR count of coverage rejections, so we nudge at most once and never loop. */
 const publishNudges = new Map<string, number>();

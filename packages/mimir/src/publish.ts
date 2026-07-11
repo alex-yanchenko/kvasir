@@ -7,19 +7,14 @@
  * just applies the side effects the outcome names (Map writes, logging, throw).
  */
 import { prKey, type WalkthroughSpec } from "@kvasir/runes";
-import {
-  COVERAGE_MIN_ADDS,
-  significantFiles,
-  stepsOffTarget,
-  uncoveredFiles,
-  type PrManifest,
-} from "./manifest";
+import { COVERAGE_MIN_ADDS, significantFiles, stepsOffTarget, uncoveredFiles } from "./manifest";
+import type { ManifestStore } from "./manifestStore.sqlite";
 import { parseSpecInput } from "./specInput";
 
 export interface PublishState {
   /** Reader over the recorded per-PR manifests. Only `get` is needed here, so a
    * plain Map (tests) and the sqlite-backed store (channel) both satisfy it. */
-  manifests: { get(key: string): PrManifest | undefined };
+  manifests: Pick<ManifestStore, "get">;
   /** Per-PR count of coverage rejections so far — to nudge at most maxNudges times. */
   nudges: Map<string, number>;
   maxNudges: number;
