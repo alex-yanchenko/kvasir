@@ -8,7 +8,7 @@ import { genKey, onFilesTab, prUrl, specKey, tourKey } from "../keys";
 import { storeGet, storeRemove, storeSet } from "../muninn";
 import { friendlyError } from "./friendly";
 import { pairingStore } from "./pairing";
-import { settingsStore, state, touch } from "./store";
+import { launcherDefaults, settingsStore, state, touch } from "./store";
 import { tourStore } from "./tour";
 
 /** Any 401 from the bridge means the token is stale/absent — flip to unpaired so
@@ -232,15 +232,7 @@ export const launcherStore = {
   resetForPr(): void {
     if (genPoll) clearInterval(genPoll);
     genPoll = null;
-    state.launcher = {
-      generating: false,
-      specLoading: true,
-      newCommits: false,
-      currentHead: null,
-      genStartAt: 0,
-      genError: null,
-      lastGen: { mode: "new", sinceSha: undefined },
-    };
+    state.launcher = launcherDefaults();
     touch();
   },
 

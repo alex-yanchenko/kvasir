@@ -11,7 +11,7 @@ import { registerGuide } from "./guide";
 import { awaitSoftNav, softNavigate } from "./lib/nav";
 import { clampIndex, guideBackgroundText, stepContextText, whereText } from "./lib/stepText";
 import { stripHtml } from "./lib/strip";
-import { state, touch } from "./store";
+import { state, touch, tourDefaults } from "./store";
 
 // This machine's state lives on state.tour (one home for app state — see store.ts):
 // which step is showing, whether the overview "step 0" is the current view, and the
@@ -159,6 +159,16 @@ export const tourStore = {
       return;
     }
     if (tourStore.hasOverview()) tourStore.gotoOverview();
+  },
+
+  /** PR navigation: the tour belonged to the previous PR — snap the whole machine
+   * back to defaults. No page commands (unlike close()): the navigation already
+   * replaced the old diff, so there is nothing to un-highlight. Without this, a
+   * stale tour.open would auto-reapply the NEW PR's walkthrough at a stale step
+   * the moment the launcher refresh lands. */
+  resetForPr(): void {
+    state.tour = tourDefaults();
+    touch();
   },
 
   close(): void {

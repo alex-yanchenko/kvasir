@@ -134,8 +134,8 @@ function Empty(): JSX.Element {
 }
 
 // The current step's prose + its expandable detail. Split out of Steps so that
-// component stays under the cognitive-complexity bar; detail open state is
-// module-level (tourStore) so it persists across a tab switch.
+// component stays under the cognitive-complexity bar; detail open state lives on
+// state.tour (via tourStore) so it persists across a tab switch.
 function StepBody({ step }: Readonly<{ step: WalkthroughStep }>): JSX.Element {
   const detailOpen = tourStore.detailOpen();
   return (

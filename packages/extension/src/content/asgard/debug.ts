@@ -10,7 +10,20 @@ import { api } from "../api";
 import { HISTORY_KEY } from "../keys";
 import { storeSet } from "../muninn";
 
-const LOCAL_SETTINGS_KEYS = ["kvasirTheme", "kvasirHl", "kvasirReviewSync"];
+// The full LOCAL scope — mirror of lib/persist.ts's matrix. A key missing here
+// survives the wipe as a stale preference.
+const LOCAL_SETTINGS_KEYS = [
+  "kvasirTheme",
+  "kvasirHl",
+  "kvasirReviewSync",
+  "kvasirReviewMode",
+  "kvasirReviewReposRoot",
+  "kvasirFirstRunDone",
+  "kvasirPreloadQuestions",
+  "kvasirGenerateDiagram",
+  "kvasirRailWidth",
+  "kvasir:panelPrefs",
+];
 
 export async function wipeStoredData(): Promise<void> {
   // Hard-wipe the backend first; api never rejects, so a down channel is a

@@ -1,7 +1,9 @@
 // The panel's persistence scopes, as code instead of comments scattered per call
-// site. Every write goes through one of these helpers, so "which scope does this
-// key live in?" has one home and storage-unavailable (privacy modes, quota) can
-// never crash a machine — reads degrade to null, writes to a no-op.
+// site. Every read and write goes through one of these helpers (debug.ts's
+// wipe-everything utility keeps its raw removeItem loop — deletion needs no scope
+// discipline), so "which scope does this key live in?" has one home and neither
+// blocked storage (privacy modes, quota) nor a non-serializable value can crash a
+// machine — reads degrade to null, writes to a no-op.
 //
 // The scope matrix (key builders live in ../../keys.ts):
 //   LOCAL (localStorage — cross-tab preference, survives restarts):
@@ -14,7 +16,7 @@
 //   PROFILE (chrome.storage.local via ../../muninn — extension-wide, async,
 //   cross-tab change events):
 //     kvasir:chats:<scope>, kvasir:spec:<pr>, kvasir:tour:<pr>, kvasir:gen:<pr>,
-//     kvasir:review:<id>, kvasir:token
+//     kvasir:review:<id>, kvasir:token, kvasir:history, kvasir:seen
 
 export const readLocal = (key: string): string | null => {
   try {
@@ -33,16 +35,21 @@ export const writeLocal = (key: string, value: string): void => {
 };
 
 export const readLocalJson = (key: string): unknown => {
+  const raw = readLocal(key);
+  if (raw === null) return null;
   try {
-    const raw = localStorage.getItem(key);
-    return raw === null ? null : JSON.parse(raw);
+    return JSON.parse(raw);
   } catch {
-    return null; // unavailable or garbled — callers treat both as absent
+    return null; // garbled — callers treat it the same as absent
   }
 };
 
 export const writeLocalJson = (key: string, value: unknown): void => {
-  writeLocal(key, JSON.stringify(value));
+  try {
+    writeLocal(key, JSON.stringify(value));
+  } catch {
+    /* value not JSON-serializable — same no-op as blocked storage */
+  }
 };
 
 export const readSessionJson = (key: string): unknown => {

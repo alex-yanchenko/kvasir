@@ -57,6 +57,51 @@ interface PanelState {
   size: { w: number; h: number } | null;
 }
 
+export interface LauncherState {
+  generating: boolean;
+  /** True until the first live/cache probe for this PR settles — lets the tab
+   * render "checking" instead of the empty state (loading ≠ none). */
+  specLoading: boolean;
+  newCommits: boolean;
+  currentHead: string | null;
+  genStartAt: number;
+  /** Why the last generate attempt ended without a spec — rendered inline with a
+   * Retry. Null while nothing is wrong; a 401 stays null (the pair banner owns it). */
+  genError: string | null;
+  /** The last requested mode + range, so Retry re-issues exactly what failed. */
+  lastGen: { mode: "new" | "incremental"; sinceSha: string | undefined };
+}
+
+export interface TourUiState {
+  open: boolean;
+  stepIndex: number;
+  /** The overview "step 0" view — before the first code step, outside steps[]. */
+  atOverview: boolean;
+  detailOpen: boolean;
+  diagramOpen: boolean;
+}
+
+/** Fresh machine-slice defaults — the state initializer below and each machine's
+ * resetForPr both build from these, so boot and reset can't drift apart.
+ * Factories, not consts: launcher nests an object (lastGen) that must never be
+ * shared between resets. */
+export const launcherDefaults = (): LauncherState => ({
+  generating: false,
+  specLoading: true,
+  newCommits: false,
+  currentHead: null,
+  genStartAt: 0,
+  genError: null,
+  lastGen: { mode: "new", sinceSha: undefined },
+});
+export const tourDefaults = (): TourUiState => ({
+  open: false,
+  stepIndex: 0,
+  atOverview: false,
+  detailOpen: false,
+  diagramOpen: false,
+});
+
 // Walkthrough-highlight styles: "rail" (left rail only — the default) and "gutter"
 // (rail + a faint wash on the line-number columns). A retired/unknown stored value
 // (e.g. an old "tint"/"github") falls back to the rail default.
@@ -120,31 +165,11 @@ export const state: {
   /** The generation machine (launcher.ts): the request/poll lifecycle of
    * (re)generating a walkthrough. Reset on PR navigation (resetForPr). The poll
    * timer handle stays module-local in launcher.ts — a resource, not state. */
-  launcher: {
-    generating: boolean;
-    /** True until the first live/cache probe for this PR settles — lets the tab
-     * render "checking" instead of the empty state (loading ≠ none). */
-    specLoading: boolean;
-    newCommits: boolean;
-    currentHead: string | null;
-    genStartAt: number;
-    /** Why the last generate attempt ended without a spec — rendered inline with a
-     * Retry. Null while nothing is wrong; a 401 stays null (the pair banner owns it). */
-    genError: string | null;
-    /** The last requested mode + range, so Retry re-issues exactly what failed. */
-    lastGen: { mode: "new" | "incremental"; sinceSha: string | undefined };
-  };
+  launcher: LauncherState;
   /** The tour machine's interaction state (tour.ts): which step is showing and
-   * which panes are expanded. Module-lifetime so it survives a tab switch —
+   * which panes are expanded. Machine-lifetime so it survives a tab switch —
    * DISTINCT from tourState above, which is the per-PR PERSISTED step/geometry. */
-  tour: {
-    open: boolean;
-    stepIndex: number;
-    /** The overview "step 0" view — before the first code step, outside steps[]. */
-    atOverview: boolean;
-    detailOpen: boolean;
-    diagramOpen: boolean;
-  };
+  tour: TourUiState;
   /** Cross-tab panel preferences, persisted GLOBALLY (localStorage): the sidebar
    * rail. Lives beside — not inside — `panel`, whose open/tab persist per-tab. */
   panelPrefs: { sidebarOpen: boolean; railWidth: number };
@@ -172,16 +197,8 @@ export const state: {
   seen: {},
   guideDeleted: false,
   panel: { open: false, tab: PANEL_TABS.WALKTHROUGH, pos: null, size: null },
-  launcher: {
-    generating: false,
-    specLoading: true,
-    newCommits: false,
-    currentHead: null,
-    genStartAt: 0,
-    genError: null,
-    lastGen: { mode: "new", sinceSha: undefined },
-  },
-  tour: { open: false, stepIndex: 0, atOverview: false, detailOpen: false, diagramOpen: false },
+  launcher: launcherDefaults(),
+  tour: tourDefaults(),
   panelPrefs: {
     sidebarOpen: false,
     railWidth: Number(readLocal("kvasirRailWidth")) || 190,
@@ -307,11 +324,9 @@ export const chatsStore = {
 /** localStorage key for the global window shape (pos + size + sidebarOpen). */
 const PANEL_PREFS_KEY = "kvasir:panelPrefs";
 
-// The sidebar's open state + reserved width live on state.panelPrefs (shared across
-// tabs; its CONTENT swaps per tab, but the column is the panel's). There, not in
-// tourStore, so the walkthrough's close()/regenerate can never collapse a sidebar
-// opened on another tab. Both persist GLOBALLY — sidebarOpen in PANEL_PREFS_KEY,
-// railWidth under its own key — so a fresh tab restores them.
+// The sidebar rail lives on state.panelPrefs, not in tourStore, so the walkthrough's
+// close()/regenerate can never collapse a sidebar opened on another tab (see the
+// panelPrefs field doc for the per-tab vs cross-tab persistence split).
 
 const persistPanel = (): void => {
   writeSessionJson(PANEL_STATE_KEY, { open: state.panel.open, tab: state.panel.tab });

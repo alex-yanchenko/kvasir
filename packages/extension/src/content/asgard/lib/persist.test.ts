@@ -48,6 +48,15 @@ describe("local scope", () => {
     expect(readLocal("k")).toBeNull();
     expect(readLocalJson("j")).toBeNull();
   });
+
+  it("a value that can't be stringified is a no-op, in BOTH scopes", () => {
+    const circular: Record<string, unknown> = {};
+    circular.self = circular;
+    expect(() => writeLocalJson("j", circular)).not.toThrow();
+    expect(() => writeSessionJson("j", circular)).not.toThrow();
+    expect(readLocalJson("j")).toBeNull();
+    expect(readSessionJson("j")).toBeNull();
+  });
 });
 
 describe("session scope", () => {
