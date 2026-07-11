@@ -109,6 +109,37 @@ export const state: {
    * another tab) — drives the "This walkthrough was deleted" notice. */
   guideDeleted: boolean;
   panel: PanelState;
+  /** The generation machine (launcher.ts): the request/poll lifecycle of
+   * (re)generating a walkthrough. Reset on PR navigation (resetForPr). The poll
+   * timer handle stays module-local in launcher.ts — a resource, not state. */
+  launcher: {
+    generating: boolean;
+    /** True until the first live/cache probe for this PR settles — lets the tab
+     * render "checking" instead of the empty state (loading ≠ none). */
+    specLoading: boolean;
+    newCommits: boolean;
+    currentHead: string | null;
+    genStartAt: number;
+    /** Why the last generate attempt ended without a spec — rendered inline with a
+     * Retry. Null while nothing is wrong; a 401 stays null (the pair banner owns it). */
+    genError: string | null;
+    /** The last requested mode + range, so Retry re-issues exactly what failed. */
+    lastGen: { mode: "new" | "incremental"; sinceSha: string | undefined };
+  };
+  /** The tour machine's interaction state (tour.ts): which step is showing and
+   * which panes are expanded. Module-lifetime so it survives a tab switch —
+   * DISTINCT from tourState above, which is the per-PR PERSISTED step/geometry. */
+  tour: {
+    open: boolean;
+    stepIndex: number;
+    /** The overview "step 0" view — before the first code step, outside steps[]. */
+    atOverview: boolean;
+    detailOpen: boolean;
+    diagramOpen: boolean;
+  };
+  /** Cross-tab panel preferences, persisted GLOBALLY (localStorage): the sidebar
+   * rail. Lives beside — not inside — `panel`, whose open/tab persist per-tab. */
+  panelPrefs: { sidebarOpen: boolean; railWidth: number };
 } = {
   spec: null,
   activeStep: null,
@@ -133,6 +164,20 @@ export const state: {
   seen: {},
   guideDeleted: false,
   panel: { open: false, tab: PANEL_TABS.WALKTHROUGH, pos: null, size: null },
+  launcher: {
+    generating: false,
+    specLoading: true,
+    newCommits: false,
+    currentHead: null,
+    genStartAt: 0,
+    genError: null,
+    lastGen: { mode: "new", sinceSha: undefined },
+  },
+  tour: { open: false, stepIndex: 0, atOverview: false, detailOpen: false, diagramOpen: false },
+  panelPrefs: {
+    sidebarOpen: false,
+    railWidth: Number(localStorage.getItem("kvasirRailWidth")) || 190,
+  },
 };
 
 type Listener = () => void;
@@ -254,9 +299,11 @@ export const chatsStore = {
 /** localStorage key for the global window shape (pos + size + sidebarOpen). */
 const PANEL_PREFS_KEY = "kvasir:panelPrefs";
 
-// The left sidebar's open state — module-level (shared across tabs, like railWidth)
-// and persisted GLOBALLY (PANEL_PREFS_KEY) so a fresh tab restores it.
-let sidebarOpen = false;
+// The sidebar's open state + reserved width live on state.panelPrefs (shared across
+// tabs; its CONTENT swaps per tab, but the column is the panel's). There, not in
+// tourStore, so the walkthrough's close()/regenerate can never collapse a sidebar
+// opened on another tab. Both persist GLOBALLY — sidebarOpen in PANEL_PREFS_KEY,
+// railWidth under its own key — so a fresh tab restores them.
 
 const persistPanel = (): void => {
   try {
@@ -272,7 +319,11 @@ const persistPrefs = (): void => {
   try {
     localStorage.setItem(
       PANEL_PREFS_KEY,
-      JSON.stringify({ pos: state.panel.pos, size: state.panel.size, sidebarOpen }),
+      JSON.stringify({
+        pos: state.panel.pos,
+        size: state.panel.size,
+        sidebarOpen: state.panelPrefs.sidebarOpen,
+      }),
     );
   } catch {
     /* localStorage unavailable — window shape just won't persist this session */
@@ -298,33 +349,26 @@ export function hydratePanel(): void {
   const prefs = parsePanelPrefs(readJson(() => localStorage.getItem(PANEL_PREFS_KEY)));
   state.panel.pos = prefs.pos;
   state.panel.size = prefs.size;
-  sidebarOpen = prefs.sidebarOpen;
+  state.panelPrefs.sidebarOpen = prefs.sidebarOpen;
 }
-
-// The sidebar's reserved width — module-level, shared across all tabs (its CONTENT
-// swaps per tab, but the column is the panel's). Lives here, not in tourStore, so the
-// walkthrough's close()/regenerate can never collapse a sidebar opened on another tab.
-// Width persists in localStorage (a global preference); the open state persists per-tab
-// in the panel's sessionStorage blob (see persistPanel/hydratePanel above).
-let railWidth = Number(localStorage.getItem("kvasirRailWidth")) || 190;
 
 export const panelStore = {
   isOpen: (): boolean => state.panel.open,
   tab: (): PanelTab => state.panel.tab,
   pos: () => state.panel.pos,
   size: () => state.panel.size,
-  sidebarOpen: (): boolean => sidebarOpen,
+  sidebarOpen: (): boolean => state.panelPrefs.sidebarOpen,
   setSidebarOpen(value: boolean): void {
-    sidebarOpen = value;
+    state.panelPrefs.sidebarOpen = value;
     persistPrefs(); // global (cross-tab), alongside pos/size
     touch();
   },
-  railWidth: (): number => railWidth,
+  railWidth: (): number => state.panelPrefs.railWidth,
   setRailWidth(width: number): void {
     // Bounds mirror the sidebar splitter (Panel) so every caller — the divider AND
     // the bottom-left window-resize corner — stays in range.
-    railWidth = Math.min(360, Math.max(130, Math.round(width)));
-    localStorage.setItem("kvasirRailWidth", String(railWidth));
+    state.panelPrefs.railWidth = Math.min(360, Math.max(130, Math.round(width)));
+    localStorage.setItem("kvasirRailWidth", String(state.panelPrefs.railWidth));
     touch();
   },
 

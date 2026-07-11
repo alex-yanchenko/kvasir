@@ -46,22 +46,9 @@ const isGenMarker = (x: unknown): x is GenMarker => typeof x === "object" && x !
 // a non-sha value can't smuggle extra path segments past the github-origin guard.
 const isSha = (s: string | null | undefined): s is string => !!s && /^[0-9a-f]{7,40}$/i.test(s);
 
-let generating = false;
-/** True until the first live/cache probe for this PR settles — lets the tab
- * render "checking" instead of the empty state (loading ≠ none). */
-let specLoading = true;
-let newCommits = false;
-let currentHead: string | null = null;
+// This machine's state lives on state.launcher (one home for app state — see
+// store.ts); only the poll TIMER stays here, a resource rather than state.
 let genPoll: ReturnType<typeof setInterval> | null = null;
-let genStartAt = 0;
-/** Why the last generate attempt ended without a spec — rendered inline with a
- * Retry. Null while nothing is wrong; a 401 stays null (the pair banner owns it). */
-let genError: string | null = null;
-/** The last requested mode + range, so Retry re-issues exactly what failed. */
-let lastGen: { mode: "new" | "incremental"; sinceSha: string | undefined } = {
-  mode: "new",
-  sinceSha: undefined,
-};
 
 // Poll until a spec different from previousSig lands. Shared by a fresh request and
 // by resuming after a page refresh.
@@ -86,15 +73,16 @@ function pollForSpec(pr: string, previousSig: string): void {
         // one, else on the first code step. Keep pos + size.
         state.tourState = { ...state.tourState, step: 0, overview: !!got.overview };
         storeSet(tourKey(pr), state.tourState);
-        newCommits = !!(currentHead && got.pr?.headSha && got.pr.headSha !== currentHead);
-        generating = false;
+        const { currentHead } = state.launcher;
+        state.launcher.newCommits = !!(currentHead && got.pr?.headSha && got.pr.headSha !== currentHead);
+        state.launcher.generating = false;
         touch();
       } else if (tries > GEN_MAX_TRIES) {
         if (genPoll) clearInterval(genPoll);
         genPoll = null;
         storeRemove(genKey(pr));
-        generating = false;
-        genError = "This took too long — the session may be stuck; check your terminal.";
+        state.launcher.generating = false;
+        state.launcher.genError = "This took too long — the session may be stuck; check your terminal.";
         touch();
       }
     })();
@@ -121,7 +109,7 @@ async function loadSpec(pr: string): Promise<void> {
   if (prUrl() !== pr) return;
   state.spec = fresh ?? cached;
   if (fresh) storeSet(specKey(pr), fresh); // cache the fresh live spec
-  specLoading = false;
+  state.launcher.specLoading = false;
   touch();
 }
 
@@ -134,8 +122,8 @@ async function resumeGeneration(pr: string): Promise<boolean> {
   const at = marker?.at ?? 0;
   const fresh = Date.now() - at < GEN_MAX_TRIES * GEN_POLL_INTERVAL_MS;
   if (marker && fresh && (!state.spec || specSig(state.spec) === marker.previousSig)) {
-    generating = true;
-    genStartAt = at;
+    state.launcher.generating = true;
+    state.launcher.genStartAt = at;
     touch();
     pollForSpec(pr, marker.previousSig ?? "");
     return true;
@@ -152,29 +140,32 @@ async function detectNewCommits(pr: string): Promise<void> {
     headSha = typeof h.data.headSha === "string" ? h.data.headSha : null;
   }
   if (!headSha) return;
-  currentHead = headSha;
-  newCommits = !!state.spec?.pr?.headSha && state.spec.pr.headSha !== currentHead;
+  state.launcher.currentHead = headSha;
+  state.launcher.newCommits = !!state.spec?.pr?.headSha && state.spec.pr.headSha !== headSha;
   touch();
 }
 
 export const launcherStore = {
-  generating: (): boolean => generating,
-  specLoading: (): boolean => specLoading,
-  genStartAt: (): number => genStartAt,
-  newCommits: (): boolean => newCommits,
+  generating: (): boolean => state.launcher.generating,
+  specLoading: (): boolean => state.launcher.specLoading,
+  genStartAt: (): number => state.launcher.genStartAt,
+  newCommits: (): boolean => state.launcher.newCommits,
   spec: (): WalkthroughSpec | null => state.spec,
-  genError: (): string | null => genError,
+  genError: (): string | null => state.launcher.genError,
   dismissGenError(): void {
-    genError = null;
+    state.launcher.genError = null;
     touch();
   },
   /** Re-issue the request that just failed (same mode + range). */
-  retryGenerate: (): Promise<void> => launcherStore.requestGenerate(lastGen.mode, lastGen.sinceSha),
+  retryGenerate: (): Promise<void> =>
+    launcherStore.requestGenerate(state.launcher.lastGen.mode, state.launcher.lastGen.sinceSha),
 
   /** Whether a "changes since this walkthrough" range diff can be opened — true once
    * commits landed past the head the walkthrough was generated for. */
   canShowChangesSinceReview: (): boolean =>
-    isSha(state.spec?.pr?.headSha) && isSha(currentHead) && state.spec?.pr?.headSha !== currentHead,
+    isSha(state.spec?.pr?.headSha) &&
+    isSha(state.launcher.currentHead) &&
+    state.spec?.pr?.headSha !== state.launcher.currentHead,
 
   /** Navigate to GitHub's native range diff `reviewedSha..currentHead` — the combined
    * diff of every commit pushed since the head this walkthrough was generated for, so an
@@ -183,10 +174,11 @@ export const launcherStore = {
   openChangesSinceReview(): void {
     const pr = prUrl();
     const reviewed = state.spec?.pr?.headSha;
+    const head = state.launcher.currentHead;
     // pr is already a https://github.com PR URL (prUrl) and both refs are validated as
     // bare SHAs (isSha) — so the range URL can't escape the github origin or the path.
-    if (!pr || !isSha(reviewed) || !isSha(currentHead) || reviewed === currentHead) return;
-    globalThis.location.assign(`${pr}/files/${reviewed}..${currentHead}`);
+    if (!pr || !isSha(reviewed) || !isSha(head) || reviewed === head) return;
+    globalThis.location.assign(`${pr}/files/${reviewed}..${head}`);
   },
 
   /** Ask the session (via the channel) to (re)generate; persist a marker so the
@@ -196,11 +188,11 @@ export const launcherStore = {
     if (!pr) return;
     const previousSig = specSig(state.spec);
     tourStore.close(); // don't leave a stale walkthrough open while it regenerates
-    generating = true;
-    genError = null;
-    lastGen = { mode, sinceSha };
-    genStartAt = Date.now();
-    storeSet(genKey(pr), { previousSig, at: genStartAt });
+    state.launcher.generating = true;
+    state.launcher.genError = null;
+    state.launcher.lastGen = { mode, sinceSha };
+    state.launcher.genStartAt = Date.now();
+    storeSet(genKey(pr), { previousSig, at: state.launcher.genStartAt });
     touch();
     const r = noteAuth(
       await api("/generate", "POST", {
@@ -215,9 +207,11 @@ export const launcherStore = {
     if (!r.ok) {
       // don't spin a 20-minute poll on nothing; say why instead. A 401 stays
       // silent here — noteAuth already flipped the pair banner on.
-      generating = false;
+      state.launcher.generating = false;
       storeRemove(genKey(pr));
-      if (r.status !== 401) genError = friendlyError(r, "the generate request failed — try again");
+      if (r.status !== 401) {
+        state.launcher.genError = friendlyError(r, "the generate request failed — try again");
+      }
       touch();
       return;
     }
@@ -230,7 +224,7 @@ export const launcherStore = {
     if (genPoll) clearInterval(genPoll);
     genPoll = null;
     if (pr) storeRemove(genKey(pr)); // genKey(null) would remove a phantom "kvasir:gen:null"
-    generating = false;
+    state.launcher.generating = false;
     touch();
   },
 
@@ -238,12 +232,15 @@ export const launcherStore = {
   resetForPr(): void {
     if (genPoll) clearInterval(genPoll);
     genPoll = null;
-    generating = false;
-    specLoading = true;
-    genError = null;
-    newCommits = false;
-    currentHead = null;
-    genStartAt = 0;
+    state.launcher = {
+      generating: false,
+      specLoading: true,
+      newCommits: false,
+      currentHead: null,
+      genStartAt: 0,
+      genError: null,
+      lastGen: { mode: "new", sinceSha: undefined },
+    };
     touch();
   },
 
@@ -259,6 +256,6 @@ export const launcherStore = {
     // you navigate back to Files. (start() never navigates the page; see tour.ts.)
     if (state.spec && onFilesTab() && tourStore.open()) tourStore.reapply();
     if (!genPoll && (await resumeGeneration(pr))) return;
-    if (state.spec && !generating) await detectNewCommits(pr);
+    if (state.spec && !state.launcher.generating) await detectNewCommits(pr);
   },
 };
