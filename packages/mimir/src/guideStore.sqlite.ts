@@ -7,7 +7,7 @@
 // node-tested createMemoryGuideStore in guideStore.ts and is verified by the
 // bun-run guideStore.sqlite.buntest.ts.
 import { type EntryKind, EntryKindSchema, type EntrySummary } from "@kvasir/runes";
-import { Database } from "bun:sqlite";
+import type { Database } from "bun:sqlite";
 import { contentHash, type GuideRecord, type GuideStore, toEntrySummary } from "./guideStore";
 
 /** A row as stored — SQLite gives us strings/numbers/null, never the rich types. */
@@ -108,11 +108,9 @@ const rowToSummary = (row: EntryRow): EntrySummary => {
   return toEntrySummary(record, row.version, row.updated_at);
 };
 
-/** File-backed store at `dbPath`. `now` is injectable for deterministic tests. */
-export function createSqliteGuideStore(dbPath: string, now: () => number = () => Date.now()): GuideStore {
-  const db = new Database(dbPath, { create: true });
-  db.run("PRAGMA foreign_keys = ON;"); // per-connection (no FKs yet, but the contract holds)
-  db.run("PRAGMA journal_mode = WAL;"); // concurrent reads while a push writes
+/** Store over the shared connection (openKvasirDb — one handle serves every
+ * store). `now` is injectable for deterministic tests. */
+export function createSqliteGuideStore(db: Database, now: () => number = () => Date.now()): GuideStore {
   db.run(CREATE_TABLE);
   // Retire, don't migrate (the DB analog of the spec `version` lever): if a live db's
   // columns don't match the current shape — a column added, removed, or renamed — drop

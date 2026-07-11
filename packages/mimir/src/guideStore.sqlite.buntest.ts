@@ -8,6 +8,7 @@ import path from "node:path";
 import { type Review, type WalkthroughSpec } from "@kvasir/runes";
 import { Database } from "bun:sqlite";
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { openKvasirDb } from "./db";
 import { reviewToRecord, specToRecord } from "./guideStore";
 import { createSqliteGuideStore } from "./guideStore.sqlite";
 
@@ -47,7 +48,7 @@ const clock = () => {
 
 describe("createSqliteGuideStore (in-memory)", () => {
   it("inserts at version 1, gets the live payload, missing id is null", () => {
-    const store = createSqliteGuideStore(":memory:", clock());
+    const store = createSqliteGuideStore(openKvasirDb(":memory:"), clock());
     expect(store.get("x")).toBeNull();
     const summary = store.put(reviewToRecord(mkReview({ id: "x" })));
     expect(summary.version).toBe(1);
@@ -56,14 +57,14 @@ describe("createSqliteGuideStore (in-memory)", () => {
   });
 
   it("lists live rows newest-changed first", () => {
-    const store = createSqliteGuideStore(":memory:", clock());
+    const store = createSqliteGuideStore(openKvasirDb(":memory:"), clock());
     store.put(reviewToRecord(mkReview({ id: "x" })));
     store.put(reviewToRecord(mkReview({ id: "y" })));
     expect(store.list().map((entry) => entry.id)).toEqual(["y", "x"]);
   });
 
   it("is idempotent on unchanged content: version held, no re-sort", () => {
-    const store = createSqliteGuideStore(":memory:", clock());
+    const store = createSqliteGuideStore(openKvasirDb(":memory:"), clock());
     store.put(reviewToRecord(mkReview({ id: "x" })));
     store.put(reviewToRecord(mkReview({ id: "y" })));
     const again = store.put(reviewToRecord(mkReview({ id: "x" })));
@@ -72,7 +73,7 @@ describe("createSqliteGuideStore (in-memory)", () => {
   });
 
   it("bumps version and lifts to top when content changes", () => {
-    const store = createSqliteGuideStore(":memory:", clock());
+    const store = createSqliteGuideStore(openKvasirDb(":memory:"), clock());
     store.put(reviewToRecord(mkReview({ id: "x" })));
     store.put(reviewToRecord(mkReview({ id: "y" })));
     const changed = store.put(reviewToRecord(mkReview({ id: "x", title: "v2" })));
@@ -81,7 +82,7 @@ describe("createSqliteGuideStore (in-memory)", () => {
   });
 
   it("omits absent source/generatedAt in the summary", () => {
-    const store = createSqliteGuideStore(":memory:", clock());
+    const store = createSqliteGuideStore(openKvasirDb(":memory:"), clock());
     const summary = store.put(
       reviewToRecord(mkReview({ id: "x", source: undefined, generatedAt: undefined })),
     );
@@ -91,7 +92,7 @@ describe("createSqliteGuideStore (in-memory)", () => {
   });
 
   it("soft-deletes: absent from get + list, retained, second delete false", () => {
-    const store = createSqliteGuideStore(":memory:", clock());
+    const store = createSqliteGuideStore(openKvasirDb(":memory:"), clock());
     store.put(reviewToRecord(mkReview({ id: "x" })));
     expect(store.softDelete("x")).toBe(true);
     expect(store.get("x")).toBeNull();
@@ -101,7 +102,7 @@ describe("createSqliteGuideStore (in-memory)", () => {
   });
 
   it("resurrects a soft-deleted row on re-push, holding the version for unchanged content", () => {
-    const store = createSqliteGuideStore(":memory:", clock());
+    const store = createSqliteGuideStore(openKvasirDb(":memory:"), clock());
     store.put(reviewToRecord(mkReview({ id: "x" })));
     store.softDelete("x");
     const resurrected = store.put(reviewToRecord(mkReview({ id: "x" })));
@@ -110,7 +111,7 @@ describe("createSqliteGuideStore (in-memory)", () => {
   });
 
   it("persists author and derives the PR number from the id (pr entry)", () => {
-    const store = createSqliteGuideStore(":memory:", clock());
+    const store = createSqliteGuideStore(openKvasirDb(":memory:"), clock());
     store.put(specToRecord(mkSpec()));
     const entry = store.list()[0];
     expect(entry?.kind).toBe("pr");
@@ -119,7 +120,7 @@ describe("createSqliteGuideStore (in-memory)", () => {
   });
 
   it("still derives the PR number when the spec carries no author", () => {
-    const store = createSqliteGuideStore(":memory:", clock());
+    const store = createSqliteGuideStore(openKvasirDb(":memory:"), clock());
     store.put(specToRecord(mkSpec({ pr: { ...mkSpec().pr, author: undefined } })));
     const entry = store.list()[0];
     expect(entry?.prNumber).toBe(7);
@@ -138,32 +139,32 @@ describe("createSqliteGuideStore (file-backed durability)", () => {
 
   it("persists rows across a fresh store on the same file", () => {
     const dbPath = path.join(directory, "kvasir.db");
-    createSqliteGuideStore(dbPath, clock()).put(reviewToRecord(mkReview({ id: "r1" })));
-    const reopened = createSqliteGuideStore(dbPath, clock());
+    createSqliteGuideStore(openKvasirDb(dbPath), clock()).put(reviewToRecord(mkReview({ id: "r1" })));
+    const reopened = createSqliteGuideStore(openKvasirDb(dbPath), clock());
     expect(reopened.get("r1")).toEqual({ kind: "code", payload: mkReview({ id: "r1" }) });
     expect(reopened.list().map((entry) => entry.id)).toEqual(["r1"]);
   });
 
   it("wipe truncates the table on disk — a reopened store on the same file is empty", () => {
     const dbPath = path.join(directory, "kvasir.db");
-    const store = createSqliteGuideStore(dbPath, clock());
+    const store = createSqliteGuideStore(openKvasirDb(dbPath), clock());
     store.put(reviewToRecord(mkReview({ id: "x" })));
     store.put(specToRecord(mkSpec()));
     store.wipe();
     expect(store.list()).toEqual([]);
-    expect(createSqliteGuideStore(dbPath, clock()).list()).toEqual([]);
+    expect(createSqliteGuideStore(openKvasirDb(dbPath), clock()).list()).toEqual([]);
   });
 
   it("reads prNumber as absent for a pr id with no numeric suffix (hand-edited/older row)", () => {
     const dbPath = path.join(directory, "kvasir.db");
-    createSqliteGuideStore(dbPath, clock()); // create the table
+    createSqliteGuideStore(openKvasirDb(dbPath), clock()); // create the table
     const db = new Database(dbPath);
     db.run(
       `INSERT INTO entries (id, kind, title, source, steps, url, repos, payload, version, content_hash, generated_at, author, created_at, updated_at, deleted_at)
        VALUES ('acme/web#', 'pr', 't', NULL, 1, 'https://github.com/acme/web/pull', '["acme/web"]', '{}', 1, 'h', NULL, NULL, 1, 1, NULL)`,
     );
     db.close();
-    const entry = createSqliteGuideStore(dbPath, clock()).list()[0];
+    const entry = createSqliteGuideStore(openKvasirDb(dbPath), clock()).list()[0];
     expect(entry?.kind).toBe("pr");
     expect(entry?.prNumber).toBeUndefined();
   });
@@ -183,7 +184,7 @@ describe("createSqliteGuideStore (file-backed durability)", () => {
         " VALUES ('old','pr','t',NULL,1,'u','[]','{}',1,'h',NULL,1,1,NULL);",
     );
     old.close();
-    const store = createSqliteGuideStore(dbPath, clock());
+    const store = createSqliteGuideStore(openKvasirDb(dbPath), clock());
     expect(store.list()).toEqual([]); // old-shape row dropped on recreate, not migrated
     store.put(reviewToRecord(mkReview({ id: "x" })));
     expect(store.list().map((entry) => entry.id)).toEqual(["x"]); // fresh table works
@@ -191,8 +192,8 @@ describe("createSqliteGuideStore (file-backed durability)", () => {
 
   it("leaves a matching-shape db untouched across a reopen (no spurious recreate)", () => {
     const dbPath = path.join(directory, "kvasir.db");
-    createSqliteGuideStore(dbPath, clock()).put(reviewToRecord(mkReview({ id: "keep" })));
-    const reopened = createSqliteGuideStore(dbPath, clock());
+    createSqliteGuideStore(openKvasirDb(dbPath), clock()).put(reviewToRecord(mkReview({ id: "keep" })));
+    const reopened = createSqliteGuideStore(openKvasirDb(dbPath), clock());
     expect(reopened.list().map((entry) => entry.id)).toEqual(["keep"]); // rows survive
   });
 });
