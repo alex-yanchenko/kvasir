@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.5.0](https://github.com/alex-yanchenko/kvasir/compare/v0.4.0...v0.5.0) (2026-07-13)
+
+
+### Features
+
+* **asgard:** review-mode parity — outline rail, visited dots, arrow keys, chat persistence fix ([#51](https://github.com/alex-yanchenko/kvasir/issues/51)) ([3a46ab6](https://github.com/alex-yanchenko/kvasir/commit/3a46ab66c9622c4d38e9ff41ab83911970892349))
+* **mimir:** channel robustness — persisted PR manifests, one sqlite connection ([#53](https://github.com/alex-yanchenko/kvasir/issues/53)) ([b664770](https://github.com/alex-yanchenko/kvasir/commit/b66477014c3cee857d5f68ea18019a898bebc304))
+
+
+### Bug Fixes
+
+* **asgard:** stop sub-pixel phantom scroll room leaking wheels to the page ([#49](https://github.com/alex-yanchenko/kvasir/issues/49)) ([55f5b20](https://github.com/alex-yanchenko/kvasir/commit/55f5b20c0eab20660aea7713537406f559484499))
+* **release:** publish releases directly instead of parking a tagless draft ([#48](https://github.com/alex-yanchenko/kvasir/issues/48)) ([5174868](https://github.com/alex-yanchenko/kvasir/commit/517486889ffe2c2c6545c02a705b00e5f7db27ff))
+* sweep review leftovers — vet round on PRs 46/48/49 + deferred findings ([#50](https://github.com/alex-yanchenko/kvasir/issues/50)) ([eb8c1e7](https://github.com/alex-yanchenko/kvasir/commit/eb8c1e79a3a02b2089d8b1afc18d80a54be5c781))
+
+
+### Code Refactoring
+
+* **asgard:** state consolidation — machine slices on the store + one persistence module ([#54](https://github.com/alex-yanchenko/kvasir/issues/54)) ([87fbe61](https://github.com/alex-yanchenko/kvasir/commit/87fbe61599c47bce7227135b486268fcfddb82d1))
+
 ## [0.4.0](https://github.com/alex-yanchenko/kvasir/compare/v0.3.0...v0.4.0) (2026-07-09)
 
 
