@@ -1,6 +1,6 @@
 {
   "name": "@kvasir/extension",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "private": true,
   "description": "Chrome MV3 extension that renders the PR walkthrough tour and the select-code-and-ask modal.",
   "scripts": {
