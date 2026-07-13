@@ -170,6 +170,9 @@ describe("watchUrl", () => {
     const reset = vi.spyOn(launcherStore, "resetForPr").mockImplementation(() => {});
     state.chatHistory = [{ key: "x", file: null, lines: null, text: "", suggestions: [], messages: [] }];
     state.panel = { open: true, tab: "chat", pos: { left: 1, top: 1 }, size: { w: 2, h: 2 } };
+    // A tour left open on the previous PR — the switch must snap it shut, or the
+    // launcher refresh would auto-reapply the NEW PR's walkthrough at a stale step.
+    state.tour = { open: true, stepIndex: 3, atOverview: false, detailOpen: true, diagramOpen: true };
     stop = watchUrl(1500);
 
     vi.advanceTimersByTime(1500); // no URL change — nothing happens
@@ -188,6 +191,13 @@ describe("watchUrl", () => {
     expect(refresh).toHaveBeenCalledTimes(1); // not yet re-fired — waiting on loadPersisted
     expect(state.chatHistory).toEqual([]);
     expect(state.tourState).toEqual({ step: 0, overview: false, pos: null, size: null });
+    expect(state.tour).toEqual({
+      open: false,
+      stepIndex: 0,
+      atOverview: false,
+      detailOpen: false,
+      diagramOpen: false,
+    });
     expect(state.panel).toEqual({ open: true, tab: "chat", pos: { left: 1, top: 1 }, size: { w: 2, h: 2 } }); // untouched: panel is per-tab, a PR switch (same tab) keeps its window
     expect(state.spec).toBeNull();
     // flush microtasks so loadPersisted resolves and its .then re-fires refresh

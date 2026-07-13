@@ -53,7 +53,7 @@ beforeEach(() => {
   state.spec = mkSpec();
   state.tourState = { step: 0, pos: null, size: null };
   state.activeStep = null;
-  if (tourStore.open()) tourStore.close();
+  tourStore.resetForPr(); // the whole machine slice back to defaults, not just close()
   sent = [];
   offs = [
     bifrost.handle("highlight:step", (p) => sent.push({ kind: "highlight:step", payload: p })),

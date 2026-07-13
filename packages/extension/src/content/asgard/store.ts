@@ -12,6 +12,14 @@ import type { WalkthroughSpec, WalkthroughStep } from "@kvasir/runes/spec";
 import { bifrost } from "../bifrost";
 import { chatScope, chatsKey, PANEL_STATE_KEY } from "../keys";
 import { storeSet } from "../muninn";
+import {
+  readLocal,
+  readLocalJson,
+  readSessionJson,
+  writeLocal,
+  writeLocalJson,
+  writeSessionJson,
+} from "./lib/persist";
 import { parsePanelPrefs, parsePanelState } from "./persisted";
 import type { ChatSession } from "./types";
 
@@ -48,6 +56,51 @@ interface PanelState {
   pos: { left: number; top: number } | null;
   size: { w: number; h: number } | null;
 }
+
+export interface LauncherState {
+  generating: boolean;
+  /** True until the first live/cache probe for this PR settles — lets the tab
+   * render "checking" instead of the empty state (loading ≠ none). */
+  specLoading: boolean;
+  newCommits: boolean;
+  currentHead: string | null;
+  genStartAt: number;
+  /** Why the last generate attempt ended without a spec — rendered inline with a
+   * Retry. Null while nothing is wrong; a 401 stays null (the pair banner owns it). */
+  genError: string | null;
+  /** The last requested mode + range, so Retry re-issues exactly what failed. */
+  lastGen: { mode: "new" | "incremental"; sinceSha: string | undefined };
+}
+
+export interface TourUiState {
+  open: boolean;
+  stepIndex: number;
+  /** The overview "step 0" view — before the first code step, outside steps[]. */
+  atOverview: boolean;
+  detailOpen: boolean;
+  diagramOpen: boolean;
+}
+
+/** Fresh machine-slice defaults — the state initializer below and each machine's
+ * resetForPr both build from these, so boot and reset can't drift apart.
+ * Factories, not consts: launcher nests an object (lastGen) that must never be
+ * shared between resets. */
+export const launcherDefaults = (): LauncherState => ({
+  generating: false,
+  specLoading: true,
+  newCommits: false,
+  currentHead: null,
+  genStartAt: 0,
+  genError: null,
+  lastGen: { mode: "new", sinceSha: undefined },
+});
+export const tourDefaults = (): TourUiState => ({
+  open: false,
+  stepIndex: 0,
+  atOverview: false,
+  detailOpen: false,
+  diagramOpen: false,
+});
 
 // Walkthrough-highlight styles: "rail" (left rail only — the default) and "gutter"
 // (rail + a faint wash on the line-number columns). A retired/unknown stored value
@@ -109,6 +162,17 @@ export const state: {
    * another tab) — drives the "This walkthrough was deleted" notice. */
   guideDeleted: boolean;
   panel: PanelState;
+  /** The generation machine (launcher.ts): the request/poll lifecycle of
+   * (re)generating a walkthrough. Reset on PR navigation (resetForPr). The poll
+   * timer handle stays module-local in launcher.ts — a resource, not state. */
+  launcher: LauncherState;
+  /** The tour machine's interaction state (tour.ts): which step is showing and
+   * which panes are expanded. Machine-lifetime so it survives a tab switch —
+   * DISTINCT from tourState above, which is the per-PR PERSISTED step/geometry. */
+  tour: TourUiState;
+  /** Cross-tab panel preferences, persisted GLOBALLY (localStorage): the sidebar
+   * rail. Lives beside — not inside — `panel`, whose open/tab persist per-tab. */
+  panelPrefs: { sidebarOpen: boolean; railWidth: number };
 } = {
   spec: null,
   activeStep: null,
@@ -117,14 +181,14 @@ export const state: {
   reviewNavigating: false,
   reviewMissing: null,
   reviewVisited: [],
-  reviewSync: localStorage.getItem("kvasirReviewSync") !== "false", // default on
-  reviewMode: localStorage.getItem("kvasirReviewMode") || "heavy", // default heavy
-  reviewReposRoot: localStorage.getItem("kvasirReviewReposRoot") || "~/code",
-  firstRun: localStorage.getItem("kvasirFirstRunDone") !== "true", // shows until dismissed once
-  preloadQuestions: localStorage.getItem("kvasirPreloadQuestions") === "true", // default off
-  generateDiagram: localStorage.getItem("kvasirGenerateDiagram") === "true", // default off
-  theme: localStorage.getItem("kvasirTheme") || "auto",
-  hlStyle: validHlStyle(localStorage.getItem("kvasirHl")),
+  reviewSync: readLocal("kvasirReviewSync") !== "false", // default on
+  reviewMode: readLocal("kvasirReviewMode") || "heavy", // default heavy
+  reviewReposRoot: readLocal("kvasirReviewReposRoot") || "~/code",
+  firstRun: readLocal("kvasirFirstRunDone") !== "true", // shows until dismissed once
+  preloadQuestions: readLocal("kvasirPreloadQuestions") === "true", // default off
+  generateDiagram: readLocal("kvasirGenerateDiagram") === "true", // default off
+  theme: readLocal("kvasirTheme") || "auto",
+  hlStyle: validHlStyle(readLocal("kvasirHl")),
   tourState: { step: 0, overview: false, pos: null, size: null },
   chatHistory: [],
   history: null,
@@ -133,6 +197,12 @@ export const state: {
   seen: {},
   guideDeleted: false,
   panel: { open: false, tab: PANEL_TABS.WALKTHROUGH, pos: null, size: null },
+  launcher: launcherDefaults(),
+  tour: tourDefaults(),
+  panelPrefs: {
+    sidebarOpen: false,
+    railWidth: Number(readLocal("kvasirRailWidth")) || 190,
+  },
 };
 
 type Listener = () => void;
@@ -168,19 +238,19 @@ export const settingsStore = {
   reviewSync: (): boolean => state.reviewSync,
   setReviewSync(on: boolean): void {
     state.reviewSync = on;
-    localStorage.setItem("kvasirReviewSync", String(on));
+    writeLocal("kvasirReviewSync", String(on));
     touch();
   },
   reviewMode: (): string => state.reviewMode,
   reviewReposRoot: (): string => state.reviewReposRoot,
   setReviewMode(mode: string): void {
     state.reviewMode = mode;
-    localStorage.setItem("kvasirReviewMode", mode);
+    writeLocal("kvasirReviewMode", mode);
     touch();
   },
   setReviewReposRoot(root: string): void {
     state.reviewReposRoot = root;
-    localStorage.setItem("kvasirReviewReposRoot", root);
+    writeLocal("kvasirReviewReposRoot", root);
     touch();
   },
   firstRun: (): boolean => state.firstRun,
@@ -189,30 +259,30 @@ export const settingsStore = {
   dismissFirstRun(): void {
     if (!state.firstRun) return;
     state.firstRun = false;
-    localStorage.setItem("kvasirFirstRunDone", "true");
+    writeLocal("kvasirFirstRunDone", "true");
     touch();
   },
   preloadQuestions: (): boolean => state.preloadQuestions,
   setPreloadQuestions(on: boolean): void {
     state.preloadQuestions = on;
-    localStorage.setItem("kvasirPreloadQuestions", String(on));
+    writeLocal("kvasirPreloadQuestions", String(on));
     touch();
   },
   generateDiagram: (): boolean => state.generateDiagram,
   setGenerateDiagram(on: boolean): void {
     state.generateDiagram = on;
-    localStorage.setItem("kvasirGenerateDiagram", String(on));
+    writeLocal("kvasirGenerateDiagram", String(on));
     touch();
   },
   setTheme(theme: string): void {
     state.theme = theme;
-    localStorage.setItem("kvasirTheme", theme);
+    writeLocal("kvasirTheme", theme);
     applyToPage();
     touch();
   },
   setHlStyle(hlStyle: string): void {
     state.hlStyle = hlStyle;
-    localStorage.setItem("kvasirHl", hlStyle);
+    writeLocal("kvasirHl", hlStyle);
     applyToPage();
     touch();
   },
@@ -254,77 +324,54 @@ export const chatsStore = {
 /** localStorage key for the global window shape (pos + size + sidebarOpen). */
 const PANEL_PREFS_KEY = "kvasir:panelPrefs";
 
-// The left sidebar's open state — module-level (shared across tabs, like railWidth)
-// and persisted GLOBALLY (PANEL_PREFS_KEY) so a fresh tab restores it.
-let sidebarOpen = false;
+// The sidebar rail lives on state.panelPrefs, not in tourStore, so the walkthrough's
+// close()/regenerate can never collapse a sidebar opened on another tab (see the
+// panelPrefs field doc for the per-tab vs cross-tab persistence split).
 
 const persistPanel = (): void => {
-  try {
-    sessionStorage.setItem(PANEL_STATE_KEY, JSON.stringify({ open: state.panel.open, tab: state.panel.tab }));
-  } catch {
-    /* sessionStorage unavailable — open/tab just won't persist this session */
-  }
+  writeSessionJson(PANEL_STATE_KEY, { open: state.panel.open, tab: state.panel.tab });
 };
 
 /** Persist the window shape globally (survives across tabs), separate from the per-tab
  * open/tab blob. */
 const persistPrefs = (): void => {
-  try {
-    localStorage.setItem(
-      PANEL_PREFS_KEY,
-      JSON.stringify({ pos: state.panel.pos, size: state.panel.size, sidebarOpen }),
-    );
-  } catch {
-    /* localStorage unavailable — window shape just won't persist this session */
-  }
-};
-
-const readJson = (read: () => string | null): unknown => {
-  try {
-    const raw = read();
-    return raw === null ? null : JSON.parse(raw);
-  } catch {
-    return null;
-  }
+  writeLocalJson(PANEL_PREFS_KEY, {
+    pos: state.panel.pos,
+    size: state.panel.size,
+    sidebarOpen: state.panelPrefs.sidebarOpen,
+  });
 };
 
 /** Restore the panel at boot — SYNCHRONOUS so the first paint is already correct (no
  * async flash) and review-mode sees the hydrated tab. open/tab come from the per-tab
  * sessionStorage blob; the window shape (pos/size/sidebar) from the global entry. */
 export function hydratePanel(): void {
-  const perTab = parsePanelState(readJson(() => sessionStorage.getItem(PANEL_STATE_KEY)));
+  const perTab = parsePanelState(readSessionJson(PANEL_STATE_KEY));
   state.panel.open = perTab.open;
   if (perTab.tab && isPanelTab(perTab.tab)) state.panel.tab = perTab.tab;
-  const prefs = parsePanelPrefs(readJson(() => localStorage.getItem(PANEL_PREFS_KEY)));
+  const prefs = parsePanelPrefs(readLocalJson(PANEL_PREFS_KEY));
   state.panel.pos = prefs.pos;
   state.panel.size = prefs.size;
-  sidebarOpen = prefs.sidebarOpen;
+  state.panelPrefs.sidebarOpen = prefs.sidebarOpen;
 }
-
-// The sidebar's reserved width — module-level, shared across all tabs (its CONTENT
-// swaps per tab, but the column is the panel's). Lives here, not in tourStore, so the
-// walkthrough's close()/regenerate can never collapse a sidebar opened on another tab.
-// Width persists in localStorage (a global preference); the open state persists per-tab
-// in the panel's sessionStorage blob (see persistPanel/hydratePanel above).
-let railWidth = Number(localStorage.getItem("kvasirRailWidth")) || 190;
 
 export const panelStore = {
   isOpen: (): boolean => state.panel.open,
   tab: (): PanelTab => state.panel.tab,
   pos: () => state.panel.pos,
   size: () => state.panel.size,
-  sidebarOpen: (): boolean => sidebarOpen,
+  sidebarOpen: (): boolean => state.panelPrefs.sidebarOpen,
   setSidebarOpen(value: boolean): void {
-    sidebarOpen = value;
+    state.panelPrefs.sidebarOpen = value;
     persistPrefs(); // global (cross-tab), alongside pos/size
     touch();
   },
-  railWidth: (): number => railWidth,
+  railWidth: (): number => state.panelPrefs.railWidth,
   setRailWidth(width: number): void {
     // Bounds mirror the sidebar splitter (Panel) so every caller — the divider AND
     // the bottom-left window-resize corner — stays in range.
-    railWidth = Math.min(360, Math.max(130, Math.round(width)));
-    localStorage.setItem("kvasirRailWidth", String(railWidth));
+    state.panelPrefs.railWidth = Math.min(360, Math.max(130, Math.round(width)));
+    writeLocal("kvasirRailWidth", String(state.panelPrefs.railWidth));
     touch();
   },
 

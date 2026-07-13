@@ -11,35 +11,29 @@ import { registerGuide } from "./guide";
 import { awaitSoftNav, softNavigate } from "./lib/nav";
 import { clampIndex, guideBackgroundText, stepContextText, whereText } from "./lib/stepText";
 import { stripHtml } from "./lib/strip";
-import { state, touch } from "./store";
+import { state, touch, tourDefaults } from "./store";
 
-let open = false;
-let stepIndex = 0;
-// The overview "step 0" view: a prose-only intro before the first code step. Lives
-// here (not in the steps array) so it stays out of coverage/outline-by-file and keeps
-// its own place in the Back/Next sequence. Module-level so it survives a tab switch.
-let atOverview = false;
-// The detail pane's open state lives here, NOT in React component state, so it
-// survives the WalkthroughTab unmount when you switch to Chat/Settings and back.
-let detailOpen = false;
-// The flow-diagram overlay's open state — module-level for the same reason as
-// detailOpen (survives a tab switch). The sidebar's open state + width are panel
-// geometry and live in panelStore (so this machine's close() can't collapse them).
-let diagramOpen = false;
+// This machine's state lives on state.tour (one home for app state — see store.ts):
+// which step is showing, whether the overview "step 0" is the current view, and the
+// detail/diagram panes' open flags — all machine-lifetime so they survive a tab
+// switch (NOT React component state, which the tab unmount would drop). The sidebar's
+// open state + width are panel geometry and live in state.panelPrefs, so this
+// machine's close() can never collapse a sidebar opened on another tab.
 export const tourStore = {
   kind: "walkthrough" as const,
-  open: (): boolean => open,
-  stepIndex: (): number => stepIndex,
+  open: (): boolean => state.tour.open,
+  stepIndex: (): number => state.tour.stepIndex,
   stepCount: (): number => state.spec?.steps.length ?? 0,
-  step: (): WalkthroughStep | null => (open && state.spec ? (state.spec.steps[stepIndex] ?? null) : null),
-  detailOpen: (): boolean => detailOpen,
+  step: (): WalkthroughStep | null =>
+    state.tour.open && state.spec ? (state.spec.steps[state.tour.stepIndex] ?? null) : null,
+  detailOpen: (): boolean => state.tour.detailOpen,
   setDetailOpen(value: boolean): void {
-    detailOpen = value;
+    state.tour.detailOpen = value;
     touch();
   },
-  diagramOpen: (): boolean => diagramOpen,
+  diagramOpen: (): boolean => state.tour.diagramOpen,
   setDiagramOpen(value: boolean): void {
-    diagramOpen = value;
+    state.tour.diagramOpen = value;
     touch();
   },
   // The outline's "visited" dots live in state.tourState (persisted per PR, so a
@@ -53,24 +47,24 @@ export const tourStore = {
   /** Whether this spec carries an overview (and so has a "step 0"). */
   hasOverview: (): boolean => (state.spec ? !!state.spec.overview : false),
   /** Whether the overview "step 0" is the current view. */
-  atOverview: (): boolean => atOverview,
+  atOverview: (): boolean => state.tour.atOverview,
   /** Whether Back/Next can move from where we are now (drives the footer + arrows). */
   canBack: (): boolean => {
     if (!state.spec) return false;
-    if (atOverview) return false;
-    return stepIndex > 0 || !!state.spec.overview;
+    if (state.tour.atOverview) return false;
+    return state.tour.stepIndex > 0 || !!state.spec.overview;
   },
   canNext: (): boolean => {
     if (!state.spec) return false;
-    if (atOverview) return true;
-    return stepIndex < state.spec.steps.length - 1;
+    if (state.tour.atOverview) return true;
+    return state.tour.stepIndex < state.spec.steps.length - 1;
   },
 
   /** Show the overview "step 0": prose only, no code target, so clear the page. */
   gotoOverview(): void {
     if (!state.spec || !state.spec.overview) return;
-    atOverview = true;
-    diagramOpen = false;
+    state.tour.atOverview = true;
+    state.tour.diagramOpen = false;
     state.activeStep = null;
     state.tourState = { ...state.tourState, overview: true }; // restore here on reopen
     storeSet(tourKey(prUrl()), state.tourState);
@@ -86,7 +80,7 @@ export const tourStore = {
     // shows the step text, and highlighting re-engages when you're on the Files
     // tab. Deliberately does NOT navigate: a passive restore on refresh must never
     // yank the page to /files.
-    open = true;
+    state.tour.open = true;
     // Restore the overview "step 0" if that's where we left off; otherwise resume the
     // last code step. The persisted flag can outlive its spec (regenerated without an
     // overview), so guard on the current spec too.
@@ -99,8 +93,9 @@ export const tourStore = {
 
   goto(index: number): void {
     if (!state.spec) return;
-    atOverview = false; // navigating to a real step always leaves the overview
-    stepIndex = clampIndex(index, state.spec.steps.length);
+    state.tour.atOverview = false; // navigating to a real step always leaves the overview
+    const stepIndex = clampIndex(index, state.spec.steps.length);
+    state.tour.stepIndex = stepIndex;
     const s = state.spec.steps[stepIndex];
     // Visited dots: a regenerated spec (new generatedAt) starts fresh; landing on a
     // step marks it. Remember where we are (and that we're off the overview).
@@ -141,35 +136,47 @@ export const tourStore = {
    * a raw goto(stepIndex) here would silently drop the overview. */
   reapply(): void {
     if (!state.spec) return;
-    if (atOverview) tourStore.gotoOverview();
-    else tourStore.goto(stepIndex);
+    if (state.tour.atOverview) tourStore.gotoOverview();
+    else tourStore.goto(state.tour.stepIndex);
   },
 
   /** Advance to the next step; a no-op on the last (the Next control is disabled).
    * From the overview "step 0" it advances to the first code step. */
   next(): void {
-    if (atOverview) {
+    if (state.tour.atOverview) {
       tourStore.goto(0);
       return;
     }
-    if (state.spec && stepIndex < state.spec.steps.length - 1) tourStore.goto(stepIndex + 1);
+    if (state.spec && state.tour.stepIndex < state.spec.steps.length - 1) {
+      tourStore.goto(state.tour.stepIndex + 1);
+    }
   },
   /** Step back; from the first code step it falls into the overview "step 0" (if any). */
   back(): void {
-    if (atOverview) return;
-    if (stepIndex > 0) {
-      tourStore.goto(stepIndex - 1);
+    if (state.tour.atOverview) return;
+    if (state.tour.stepIndex > 0) {
+      tourStore.goto(state.tour.stepIndex - 1);
       return;
     }
     if (tourStore.hasOverview()) tourStore.gotoOverview();
   },
 
+  /** PR navigation: the tour belonged to the previous PR — snap the whole machine
+   * back to defaults. No page commands (unlike close()): the navigation already
+   * replaced the old diff, so there is nothing to un-highlight. Without this, a
+   * stale tour.open would auto-reapply the NEW PR's walkthrough at a stale step
+   * the moment the launcher refresh lands. */
+  resetForPr(): void {
+    state.tour = tourDefaults();
+    touch();
+  },
+
   close(): void {
-    open = false;
-    atOverview = false;
+    state.tour.open = false;
+    state.tour.atOverview = false;
     // The diagram overlay is walkthrough-scoped: closing/regenerating must not leave
     // it open, or a regenerated spec that carries a diagram would auto-open it unasked.
-    diagramOpen = false;
+    state.tour.diagramOpen = false;
     bifrost.send("highlight:clear", undefined);
     state.activeStep = null;
     bifrost.send("grip:context", { hasActiveStep: false });

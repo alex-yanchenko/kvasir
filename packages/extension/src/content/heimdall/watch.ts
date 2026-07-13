@@ -5,6 +5,7 @@
 import { launcherStore } from "../asgard/launcher";
 import { isChatSessionArray, parseTourState } from "../asgard/persisted";
 import { state, touch } from "../asgard/store";
+import { tourStore } from "../asgard/tour";
 import { bifrost } from "../bifrost";
 import { chatScope, chatsKey, prUrl, reviewIdFromUrl, tourKey } from "../keys";
 import { storeGet } from "../muninn";
@@ -71,6 +72,7 @@ export function watchUrl(intervalMs = 1500): () => void {
       state.tourState = { step: 0, overview: false, pos: null, size: null };
       state.spec = null;
       launcherStore.resetForPr();
+      tourStore.resetForPr(); // a tour left open would auto-reapply on the NEW PR
       // The spec load triggers the tour's start(), so it must wait for the new PR's
       // tour state to land — same ordering the boot path relies on (see boot.tsx).
       void loadPersisted().then(() => launcherStore.refresh());
