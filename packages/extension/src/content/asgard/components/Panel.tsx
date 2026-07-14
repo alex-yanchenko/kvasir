@@ -94,10 +94,10 @@ function PairBanner(): JSX.Element | null {
 const CONNECTION_DOT: Record<PairingPhase["phase"], { className: string; label: string }> = {
   unknown: { className: "bg-muted-foreground/40", label: "Checking connection…" },
   down: { className: "bg-destructive", label: "Channel not running" },
-  unpaired: { className: "bg-amber-500", label: "Not paired" },
-  waiting: { className: "bg-amber-500", label: "Pairing…" },
-  error: { className: "bg-amber-500", label: "Pairing failed" },
-  paired: { className: "bg-emerald-500", label: "Connected to your Claude session" },
+  unpaired: { className: "bg-warning", label: "Not paired" },
+  waiting: { className: "bg-warning", label: "Pairing…" },
+  error: { className: "bg-warning", label: "Pairing failed" },
+  paired: { className: "bg-success", label: "Connected to your Claude session" },
 };
 
 function ConnectionDot(): JSX.Element {

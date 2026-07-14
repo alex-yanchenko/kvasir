@@ -32,7 +32,7 @@ export function Coverage({
         {full ? (
           <Check className="size-3 shrink-0 text-primary" />
         ) : (
-          <AlertTriangle className="size-3 shrink-0 text-amber-500" />
+          <AlertTriangle className="size-3 shrink-0 text-warning" />
         )}
         <span className="whitespace-nowrap text-muted-foreground">
           {covered}/{significant.length} key
