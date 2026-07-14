@@ -117,10 +117,6 @@ export const historyStore = {
     if (facet === "stale") return base.filter((entry) => historyStore.driftFor(entry) === "update");
     return base;
   },
-  /** Filtered entries of each kind, for the two sections. */
-  prItems: (): EntrySummary[] => historyStore.filtered().filter((entry) => entry.kind === "pr"),
-  codeItems: (): EntrySummary[] => historyStore.filtered().filter((entry) => entry.kind === "code"),
-
   /** New (never opened) · update (backend moved past what we saw) · current. */
   driftFor(entry: EntrySummary): Drift {
     const seen = state.seen[entry.id];

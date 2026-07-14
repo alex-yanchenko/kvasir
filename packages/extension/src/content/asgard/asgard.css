@@ -1,7 +1,8 @@
 /* Asgard's rich-content styles injected into the shadow root: the chat thread +
-   markdown, suggestion rows, the regenerate dialog, tooltips, scrollbars. Layout
-   and chrome come from Tailwind on the components; these cover what the markdown
-   renderer and chat internals emit. Everything reads the shared dev-tool tokens
+   markdown, suggestion rows, the regenerate dialog, tooltips, scrollbars — plus
+   the Aurora panel chrome (glass surface, spine, gradient action, shimmer, glows)
+   that needs pseudo-elements/keyframes Tailwind can't express inline. Everything
+   else comes from Tailwind on the components. All of it reads the shared tokens
    (tailwind.css :host / .dark) — never the old --kvasir-* body variables. */
 
 /* ── aurora glass panel ─────────────────────────────────────────────────────────
@@ -21,18 +22,19 @@
 /* Aurora identity on the panel's leading edge: a 2px teal→ice→violet spine plus a
    faint 30px wash bleeding inward. Painted only where the theme defines the aurora
    tokens (dark) — an undefined var() invalidates the declaration, so light paints
-   nothing. z-index keeps both under the panel's interactive columns. */
+   nothing. z-index -1 puts both BELOW the panel's in-flow columns (the panel is a
+   stacking context, so they still paint above its own glass background). */
 .kvasir-panel::before,
 .kvasir-panel::after {
   content: "";
   position: absolute;
   inset: 0 auto 0 0;
   pointer-events: none;
+  z-index: -1;
 }
 .kvasir-panel::before {
   width: 2px;
   background: var(--aurora-spine);
-  z-index: 1;
 }
 .kvasir-panel::after {
   width: 30px;
@@ -46,8 +48,9 @@
 }
 
 /* The primary step action: ice→teal aurora gradient with the "Soft" shadow. The
-   gradient stops live on :host, so the button reads the same in both themes;
-   ink stays --primary-foreground for contrast on the light gradient. */
+   gradient stops live on :host, so the button reads the same in both themes; the
+   ink is a fixed dark value because the gradient is light in BOTH themes —
+   --primary-foreground would be white in light and unreadable on it. */
 .kvasir-next {
   background: var(--gradient-action, var(--primary));
   box-shadow: var(--glow-button, none);

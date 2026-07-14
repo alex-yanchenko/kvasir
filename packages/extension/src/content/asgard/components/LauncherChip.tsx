@@ -26,7 +26,7 @@ export function LauncherChip(): JSX.Element | null {
   return (
     <Button
       variant="outline"
-      className="kvasir-chip kvasir-glass fixed bottom-5 right-5 z-[2147483000] gap-2 rounded-[var(--radius-pill)] text-foreground"
+      className="kvasir-glass fixed bottom-5 right-5 z-[2147483000] gap-2 rounded-[var(--radius-pill)] text-foreground"
       style={{ boxShadow: "var(--elevation)" }}
       size="lg"
       onClick={() => panelStore.open()}
@@ -34,13 +34,13 @@ export function LauncherChip(): JSX.Element | null {
     >
       {/* rune in a fixed grid cell + leading-none so the pill's rune/dot/label sit
           on one optical line at any label length */}
-      {generating ? (
-        <Loader2 className="animate-spin text-primary" />
-      ) : (
-        <span className="grid size-4 shrink-0 place-items-center">
+      <span className="grid size-4 shrink-0 place-items-center">
+        {generating ? (
+          <Loader2 className="size-4 animate-spin text-primary" />
+        ) : (
           <KvasirMark className="size-4 text-primary" />
-        </span>
-      )}
+        )}
+      </span>
       <span
         aria-hidden="true"
         className={

@@ -98,6 +98,13 @@ describe("WalkthroughTab", () => {
     expect(screen.queryByText(/Deep context|Diff only/)).toBeNull();
   });
 
+  it("StepRing renders full at 1/1 on a single-step walkthrough", () => {
+    const single = mkSpec();
+    state.spec = { ...single, steps: [single.steps[0]!] };
+    render(<WalkthroughTab />);
+    expect(screen.getByTestId("step-ring").textContent).toBe("1/1");
+  });
+
   it("empty state runs a walkthrough", () => {
     const gen = vi.spyOn(launcherStore, "requestGenerate").mockResolvedValue();
     render(<WalkthroughTab />);
@@ -135,6 +142,16 @@ describe("WalkthroughTab", () => {
     const second = render(<WalkthroughTab />);
     expect(doneTitles()).toEqual(["1. Start the channel"]);
     second.unmount();
+    // mid-pair (waiting) also proves the channel answered
+    stateSpy.mockReturnValue({ phase: "waiting", code: "ABC234" });
+    const third = render(<WalkthroughTab />);
+    expect(doneTitles()).toEqual(["1. Start the channel"]);
+    third.unmount();
+    // "error" can mean the health probe never reached the bridge → nothing checked
+    stateSpy.mockReturnValue({ phase: "error", message: "x" });
+    const fourth = render(<WalkthroughTab />);
+    expect(doneTitles()).toEqual([]);
+    fourth.unmount();
     // paired → steps 1 + 2 checked; Run (3) always reads as todo
     stateSpy.mockReturnValue({ phase: "paired" });
     render(<WalkthroughTab />);
@@ -459,6 +476,7 @@ describe("WalkthroughTab", () => {
     // the overview shows how many code steps follow (mkSpec has two)
     expect(screen.getByTestId("overview-step-count").textContent).toBe("2 steps");
     expect(screen.getByRole("heading", { name: "Overview" })).toBeTruthy();
+    expect(screen.queryByTestId("step-ring")).toBeNull(); // the overview has no step-position ring
     expect((screen.getByLabelText("Previous step") as HTMLButtonElement).disabled).toBe(true);
     // the overview offers its own whole-PR chat; scroll-to-code is shown but disabled (no code target)
     expect(screen.queryByLabelText("Ask about this step")).toBeNull();

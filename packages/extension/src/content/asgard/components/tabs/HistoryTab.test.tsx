@@ -72,8 +72,8 @@ describe("HistoryTab", () => {
 
   it("names a down channel in the empty state instead of claiming None yet", () => {
     vi.spyOn(pairingStore, "state").mockReturnValue({ phase: "down" });
-    render(<HistoryTab />); // loaded [] + both sections empty
-    expect(screen.getAllByText(/Channel not running/).length).toBeGreaterThan(0);
+    render(<HistoryTab />); // loaded [] → the flat list is empty
+    expect(screen.getByText(/Channel not running/)).toBeTruthy();
     expect(screen.queryByText("None yet.")).toBeNull();
   });
 

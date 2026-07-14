@@ -424,7 +424,7 @@ describe("Panel", () => {
     act(() => panelStore.open());
     const stateSpy = vi.spyOn(pairingStore, "state");
     for (const [phase, label, dotClass] of [
-      [{ phase: "paired" }, "Connected to your Claude session", "bg-success"],
+      [{ phase: "paired" }, "Connected to your Claude session", "bg-success kvasir-dot-glow"],
       [{ phase: "down" }, "Channel not running", "bg-destructive"],
       [{ phase: "unpaired" }, "Not paired", "bg-warning"],
       [{ phase: "waiting", code: "ABC234" }, "Pairing…", "bg-warning"],

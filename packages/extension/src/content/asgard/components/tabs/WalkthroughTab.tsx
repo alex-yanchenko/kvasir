@@ -114,7 +114,9 @@ function FirstRunItem({
  * through something you've already finished. */
 function FirstRunSteps(): JSX.Element {
   const phase = pairingStore.state().phase;
-  const channelUp = phase !== "down" && phase !== "unknown"; // any answer means it's running
+  // Only phases that imply a successful health probe count as "channel up" —
+  // "error" can also mean the probe itself never reached the bridge.
+  const channelUp = ["unpaired", "waiting", "paired"].includes(phase);
   return (
     <>
       <p className="text-sm font-medium">Three steps to your first walkthrough</p>

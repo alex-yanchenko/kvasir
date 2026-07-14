@@ -4,7 +4,7 @@
  * shape: a `pr` walkthrough (a PR-bound diff tour, from spec.ts) and a `code`
  * walkthrough (a cross-repo authored explanation, from review.ts). The mimir
  * bridge produces these (GET /history); the extension's History tab consumes
- * them. UI labels them "PR Walkthroughs" / "Code Walkthroughs".
+ * them, tagging each row with a PR / Code kind chip.
  *
  * Schema-first: the type is inferred from the zod schema and isEntrySummaryList
  * validates against it, so the wire contract can't drift from its runtime check.

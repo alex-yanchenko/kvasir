@@ -22,8 +22,9 @@ function HistoryRow({ entry }: Readonly<{ entry: EntrySummary }>): JSX.Element {
         className="flex min-w-0 flex-1 items-start gap-2 rounded-md border border-border px-2 py-1.5 text-left hover:bg-secondary"
       >
         {/* Fixed-width kind chip so titles align down the list regardless of the
-            chip's text. Violet is reserved for the Code chip — the one place
-            violet may color text. */}
+            chip's text (46px fits "CODE", the wider label, at this size/tracking).
+            Violet is reserved for the Code chip — the one place violet may color
+            text. */}
         <span
           className={
             "mt-0.5 inline-flex w-[46px] shrink-0 justify-center rounded-full border border-border py-px text-[9.5px] font-semibold uppercase tracking-[0.11em] " +
