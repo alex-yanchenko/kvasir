@@ -427,21 +427,21 @@ describe("Panel", () => {
     expect(pairingStore.recheck).toHaveBeenCalledTimes(1);
   });
 
-  it("the title-bar status dot names each connection phase", () => {
+  it("the title-bar status dot names and colors each connection phase", () => {
     render(<Panel />);
     act(() => panelStore.open());
     const stateSpy = vi.spyOn(pairingStore, "state");
-    for (const [phase, label] of [
-      [{ phase: "paired" }, "Connected to your Claude session"],
-      [{ phase: "down" }, "Channel not running"],
-      [{ phase: "unpaired" }, "Not paired"],
-      [{ phase: "waiting", code: "ABC234" }, "Pairing…"],
-      [{ phase: "error", message: "x" }, "Pairing failed"],
-      [{ phase: "unknown" }, "Checking connection…"],
+    for (const [phase, label, dotClass] of [
+      [{ phase: "paired" }, "Connected to your Claude session", "bg-success"],
+      [{ phase: "down" }, "Channel not running", "bg-destructive"],
+      [{ phase: "unpaired" }, "Not paired", "bg-warning"],
+      [{ phase: "waiting", code: "ABC234" }, "Pairing…", "bg-warning"],
+      [{ phase: "error", message: "x" }, "Pairing failed", "bg-warning"],
+      [{ phase: "unknown" }, "Checking connection…", "bg-muted-foreground/40"],
     ] as const) {
       stateSpy.mockReturnValue(phase);
       act(() => store.touch());
-      expect(screen.getByLabelText(label)).toBeTruthy();
+      expect(screen.getByLabelText(label).className).toContain(dotClass);
     }
   });
 

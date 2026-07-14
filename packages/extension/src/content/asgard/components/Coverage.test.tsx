@@ -14,6 +14,9 @@ describe("Coverage", () => {
     const send = vi.spyOn(bifrost, "send").mockImplementation(() => {});
     render(<Coverage coverage={{ significant: ["f.ts", "g.ts", "h.ts"], uncovered: ["h.ts"] }} />);
     expect(screen.getByLabelText(LABEL).textContent).toContain("2/3 key");
+    expect(screen.getByLabelText(LABEL).querySelector("svg")?.getAttribute("class")).toContain(
+      "text-warning",
+    );
     fireEvent.click(screen.getByLabelText(LABEL)); // expand the uncovered list
     fireEvent.click(screen.getByRole("button", { name: "h.ts" }));
     expect(send).toHaveBeenCalledWith("jump:ref", { file: "h.ts", start: null, end: null });
@@ -24,6 +27,7 @@ describe("Coverage", () => {
     render(<Coverage coverage={{ significant: ["f.ts", "g.ts"], uncovered: [] }} />);
     const chip = screen.getByLabelText(LABEL) as HTMLButtonElement;
     expect(chip.textContent).toContain("2/2 key");
+    expect(chip.querySelector("svg")?.getAttribute("class")).toContain("text-primary");
     expect(chip.disabled).toBe(true);
     fireEvent.click(chip); // disabled → no expansion list appears
     expect(screen.queryByRole("list")).toBeNull();
