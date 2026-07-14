@@ -7,7 +7,7 @@ vi.mock("../../../muninn", () => ({ storeGet: vi.fn(), storeSet: vi.fn(), storeR
 
 import { pairingStore } from "../../pairing";
 import { reviewStore } from "../../review";
-import { PANEL_TABS, panelStore, state } from "../../store";
+import { PANEL_TABS, panelStore, state, touch } from "../../store";
 import { ReviewTab } from "./ReviewTab";
 
 const mkReview = (): Review => ({
@@ -54,11 +54,12 @@ describe("ReviewTab", () => {
     expect(screen.getByText("No walkthrough loaded.")).toBeTruthy();
   });
 
-  it("renders the current step, its position, repo/file, and body", () => {
+  it("renders the current step: G1 head (ring + eyebrow) and body", () => {
     render(<ReviewTab />);
     expect(screen.getByRole("heading", { name: "Guard" })).toBeTruthy();
-    expect(screen.getByText("acme/web · src/a.ts")).toBeTruthy();
-    expect(screen.getByText("Step 1 / 2")).toBeTruthy();
+    // eyebrow carries repo + file + position; the ring carries the count
+    expect(screen.getByTestId("review-step-eyebrow").textContent).toBe("acme/web · src/a.ts · 1 of 2");
+    expect(screen.getByTestId("step-ring").textContent).toBe("1/2");
     expect(screen.getByTestId("review-step-body").textContent).toContain("guard body");
     expect(screen.queryByRole("button", { name: "Show details" })).toBeNull(); // step has no detail
   });
@@ -97,7 +98,7 @@ describe("ReviewTab", () => {
     expect((screen.getByRole("button", { name: "Previous step" }) as HTMLButtonElement).disabled).toBe(false);
   });
 
-  it("wires Next/Back/dots to the store and routes 'ask' to the chat tab", () => {
+  it("wires Next/Back to the store and routes 'ask' to the chat tab", () => {
     // a 3-step review at the middle step → Back AND Next both enabled
     state.review = {
       version: 1,
@@ -112,15 +113,12 @@ describe("ReviewTab", () => {
     state.reviewStep = 1;
     const next = vi.spyOn(reviewStore, "next").mockImplementation(() => {});
     const back = vi.spyOn(reviewStore, "back").mockImplementation(() => {});
-    const goto = vi.spyOn(reviewStore, "goto").mockImplementation(() => {});
     const ask = vi.spyOn(reviewStore, "askAboutStep").mockImplementation(() => {});
     render(<ReviewTab />);
     fireEvent.click(screen.getByRole("button", { name: "Next step" }));
     expect(next).toHaveBeenCalledTimes(1);
     fireEvent.click(screen.getByRole("button", { name: "Previous step" }));
     expect(back).toHaveBeenCalledTimes(1);
-    fireEvent.click(screen.getByRole("button", { name: "Go to step 2: B" }));
-    expect(goto).toHaveBeenCalledWith(1);
     fireEvent.click(screen.getByRole("button", { name: "Ask about this step" }));
     expect(ask).toHaveBeenCalledTimes(1);
     expect(panelStore.tab()).toBe(PANEL_TABS.CHAT);
@@ -161,10 +159,21 @@ describe("ReviewTab", () => {
     expect(next).toHaveBeenCalledTimes(1); // unchanged
   });
 
-  it("names each step's dot by its title", () => {
+  it("offers no in-footer step jumper — the review outline sidebar owns jumping", () => {
     render(<ReviewTab />);
-    expect(screen.getByRole("button", { name: "Go to step 1: Guard" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Go to step 2: Server" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Go to step/ })).toBeNull();
+  });
+
+  it("navigation remounts the step body but keeps the ring's node (sweep persists)", () => {
+    render(<ReviewTab />);
+    const bodyBefore = screen.getByTestId("review-step-body");
+    const ringBefore = screen.getByTestId("step-ring");
+    act(() => {
+      state.reviewStep = 1;
+      touch();
+    });
+    expect(screen.getByTestId("review-step-body")).not.toBe(bodyBefore); // keyed → fresh node → fade replays
+    expect(screen.getByTestId("step-ring")).toBe(ringBefore); // unkeyed → same node → the fill transitions
   });
 
   it("shows a loading state on the nav while a cross-file step is navigating", () => {

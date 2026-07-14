@@ -28,6 +28,7 @@ import { Button } from "../../ui/button";
 import { KvasirMark } from "../../ui/KvasirMark";
 import { Diagram } from "../Diagram";
 import { RegenDialog } from "../RegenDialog";
+import { StepHead } from "../StepRing";
 
 function Generating(): JSX.Element {
   const [, setTick] = useState(0);
@@ -168,43 +169,6 @@ function Empty(): JSX.Element {
   );
 }
 
-const RING_R = 15.5; // 38px box, 3px stroke — r keeps the stroke inside the viewBox
-const RING_C = 2 * Math.PI * RING_R;
-
-/** The step-position ring (G1): a 38px gradient arc filled to the current step,
- * count inside. Rotated -90° so progress starts at 12 o'clock; the count span
- * stays upright outside the rotation. */
-function StepRing({ index, count }: Readonly<{ index: number; count: number }>): JSX.Element {
-  return (
-    <div className="relative size-[38px] shrink-0" data-testid="step-ring">
-      <svg viewBox="0 0 38 38" className="-rotate-90" aria-hidden="true">
-        <circle cx="19" cy="19" r={RING_R} fill="none" stroke="var(--border)" strokeWidth="3" />
-        <circle
-          className="kvasir-ring-fill"
-          cx="19"
-          cy="19"
-          r={RING_R}
-          fill="none"
-          stroke="url(#kvasir-ring-grad)"
-          strokeWidth="3"
-          strokeLinecap="round"
-          strokeDasharray={RING_C}
-          strokeDashoffset={RING_C * (1 - (index + 1) / count)}
-        />
-        <defs>
-          <linearGradient id="kvasir-ring-grad" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" stopColor="var(--aurora-2)" />
-            <stop offset="1" stopColor="var(--aurora-1)" />
-          </linearGradient>
-        </defs>
-      </svg>
-      <span className="absolute inset-0 flex items-center justify-center text-[10px] font-semibold tabular-nums">
-        {index + 1}/{count}
-      </span>
-    </div>
-  );
-}
-
 // The current step's prose + its expandable detail. Split out of Steps so that
 // component stays under the cognitive-complexity bar; detail open state lives on
 // state.tour (via tourStore) so it persists across a tab switch.
@@ -216,20 +180,15 @@ function StepBody({
   const detailOpen = tourStore.detailOpen();
   return (
     <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
-      {/* G1 step head: eyebrow (the outline's group = the step's file, plus position),
-          ring beside the title. The footer carries no counter — the ring owns position. */}
-      <div className="mb-3 flex items-center gap-3">
-        <StepRing index={index} count={count} />
-        <div className="min-w-0">
-          <div
-            className="truncate font-mono text-[9.5px] font-semibold uppercase tracking-[0.13em] text-muted-foreground"
-            data-testid="step-eyebrow"
-          >
-            {step.file} · {index + 1} of {count}
-          </div>
-          <h3 className="text-[19px] font-[650] leading-tight tracking-tight">{step.title}</h3>
-        </div>
-      </div>
+      {/* G1 step head — the eyebrow carries the outline's group (the step's file)
+          plus position; the footer carries no counter, the ring owns position. */}
+      <StepHead
+        eyebrow={`${step.file} · ${index + 1} of ${count}`}
+        eyebrowTestId="step-eyebrow"
+        title={step.title}
+        index={index}
+        count={count}
+      />
       {/* Keyed by step id: navigation remounts the PROSE so it fades in, while the
           head above stays mounted (the ring's fill sweeps) and the details toggle
           below keeps its node — a focused toggle must survive arrow-key nav. */}

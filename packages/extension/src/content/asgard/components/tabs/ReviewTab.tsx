@@ -1,9 +1,10 @@
-// Review tab — the step walkthrough for a pushed cross-repo review. Follows the
-// Walkthrough tab's step flow (the step head keeps the pre-Aurora chrome until
-// the review-mode redesign pass), has no generate/regenerate states (a review is
-// pushed, not generated), and its nav navigates the tab between blob pages
-// (reviewStore.goto/next/back), letting GitHub's native #L highlight land each
-// step. Chat is reached the same way as the walkthrough — through activeGuide().
+// Review tab — the step walkthrough for a pushed cross-repo review. Mirrors the
+// Walkthrough tab's G1 step head (ring + eyebrow, slim footer; jumping to a step
+// lives in the review outline sidebar), has no generate/regenerate states (a
+// review is pushed, not generated), and its nav navigates the tab between blob
+// pages (reviewStore.goto/next/back), letting GitHub's native #L highlight land
+// each step. Chat is reached the same way as the walkthrough — through
+// activeGuide().
 import { renderMarkdown } from "@kvasir/runes/markdown";
 import { ChevronLeft, ChevronRight, Loader2, MessageSquare } from "lucide-react";
 import { useEffect, useState, useSyncExternalStore } from "react";
@@ -13,6 +14,7 @@ import { pairingStore } from "../../pairing";
 import { reviewStore } from "../../review";
 import { getSnapshot, PANEL_TABS, panelStore, subscribe } from "../../store";
 import { Button } from "../../ui/button";
+import { StepHead } from "../StepRing";
 
 export function ReviewTab(): JSX.Element {
   useSyncExternalStore(subscribe, getSnapshot);
@@ -21,7 +23,9 @@ export function ReviewTab(): JSX.Element {
   const step = reviewStore.step();
   const index = reviewStore.stepIndex();
   const count = reviewStore.stepCount();
-  // Collapse details when the step changes (mirrors the walkthrough tab).
+  // Collapse details when the step changes. (The walkthrough persists detail-open
+  // across steps via tourStore; review keeps it step-local — each step's detail is
+  // an independent aside, not a reading mode.)
   useEffect(() => setShowDetail(false), [index]);
 
   if (!step) {
@@ -37,14 +41,11 @@ export function ReviewTab(): JSX.Element {
   const navigating = reviewStore.navigating(); // a cross-file step is loading a new page
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center gap-2 border-b border-border px-3 py-2">
-        <span className="whitespace-nowrap text-xs font-medium text-muted-foreground">
-          Step {index + 1} / {count}
-        </span>
+      <div className="flex items-center justify-end border-b border-border px-3 py-2">
         <Button
           variant="ghost"
           size="icon"
-          className="ml-auto h-7 w-7"
+          className="h-7 w-7"
           aria-label="Ask about this step"
           data-kvasir-tip="Ask about this step"
           disabled={pairingStore.needsPairing()}
@@ -58,10 +59,15 @@ export function ReviewTab(): JSX.Element {
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
-        <h3 className="mb-1 text-base font-semibold">{step.title}</h3>
-        <div className="mb-2 text-xs text-muted-foreground">
-          {step.repo.owner}/{step.repo.name} · {step.file}
-        </div>
+        {/* G1 step head — review steps span repos, so the eyebrow carries the repo
+            where the walkthrough's carries just the file. */}
+        <StepHead
+          eyebrow={`${step.repo.owner}/${step.repo.name} · ${step.file} · ${index + 1} of ${count}`}
+          eyebrowTestId="review-step-eyebrow"
+          title={step.title}
+          index={index}
+          count={count}
+        />
         {/* step.body/detail are MARKDOWN (a pushed review), so they go through
             renderMarkdown — a constructive renderer that escapes first and only
             emits a fixed safe tag/attr set (links are protocol-checked and the
@@ -70,7 +76,8 @@ export function ReviewTab(): JSX.Element {
             which expects author-supplied HTML and strips every attribute (it would
             kill the links/code styling renderMarkdown produces). */}
         <div
-          className="kvasir-prose text-sm"
+          key={step.id}
+          className="kvasir-prose text-sm motion-safe:[animation:kvasir-step-in_140ms_ease-out]"
           data-testid="review-step-body"
           dangerouslySetInnerHTML={{ __html: renderMarkdown(step.body) }}
         />
@@ -86,7 +93,8 @@ export function ReviewTab(): JSX.Element {
             </Button>
             {showDetail && (
               <div
-                className="kvasir-prose mt-2 border-t border-border pt-2 text-sm"
+                key={step.id}
+                className="kvasir-prose mt-2 border-t border-border pt-2 text-sm motion-safe:[animation:kvasir-step-in_140ms_ease-out]"
                 data-testid="review-step-detail"
                 dangerouslySetInnerHTML={{ __html: renderMarkdown(step.detail) }}
               />
@@ -95,7 +103,9 @@ export function ReviewTab(): JSX.Element {
         )}
       </div>
 
-      <div className="flex items-center gap-2 border-t border-border px-3 py-2">
+      {/* Slim footer (G1): Back ghost + gradient Next — the review outline sidebar
+          owns jumping to an arbitrary step. */}
+      <div className="flex items-center justify-between gap-2 border-t border-border px-3 py-2">
         <Button
           variant="ghost"
           size="sm"
@@ -105,24 +115,10 @@ export function ReviewTab(): JSX.Element {
         >
           <ChevronLeft /> Back
         </Button>
-        <div className="mx-auto flex items-center gap-1.5">
-          {reviewStore.steps().map((dotStep, dotIndex) => (
-            <button
-              key={dotIndex}
-              aria-label={`Go to step ${dotIndex + 1}: ${dotStep.title}`}
-              data-kvasir-tip={`${dotIndex + 1}. ${dotStep.title}`}
-              disabled={navigating}
-              onClick={() => reviewStore.goto(dotIndex)}
-              className={
-                "h-1.5 cursor-pointer rounded-full transition-all " +
-                (dotIndex === index ? "w-4 bg-primary" : "w-1.5 bg-border hover:bg-muted-foreground")
-              }
-            />
-          ))}
-        </div>
         <Button
           variant="default"
           size="sm"
+          className="kvasir-next"
           aria-label="Next step"
           disabled={atLast || navigating}
           onClick={() => reviewStore.next()}
