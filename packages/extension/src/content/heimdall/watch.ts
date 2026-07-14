@@ -3,7 +3,7 @@
 // across the Bifrost, and watches the URL (Navigation API events when available,
 // else polling): GitHub is a SPA, so PR navigation never re-runs the content script.
 import { launcherStore } from "../asgard/launcher";
-import { isChatSessionArray, parseTourState } from "../asgard/persisted";
+import { isChatSessionArray, parsePersistedTour } from "../asgard/persisted";
 import { state, touch } from "../asgard/store";
 import { tourStore } from "../asgard/tour";
 import { bifrost } from "../bifrost";
@@ -23,7 +23,7 @@ export async function loadPersisted(): Promise<void> {
   }
   const pr = prUrl();
   if (pr) {
-    state.tourState = parseTourState(await storeGet(tourKey(pr)));
+    state.persistedTour = parsePersistedTour(await storeGet(tourKey(pr)));
   }
   // Panel state (open/tab/geometry) is per-tab and hydrated synchronously at boot
   // (store.hydratePanel); loadPersisted only restores per-PR content.
@@ -69,7 +69,7 @@ export function watchUrl(intervalMs = 1500): () => void {
       currentPr = pr;
       state.chatHistory = [];
       touch(); // React drops the panel content with the old PR's state
-      state.tourState = { step: 0, overview: false, pos: null, size: null };
+      state.persistedTour = { step: 0, overview: false, pos: null, size: null };
       state.spec = null;
       launcherStore.resetForPr();
       tourStore.resetForPr(); // a tour left open would auto-reapply on the NEW PR

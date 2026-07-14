@@ -24,7 +24,7 @@ beforeEach(() => {
   setUrl(`${PR}/files`);
   state.spec = null;
   state.chatHistory = [];
-  state.tourState = { step: 0, pos: null, size: null };
+  state.persistedTour = { step: 0, pos: null, size: null };
   state.panel = { open: false, tab: "walkthrough", pos: null, size: null };
   stop = null;
   vi.mocked(storeGet).mockResolvedValue(undefined);
@@ -61,7 +61,7 @@ describe("loadPersisted", () => {
     });
     await loadPersisted();
     expect(state.chatHistory).toEqual(chats);
-    expect(state.tourState).toEqual({
+    expect(state.persistedTour).toEqual({
       step: 2,
       overview: false,
       pos: { left: 1, top: 2 },
@@ -76,7 +76,7 @@ describe("loadPersisted", () => {
       key.startsWith("kvasir:chats:") ? [] : { step: 3, overview: true, pos: null, size: null },
     );
     await loadPersisted();
-    expect(state.tourState).toEqual({
+    expect(state.persistedTour).toEqual({
       step: 3,
       overview: true,
       pos: null,
@@ -93,7 +93,7 @@ describe("loadPersisted", () => {
         : { step: 1, pos: null, size: null, visited: ["s2"], visitedStamp: "g1" },
     );
     await loadPersisted();
-    expect(state.tourState).toEqual({
+    expect(state.persistedTour).toEqual({
       step: 1,
       overview: false,
       pos: null,
@@ -111,7 +111,7 @@ describe("loadPersisted", () => {
     );
     await loadPersisted();
     expect(state.chatHistory).toEqual(live);
-    expect(state.tourState).toEqual({
+    expect(state.persistedTour).toEqual({
       step: 0,
       overview: false,
       pos: null,
@@ -133,7 +133,7 @@ describe("loadPersisted", () => {
       size: { w: 7, h: 8 },
     });
     expect(state.chatHistory).toEqual([]); // per-PR content skipped without a PR
-    expect(state.tourState).toEqual({ step: 0, pos: null, size: null });
+    expect(state.persistedTour).toEqual({ step: 0, pos: null, size: null });
   });
 
   it("tolerates empty storage with nothing stored", async () => {
@@ -141,7 +141,7 @@ describe("loadPersisted", () => {
     vi.mocked(storeGet).mockResolvedValue(null);
     await loadPersisted();
     expect(state.chatHistory).toEqual([]);
-    expect(state.tourState).toEqual({
+    expect(state.persistedTour).toEqual({
       step: 0,
       overview: false,
       pos: null,
@@ -190,7 +190,7 @@ describe("watchUrl", () => {
     expect(reset).toHaveBeenCalledTimes(1);
     expect(refresh).toHaveBeenCalledTimes(1); // not yet re-fired — waiting on loadPersisted
     expect(state.chatHistory).toEqual([]);
-    expect(state.tourState).toEqual({ step: 0, overview: false, pos: null, size: null });
+    expect(state.persistedTour).toEqual({ step: 0, overview: false, pos: null, size: null });
     expect(state.tour).toEqual({
       open: false,
       stepIndex: 0,

@@ -51,7 +51,7 @@ beforeEach(() => {
   Object.defineProperty(window, "location", { value: new URL(`${PR}/files`), writable: true });
   sessionStorage.clear();
   state.spec = mkSpec();
-  state.tourState = { step: 0, pos: null, size: null };
+  state.persistedTour = { step: 0, pos: null, size: null };
   state.activeStep = null;
   tourStore.resetForPr(); // the whole machine slice back to defaults, not just close()
   sent = [];
@@ -68,7 +68,7 @@ afterEach(() => {
 
 describe("start", () => {
   it("opens at the persisted step and shows it on the page", () => {
-    state.tourState = { step: 1, pos: null, size: null };
+    state.persistedTour = { step: 1, pos: null, size: null };
     tourStore.start();
     expect(tourStore.open()).toBe(true);
     expect(tourStore.stepIndex()).toBe(1);
@@ -83,7 +83,7 @@ describe("start", () => {
   });
 
   it("clamps a stale persisted step into range", () => {
-    state.tourState = { step: 99, pos: null, size: null };
+    state.persistedTour = { step: 99, pos: null, size: null };
     tourStore.start();
     expect(tourStore.stepIndex()).toBe(1);
   });
@@ -108,8 +108,8 @@ describe("navigation", () => {
   it("goto persists the step and re-sends the page commands", () => {
     tourStore.start();
     tourStore.goto(1);
-    expect(state.tourState.step).toBe(1);
-    expect(vi.mocked(storeSet)).toHaveBeenCalledWith(`kvasir:tour:${PR}`, state.tourState);
+    expect(state.persistedTour.step).toBe(1);
+    expect(vi.mocked(storeSet)).toHaveBeenCalledWith(`kvasir:tour:${PR}`, state.persistedTour);
   });
 
   it("next advances and is a no-op on the last step (it stays open)", () => {
@@ -126,7 +126,7 @@ describe("navigation", () => {
     tourStore.start(); // opens, goto(0) → no step at the clamped index → guarded no-op
     expect(tourStore.step()).toBeNull();
     expect(sent.some((s) => s.kind === "highlight:step")).toBe(false);
-    expect(state.tourState.visited).toEqual([]); // an out-of-range goto marks nothing
+    expect(state.persistedTour.visited).toEqual([]); // an out-of-range goto marks nothing
 
     state.spec = null;
     expect(() => tourStore.next()).not.toThrow(); // no-spec guard in next() → no-op
@@ -150,9 +150,9 @@ describe("navigation", () => {
     expect(tourStore.isVisited("s1")).toBe(true);
     expect(tourStore.isVisited("s2")).toBe(true);
     // the marks ride the persisted tour state, so a page reload restores the dots
-    expect(state.tourState.visited).toEqual(["s1", "s2"]);
-    expect(state.tourState.visitedStamp).toBe("2026-01-01T00:00:00Z");
-    expect(vi.mocked(storeSet)).toHaveBeenLastCalledWith(`kvasir:tour:${PR}`, state.tourState);
+    expect(state.persistedTour.visited).toEqual(["s1", "s2"]);
+    expect(state.persistedTour.visitedStamp).toBe("2026-01-01T00:00:00Z");
+    expect(vi.mocked(storeSet)).toHaveBeenLastCalledWith(`kvasir:tour:${PR}`, state.persistedTour);
     // a regenerated spec carries a new generatedAt → the next goto resets the visited set
     state.spec = { ...mkSpec(), generatedAt: "2026-02-02T00:00:00Z" };
     tourStore.goto(1);
@@ -173,7 +173,7 @@ describe("navigation", () => {
 
   it("a restored tour state is the source of truth for the visited dots", () => {
     expect(tourStore.isVisited("s1")).toBe(false); // nothing recorded yet
-    state.tourState = {
+    state.persistedTour = {
       step: 1,
       pos: null,
       size: null,
@@ -183,7 +183,7 @@ describe("navigation", () => {
     expect(tourStore.isVisited("s1")).toBe(false);
     expect(tourStore.isVisited("s2")).toBe(true);
     // a matching stamp with no visited list (partial old persistence) reads as none
-    state.tourState = { step: 0, pos: null, size: null, visitedStamp: "2026-01-01T00:00:00Z" };
+    state.persistedTour = { step: 0, pos: null, size: null, visitedStamp: "2026-01-01T00:00:00Z" };
     expect(tourStore.isVisited("s1")).toBe(false);
   });
 
@@ -191,11 +191,11 @@ describe("navigation", () => {
     tourStore.start(); // s1
     tourStore.goto(1); // s2
     tourStore.goto(0); // back to s1 — already marked
-    expect(state.tourState.visited).toEqual(["s1", "s2"]);
+    expect(state.persistedTour.visited).toEqual(["s1", "s2"]);
     // a matching stamp with no visited list (partial old persistence) reads as empty
-    state.tourState = { step: 0, pos: null, size: null, visitedStamp: "2026-01-01T00:00:00Z" };
+    state.persistedTour = { step: 0, pos: null, size: null, visitedStamp: "2026-01-01T00:00:00Z" };
     tourStore.goto(1);
-    expect(state.tourState.visited).toEqual(["s2"]);
+    expect(state.persistedTour.visited).toEqual(["s2"]);
   });
 });
 
@@ -297,20 +297,20 @@ describe("overview step 0", () => {
     tourStore.start();
     vi.mocked(storeSet).mockClear();
     tourStore.gotoOverview();
-    expect(state.tourState.overview).toBe(true);
-    expect(vi.mocked(storeSet)).toHaveBeenCalledWith(`kvasir:tour:${PR}`, state.tourState);
+    expect(state.persistedTour.overview).toBe(true);
+    expect(vi.mocked(storeSet)).toHaveBeenCalledWith(`kvasir:tour:${PR}`, state.persistedTour);
   });
 
   it("start restores the overview when that's where we left off", () => {
     state.spec = withOverview();
-    state.tourState = { step: 1, overview: true, pos: null, size: null };
+    state.persistedTour = { step: 1, overview: true, pos: null, size: null };
     tourStore.start();
     expect(tourStore.atOverview()).toBe(true);
   });
 
   it("start resumes a code step when the saved overview flag has no overview in the spec", () => {
     state.spec = mkSpec(); // regenerated without an overview
-    state.tourState = { step: 1, overview: true, pos: null, size: null };
+    state.persistedTour = { step: 1, overview: true, pos: null, size: null };
     tourStore.start();
     expect(tourStore.atOverview()).toBe(false);
     expect(tourStore.stepIndex()).toBe(1);
@@ -321,7 +321,7 @@ describe("overview step 0", () => {
     tourStore.start();
     tourStore.gotoOverview();
     tourStore.goto(1);
-    expect(state.tourState.overview).toBe(false);
+    expect(state.persistedTour.overview).toBe(false);
   });
 
   it("reapply re-issues the overview when on it, and the step otherwise", () => {

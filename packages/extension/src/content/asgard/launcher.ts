@@ -71,8 +71,8 @@ function pollForSpec(pr: string, previousSig: string): void {
         storeRemove(genKey(pr));
         // A freshly generated walkthrough opens on its overview "step 0" when it has
         // one, else on the first code step. Keep pos + size.
-        state.tourState = { ...state.tourState, step: 0, overview: !!got.overview };
-        storeSet(tourKey(pr), state.tourState);
+        state.persistedTour = { ...state.persistedTour, step: 0, overview: !!got.overview };
+        storeSet(tourKey(pr), state.persistedTour);
         const { currentHead } = state.launcher;
         state.launcher.newCommits = !!(currentHead && got.pr?.headSha && got.pr.headSha !== currentHead);
         state.launcher.generating = false;

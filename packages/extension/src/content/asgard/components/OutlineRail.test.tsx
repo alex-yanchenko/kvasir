@@ -29,7 +29,7 @@ beforeEach(() => {
     writable: true,
   });
   state.spec = null;
-  state.tourState = { step: 0, pos: null, size: null };
+  state.persistedTour = { step: 0, pos: null, size: null };
   state.review = null;
   state.reviewStep = 0;
   state.reviewVisited = [];

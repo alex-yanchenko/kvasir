@@ -38,7 +38,7 @@ beforeEach(() => {
   sessionStorage.clear();
   state.spec = null;
   state.generateDiagram = false; // default off — a test that flips it must not leak
-  state.tourState = { step: 3, pos: null, size: null };
+  state.persistedTour = { step: 3, pos: null, size: null };
   launcherStore.resetForPr();
   vi.spyOn(tourStore, "start").mockImplementation(() => {});
   vi.spyOn(tourStore, "close").mockImplementation(() => {});
@@ -98,8 +98,8 @@ describe("requestGenerate → poll → spec lands", () => {
     expect(vi.mocked(storeSet)).toHaveBeenCalledWith(`kvasir:spec:${PR}`, fresh);
     expect(vi.mocked(storeRemove)).toHaveBeenCalledWith(`kvasir:gen:${PR}`);
     // no overview on this spec → resume on the first code step, pos/size kept
-    expect(state.tourState).toEqual({ step: 0, overview: false, pos: null, size: null });
-    expect(vi.mocked(storeSet)).toHaveBeenCalledWith(`kvasir:tour:${PR}`, state.tourState);
+    expect(state.persistedTour).toEqual({ step: 0, overview: false, pos: null, size: null });
+    expect(vi.mocked(storeSet)).toHaveBeenCalledWith(`kvasir:tour:${PR}`, state.persistedTour);
   });
 
   it("resumes a freshly generated walkthrough on the overview step 0 when it has one", async () => {
@@ -112,8 +112,8 @@ describe("requestGenerate → poll → spec lands", () => {
     await vi.advanceTimersByTimeAsync(GEN_POLL_INTERVAL_MS);
 
     expect(state.spec).toEqual(fresh);
-    expect(state.tourState).toEqual({ step: 0, overview: true, pos: null, size: null });
-    expect(vi.mocked(storeSet)).toHaveBeenCalledWith(`kvasir:tour:${PR}`, state.tourState);
+    expect(state.persistedTour).toEqual({ step: 0, overview: true, pos: null, size: null });
+    expect(vi.mocked(storeSet)).toHaveBeenCalledWith(`kvasir:tour:${PR}`, state.persistedTour);
   });
 
   it("ignores a same-signature spec and gives up after the cap", async () => {

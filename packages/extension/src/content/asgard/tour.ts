@@ -36,13 +36,13 @@ export const tourStore = {
     state.tour.diagramOpen = value;
     touch();
   },
-  // The outline's "visited" dots live in state.tourState (persisted per PR, so a
+  // The outline's "visited" dots live in state.persistedTour (persisted per PR, so a
   // reload keeps them). The stamp guard makes the reader authoritative: marks
   // earned on a different spec (a regenerate that hasn't hit goto() yet, or a
   // restored stale pair) never render as visited.
   isVisited: (stepId: string): boolean =>
-    state.tourState.visitedStamp === state.spec?.generatedAt &&
-    (state.tourState.visited ?? []).includes(stepId),
+    state.persistedTour.visitedStamp === state.spec?.generatedAt &&
+    (state.persistedTour.visited ?? []).includes(stepId),
 
   /** Whether this spec carries an overview (and so has a "step 0"). */
   hasOverview: (): boolean => (state.spec ? !!state.spec.overview : false),
@@ -66,8 +66,8 @@ export const tourStore = {
     state.tour.atOverview = true;
     state.tour.diagramOpen = false;
     state.activeStep = null;
-    state.tourState = { ...state.tourState, overview: true }; // restore here on reopen
-    storeSet(tourKey(prUrl()), state.tourState);
+    state.persistedTour = { ...state.persistedTour, overview: true }; // restore here on reopen
+    storeSet(tourKey(prUrl()), state.persistedTour);
     bifrost.send("highlight:clear", undefined);
     bifrost.send("grip:context", { hasActiveStep: false });
     touch();
@@ -84,11 +84,11 @@ export const tourStore = {
     // Restore the overview "step 0" if that's where we left off; otherwise resume the
     // last code step. The persisted flag can outlive its spec (regenerated without an
     // overview), so guard on the current spec too.
-    if (state.tourState.overview && state.spec.overview) {
+    if (state.persistedTour.overview && state.spec.overview) {
       tourStore.gotoOverview();
       return;
     }
-    tourStore.goto(state.tourState.step || 0);
+    tourStore.goto(state.persistedTour.step || 0);
   },
 
   goto(index: number): void {
@@ -100,10 +100,10 @@ export const tourStore = {
     // Visited dots: a regenerated spec (new generatedAt) starts fresh; landing on a
     // step marks it. Remember where we are (and that we're off the overview).
     const stamp = state.spec.generatedAt;
-    const prior = stamp === state.tourState.visitedStamp ? (state.tourState.visited ?? []) : [];
+    const prior = stamp === state.persistedTour.visitedStamp ? (state.persistedTour.visited ?? []) : [];
     const visited = s && !prior.includes(s.id) ? [...prior, s.id] : prior;
-    state.tourState = { ...state.tourState, step: stepIndex, overview: false, visited, visitedStamp: stamp };
-    storeSet(tourKey(prUrl()), state.tourState);
+    state.persistedTour = { ...state.persistedTour, step: stepIndex, overview: false, visited, visitedStamp: stamp };
+    storeSet(tourKey(prUrl()), state.persistedTour);
     if (!s) return; // empty spec / out-of-range — nothing to highlight
     state.activeStep = s; // current step → available as chat context
     bifrost.send("grip:context", { hasActiveStep: true });

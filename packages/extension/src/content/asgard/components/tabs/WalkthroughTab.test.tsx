@@ -40,7 +40,7 @@ beforeEach(() => {
   });
   state.spec = null;
   state.chatHistory = [];
-  state.tourState = { step: 0, pos: null, size: null };
+  state.persistedTour = { step: 0, pos: null, size: null };
   state.panel = { open: true, tab: PANEL_TABS.WALKTHROUGH, pos: null, size: null };
   pairingStore.reset(); // "unknown" → backend actions enabled unless a test sets unpaired
   vi.spyOn(launcherStore, "specLoading").mockReturnValue(false); // probes are done unless a test says otherwise
