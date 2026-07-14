@@ -21,8 +21,8 @@ const LOCAL_SETTINGS_KEYS = [
   "kvasirFirstRunDone",
   "kvasirPreloadQuestions",
   "kvasirGenerateDiagram",
-  "kvasirRailWidth",
-  "kvasir:panelPrefs",
+  "kvasirSidebarWidth",
+  "kvasir:panelPrefs.v2",
 ];
 
 export async function wipeStoredData(): Promise<void> {

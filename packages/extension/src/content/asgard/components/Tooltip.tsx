@@ -35,10 +35,12 @@ export function Tooltips(): JSX.Element {
         event.target instanceof Element ? event.target.closest<HTMLElement>("[data-kvasir-tip]") : null;
       if (!t) return;
       if (timer.current !== null) clearTimeout(timer.current);
+      // isFinite (not ||) so an explicit delay of 0 means "instant", not the default
+      const delay = Number(t.dataset.kvasirTipDelay);
       timer.current = setTimeout(
         // closest matched [data-kvasir-tip], so the attribute is always present
         () => setTip({ text: String(t.dataset.kvasirTip), anchor: t.getBoundingClientRect() }),
-        Number(t.dataset.kvasirTipDelay) || TIP_DELAY_MS,
+        Number.isFinite(delay) ? delay : TIP_DELAY_MS,
       );
     };
     const out = (event: Event) => {

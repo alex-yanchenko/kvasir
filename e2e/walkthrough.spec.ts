@@ -43,4 +43,24 @@ test.describe("extension on a PR page", () => {
     await expect(page.locator("#diff-bar tr.diff-line-row.kvasir-line")).toHaveCount(1);
     await expect(page.locator("#diff-foo tr.kvasir-line")).toHaveCount(0);
   });
+
+  test("a narrow window folds the nav column into a rail-toggled overlay", async ({ context, bridge }) => {
+    bridge.setSpec(makeSpec());
+    await pair(context, bridge.token);
+    const page = await context.newPage();
+    // max-w-[92vw] clamps the panel below the 520px fold width; the resize observer
+    // then stores the clamped width and the nav column folds.
+    await page.setViewportSize({ width: 480, height: 720 });
+    await page.route("https://github.com/**", (route) =>
+      route.fulfill({ contentType: "text/html", body: prPageHtml() }),
+    );
+    await page.goto(PR_URL);
+
+    await page.getByRole("button", { name: "Open Kvasir" }).click();
+    await expect(page.getByTestId("sidebar")).toBeHidden();
+    await page.getByRole("button", { name: "Show sidebar" }).click();
+    await expect(page.getByTestId("sidebar")).toBeVisible(); // the overlay, over the content
+    await page.getByRole("button", { name: "Hide sidebar" }).click();
+    await expect(page.getByTestId("sidebar")).toBeHidden();
+  });
 });

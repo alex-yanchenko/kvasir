@@ -117,6 +117,7 @@ function ConnectionDot(): JSX.Element {
       role="status"
       aria-label={label}
       data-kvasir-tip={label}
+      data-kvasir-tip-delay={TIP_DELAY_LONG_MS}
       className={`size-2 shrink-0 rounded-full ${className}`}
     />
   );
@@ -171,9 +172,11 @@ const SIDEBAR_FOLD_W = 520; // below this window width the nav column folds into
 const DEFAULT_WINDOW_W = 860; // initial window width (matches the w-[860px] class)
 const DEFAULT_HEIGHT = 600; // initial window height — generous so a fresh panel isn't tiny
 const DIVIDER_NUDGE: Record<string, number> = { ArrowLeft: -16, ArrowRight: 16 };
+/** The rail's 34px icon cell — shared by the fold toggle and the section triggers. */
+const RAIL_ICON_CELL = "size-[34px] rounded-[10px]";
 
 // Geometry rule: panelStore.size.w is the WINDOW width. Columns are internal:
-// rail (fixed 48) + sidebar (railWidth, when it fits) + divider + content (the
+// rail (fixed 48) + sidebar (sidebarWidth, when it fits) + divider + content (the
 // flexible remainder, floored at CONTENT_MIN). Reading the persisted size in one
 // place keeps the null-default branches to a single spot.
 function panelGeom(): { width: number; height: number; pos: { left: number; top: number } | null } {
@@ -190,7 +193,7 @@ function panelGeom(): { width: number; height: number; pos: { left: number; top:
  * window is at least SIDEBAR_FOLD_W; narrower than either, it folds and the rail's
  * top toggle opens it as an overlay instead. */
 function sidebarFits(width: number): boolean {
-  return width >= Math.max(SIDEBAR_FOLD_W, ICON_RAIL_W + panelStore.railWidth() + DIVIDER_W + CONTENT_MIN);
+  return width >= Math.max(SIDEBAR_FOLD_W, ICON_RAIL_W + panelStore.sidebarWidth() + DIVIDER_W + CONTENT_MIN);
 }
 
 // The divider is a NORMAL split: it redistributes width between sidebar and content
@@ -199,10 +202,10 @@ function sidebarFits(width: number): boolean {
 function onDividerDown(event: ReactMouseEvent): void {
   event.preventDefault();
   const startX = event.clientX;
-  const startSidebar = panelStore.railWidth();
+  const startSidebar = panelStore.sidebarWidth();
   const maxByContent = panelGeom().width - ICON_RAIL_W - DIVIDER_W - CONTENT_MIN;
   const move = (moved: MouseEvent): void => {
-    panelStore.setRailWidth(Math.min(startSidebar + (moved.clientX - startX), maxByContent));
+    panelStore.setSidebarWidth(Math.min(startSidebar + (moved.clientX - startX), maxByContent));
   };
   const up = (): void => {
     document.removeEventListener("mousemove", move);
@@ -217,7 +220,7 @@ function onDividerKey(event: ReactKeyboardEvent): void {
   if (!delta) return;
   event.preventDefault();
   const maxByContent = panelGeom().width - ICON_RAIL_W - DIVIDER_W - CONTENT_MIN;
-  panelStore.setRailWidth(Math.min(panelStore.railWidth() + delta, maxByContent));
+  panelStore.setSidebarWidth(Math.min(panelStore.sidebarWidth() + delta, maxByContent));
 }
 
 // Bottom-left corner grip: drag up/down = window height; drag left/right resizes the
@@ -265,7 +268,7 @@ function IconRail({ folded, overlayOpen }: { folded: boolean; overlayOpen: boole
           <Button
             variant="ghost"
             size="icon"
-            className={"size-[34px] rounded-[10px]" + (overlayOpen ? " text-primary" : "")}
+            className={RAIL_ICON_CELL + (overlayOpen ? " text-primary" : "")}
             aria-label={overlayOpen ? "Hide sidebar" : "Show sidebar"}
             data-kvasir-tip="Outline / navigation"
             data-kvasir-tip-delay={TIP_DELAY_LONG_MS}
@@ -285,7 +288,7 @@ function IconRail({ folded, overlayOpen }: { folded: boolean; overlayOpen: boole
             data-kvasir-tip={label}
             data-kvasir-tip-delay={TIP_DELAY_LONG_MS}
             className={
-              "relative size-[34px] shrink-0 rounded-[10px] p-0 [&_svg]:size-4" +
+              `relative ${RAIL_ICON_CELL} shrink-0 p-0 [&_svg]:size-4` +
               (value === PANEL_TABS.SETTINGS ? " mt-auto" : "")
             }
           >
@@ -335,13 +338,18 @@ function PanelWindow(): JSX.Element {
     void pairingStore.recheck();
   }, []);
 
-  // Escape closes the panel — unless a modal is open (RegenDialog binds its own
-  // shadow-aware Escape; one press must never close both layers). PanelWindow
-  // mounts only while open, so no closed-state work.
+  // Escape closes the topmost layer only: a modal owns it outright (RegenDialog
+  // binds its own shadow-aware Escape; one press must never close both layers),
+  // then the folded-mode overlay, then the panel. PanelWindow mounts only while
+  // open, so no closed-state work.
   useShadowAwareKeydown((event) => {
     if (event.key !== "Escape") return;
     const root = document.querySelector("#kvasir-root")?.shadowRoot ?? document;
     if (root.querySelector(".kvasir-dialog-back")) return;
+    if (!sidebarFits(panelGeom().width) && panelStore.sidebarOpen()) {
+      panelStore.setSidebarOpen(false);
+      return;
+    }
     panelStore.close();
   });
 
@@ -386,7 +394,7 @@ function PanelWindow(): JSX.Element {
             role="separator"
             aria-orientation="vertical"
             aria-label="Resize sidebar"
-            aria-valuenow={panelStore.railWidth()}
+            aria-valuenow={panelStore.sidebarWidth()}
             aria-valuemin={SIDEBAR_MIN}
             aria-valuemax={SIDEBAR_MAX}
             tabIndex={0}
@@ -396,8 +404,9 @@ function PanelWindow(): JSX.Element {
           />
         )}
         {/* eslint-enable jsx-a11y/no-noninteractive-element-interactions, jsx-a11y/no-noninteractive-tabindex */}
-        {/* Folded-mode overlay: the same nav column floating next to the rail,
-            over the content, until toggled away. */}
+        {/* Folded-mode overlay: the same nav column floating next to the rail, over
+            the content, until toggled away. left-12 = the rail's w-12 (ICON_RAIL_W),
+            so the overlay sits flush against it. */}
         {overlayOpen && (
           <div className="absolute inset-y-0 left-12 z-20 border-r border-border bg-background shadow-lg">
             <PanelSidebar />

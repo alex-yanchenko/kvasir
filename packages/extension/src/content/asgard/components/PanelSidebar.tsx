@@ -1,8 +1,8 @@
-// The global left sidebar's content column. One open state + reserved width shared
-// across all tabs (so switching tabs never resizes the panel — only toggling does),
-// with its CONTENT swapped per active tab. A header band sized to the title bar keeps
-// the list aligned with the tab content. Width/scroll only; the resize splitter lives
-// in Panel (it needs the panel size to redistribute width).
+// The per-section nav column. Permanent beside the content while the window fits
+// it; folds to a rail-toggled overlay when the window is narrow. Its CONTENT swaps
+// per active section; a header band sized to the title bar keeps the list aligned
+// with the content column. Width/scroll only; the resize splitter lives in Panel
+// (it needs the panel size to redistribute width).
 import type { JSX } from "react";
 import { activeGuide } from "../guide";
 import { PANEL_TABS, panelStore, type PanelTab } from "../store";
@@ -35,7 +35,7 @@ export function PanelSidebar(): JSX.Element {
   return (
     <div
       className="flex shrink-0 flex-col overflow-hidden"
-      style={{ width: `${panelStore.railWidth()}px` }}
+      style={{ width: `${panelStore.sidebarWidth()}px` }}
       data-testid="sidebar"
     >
       {/* h-11 = the title bar's height (py-2 + h-7), so the list below lines up with

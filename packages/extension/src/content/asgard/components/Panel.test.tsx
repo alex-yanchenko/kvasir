@@ -63,6 +63,7 @@ describe("Panel", () => {
   });
 
   it("shows the nav column permanently at comfortable widths — no toggle offered", () => {
+    panelStore.setSidebarWidth(190); // pin: the fold math reads the module-level width
     render(<Panel />);
     act(() => panelStore.open()); // default 860 wide → the column fits
     expect(screen.getByTestId("sidebar")).toBeTruthy();
@@ -70,6 +71,7 @@ describe("Panel", () => {
   });
 
   it("a narrow window folds the nav column; the rail toggle shows it as an overlay", () => {
+    panelStore.setSidebarWidth(190); // pin: the fold math reads the module-level width
     state.panel.size = { w: 400, h: 400 }; // below the 520 fold width
     render(<Panel />);
     act(() => panelStore.open());
@@ -80,9 +82,29 @@ describe("Panel", () => {
     expect(screen.queryByTestId("sidebar")).toBeNull();
   });
 
+  it("fits exactly at the fold-width boundary (>=, not >)", () => {
+    panelStore.setSidebarWidth(190); // threshold = max(520, 48 + 190 + 3 + 240 = 481) = 520
+    state.panel.size = { w: 520, h: 400 };
+    render(<Panel />);
+    act(() => panelStore.open());
+    expect(screen.getByTestId("sidebar")).toBeTruthy();
+  });
+
+  it("Escape closes the folded overlay first; the next press closes the panel", () => {
+    state.panel.size = { w: 400, h: 400 }; // folded
+    render(<Panel />);
+    act(() => panelStore.open());
+    fireEvent.click(screen.getByLabelText("Show sidebar"));
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByTestId("sidebar")).toBeNull(); // overlay dismissed
+    expect(state.panel.open).toBe(true); // panel survived
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(state.panel.open).toBe(false);
+  });
+
   it("folds the nav column when a wide sidebar leaves no room for minimum content", () => {
     state.panel.size = { w: 560, h: 400 }; // ≥ 520, but 48 + 300 + 3 + 240 = 591 > 560
-    panelStore.setRailWidth(300);
+    panelStore.setSidebarWidth(300);
     render(<Panel />);
     act(() => panelStore.open());
     expect(screen.queryByTestId("sidebar")).toBeNull();
@@ -91,7 +113,7 @@ describe("Panel", () => {
 
   it("the bottom-left corner grip resizes the window from its left edge (width + height)", () => {
     state.panel.size = { w: 600, h: 400 };
-    panelStore.setRailWidth(200);
+    panelStore.setSidebarWidth(200);
     render(<Panel />);
     act(() => panelStore.open());
     const setSize = vi.spyOn(panelStore, "setSize");
@@ -101,8 +123,21 @@ describe("Panel", () => {
     fireEvent.mouseMove(document, { clientX: 160, clientY: 260 }); // left 40 → wider; down 60 → taller
     fireEvent.mouseUp(document);
     expect(setSize).toHaveBeenLastCalledWith({ w: 640, h: 460 });
-    expect(panelStore.railWidth()).toBe(200); // the sidebar split is the divider's job
+    expect(panelStore.sidebarWidth()).toBe(200); // the sidebar split is the divider's job
     expect(setPos).not.toHaveBeenCalled(); // no stored pos (bottom-right anchored) → grows left on its own
+  });
+
+  it("the corner grip visually resizes the window during the drag (render, not just store)", () => {
+    state.panel.size = { w: 600, h: 400 };
+    render(<Panel />);
+    act(() => panelStore.open());
+    const win = document.querySelector<HTMLElement>(".kvasir-panel")!;
+    expect(win.style.width).toBe("600px");
+    fireEvent.mouseDown(screen.getByTestId("resize-corner"), { clientX: 200, clientY: 200 });
+    fireEvent.mouseMove(document, { clientX: 160, clientY: 260 }); // left 40, down 60
+    fireEvent.mouseUp(document);
+    expect(win.style.width).toBe("640px"); // the inline style followed the store
+    expect(win.style.height).toBe("460px");
   });
 
   it("the corner grip on a positioned window shifts the left edge out (right edge fixed)", () => {
@@ -137,7 +172,7 @@ describe("Panel", () => {
 
   it("the sidebar divider redistributes width; the window stays put", () => {
     state.panel.size = { w: 600, h: 400 };
-    panelStore.setRailWidth(200); // deterministic start
+    panelStore.setSidebarWidth(200); // deterministic start
     render(<Panel />);
     act(() => panelStore.open());
     const setSize = vi.spyOn(panelStore, "setSize");
@@ -146,35 +181,35 @@ describe("Panel", () => {
     fireEvent.mouseDown(divider, { clientX: 100 });
     fireEvent.mouseMove(document, { clientX: 130 }); // +30 → sidebar 230
     fireEvent.mouseUp(document);
-    expect(panelStore.railWidth()).toBe(230); // sidebar grew by 30; content absorbed it
+    expect(panelStore.sidebarWidth()).toBe(230); // sidebar grew by 30; content absorbed it
     expect(setSize).not.toHaveBeenCalled(); // window untouched
     expect(setPos).not.toHaveBeenCalled(); // window position untouched
   });
 
   it("the divider arrow keys nudge the split; a non-arrow key is ignored", () => {
     state.panel.size = { w: 600, h: 400 };
-    panelStore.setRailWidth(200);
+    panelStore.setSidebarWidth(200);
     render(<Panel />);
     act(() => panelStore.open());
     const setSize = vi.spyOn(panelStore, "setSize");
     const divider = screen.getByLabelText("Resize sidebar");
     fireEvent.keyDown(divider, { key: "Enter" }); // ignored
-    expect(panelStore.railWidth()).toBe(200);
+    expect(panelStore.sidebarWidth()).toBe(200);
     fireEvent.keyDown(divider, { key: "ArrowRight" }); // +16
-    expect(panelStore.railWidth()).toBe(216);
+    expect(panelStore.sidebarWidth()).toBe(216);
     fireEvent.keyDown(divider, { key: "ArrowLeft" }); // −16
-    expect(panelStore.railWidth()).toBe(200);
+    expect(panelStore.sidebarWidth()).toBe(200);
     expect(setSize).not.toHaveBeenCalled(); // the split never resizes the window
   });
 
   it("the divider stops where content would drop below its minimum", () => {
     state.panel.size = { w: 520, h: 400 }; // max sidebar = 520 − 48 − 3 − 240 = 229
-    panelStore.setRailWidth(220);
+    panelStore.setSidebarWidth(220);
     render(<Panel />);
     act(() => panelStore.open());
     const divider = screen.getByLabelText("Resize sidebar");
     fireEvent.keyDown(divider, { key: "ArrowRight" }); // wants 236, capped to 229
-    expect(panelStore.railWidth()).toBe(229);
+    expect(panelStore.sidebarWidth()).toBe(229);
   });
 
   it("the corner grip is available even while the nav column is folded", () => {
@@ -384,7 +419,7 @@ describe("Panel", () => {
     expect(pairingStore.recheck).toHaveBeenCalledTimes(1);
   });
 
-  it("the title-bar status dot names and colors each connection phase", () => {
+  it("the rail-foot status dot names and colors each connection phase", () => {
     render(<Panel />);
     act(() => panelStore.open());
     const stateSpy = vi.spyOn(pairingStore, "state");

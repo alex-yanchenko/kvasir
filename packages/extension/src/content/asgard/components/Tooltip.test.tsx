@@ -71,6 +71,16 @@ describe("Tooltips", () => {
     expect(document.querySelector(".kvasir-tip")).toBeTruthy();
   });
 
+  it("treats an explicit zero delay as instant, not the default", () => {
+    const btn = setup();
+    btn.setAttribute("data-kvasir-tip-delay", "0");
+    fireEvent.mouseOver(btn);
+    act(() => {
+      vi.advanceTimersByTime(0);
+    });
+    expect(document.querySelector(".kvasir-tip")).toBeTruthy();
+  });
+
   it("re-hovering restarts the delay instead of stacking timers", () => {
     const btn = setup();
     fireEvent.mouseOver(btn);
