@@ -7,6 +7,10 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { JSX } from "react";
 
 export const TIP_DELAY_MS = 350;
+/** Slow tier for always-visible chrome (the icon rail): long enough that the tip
+ * doesn't flash on every pass, short enough that hover-and-wait still answers.
+ * Opt in per element via data-kvasir-tip-delay. */
+export const TIP_DELAY_LONG_MS = 900;
 
 interface TipState {
   text: string;
@@ -34,7 +38,7 @@ export function Tooltips(): JSX.Element {
       timer.current = setTimeout(
         // closest matched [data-kvasir-tip], so the attribute is always present
         () => setTip({ text: String(t.dataset.kvasirTip), anchor: t.getBoundingClientRect() }),
-        TIP_DELAY_MS,
+        Number(t.dataset.kvasirTipDelay) || TIP_DELAY_MS,
       );
     };
     const out = (event: Event) => {
