@@ -20,10 +20,9 @@
 }
 
 /* Aurora identity on the panel's leading edge: a 2px teal→ice→violet spine plus a
-   faint 30px wash bleeding inward. Painted only where the theme defines the aurora
-   tokens (dark) — an undefined var() invalidates the declaration, so light paints
-   nothing. z-index -1 puts both BELOW the panel's in-flow columns (the panel is a
-   stacking context, so they still paint above its own glass background). */
+   faint 30px wash bleeding inward (both themes; the wash token carries per-theme
+   strength). z-index -1 puts both BELOW the panel's in-flow columns (the panel is
+   a stacking context, so they still paint above its own glass background). */
 .kvasir-panel::before,
 .kvasir-panel::after {
   content: "";
