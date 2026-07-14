@@ -4,6 +4,89 @@
    renderer and chat internals emit. Everything reads the shared dev-tool tokens
    (tailwind.css :host / .dark) — never the old --kvasir-* body variables. */
 
+/* ── aurora glass panel ─────────────────────────────────────────────────────────
+   The window surface: translucent glass where the theme defines the glass tokens
+   (the Aurora dark skin), plain --background where it doesn't (light). The blur
+   needs backdrop-filter; without it the solid fallback keeps text readable. */
+.kvasir-glass {
+  background: var(--surface-glass, var(--background));
+  backdrop-filter: blur(var(--surface-blur, 0));
+}
+@supports not (backdrop-filter: blur(1px)) {
+  .kvasir-glass {
+    background: var(--surface-glass-solid, var(--background));
+  }
+}
+
+/* Aurora identity on the panel's leading edge: a 2px teal→ice→violet spine plus a
+   faint 30px wash bleeding inward. Painted only where the theme defines the aurora
+   tokens (dark) — an undefined var() invalidates the declaration, so light paints
+   nothing. z-index keeps both under the panel's interactive columns. */
+.kvasir-panel::before,
+.kvasir-panel::after {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  pointer-events: none;
+}
+.kvasir-panel::before {
+  width: 2px;
+  background: var(--aurora-spine);
+  z-index: 1;
+}
+.kvasir-panel::after {
+  width: 30px;
+  background: var(--aurora-wash);
+}
+
+/* The paired dot's emerald halo ("Soft" strength) — dark defines --glow-dot,
+   light doesn't (no glow). */
+.kvasir-dot-glow {
+  box-shadow: var(--glow-dot, none);
+}
+
+/* The primary step action: ice→teal aurora gradient with the "Soft" shadow. The
+   gradient stops live on :host, so the button reads the same in both themes;
+   ink stays --primary-foreground for contrast on the light gradient. */
+.kvasir-next {
+  background: var(--gradient-action, var(--primary));
+  box-shadow: var(--glow-button, none);
+  color: #082330;
+}
+.kvasir-next:hover:not(:disabled) {
+  filter: brightness(1.06);
+}
+
+/* The generating state's aurora shimmer bar — a slow gradient sweep; a static
+   gradient under reduced motion. */
+.kvasir-shimmer {
+  width: 180px;
+  height: 4px;
+  border-radius: 99px;
+  background: linear-gradient(
+    90deg,
+    var(--border),
+    color-mix(in srgb, var(--aurora-2) 55%, transparent),
+    color-mix(in srgb, var(--aurora-1) 55%, transparent),
+    var(--border)
+  );
+  background-size: 200% 100%;
+  animation: kvasir-shimmer 1.6s linear infinite;
+}
+@keyframes kvasir-shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .kvasir-shimmer {
+    animation: none;
+  }
+}
+
 /* tab-switch transition: a quick fade + small rise as the new panel mounts */
 @keyframes kvasir-tab-in {
   from {

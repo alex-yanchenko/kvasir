@@ -2,6 +2,7 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { launcherStore } from "../launcher";
+import { pairingStore } from "../pairing";
 import { PANEL_TABS, panelStore, state } from "../store";
 import { LauncherChip } from "./LauncherChip";
 
@@ -18,6 +19,19 @@ describe("LauncherChip", () => {
     render(<LauncherChip />);
     fireEvent.click(screen.getByText("Kvasir"));
     expect(panelStore.isOpen()).toBe(true);
+  });
+
+  it("carries a live dot: glowing success when paired, muted otherwise", () => {
+    const stateSpy = vi.spyOn(pairingStore, "state").mockReturnValue({ phase: "paired" });
+    const chip = (): HTMLElement => screen.getByRole("button", { name: "Open Kvasir" });
+    const { unmount } = render(<LauncherChip />);
+    expect(chip().querySelector(".bg-success.kvasir-dot-glow")).toBeTruthy();
+    unmount();
+    stateSpy.mockReturnValue({ phase: "down" });
+    render(<LauncherChip />);
+    expect(chip().querySelector(".bg-success")).toBeNull();
+    expect(chip().querySelector(".kvasir-dot-glow")).toBeNull();
+    stateSpy.mockRestore();
   });
 
   it("is hidden while the panel is open (the header owns the close)", () => {

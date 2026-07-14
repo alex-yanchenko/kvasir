@@ -106,28 +106,33 @@
 /* The theme store toggles `.dark` on the shadow HOST (light DOM). A plain `.dark`
  * rule inside this shadow stylesheet can't reach the host, so the dark tokens
  * must hang off :host(.dark) — that matches the host carrying the class. */
+/* Aurora dark: glass over #0e121a, hairline borders, icy primary, white-alpha
+ * surface layers (they read as depth over the translucent panel). */
 :host(.dark) {
-  --background: #0d1116;
-  --foreground: #e3e8ee;
-  --card: #151a21;
-  --card-foreground: #e3e8ee;
-  --popover: #151a21;
-  --popover-foreground: #e3e8ee;
-  --primary: #22b8cf;
-  --primary-foreground: #04222a;
-  --secondary: #1a212a;
-  --secondary-foreground: #e3e8ee;
-  --muted: #1a212a;
-  --muted-foreground: #8a95a3;
-  --accent: #212a35;
-  --accent-foreground: #e3e8ee;
+  --background: #0e121a;
+  --foreground: #e9eef4;
+  --card: #141a24;
+  --card-foreground: #e9eef4;
+  --popover: #141a24;
+  --popover-foreground: #e9eef4;
+  --primary: #7dd3fc;
+  --primary-foreground: #082330;
+  --secondary: rgba(255, 255, 255, 0.04);
+  --secondary-foreground: #e9eef4;
+  --muted: rgba(255, 255, 255, 0.05);
+  --muted-foreground: #97a2b2;
+  --accent: rgba(125, 211, 252, 0.12);
+  --accent-foreground: #ade4ff;
   --destructive: #e5484d;
   --destructive-foreground: #ffffff;
-  --border: #232a33;
-  --input: #11161c;
-  --ring: #22b8cf;
+  --border: rgba(255, 255, 255, 0.075);
+  --input: rgba(255, 255, 255, 0.05);
+  --ring: #7dd3fc;
 
-  --elevation: 0 1px 2px rgba(0, 0, 0, 0.45), 0 12px 32px -10px rgba(0, 0, 0, 0.65);
+  /* deep drop + a 1px inner top light so the glass edge catches */
+  --elevation: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 24px 70px rgba(0, 0, 0, 0.55);
+  /* Aurora dark status green = emerald-400 (the glow tokens' rgba(52,211,153,…) base) */
+  --success: #34d399;
 
   /* Aurora glass + glows at the "Soft" strength — dark-skin values; the light
    * theme gets its own set in a later unit, so these stay undefined in light.

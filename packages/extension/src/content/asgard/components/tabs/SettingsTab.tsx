@@ -227,11 +227,11 @@ export function SettingsTab(): JSX.Element {
         />
         <Segmented
           label="Walkthrough depth"
-          hint="Heavy reads the locally-cloned repo for context — what the feature is and how the change flows (falls back to Light if it isn't found); Light uses only the PR diff."
+          hint="Deep context reads the locally-cloned repo — what the feature is and how the change flows (falls back to Diff only if the repo isn't found); Diff only uses just the PR diff."
           value={settingsStore.reviewMode()}
           options={[
-            { value: "heavy", label: "Heavy" },
-            { value: "light", label: "Light" },
+            { value: "heavy", label: "Deep context" },
+            { value: "light", label: "Diff only" },
           ]}
           onChange={(v) => settingsStore.setReviewMode(v)}
         />
@@ -248,8 +248,8 @@ export function SettingsTab(): JSX.Element {
               />
             </div>
             <p className="text-xs text-muted-foreground/75">
-              Where Heavy looks for the clone — it searches here for a repo whose name or remote matches the
-              PR.
+              Where Deep context looks for the clone — it searches here for a repo whose name or remote
+              matches the PR.
             </p>
           </div>
         )}
