@@ -40,7 +40,7 @@ beforeEach(() => {
   });
   state.spec = null;
   state.chatHistory = [];
-  state.tourState = { step: 0, pos: null, size: null };
+  state.persistedTour = { step: 0, pos: null, size: null };
   state.panel = { open: true, tab: PANEL_TABS.WALKTHROUGH, pos: null, size: null };
   pairingStore.reset(); // "unknown" → backend actions enabled unless a test sets unpaired
   vi.spyOn(launcherStore, "specLoading").mockReturnValue(false); // probes are done unless a test says otherwise
@@ -80,6 +80,24 @@ describe("generate errors", () => {
 });
 
 describe("WalkthroughTab", () => {
+  it("shows the generation-depth chip only when the spec carries a stamped depth", () => {
+    state.spec = { ...mkSpec(), depth: "heavy" };
+    render(<WalkthroughTab />);
+    expect(screen.getByText("Deep context").getAttribute("data-kvasir-tip")).toBe(
+      'Generated with local-repo context (the "Heavy" walkthrough depth)',
+    );
+    cleanup();
+    state.spec = { ...mkSpec(), depth: "light" };
+    render(<WalkthroughTab />);
+    expect(screen.getByText("Diff only").getAttribute("data-kvasir-tip")).toBe(
+      'Generated from the PR diff alone (the "Light" walkthrough depth)',
+    );
+    cleanup();
+    state.spec = mkSpec(); // no depth recorded (older spec / restart) — no chip
+    render(<WalkthroughTab />);
+    expect(screen.queryByText(/Deep context|Diff only/)).toBeNull();
+  });
+
   it("empty state runs a walkthrough", () => {
     const gen = vi.spyOn(launcherStore, "requestGenerate").mockResolvedValue();
     render(<WalkthroughTab />);

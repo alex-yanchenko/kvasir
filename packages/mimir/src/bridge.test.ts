@@ -39,6 +39,7 @@ let deps: {
   ask: Mock<BridgeDeps["ask"]>;
   snapshot: Mock<BridgeDeps["snapshot"]>;
   pushEvent: Mock<BridgeDeps["pushEvent"]>;
+  recordDepth: Mock<BridgeDeps["recordDepth"]>;
   getHeadSha: Mock<BridgeDeps["getHeadSha"]>;
   pairing: {
     request: Mock<Pairing["request"]>;
@@ -59,6 +60,7 @@ beforeEach(() => {
     ask: vi.fn<BridgeDeps["ask"]>().mockResolvedValue("an answer"),
     snapshot: vi.fn<BridgeDeps["snapshot"]>().mockReturnValue(null),
     pushEvent: vi.fn<BridgeDeps["pushEvent"]>().mockResolvedValue(undefined),
+    recordDepth: vi.fn<BridgeDeps["recordDepth"]>(),
     getHeadSha: vi.fn<BridgeDeps["getHeadSha"]>().mockResolvedValue("abc123"),
     pairing: {
       request: vi.fn<Pairing["request"]>().mockReturnValue({ ok: true, requestId: "rid-1", code: "ABC234" }),
@@ -235,6 +237,30 @@ describe("/generate", () => {
     expect(content).toContain("under /home/me/src");
     expect(meta.depth).toBe("heavy");
     expect(deps.pushEvent).toHaveBeenCalledTimes(1);
+  });
+
+  it("records the requested depth so publish can stamp it onto the spec", async () => {
+    await call("/generate", { method: "POST", body: { pr: PR, depth: "light" } });
+    expect(deps.recordDepth).toHaveBeenLastCalledWith(prKey(PR), "light");
+    await call("/generate", { method: "POST", body: { pr: PR } });
+    expect(deps.recordDepth).toHaveBeenLastCalledWith(prKey(PR), "heavy");
+  });
+
+  it("does NOT record a depth for a prompt that never reached the session", async () => {
+    // Ordering matters (start_walkthrough's manifest recording sets the precedent):
+    // a failed push must not leave a stale depth that a later publish would stamp.
+    deps.pushEvent.mockRejectedValueOnce(new Error("transport down"));
+    await expect(call("/generate", { method: "POST", body: { pr: PR, depth: "light" } })).rejects.toThrow(
+      "transport down",
+    );
+    expect(deps.recordDepth).not.toHaveBeenCalled();
+  });
+
+  it("forbids process narration in the output at BOTH depths — the depth chip shows the mode", async () => {
+    await call("/generate", { method: "POST", body: { pr: PR, depth: "light" } });
+    expect(deps.pushEvent.mock.lastCall![0]).toContain("Never mention HOW the walkthrough was produced");
+    await call("/generate", { method: "POST", body: { pr: PR, depth: "heavy" } });
+    expect(deps.pushEvent.mock.lastCall![0]).toContain("Never mention HOW the walkthrough was produced");
   });
 
   it("heavy with no repos root falls back to ~/code in the prompt", async () => {

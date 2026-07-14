@@ -79,7 +79,7 @@ describe("SPEC_SHAPE_PROSE", () => {
   // instruction only when the setting is on). generatedAt is ALSO server-stamped,
   // but the schema requires it, so the model must still send one — it stays
   // advertised; dropping it from the prose would make every publish fail closed.
-  const NOT_ADVERTISED = ["coverage", "diagram", "author"];
+  const NOT_ADVERTISED = ["coverage", "diagram", "author", "depth"];
   const schemaKeys = [
     ...Object.keys(WalkthroughSpecSchema.shape),
     ...Object.keys(PrRefSchema.shape),

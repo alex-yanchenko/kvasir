@@ -30,7 +30,7 @@ line of the region>" }`. `to` is optional (single line). The builder greps
 - `title` — short step title.
 - `body` — a short summary (1-3 sentences) shown by default. Short ≠ dense: see
   **Writing the prose** below.
-- `detail` — the in-depth part shown on "Show details": edge cases, rationale,
+- `detail` — the deep-dive part shown on "Show details": edge cases, rationale,
   gotchas, how it connects to other steps. Author it whenever there's depth.
 - `highlight?` / `suggestions?` — optional.
 

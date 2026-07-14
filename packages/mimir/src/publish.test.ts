@@ -1,3 +1,4 @@
+import type { Depth } from "@kvasir/runes";
 import { describe, it, expect } from "vitest";
 import type { PrManifest } from "./manifest";
 import { preparePublish, type PublishState } from "./publish";
@@ -41,6 +42,7 @@ const manifestWith = (files: { path: string; additions: number; patch?: string }
 
 const state = (over: Partial<PublishState> = {}): PublishState => ({
   manifests: new Map(),
+  depths: new Map(),
   nudges: new Map(),
   maxNudges: 1,
   now: NOW,
@@ -71,6 +73,17 @@ describe("preparePublish", () => {
     const manifests = new Map([[KEY, manifestWith([{ path: "src/a.ts", additions: 1 }])]]);
     const outcome = preparePublish(spec(), state({ manifests }));
     expect(outcome.kind === "published" && outcome.spec.pr.author).toBe("octocat");
+  });
+
+  it("stamps the generation depth recorded by /generate (never trusted from the model)", () => {
+    const depths = new Map<string, Depth>([[KEY, "light"]]);
+    const outcome = preparePublish(spec(), state({ depths }));
+    expect(outcome.kind === "published" && outcome.spec.depth).toBe("light");
+  });
+
+  it("omits depth entirely when no generate request was recorded (restart, manual publish)", () => {
+    const outcome = preparePublish(spec(), state());
+    expect(outcome.kind === "published" && "depth" in outcome.spec).toBe(false);
   });
 
   it("nudges once when a significant file has no step", () => {

@@ -6,7 +6,7 @@
  * significant file has no step, once), or publish (stamped + ready). The handler
  * just applies the side effects the outcome names (Map writes, logging, throw).
  */
-import { prKey, type WalkthroughSpec } from "@kvasir/runes";
+import { type Depth, prKey, type WalkthroughSpec } from "@kvasir/runes";
 import { COVERAGE_MIN_ADDS, significantFiles, stepsOffTarget, uncoveredFiles } from "./manifest";
 import type { ManifestStore } from "./manifestStore.sqlite";
 import { parseSpecInput } from "./specInput";
@@ -15,6 +15,9 @@ export interface PublishState {
   /** Reader over the recorded per-PR manifests. Only `get` is needed here, so a
    * plain Map (tests) and the sqlite-backed store (channel) both satisfy it. */
   manifests: Pick<ManifestStore, "get">;
+  /** Reader over the depth each /generate request asked for, keyed like manifests
+   * — stamped onto the spec so the panel can show it as a chip. */
+  depths: Pick<Map<string, Depth>, "get">;
   /** Per-PR count of coverage rejections so far — to nudge at most maxNudges times. */
   nudges: Map<string, number>;
   maxNudges: number;
@@ -93,6 +96,7 @@ export function preparePublish(rawSpec: unknown, state: PublishState): PublishOu
 
   // Stamp generatedAt (so clients detect the update) and the PR author from the
   // manifest server-side — the author is not trusted from the model-authored spec.
+  const depth = state.depths.get(key);
   const stamped: WalkthroughSpec = {
     ...spec,
     generatedAt: state.now,
@@ -101,6 +105,9 @@ export function preparePublish(rawSpec: unknown, state: PublishState): PublishOu
     // stamp empty arrays) when start_walkthrough wasn't recorded, so the panel
     // can tell "fully covered" from "unknown".
     ...(manifest ? { coverage: { significant: significantFiles(manifest), uncovered } } : {}),
+    // Depth mirrors coverage's absence semantics: no recorded /generate request
+    // (restart, manual publish) → no chip, not a guessed default.
+    ...(depth ? { depth } : {}),
   };
   const coverageNote =
     uncovered.length > 0 ? ` (${uncovered.length} changed file(s) still without a step)` : "";

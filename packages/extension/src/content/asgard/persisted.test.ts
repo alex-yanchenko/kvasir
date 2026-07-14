@@ -1,6 +1,6 @@
 import type { Review } from "@kvasir/runes/review";
 import { describe, it, expect } from "vitest";
-import { parsePanelPrefs, parsePanelState, parseReviewCache, parseTourState } from "./persisted";
+import { parsePanelPrefs, parsePanelState, parseReviewCache, parsePersistedTour } from "./persisted";
 
 const review: Review = {
   version: 1,
@@ -9,9 +9,9 @@ const review: Review = {
   steps: [{ id: "a", title: "Guard", body: "b", repo: { owner: "acme", name: "web" }, file: "src/a.ts" }],
 };
 
-describe("parseTourState", () => {
+describe("parsePersistedTour", () => {
   it("drops a visited array with non-string elements", () => {
-    expect(parseTourState({ visited: [1, 2], visitedStamp: "g1" })).toEqual({
+    expect(parsePersistedTour({ visited: [1, 2], visitedStamp: "g1" })).toEqual({
       step: 0,
       overview: false,
       pos: null,
@@ -22,7 +22,7 @@ describe("parseTourState", () => {
   });
 
   it("drops a non-array visited value and a non-string stamp", () => {
-    expect(parseTourState({ visited: "s1,s2", visitedStamp: 7 })).toEqual({
+    expect(parsePersistedTour({ visited: "s1,s2", visitedStamp: 7 })).toEqual({
       step: 0,
       overview: false,
       pos: null,

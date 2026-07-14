@@ -23,7 +23,7 @@ import {
 import { parsePanelPrefs, parsePanelState } from "./persisted";
 import type { ChatSession } from "./types";
 
-export interface TourState {
+export interface PersistedTour {
   step: number;
   /** Whether the overview "step 0" was the active view — so close/reopen restores it
    * rather than always resuming on a code step. */
@@ -149,7 +149,7 @@ export const state: {
   generateDiagram: boolean;
   theme: string; // "auto" | "light" | "dark"
   hlStyle: string; // "rail" (left rail only) | "gutter" (rail + faint gutter wash)
-  tourState: TourState;
+  persistedTour: PersistedTour;
   chatHistory: ChatSession[]; // session objects, most recent first
   /** History (GET /history): null until first loaded; historyQuery filters it.
    * `seen` maps an entry id -> the version the FE last caught up to (drift flag). */
@@ -168,7 +168,7 @@ export const state: {
   launcher: LauncherState;
   /** The tour machine's interaction state (tour.ts): which step is showing and
    * which panes are expanded. Machine-lifetime so it survives a tab switch —
-   * DISTINCT from tourState above, which is the per-PR PERSISTED step/geometry. */
+   * DISTINCT from persistedTour above, which is the per-PR PERSISTED step/geometry. */
   tour: TourUiState;
   /** Cross-tab panel preferences, persisted GLOBALLY (localStorage): the sidebar
    * rail. Lives beside — not inside — `panel`, whose open/tab persist per-tab. */
@@ -189,7 +189,7 @@ export const state: {
   generateDiagram: readLocal("kvasirGenerateDiagram") === "true", // default off
   theme: readLocal("kvasirTheme") || "auto",
   hlStyle: validHlStyle(readLocal("kvasirHl")),
-  tourState: { step: 0, overview: false, pos: null, size: null },
+  persistedTour: { step: 0, overview: false, pos: null, size: null },
   chatHistory: [],
   history: null,
   historyQuery: "",

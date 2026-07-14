@@ -391,6 +391,23 @@ function Steps({ spec }: Readonly<{ spec: WalkthroughSpec }>): JSX.Element {
     <div className="flex h-full flex-col">
       {/* header: low-frequency utilities (the outline toggle lives in the panel title bar) */}
       <div className="flex items-center gap-1 border-b border-border px-3 py-2">
+        {spec.depth && (
+          // Generation depth as chrome, never as prose (the prompt forbids the
+          // model narrating it) — absent on older specs, so no chip, no guess.
+          // min-w-0 + truncate (not shrink-0): at the panel's minimum width with
+          // every StepTool visible the header has no room to spare, and the chip
+          // is the right thing to give way.
+          <span
+            className="min-w-0 truncate rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground"
+            data-kvasir-tip={
+              spec.depth === "heavy"
+                ? 'Generated with local-repo context (the "Heavy" walkthrough depth)'
+                : 'Generated from the PR diff alone (the "Light" walkthrough depth)'
+            }
+          >
+            {spec.depth === "heavy" ? "Deep context" : "Diff only"}
+          </span>
+        )}
         <StepTools spec={spec} step={step} index={index} onRegen={() => setDialog(true)} />
       </div>
 

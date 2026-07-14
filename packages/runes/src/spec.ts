@@ -75,20 +75,28 @@ export const WalkthroughSpecSchema = z.object({
       uncovered: z.array(z.string()),
     })
     .optional(),
+  /** How the walkthrough was generated — stamped server-side at publish from the
+   * /generate request ("heavy" read the local clone for context, "light" authored
+   * from the diff alone; never trusted from the model). Absent on older specs and
+   * when no request was recorded (channel restart mid-authoring). Rendered as a
+   * chip; the prompt forbids mentioning it in the prose. */
+  depth: z.enum(["heavy", "light"]).optional(),
 });
 
 /** The spec shape as prose for the publish_walkthrough MCP tool description —
  * kept HERE, next to the schema it paraphrases, so a schema edit can't silently
  * strand the text the model authors against (spec.test.ts pins that every
  * model-authored field is named, and that server-stamped/opt-in fields —
- * coverage, diagram — are not advertised). */
+ * coverage, pr.author, depth, diagram — are not advertised). */
 export const SPEC_SHAPE_PROSE =
-  "spec = { version:1, pr:{url,owner,repo,number,title,headSha}, generatedAt, overview:'2-4 sentence HTML PR summary (like a step body), shown as the Overview step + fed to chat', steps:[{id,title,body(html summary),detail?(html in-depth, shown on expand),file,anchor,lines?:{side:'R'|'L',start,end},highlight?:string[],suggestions?:string[],group?:'short logical-phase label, reused across the steps of one phase'}] }";
+  "spec = { version:1, pr:{url,owner,repo,number,title,headSha}, generatedAt, overview:'2-4 sentence HTML PR summary (like a step body), shown as the Overview step + fed to chat', steps:[{id,title,body(html summary),detail?(html deep-dive, shown on expand),file,anchor,lines?:{side:'R'|'L',start,end},highlight?:string[],suggestions?:string[],group?:'short logical-phase label, reused across the steps of one phase'}] }";
 
 export type PrRef = z.infer<typeof PrRefSchema>;
 export type StepLines = z.infer<typeof StepLinesSchema>;
 export type WalkthroughStep = z.infer<typeof WalkthroughStepSchema>;
 export type WalkthroughSpec = z.infer<typeof WalkthroughSpecSchema>;
+/** The generation depth values, derived from the schema (the single source). */
+export type Depth = NonNullable<WalkthroughSpec["depth"]>;
 
 export function isWalkthroughSpec(x: unknown): x is WalkthroughSpec {
   return WalkthroughSpecSchema.safeParse(x).success;
