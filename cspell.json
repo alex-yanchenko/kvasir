@@ -91,6 +91,9 @@
     "pids",
     "pipefail",
     "esac",
-    "yanchenko"
+    "yanchenko",
+    "crossfade",
+    "crossfades",
+    "unkeyed"
   ]
 }

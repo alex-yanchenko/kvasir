@@ -42,7 +42,7 @@ export function TabsContent({
   return (
     <TabsPrimitive.Content
       className={cn(
-        "flex-1 overflow-hidden focus-visible:outline-none motion-safe:[animation:kvasir-tab-in_150ms_ease-out]",
+        "flex-1 overflow-hidden focus-visible:outline-none motion-safe:[animation:kvasir-tab-in_140ms_ease-out]",
         className,
       )}
       {...props}

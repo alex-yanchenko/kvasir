@@ -180,6 +180,7 @@ function StepRing({ index, count }: Readonly<{ index: number; count: number }>):
       <svg viewBox="0 0 38 38" className="-rotate-90" aria-hidden="true">
         <circle cx="19" cy="19" r={RING_R} fill="none" stroke="var(--border)" strokeWidth="3" />
         <circle
+          className="kvasir-ring-fill"
           cx="19"
           cy="19"
           r={RING_R}
@@ -229,8 +230,12 @@ function StepBody({
           <h3 className="text-[19px] font-[650] leading-tight tracking-tight">{step.title}</h3>
         </div>
       </div>
+      {/* Keyed by step id: navigation remounts the PROSE so it fades in, while the
+          head above stays mounted (the ring's fill sweeps) and the details toggle
+          below keeps its node — a focused toggle must survive arrow-key nav. */}
       <div
-        className="kvasir-prose text-sm"
+        key={step.id}
+        className="kvasir-prose text-sm motion-safe:[animation:kvasir-step-in_140ms_ease-out]"
         data-testid="step-body"
         dangerouslySetInnerHTML={{ __html: sanitizeSpecHtml(step.body) }}
       />
@@ -246,7 +251,8 @@ function StepBody({
           </Button>
           {detailOpen && (
             <div
-              className="kvasir-prose mt-2 border-t border-border pt-2 text-sm"
+              key={step.id}
+              className="kvasir-prose mt-2 border-t border-border pt-2 text-sm motion-safe:[animation:kvasir-step-in_140ms_ease-out]"
               data-testid="step-detail"
               dangerouslySetInnerHTML={{ __html: sanitizeSpecHtml(step.detail) }}
             />
@@ -265,7 +271,7 @@ function OverviewView({
   stepCount,
 }: Readonly<{ overview: string; stepCount: number }>): JSX.Element {
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+    <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 motion-safe:[animation:kvasir-step-in_140ms_ease-out]">
       <div className="mb-2 flex items-baseline justify-between gap-2">
         <h3 className="text-base font-semibold">Overview</h3>
         <span className="shrink-0 text-xs text-muted-foreground" data-testid="overview-step-count">

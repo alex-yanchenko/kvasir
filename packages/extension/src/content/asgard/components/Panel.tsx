@@ -268,7 +268,7 @@ function IconRail({ folded, overlayOpen }: { folded: boolean; overlayOpen: boole
           <Button
             variant="ghost"
             size="icon"
-            className={RAIL_ICON_CELL + (overlayOpen ? " text-primary" : "")}
+            className={`${RAIL_ICON_CELL} duration-[120ms]` + (overlayOpen ? " text-primary" : "")}
             aria-label={overlayOpen ? "Hide sidebar" : "Show sidebar"}
             data-kvasir-tip="Outline / navigation"
             data-kvasir-tip-delay={TIP_DELAY_LONG_MS}
@@ -288,7 +288,7 @@ function IconRail({ folded, overlayOpen }: { folded: boolean; overlayOpen: boole
             data-kvasir-tip={label}
             data-kvasir-tip-delay={TIP_DELAY_LONG_MS}
             className={
-              `relative ${RAIL_ICON_CELL} shrink-0 p-0 [&_svg]:size-4 data-[state=active]:border-primary/25 data-[state=active]:bg-accent data-[state=active]:text-accent-foreground` +
+              `relative ${RAIL_ICON_CELL} shrink-0 p-0 duration-[120ms] [&_svg]:size-4 data-[state=active]:border-primary/25 data-[state=active]:bg-accent data-[state=active]:text-accent-foreground` +
               (value === PANEL_TABS.SETTINGS ? " mt-auto" : "")
             }
           >
@@ -358,11 +358,15 @@ function PanelWindow(): JSX.Element {
   const title = isReview ? reviewStore.title() || "Kvasir" : (launcherStore.spec()?.pr?.title ?? "Kvasir");
 
   return (
+    // The 220ms rise puts a transform on this fixed element, which briefly makes it
+    // the containing block for fixed descendants (RegenDialog) — accepted: the
+    // dialog can't be opened by a human within the animation window, and the
+    // transform clears the moment the animation ends.
     <div
       ref={panelRef}
       role="dialog"
       aria-label="Kvasir"
-      className="kvasir-panel kvasir-glass fixed bottom-5 right-5 z-[2147483002] flex max-h-[85vh] min-h-[320px] w-[860px] max-w-[92vw] resize overflow-hidden rounded-[var(--radius-panel)] border border-border text-foreground"
+      className="kvasir-panel kvasir-glass fixed bottom-5 right-5 z-[2147483002] flex max-h-[85vh] min-h-[320px] w-[860px] max-w-[92vw] resize overflow-hidden rounded-[var(--radius-panel)] border border-border text-foreground motion-safe:[animation:kvasir-rise_220ms_ease-out]"
       style={{
         boxShadow: "var(--elevation)",
         ...(pos ? { left: pos.left, top: pos.top, right: "auto", bottom: "auto" } : null),

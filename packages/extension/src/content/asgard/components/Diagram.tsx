@@ -33,7 +33,10 @@ export function Diagram({ source }: Readonly<{ source: string }>): JSX.Element {
     };
   }, [source]);
   return (
-    <div className="min-h-0 flex-1 overflow-auto p-3" data-testid="diagram">
+    <div
+      className="min-h-0 flex-1 overflow-auto p-3 motion-safe:[animation:kvasir-step-in_140ms_ease-out]"
+      data-testid="diagram"
+    >
       {failed ? (
         <p className="text-sm text-destructive">Couldn’t render this diagram.</p>
       ) : (
