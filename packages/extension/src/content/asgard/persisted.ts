@@ -34,19 +34,23 @@ export function parsePersistedTour(v: unknown): Required<PersistedTour> {
 }
 
 /** Restore the per-tab panel state (open + tab + geometry) from sessionStorage,
- * dropping mismatches. The tab string is validated by the caller via isPanelTab. */
+ * dropping mismatches. `scope` names the guide (PR url / review id) the open state
+ * belongs to; the caller only honors `open` when it matches the current page. The
+ * tab string is validated by the caller via isPanelTab. */
 export function parsePanelState(v: unknown): {
   open: boolean;
   sidebarOpen: boolean;
   tab: string | null;
+  scope: string | null;
   pos: Pos | null;
   size: Size | null;
 } {
-  if (!isRecord(v)) return { open: false, sidebarOpen: false, tab: null, pos: null, size: null };
+  if (!isRecord(v)) return { open: false, sidebarOpen: false, tab: null, scope: null, pos: null, size: null };
   return {
     open: v.open === true,
     sidebarOpen: v.sidebarOpen === true,
     tab: typeof v.tab === "string" ? v.tab : null,
+    scope: typeof v.scope === "string" ? v.scope : null,
     pos: isPos(v.pos) ? v.pos : null,
     size: isSize(v.size) ? v.size : null,
   };
@@ -57,11 +61,12 @@ export function parsePanelState(v: unknown): {
  * state — so a fresh tab opens at the user's last size/position with their sidebar
  * preference, not the default. Drops mismatches. (open/tab stay per-tab; see store.ts.) */
 export function parsePanelPrefs(v: unknown): { pos: Pos | null; size: Size | null; sidebarOpen: boolean } {
-  if (!isRecord(v)) return { pos: null, size: null, sidebarOpen: false };
+  // sidebarOpen defaults ON — the nav column is part of the default look
+  if (!isRecord(v)) return { pos: null, size: null, sidebarOpen: true };
   return {
     pos: isPos(v.pos) ? v.pos : null,
     size: isSize(v.size) ? v.size : null,
-    sidebarOpen: v.sidebarOpen === true,
+    sidebarOpen: v.sidebarOpen !== false,
   };
 }
 

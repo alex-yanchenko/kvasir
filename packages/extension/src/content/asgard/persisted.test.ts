@@ -34,12 +34,13 @@ describe("parsePersistedTour", () => {
 });
 
 describe("parsePanelState", () => {
-  it("reads open + sidebarOpen + tab + geometry, dropping mismatches and non-records", () => {
+  it("reads open + sidebarOpen + tab + scope + geometry, dropping mismatches and non-records", () => {
     expect(
       parsePanelState({
         open: true,
         sidebarOpen: true,
         tab: "history",
+        scope: "https://github.com/acme/web/pull/7",
         pos: { left: 1, top: 2 },
         size: { w: 3, h: 4 },
       }),
@@ -47,13 +48,17 @@ describe("parsePanelState", () => {
       open: true,
       sidebarOpen: true,
       tab: "history",
+      scope: "https://github.com/acme/web/pull/7",
       pos: { left: 1, top: 2 },
       size: { w: 3, h: 4 },
     });
-    expect(parsePanelState({ open: "yes", sidebarOpen: "x", tab: 5, pos: { left: "x" }, size: 9 })).toEqual({
+    expect(
+      parsePanelState({ open: "yes", sidebarOpen: "x", tab: 5, scope: 9, pos: { left: "x" }, size: 9 }),
+    ).toEqual({
       open: false,
       sidebarOpen: false,
       tab: null,
+      scope: null,
       pos: null,
       size: null,
     });
@@ -61,6 +66,7 @@ describe("parsePanelState", () => {
       open: false,
       sidebarOpen: false,
       tab: null,
+      scope: null,
       pos: null,
       size: null,
     });
@@ -69,17 +75,18 @@ describe("parsePanelState", () => {
 
 describe("parsePanelPrefs", () => {
   it("reads the global window shape (pos + size + sidebarOpen), dropping mismatches and non-records", () => {
-    expect(parsePanelPrefs({ pos: { left: 1, top: 2 }, size: { w: 3, h: 4 }, sidebarOpen: true })).toEqual({
+    expect(parsePanelPrefs({ pos: { left: 1, top: 2 }, size: { w: 3, h: 4 }, sidebarOpen: false })).toEqual({
       pos: { left: 1, top: 2 },
       size: { w: 3, h: 4 },
-      sidebarOpen: true,
+      sidebarOpen: false,
     });
+    // sidebarOpen defaults ON: anything but an explicit false reads as open
     expect(parsePanelPrefs({ pos: { left: "x" }, size: 9, sidebarOpen: "yes" })).toEqual({
       pos: null,
       size: null,
-      sidebarOpen: false,
+      sidebarOpen: true,
     });
-    expect(parsePanelPrefs(null)).toEqual({ pos: null, size: null, sidebarOpen: false });
+    expect(parsePanelPrefs(null)).toEqual({ pos: null, size: null, sidebarOpen: true });
   });
 });
 

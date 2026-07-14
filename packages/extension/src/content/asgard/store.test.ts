@@ -231,17 +231,31 @@ describe("panelStore", () => {
     expect(storeModule.panelStore.tab()).toBe("settings");
   });
 
-  it("splits persistence: open/tab per-tab in sessionStorage, shape (pos/size/sidebar) global in localStorage", () => {
+  it("splits persistence: open/tab/scope per-tab in sessionStorage, shape (pos/size/sidebar) global in localStorage", () => {
     storeModule.panelStore.open(storeModule.PANEL_TABS.HISTORY);
-    expect(persisted()).toEqual({ open: true, tab: "history" }); // sessionStorage: no shape
+    // sessionStorage: no shape; scope = the current PR (the suite's stubbed location)
+    expect(persisted()).toEqual({
+      open: true,
+      tab: "history",
+      scope: "https://github.com/acme/widget-api/pull/7",
+    });
     storeModule.panelStore.setPos({ left: 12, top: 34 });
     storeModule.panelStore.setSize({ w: 500, h: 600 });
     storeModule.panelStore.setSidebarOpen(true);
     // the window SHAPE lives in localStorage (survives across tabs), never in the blob
     expect(prefs()).toEqual({ pos: { left: 12, top: 34 }, size: { w: 500, h: 600 }, sidebarOpen: true });
-    expect(persisted()).toEqual({ open: true, tab: "history" });
+    expect(persisted()).toEqual({
+      open: true,
+      tab: "history",
+      scope: "https://github.com/acme/widget-api/pull/7",
+    });
     storeModule.panelStore.close();
-    expect(persisted()).toEqual({ open: false, tab: "history" }); // only open/tab change
+    // only open/tab change
+    expect(persisted()).toEqual({
+      open: false,
+      tab: "history",
+      scope: "https://github.com/acme/widget-api/pull/7",
+    });
   });
 
   it("restores the global shape in a FRESH tab (empty sessionStorage) — the cross-tab bug", () => {
@@ -269,7 +283,10 @@ describe("panelStore", () => {
   });
 
   it("hydratePanel restores open/tab (sessionStorage) + shape (localStorage); a bogus tab keeps the current one", () => {
-    sessionStorage.setItem("kvasir:panel", JSON.stringify({ open: true, tab: "history" }));
+    sessionStorage.setItem(
+      "kvasir:panel",
+      JSON.stringify({ open: true, tab: "history", scope: "https://github.com/acme/widget-api/pull/7" }),
+    );
     localStorage.setItem(
       "kvasir:panelPrefs.v2",
       JSON.stringify({ pos: { left: 5, top: 6 }, size: { w: 7, h: 8 }, sidebarOpen: true }),
@@ -283,6 +300,25 @@ describe("panelStore", () => {
     sessionStorage.setItem("kvasir:panel", JSON.stringify({ open: true, tab: "bogus" }));
     storeModule.hydratePanel();
     expect(storeModule.panelStore.tab()).toBe("history"); // bogus tab dropped
+  });
+
+  it("hydratePanel keeps the panel CLOSED when the stored open state belongs to a different guide", () => {
+    // stored on a DIFFERENT PR than the suite's stubbed location → scopes differ
+    sessionStorage.setItem(
+      "kvasir:panel",
+      JSON.stringify({ open: true, tab: "history", scope: "https://github.com/acme/web/pull/9" }),
+    );
+    storeModule.hydratePanel();
+    expect(storeModule.panelStore.isOpen()).toBe(false); // a different PR starts at the chip
+    expect(storeModule.panelStore.tab()).toBe("history"); // the tab preference still survives
+  });
+
+  it("hydratePanel deletes the pre-v2 storage keys", () => {
+    localStorage.setItem("kvasir:panelPrefs", "{}");
+    localStorage.setItem("kvasirRailWidth", "200");
+    storeModule.hydratePanel();
+    expect(localStorage.getItem("kvasir:panelPrefs")).toBeNull();
+    expect(localStorage.getItem("kvasirRailWidth")).toBeNull();
   });
 
   it("hydratePanel with nothing stored leaves the panel closed at default geometry", () => {

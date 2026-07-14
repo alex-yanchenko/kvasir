@@ -58,9 +58,10 @@ test.describe("extension on a PR page", () => {
 
     await page.getByRole("button", { name: "Open Kvasir" }).click();
     await expect(page.getByTestId("sidebar")).toBeHidden();
-    await page.getByRole("button", { name: "Show sidebar" }).click();
+    // the active rail icon is the toggle (VS Code activity-bar semantics)
+    await page.getByRole("tab", { name: "Walkthrough" }).click();
     await expect(page.getByTestId("sidebar")).toBeVisible(); // the overlay, over the content
-    await page.getByRole("button", { name: "Hide sidebar" }).click();
+    await page.getByRole("tab", { name: "Walkthrough" }).click();
     await expect(page.getByTestId("sidebar")).toBeHidden();
   });
 });

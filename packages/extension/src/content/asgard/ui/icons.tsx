@@ -1,7 +1,7 @@
-// The rail's icon set — the redesign's canonical 16×16 stroke glyphs (tour /
-// chat / history / settings), drawn on currentColor so active/hover states color
-// them via the parent. Kept hand-rolled (not lucide) to match the mockup kit
-// exactly; sized by the parent's [&_svg] utility.
+// The rail's icon set — the redesign's 16×16 stroke glyphs (tour / chat /
+// history / settings), drawn on currentColor so active/hover states color them
+// via the parent. Hand-rolled (not lucide) so the stroke style stays uniform;
+// sized by the parent's [&_svg] utility.
 import type { JSX } from "react";
 
 export function IconTour(): JSX.Element {
@@ -42,14 +42,16 @@ export function IconHistory(): JSX.Element {
 }
 
 export function IconSettings(): JSX.Element {
+  // gear = hub + ring + teeth (rays alone read as a sun)
   return (
     <svg viewBox="0 0 16 16" aria-hidden="true">
-      <circle cx="8" cy="8" r="2.4" fill="none" stroke="currentColor" strokeWidth={1.6} />
+      <circle cx="8" cy="8" r="2.1" fill="none" stroke="currentColor" strokeWidth={1.5} />
+      <circle cx="8" cy="8" r="4.9" fill="none" stroke="currentColor" strokeWidth={1.5} />
       <path
-        d="M8 1.8v2M8 12.2v2M1.8 8h2M12.2 8h2M3.6 3.6l1.4 1.4M11 11l1.4 1.4M12.4 3.6L11 5M5 11l-1.4 1.4"
+        d="M13 8h1.6M8 13v1.6M3 8H1.4M8 3V1.4M11.5 11.5l1.1 1.1M4.5 4.5L3.4 3.4M11.5 4.5l1.1-1.1M4.5 11.5l-1.1 1.1"
         fill="none"
         stroke="currentColor"
-        strokeWidth={1.6}
+        strokeWidth={1.5}
         strokeLinecap="round"
       />
     </svg>

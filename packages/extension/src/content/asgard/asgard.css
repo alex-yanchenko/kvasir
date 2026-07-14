@@ -41,6 +41,20 @@
   background: var(--aurora-wash);
 }
 
+/* VS Code-style active marker: a 2px accent bar on the rail's left edge beside
+   the active icon, tying the icon to the nav column it controls. -7px = the gap
+   between the centered 34px cell and the 48px rail's edge. */
+.kvasir-rail-tab[data-state="active"]::before {
+  content: "";
+  position: absolute;
+  left: -7px;
+  top: 5px;
+  bottom: 5px;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--primary);
+}
+
 /* The paired dot's emerald halo ("Soft" strength) — dark defines --glow-dot,
    light doesn't (no glow). */
 .kvasir-dot-glow {
@@ -122,6 +136,17 @@
   }
   to {
     opacity: 1;
+  }
+}
+/* the nav column entering (inline or as the folded overlay) */
+@keyframes kvasir-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
   }
 }
 .kvasir-ring-fill {

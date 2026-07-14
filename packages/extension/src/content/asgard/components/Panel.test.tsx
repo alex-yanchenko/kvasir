@@ -42,7 +42,7 @@ beforeEach(() => {
   state.history = null;
   state.seen = {};
   state.guideDeleted = false;
-  panelStore.setSidebarOpen(false); // module-level overlay state — reset so no overlay leaks between tests
+  panelStore.setSidebarOpen(true); // module-level nav-column intent — reset to the default (open)
   pairingStore.reset(); // "unknown" → no banner unless a test sets the phase
   // The panel rechecks the connection on open; neutralize the bridge round-trip so
   // unrelated tests don't drift to "down" (the stubbed chrome has no messaging).
@@ -62,23 +62,81 @@ describe("Panel", () => {
     expect(container.innerHTML).toBe("");
   });
 
-  it("shows the nav column permanently at comfortable widths — no toggle offered", () => {
+  // The rail's active icon is the nav-column toggle (VS Code activity-bar
+  // semantics). Real pointer activation captures the pressed tab on pointerdown —
+  // BEFORE Radix's focus-activation can switch it — so tests toggle via
+  // pointerDown + click and switch via focus().
+  const clickTab = (name: string): void => {
+    const tab = screen.getByRole("tab", { name });
+    fireEvent.pointerDown(tab);
+    fireEvent.click(tab);
+  };
+
+  it("shows the nav column by default; clicking the ACTIVE rail icon toggles it", () => {
     panelStore.setSidebarWidth(190); // pin: the fold math reads the module-level width
     render(<Panel />);
     act(() => panelStore.open()); // default 860 wide → the column fits
     expect(screen.getByTestId("sidebar")).toBeTruthy();
-    expect(screen.queryByLabelText("Show sidebar")).toBeNull();
+    clickTab("Walkthrough"); // already active → toggles the column away
+    expect(screen.queryByTestId("sidebar")).toBeNull();
+    expect(panelStore.sidebarOpen()).toBe(false); // the intent is persisted
+    clickTab("Walkthrough");
+    expect(screen.getByTestId("sidebar")).toBeTruthy();
   });
 
-  it("a narrow window folds the nav column; the rail toggle shows it as an overlay", () => {
+  it("clicking a DIFFERENT rail icon switches the tab without toggling the column", () => {
+    panelStore.setSidebarWidth(190);
+    render(<Panel />);
+    act(() => panelStore.open());
+    // focus() drives Radix's automatic activation (what a real pointerdown does)
+    const chat = screen.getByRole("tab", { name: "Chat" });
+    fireEvent.pointerDown(chat); // captured tab = walkthrough (pre-switch)
+    act(() => chat.focus()); // Radix switches on focus
+    fireEvent.click(chat);
+    expect(panelStore.tab()).toBe("chat");
+    expect(screen.getByTestId("sidebar")).toBeTruthy(); // column untouched
+    expect(panelStore.sidebarOpen()).toBe(true);
+  });
+
+  it("a narrow window folds the nav column; the active rail icon shows it as an overlay", () => {
     panelStore.setSidebarWidth(190); // pin: the fold math reads the module-level width
     state.panel.size = { w: 400, h: 400 }; // below the 520 fold width
     render(<Panel />);
     act(() => panelStore.open());
+    expect(screen.queryByTestId("sidebar")).toBeNull(); // folded — even though sidebarOpen is true
+    clickTab("Walkthrough");
+    expect(screen.getByTestId("sidebar")).toBeTruthy(); // the transient overlay
+    expect(panelStore.sidebarOpen()).toBe(true); // the persisted intent is untouched
+    clickTab("Walkthrough");
     expect(screen.queryByTestId("sidebar")).toBeNull();
-    fireEvent.click(screen.getByLabelText("Show sidebar"));
+  });
+
+  it("keyboard: Enter/Space on the ACTIVE rail icon toggles the column; other keys don't", () => {
+    panelStore.setSidebarWidth(190);
+    render(<Panel />);
+    act(() => panelStore.open());
+    const tab = screen.getByRole("tab", { name: "Walkthrough" });
+    fireEvent.keyDown(tab, { key: "Enter" });
+    fireEvent.click(tab); // the browser's synthetic click for Enter on a button
+    expect(screen.queryByTestId("sidebar")).toBeNull();
+    fireEvent.keyDown(tab, { key: " " });
+    fireEvent.click(tab);
     expect(screen.getByTestId("sidebar")).toBeTruthy();
-    fireEvent.click(screen.getByLabelText("Hide sidebar"));
+    fireEvent.keyDown(tab, { key: "a" }); // not an activation key — nothing captured
+    fireEvent.click(tab); // a click with no captured press is ignored
+    expect(screen.getByTestId("sidebar")).toBeTruthy();
+  });
+
+  it("the transient overlay resets when the window grows past the fold", () => {
+    panelStore.setSidebarWidth(190);
+    state.panel.size = { w: 400, h: 400 };
+    render(<Panel />);
+    act(() => panelStore.open());
+    clickTab("Walkthrough"); // overlay on
+    expect(screen.getByTestId("sidebar")).toBeTruthy();
+    act(() => panelStore.setSize({ w: 900, h: 400 })); // unfolds → inline column
+    expect(screen.getByTestId("sidebar")).toBeTruthy();
+    act(() => panelStore.setSize({ w: 400, h: 400 })); // folds again — overlay did not persist
     expect(screen.queryByTestId("sidebar")).toBeNull();
   });
 
@@ -90,11 +148,26 @@ describe("Panel", () => {
     expect(screen.getByTestId("sidebar")).toBeTruthy();
   });
 
+  it("unfolding needs FOLD_HYSTERESIS more width than folding (no flap at the boundary)", () => {
+    panelStore.setSidebarWidth(190); // fold threshold 520 → unfold at 560
+    state.panel.size = { w: 560, h: 400 };
+    render(<Panel />);
+    act(() => panelStore.open());
+    expect(screen.getByTestId("sidebar")).toBeTruthy();
+    act(() => panelStore.setSize({ w: 510, h: 400 })); // below 520 → folds
+    expect(screen.queryByTestId("sidebar")).toBeNull();
+    act(() => panelStore.setSize({ w: 555, h: 400 })); // above 520 but inside the band → stays folded
+    expect(screen.queryByTestId("sidebar")).toBeNull();
+    act(() => panelStore.setSize({ w: 560, h: 400 })); // clears the band → unfolds
+    expect(screen.getByTestId("sidebar")).toBeTruthy();
+  });
+
   it("Escape closes the folded overlay first; the next press closes the panel", () => {
     state.panel.size = { w: 400, h: 400 }; // folded
     render(<Panel />);
     act(() => panelStore.open());
-    fireEvent.click(screen.getByLabelText("Show sidebar"));
+    clickTab("Walkthrough");
+    expect(screen.getByTestId("sidebar")).toBeTruthy();
     fireEvent.keyDown(document, { key: "Escape" });
     expect(screen.queryByTestId("sidebar")).toBeNull(); // overlay dismissed
     expect(state.panel.open).toBe(true); // panel survived
@@ -108,7 +181,6 @@ describe("Panel", () => {
     render(<Panel />);
     act(() => panelStore.open());
     expect(screen.queryByTestId("sidebar")).toBeNull();
-    expect(screen.getByLabelText("Show sidebar")).toBeTruthy();
   });
 
   it("the bottom-left corner grip resizes the window from its left edge (width + height)", () => {

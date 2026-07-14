@@ -3,8 +3,8 @@
 // column (outline / chats / facets / anchors) sits beside it, permanently at
 // comfortable widths and as a rail-toggled overlay when the window is narrow.
 // Geometry lives in panelStore; the section bodies reuse the existing machines.
-import { ListTree, X } from "lucide-react";
-import { useEffect, useRef, useSyncExternalStore } from "react";
+import { X } from "lucide-react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type {
   ComponentType,
   JSX,
@@ -172,7 +172,8 @@ const SIDEBAR_FOLD_W = 520; // below this window width the nav column folds into
 const DEFAULT_WINDOW_W = 860; // initial window width (matches the w-[860px] class)
 const DEFAULT_HEIGHT = 600; // initial window height — generous so a fresh panel isn't tiny
 const DIVIDER_NUDGE: Record<string, number> = { ArrowLeft: -16, ArrowRight: 16 };
-/** The rail's 34px icon cell — shared by the fold toggle and the section triggers. */
+const FOLD_HYSTERESIS = 40; // fold below the threshold, unfold only this much above it
+/** The rail's 34px icon cell. */
 const RAIL_ICON_CELL = "size-[34px] rounded-[10px]";
 
 // Geometry rule: panelStore.size.w is the WINDOW width. Columns are internal:
@@ -189,11 +190,11 @@ function panelGeom(): { width: number; height: number; pos: { left: number; top:
   };
 }
 
-/** The nav column shows permanently while it fits beside minimum content and the
- * window is at least SIDEBAR_FOLD_W; narrower than either, it folds and the rail's
- * top toggle opens it as an overlay instead. */
-function sidebarFits(width: number): boolean {
-  return width >= Math.max(SIDEBAR_FOLD_W, ICON_RAIL_W + panelStore.sidebarWidth() + DIVIDER_W + CONTENT_MIN);
+/** The window width below which the nav column folds (can't sit beside minimum
+ * content, or the window is simply narrow). Unfolding requires FOLD_HYSTERESIS
+ * more width than folding, so the column can't flap at the boundary mid-resize. */
+function foldThreshold(): number {
+  return Math.max(SIDEBAR_FOLD_W, ICON_RAIL_W + panelStore.sidebarWidth() + DIVIDER_W + CONTENT_MIN);
 }
 
 // The divider is a NORMAL split: it redistributes width between sidebar and content
@@ -255,30 +256,21 @@ export function Panel(): JSX.Element | null {
   return panelStore.isOpen() ? <PanelWindow /> : null;
 }
 
-/** The 48px icon rail — section switcher (Radix tabs, vertical), the fold-mode
- * outline toggle at its top, Settings pinned to the bottom, connection dot at the
- * foot. Tips use the long delay: chrome that's always on screen shouldn't flash
- * a tooltip on every pass. */
-function IconRail({ folded, overlayOpen }: { folded: boolean; overlayOpen: boolean }): JSX.Element {
+/** The 48px icon rail — section switcher (Radix tabs, vertical), Settings pinned
+ * to the bottom, connection dot at the foot. VS Code activity-bar semantics:
+ * clicking the ACTIVE icon toggles the nav column (`onActiveTabClick`); the
+ * pressed-tab capture on pointerdown/keydown reads the tab BEFORE Radix's
+ * focus-activation switches it, so a switching click never toggles. Tips use the
+ * long delay: chrome that's always on screen shouldn't flash a tooltip on every
+ * pass. */
+function IconRail({ onActiveTabClick }: Readonly<{ onActiveTabClick: () => void }>): JSX.Element {
   const staleHistory = historyStore.staleCount();
+  const pressedTab = useRef<PanelTab | null>(null);
+  const capturePressed = (): void => {
+    pressedTab.current = panelStore.tab();
+  };
   return (
     <div className="flex w-12 shrink-0 flex-col items-center gap-1 border-r border-border py-2">
-      {folded && (
-        <>
-          <Button
-            variant="ghost"
-            size="icon"
-            className={`${RAIL_ICON_CELL} duration-[120ms]` + (overlayOpen ? " text-primary" : "")}
-            aria-label={overlayOpen ? "Hide sidebar" : "Show sidebar"}
-            data-kvasir-tip="Outline / navigation"
-            data-kvasir-tip-delay={TIP_DELAY_LONG_MS}
-            onClick={() => panelStore.setSidebarOpen(!panelStore.sidebarOpen())}
-          >
-            <ListTree />
-          </Button>
-          <div className="my-1 h-px w-6 shrink-0 bg-border" />
-        </>
-      )}
       <TabsList className="h-auto w-auto flex-1 flex-col justify-start gap-1 rounded-none border-0 bg-transparent p-0">
         {RAIL_TABS.map(({ value, label, Icon }) => (
           <TabsTrigger
@@ -287,8 +279,16 @@ function IconRail({ folded, overlayOpen }: { folded: boolean; overlayOpen: boole
             aria-label={label}
             data-kvasir-tip={label}
             data-kvasir-tip-delay={TIP_DELAY_LONG_MS}
+            onPointerDown={capturePressed}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") capturePressed();
+            }}
+            onClick={() => {
+              if (pressedTab.current === value) onActiveTabClick();
+              pressedTab.current = null;
+            }}
             className={
-              `relative ${RAIL_ICON_CELL} shrink-0 p-0 duration-[120ms] [&_svg]:size-4 data-[state=active]:border-primary/25 data-[state=active]:bg-accent data-[state=active]:text-accent-foreground` +
+              `kvasir-rail-tab relative ${RAIL_ICON_CELL} shrink-0 p-0 duration-[120ms] [&_svg]:size-4 data-[state=active]:border-primary/25 data-[state=active]:bg-accent data-[state=active]:text-accent-foreground` +
               (value === PANEL_TABS.SETTINGS ? " mt-auto" : "")
             }
           >
@@ -315,10 +315,27 @@ function PanelWindow(): JSX.Element {
   const panelRef = useRef<HTMLDivElement>(null);
   const isReview = activeGuide().kind === "review";
   const { width, height, pos } = panelGeom();
-  // The nav column is permanent while it fits; folded, the rail toggle shows it as
-  // an overlay next to the rail (sidebarOpen only drives the overlay).
-  const folded = !sidebarFits(width);
-  const overlayOpen = folded && panelStore.sidebarOpen();
+  // Fold state with hysteresis: fold below the threshold, unfold only at
+  // threshold + FOLD_HYSTERESIS — the ref carries which side of the band the
+  // last render landed on, so the column can't flap inside it.
+  const foldedRef = useRef(false);
+  const folded = width < foldThreshold() + (foldedRef.current ? FOLD_HYSTERESIS : 0);
+  foldedRef.current = folded;
+  // The nav column shows when the user wants it AND it fits (sidebarOpen is the
+  // persisted intent, toggled from the rail's active icon — resize never
+  // overrides it). Folded, the same toggle shows the column as a TRANSIENT
+  // overlay instead; it never auto-appears from the persisted intent.
+  const wantsSidebar = panelStore.sidebarOpen();
+  const [overlayOpen, setOverlayOpen] = useState(false);
+  const overlayOpenRef = useRef(false);
+  overlayOpenRef.current = overlayOpen;
+  useEffect(() => {
+    if (!folded && overlayOpen) setOverlayOpen(false);
+  }, [folded, overlayOpen]);
+  const onActiveTabClick = (): void => {
+    if (foldedRef.current) setOverlayOpen((open) => !open);
+    else panelStore.setSidebarOpen(!panelStore.sidebarOpen());
+  };
   const onHeadDown = useDrag(panelRef, { ignore: "button", onEnd: (p) => panelStore.setPos(p) });
   // The observer stores the window size as-is (size.w IS the window width); the
   // floor self-heals any stored width below the rail+content minimum.
@@ -346,8 +363,8 @@ function PanelWindow(): JSX.Element {
     if (event.key !== "Escape") return;
     const root = document.querySelector("#kvasir-root")?.shadowRoot ?? document;
     if (root.querySelector(".kvasir-dialog-back")) return;
-    if (!sidebarFits(panelGeom().width) && panelStore.sidebarOpen()) {
-      panelStore.setSidebarOpen(false);
+    if (overlayOpenRef.current) {
+      setOverlayOpen(false);
       return;
     }
     panelStore.close();
@@ -387,32 +404,34 @@ function PanelWindow(): JSX.Element {
         orientation="vertical"
         className="relative flex min-h-0 min-w-0 flex-1"
       >
-        <IconRail folded={folded} overlayOpen={overlayOpen} />
-        {!folded && <PanelSidebar />}
-        {/* Always-visible separator while the nav column shows. Drag/arrows
-            redistribute width between the sidebar and content while the window
+        <IconRail onActiveTabClick={onActiveTabClick} />
+        {/* The nav column + its splitter, sliding in as one unit. The divider
+            redistributes width between the sidebar and content while the window
             (both edges) stays put. */}
         {/* eslint-disable jsx-a11y/no-noninteractive-element-interactions, jsx-a11y/no-noninteractive-tabindex -- accessible window-splitter */}
-        {!folded && (
-          <div
-            role="separator"
-            aria-orientation="vertical"
-            aria-label="Resize sidebar"
-            aria-valuenow={panelStore.sidebarWidth()}
-            aria-valuemin={SIDEBAR_MIN}
-            aria-valuemax={SIDEBAR_MAX}
-            tabIndex={0}
-            className="w-[3px] shrink-0 cursor-col-resize bg-border transition-colors hover:bg-primary/60 focus-visible:bg-primary focus-visible:outline-none"
-            onMouseDown={onDividerDown}
-            onKeyDown={onDividerKey}
-          />
+        {wantsSidebar && !folded && (
+          <div className="flex shrink-0 motion-safe:[animation:kvasir-slide-in_140ms_ease-out]">
+            <PanelSidebar />
+            <div
+              role="separator"
+              aria-orientation="vertical"
+              aria-label="Resize sidebar"
+              aria-valuenow={panelStore.sidebarWidth()}
+              aria-valuemin={SIDEBAR_MIN}
+              aria-valuemax={SIDEBAR_MAX}
+              tabIndex={0}
+              className="w-[3px] shrink-0 cursor-col-resize bg-border transition-colors hover:bg-primary/60 focus-visible:bg-primary focus-visible:outline-none"
+              onMouseDown={onDividerDown}
+              onKeyDown={onDividerKey}
+            />
+          </div>
         )}
         {/* eslint-enable jsx-a11y/no-noninteractive-element-interactions, jsx-a11y/no-noninteractive-tabindex */}
         {/* Folded-mode overlay: the same nav column floating next to the rail, over
             the content, until toggled away. left-12 = the rail's w-12 (ICON_RAIL_W),
             so the overlay sits flush against it. */}
-        {overlayOpen && (
-          <div className="absolute inset-y-0 left-12 z-20 border-r border-border bg-background shadow-lg">
+        {folded && overlayOpen && (
+          <div className="absolute inset-y-0 left-12 z-20 border-r border-border bg-background shadow-lg motion-safe:[animation:kvasir-slide-in_140ms_ease-out]">
             <PanelSidebar />
           </div>
         )}

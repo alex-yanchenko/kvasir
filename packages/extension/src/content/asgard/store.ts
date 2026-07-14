@@ -202,7 +202,7 @@ export const state: {
   launcher: launcherDefaults(),
   tour: tourDefaults(),
   panelPrefs: {
-    sidebarOpen: false,
+    sidebarOpen: true, // the nav column is on by default; the rail's active icon toggles it
     sidebarWidth: Number(readLocal("kvasirSidebarWidth")) || 190,
   },
 };
@@ -335,7 +335,9 @@ const PANEL_PREFS_KEY = "kvasir:panelPrefs.v2";
 // tab (see the panelPrefs field doc for the per-tab vs cross-tab persistence split).
 
 const persistPanel = (): void => {
-  writeSessionJson(PANEL_STATE_KEY, { open: state.panel.open, tab: state.panel.tab });
+  // scope = the guide this open state belongs to (PR url / review id): navigating
+  // this tab to a DIFFERENT PR starts closed at the chip.
+  writeSessionJson(PANEL_STATE_KEY, { open: state.panel.open, tab: state.panel.tab, scope: chatScope() });
 };
 
 /** Persist the window shape globally (survives across tabs), separate from the per-tab
@@ -353,12 +355,22 @@ const persistPrefs = (): void => {
  * sessionStorage blob; the window shape (pos/size/sidebar) from the global entry. */
 export function hydratePanel(): void {
   const perTab = parsePanelState(readSessionJson(PANEL_STATE_KEY));
-  state.panel.open = perTab.open;
+  // open is restored only on the guide it was opened on (refresh, Conversation↔Files);
+  // the tab preference survives regardless.
+  state.panel.open = perTab.open && perTab.scope === chatScope();
   if (perTab.tab && isPanelTab(perTab.tab)) state.panel.tab = perTab.tab;
   const prefs = parsePanelPrefs(readLocalJson(PANEL_PREFS_KEY));
   state.panel.pos = prefs.pos;
   state.panel.size = prefs.size;
   state.panelPrefs.sidebarOpen = prefs.sidebarOpen;
+  // pre-v2 storage keys (renamed away) — deletion keeps the profile tidy
+  for (const stale of ["kvasir:panelPrefs", "kvasirRailWidth"]) {
+    try {
+      localStorage.removeItem(stale);
+    } catch {
+      // storage unavailable (private mode) — nothing to clean anyway
+    }
+  }
 }
 
 export const panelStore = {
