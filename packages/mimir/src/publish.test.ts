@@ -1,3 +1,4 @@
+import type { Depth } from "@kvasir/runes";
 import { describe, it, expect } from "vitest";
 import type { PrManifest } from "./manifest";
 import { preparePublish, type PublishState } from "./publish";
@@ -75,7 +76,7 @@ describe("preparePublish", () => {
   });
 
   it("stamps the generation depth recorded by /generate (never trusted from the model)", () => {
-    const depths = new Map<string, "heavy" | "light">([[KEY, "light"]]);
+    const depths = new Map<string, Depth>([[KEY, "light"]]);
     const outcome = preparePublish(spec(), state({ depths }));
     expect(outcome.kind === "published" && outcome.spec.depth).toBe("light");
   });

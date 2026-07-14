@@ -246,6 +246,16 @@ describe("/generate", () => {
     expect(deps.recordDepth).toHaveBeenLastCalledWith(prKey(PR), "heavy");
   });
 
+  it("does NOT record a depth for a prompt that never reached the session", async () => {
+    // Ordering matters (start_walkthrough's manifest recording sets the precedent):
+    // a failed push must not leave a stale depth that a later publish would stamp.
+    deps.pushEvent.mockRejectedValueOnce(new Error("transport down"));
+    await expect(call("/generate", { method: "POST", body: { pr: PR, depth: "light" } })).rejects.toThrow(
+      "transport down",
+    );
+    expect(deps.recordDepth).not.toHaveBeenCalled();
+  });
+
   it("forbids process narration in the output at BOTH depths — the depth chip shows the mode", async () => {
     await call("/generate", { method: "POST", body: { pr: PR, depth: "light" } });
     expect(deps.pushEvent.mock.lastCall![0]).toContain("Never mention HOW the walkthrough was produced");

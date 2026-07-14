@@ -6,7 +6,7 @@
  * significant file has no step, once), or publish (stamped + ready). The handler
  * just applies the side effects the outcome names (Map writes, logging, throw).
  */
-import { prKey, type WalkthroughSpec } from "@kvasir/runes";
+import { type Depth, prKey, type WalkthroughSpec } from "@kvasir/runes";
 import { COVERAGE_MIN_ADDS, significantFiles, stepsOffTarget, uncoveredFiles } from "./manifest";
 import type { ManifestStore } from "./manifestStore.sqlite";
 import { parseSpecInput } from "./specInput";
@@ -17,7 +17,7 @@ export interface PublishState {
   manifests: Pick<ManifestStore, "get">;
   /** Reader over the depth each /generate request asked for, keyed like manifests
    * — stamped onto the spec so the panel can show it as a chip. */
-  depths: Pick<Map<string, "heavy" | "light">, "get">;
+  depths: Pick<Map<string, Depth>, "get">;
   /** Per-PR count of coverage rejections so far — to nudge at most maxNudges times. */
   nudges: Map<string, number>;
   maxNudges: number;

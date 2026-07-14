@@ -25,7 +25,7 @@ export const StepCoreSchema = z.object({
   title: z.string(),
   /** Markdown/HTML body — the summary/explanation shown by default. */
   body: z.string(),
-  /** Optional deeper, in-depth details revealed when the step is expanded. */
+  /** Optional deep-dive details revealed when the step is expanded. */
   detail: z.string().optional(),
   /** Repo-relative file path, e.g. "src/middleware/rate-limit.ts". Traversal-guarded
    * in the CORE, fail closed: git itself forbids "."/".."/empty path segments, so no

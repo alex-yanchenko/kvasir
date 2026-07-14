@@ -37,7 +37,7 @@ import { randomBytes } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
-import { isWalkthroughSpec, prKey, SPEC_SHAPE_PROSE, type WalkthroughSpec } from "@kvasir/runes";
+import { type Depth, isWalkthroughSpec, prKey, SPEC_SHAPE_PROSE, type WalkthroughSpec } from "@kvasir/runes";
 import { KVASIR_PORT } from "@kvasir/runes/port";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
@@ -110,9 +110,10 @@ const manifests = createSqliteManifestStore(db);
 const publishNudges = new Map<string, number>();
 const MAX_COVERAGE_NUDGES = 1;
 /** The depth each /generate asked for — stamped onto the spec at publish (the
- * panel's depth chip). In-memory: a restart inside the authoring window just
- * publishes without a chip, the same "unknown" a manual publish gets. */
-const generateDepths = new Map<string, "heavy" | "light">();
+ * panel's depth chip), then cleared (like publishNudges) so a later manual
+ * publish with no generate behind it reads as "unknown", not the stale depth.
+ * In-memory: a restart inside the authoring window just publishes chip-less. */
+const generateDepths = new Map<string, Depth>();
 
 /** Push an event into the running Claude session. */
 async function pushEvent(content: string, meta: Record<string, string>): Promise<void> {
@@ -282,6 +283,7 @@ server.registerTool(
     specs.set(outcome.key, outcome.spec);
     guides.put(specToRecord(outcome.spec)); // mirror into durable history (kind pr)
     publishNudges.delete(outcome.key); // published — reset for the next regenerate
+    generateDepths.delete(outcome.key); // consumed by the stamp — a manual re-publish gets no stale chip
     console.error(`[kvasir] published ${outcome.key} (${outcome.spec.steps.length} steps)`);
     return text(outcome.message);
   },

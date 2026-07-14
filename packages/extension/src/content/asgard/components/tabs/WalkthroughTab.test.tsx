@@ -83,11 +83,15 @@ describe("WalkthroughTab", () => {
   it("shows the generation-depth chip only when the spec carries a stamped depth", () => {
     state.spec = { ...mkSpec(), depth: "heavy" };
     render(<WalkthroughTab />);
-    expect(screen.getByText("Deep context")).toBeTruthy();
+    expect(screen.getByText("Deep context").getAttribute("data-kvasir-tip")).toBe(
+      'Generated with local-repo context (the "Heavy" walkthrough depth)',
+    );
     cleanup();
     state.spec = { ...mkSpec(), depth: "light" };
     render(<WalkthroughTab />);
-    expect(screen.getByText("Diff only")).toBeTruthy();
+    expect(screen.getByText("Diff only").getAttribute("data-kvasir-tip")).toBe(
+      'Generated from the PR diff alone (the "Light" walkthrough depth)',
+    );
     cleanup();
     state.spec = mkSpec(); // no depth recorded (older spec / restart) — no chip
     render(<WalkthroughTab />);

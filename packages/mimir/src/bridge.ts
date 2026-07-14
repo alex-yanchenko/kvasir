@@ -2,7 +2,7 @@
 // (request: Request) => Response over injected dependencies, so the whole surface
 // (auth gate, validation, prompt building, response codes) is unit-testable on
 // Node; channel.ts supplies the live deps and hands the handler to Bun.serve.
-import { prKey, PR_URL_RE, type Review, type WalkthroughSpec } from "@kvasir/runes";
+import { type Depth, prKey, PR_URL_RE, type Review, type WalkthroughSpec } from "@kvasir/runes";
 import type { QuestionSnapshot } from "./broker";
 import { authorizedLocalCaller, corsHeaders, isRecord, readJsonBody, truncate, prOrNull } from "./guard";
 import { type GuideStore, reviewToRecord } from "./guideStore";
@@ -27,7 +27,7 @@ export interface BridgeDeps {
   getHeadSha(pr: string): Promise<string>;
   /** Remember the depth a /generate request asked for (keyed by prKey), so
    * publish_walkthrough can stamp it onto the spec as the depth chip's source. */
-  recordDepth(key: string, depth: "heavy" | "light"): void;
+  recordDepth(key: string, depth: Depth): void;
   pairing: Pairing;
 }
 
@@ -180,11 +180,12 @@ async function handleGenerate({ request, deps }: Context): Promise<Response> {
   const diagramStep = ` Also set the spec's \`diagram\` field to mermaid source (a \`flowchart\` or \`sequenceDiagram\`) capturing how the change's pieces connect — entry points and the calls/data flow between the changed files, plus key branches. Keep it to the essential flow (roughly 5-15 nodes) with plain node labels, and make sure it parses as valid mermaid.`;
   // Depth is UI chrome (the extension renders a chip from the server-stamped spec
   // field), so the prose must stay clean of it — at BOTH depths, not only the
-  // degraded-heavy fallback the heavy protocol already covers.
-  const noProcessNarration = ` Never mention HOW the walkthrough was produced anywhere in the output — no notes about generation mode or depth, reading (or not reading) the local repo, which tools you called, or any other process detail, in the overview or any step. The extension shows the generation mode itself; the text is for the CHANGE.`;
+  // degraded-heavy fallback the heavy protocol already covers. Deliberately
+  // restates the channel's static SUBJECT RULE inside the per-event prompt: the
+  // static MCP instructions alone demonstrably did not stop the narration.
+  const noProcessNarration = ` Never mention HOW the walkthrough was produced, anywhere in the output (the overview or any step) — no notes about generation mode or depth, reading (or not reading) the local repo, which tools you called, or any other process detail. The extension shows the generation mode itself; the text is for the CHANGE.`;
   const reviewBody = depth === "heavy" ? baseInstruction + heavyProtocol : baseInstruction;
   const content = reviewBody + (wantsDiagram ? diagramStep : "") + noProcessNarration;
-  deps.recordDepth(prKey(pr), depth);
   await deps.pushEvent(content, {
     event_type: "generate_walkthrough",
     pr,
@@ -193,6 +194,10 @@ async function handleGenerate({ request, deps }: Context): Promise<Response> {
     depth,
     diagram: String(wantsDiagram),
   });
+  // AFTER the push (start_walkthrough's manifest recording sets the precedent):
+  // a failed push must not leave a depth the model never received, which publish
+  // would later stamp onto a spec generated from an older prompt.
+  deps.recordDepth(prKey(pr), depth);
   return json(request, { queued: true });
 }
 
