@@ -8,7 +8,7 @@
  * coexistence; each block is deleted as its island migrates. */
 
 @import "tailwindcss";
-/* rich chat/markdown/tooltip styles — read the same dev-tool tokens defined below */
+/* rich chat/markdown/tooltip styles — read the same shared tokens defined below */
 @import "./asgard.css";
 
 /* class-based dark (default v4 is prefers-color-scheme); the shadow host carries
@@ -54,6 +54,8 @@
   --card-foreground: #0c1219;
   --popover: #ffffff;
   --popover-foreground: #0c1219;
+  /* Frost accent = sky-600/700 — deliberately deeper than the --aurora-2 ice,
+   * which can't hold text/control contrast on white */
   --primary: #0284c7;
   --primary-foreground: #ffffff;
   --secondary: rgba(13, 27, 42, 0.04);
@@ -73,14 +75,16 @@
   --elevation: inset 0 1px 0 rgba(255, 255, 255, 0.8), 0 18px 50px rgba(13, 27, 42, 0.16);
   --ring-soft: color-mix(in srgb, var(--primary) 28%, transparent);
 
-  /* Frost glass — the light counterpart of the dark set on :host(.dark); the
-   * spine wash is fainter here so it reads over white. Glows stay dark-only. */
-  --surface-glass-solid: #fbfdff;
-  --surface-glass: rgba(252, 254, 255, 0.9);
+  /* Frost glass — the light counterpart of the dark set on :host(.dark). The wash
+   * mixes a HIGHER % than dark (8% vs 5%): white eats the tint, so the stronger
+   * raw mix still reads subtler on this ground. Glows stay dark-only. */
+  --surface-glass-solid: var(--background);
+  --surface-glass: color-mix(in srgb, var(--surface-glass-solid) 90%, transparent);
   --surface-blur: 22px;
   --aurora-wash: linear-gradient(90deg, color-mix(in srgb, var(--aurora-2) 8%, transparent), transparent);
 
-  /* status signals (same value both themes); values = Tailwind's emerald-500 / amber-500 */
+  /* status signals; --warning is shared, --success is emerald-500 here and
+   * emerald-400 in dark (see :host(.dark)) */
   --success: oklch(69.6% 0.17 162.48);
   --warning: oklch(76.9% 0.188 70.08);
   /* modal backdrop (regenerate dialog) */
@@ -144,7 +148,7 @@
   /* Aurora glass + glows at the "Soft" strength — the dark overrides of the
    * Frost glass set on :host; the glow tokens exist ONLY here (light has no
    * glows, so their var() fallbacks resolve to none). */
-  --surface-glass-solid: #0e121a;
+  --surface-glass-solid: var(--background);
   --surface-glass: color-mix(in srgb, var(--surface-glass-solid) 88%, transparent);
   --surface-blur: 22px;
   --aurora-wash: linear-gradient(90deg, color-mix(in srgb, var(--aurora-2) 5%, transparent), transparent);

@@ -3,15 +3,17 @@
 /* ── theme tokens ─────────────────────────────────────────────────────────────
    theme="auto" (the default) follows the OS via the media query below; explicit
    "light"/"dark" attribute values override it. No JS needed to resolve "auto". */
-/* Page-side palette mirrors Asgard's (tailwind.css) so the on-page widgets and the
-   panel read as one product: cool graphite neutrals + the teal --primary as accent
-   (brighter cyan in dark, exactly like Asgard's --primary). */
+/* Page-side accent mirrors Asgard's --primary (tailwind.css) so the on-page
+   widgets and the panel read as one product: Frost sky in light, aurora ice in
+   dark. The neutrals stay solid approximations (page widgets sit on GitHub's
+   own backgrounds, so they can't use the panel's alpha layers). */
 :root {
-  --kvasir-accent: #0e93ab;
+  --kvasir-accent: #0284c7;
 }
 body[data-kvasir-theme="auto"],
 body[data-kvasir-theme="light"] {
-  --kvasir-accent: #0e93ab;
+  --kvasir-accent: #0284c7;
+  --kvasir-accent-ink: #ffffff;
   --kvasir-bg: #ffffff;
   --kvasir-fg: #0c1219;
   --kvasir-muted: #4a5563;
@@ -21,7 +23,8 @@ body[data-kvasir-theme="light"] {
 }
 body[data-kvasir-theme="dark"],
 body:not([data-kvasir-theme]) {
-  --kvasir-accent: #22b8cf;
+  --kvasir-accent: #7dd3fc;
+  --kvasir-accent-ink: #082330;
   --kvasir-bg: #151a21;
   --kvasir-fg: #e3e8ee;
   --kvasir-muted: #8a95a3;
@@ -31,7 +34,8 @@ body:not([data-kvasir-theme]) {
 }
 @media (prefers-color-scheme: dark) {
   body[data-kvasir-theme="auto"] {
-    --kvasir-accent: #22b8cf;
+    --kvasir-accent: #7dd3fc;
+    --kvasir-accent-ink: #082330;
     --kvasir-bg: #151a21;
     --kvasir-fg: #e3e8ee;
     --kvasir-muted: #8a95a3;
@@ -80,7 +84,7 @@ body:not([data-kvasir-theme]) {
   justify-content: center;
   padding: 0;
   background: var(--kvasir-accent);
-  color: #fff;
+  color: var(--kvasir-accent-ink, #fff);
   border: none;
   border-radius: 6px;
   cursor: pointer;
