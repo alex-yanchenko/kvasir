@@ -29,7 +29,9 @@ test.describe("extension on a PR page", () => {
     await page.goto(PR_URL);
 
     await page.getByRole("button", { name: "Open Kvasir" }).click();
-    await page.getByRole("tab", { name: "Walkthrough" }).click();
+    // the panel opens on the walkthrough tab; clicking its (active) rail icon
+    // would toggle the nav column, so don't
+    await expect(page.getByTestId("sidebar")).toBeVisible();
 
     // First step renders; mounting the tab auto-starts the tour → highlight:step →
     // the controller paints kvasir-line on the rows the spec's line range names (2-3).

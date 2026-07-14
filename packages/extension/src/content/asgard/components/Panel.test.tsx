@@ -111,20 +111,38 @@ describe("Panel", () => {
     expect(screen.queryByTestId("sidebar")).toBeNull();
   });
 
-  it("keyboard: Enter/Space on the ACTIVE rail icon toggles the column; other keys don't", () => {
+  it("keyboard: Enter on the ALREADY-ACTIVE icon toggles; Enter right after arriving only switches", () => {
     panelStore.setSidebarWidth(190);
     render(<Panel />);
     act(() => panelStore.open());
-    const tab = screen.getByRole("tab", { name: "Walkthrough" });
-    fireEvent.keyDown(tab, { key: "Enter" });
-    fireEvent.click(tab); // the browser's synthetic click for Enter on a button
+    const walkthrough = screen.getByRole("tab", { name: "Walkthrough" });
+    act(() => walkthrough.focus()); // keyboard arrival on the active icon — captured as active
+    fireEvent.click(walkthrough); // Enter's synthetic click
+    expect(screen.queryByTestId("sidebar")).toBeNull(); // toggled off
+    fireEvent.click(walkthrough); // Enter again (pressed tab refreshed after each click)
+    expect(screen.getByTestId("sidebar")).toBeTruthy();
+
+    // keyboard arrival on an INACTIVE icon: focus switches it (Radix automatic
+    // activation); the first Enter must NOT also toggle — that's the switch
+    const chat = screen.getByRole("tab", { name: "Chat" });
+    act(() => chat.focus());
+    expect(panelStore.tab()).toBe("chat");
+    fireEvent.click(chat); // Enter right after arriving
+    expect(screen.getByTestId("sidebar")).toBeTruthy(); // column untouched
+    fireEvent.click(chat); // a second Enter IS the deliberate toggle
     expect(screen.queryByTestId("sidebar")).toBeNull();
-    fireEvent.keyDown(tab, { key: " " });
-    fireEvent.click(tab);
-    expect(screen.getByTestId("sidebar")).toBeTruthy();
-    fireEvent.keyDown(tab, { key: "a" }); // not an activation key — nothing captured
-    fireEvent.click(tab); // a click with no captured press is ignored
-    expect(screen.getByTestId("sidebar")).toBeTruthy();
+  });
+
+  it("a real mousedown-driven switch (Radix's actual activation path) doesn't toggle the column", () => {
+    panelStore.setSidebarWidth(190);
+    render(<Panel />);
+    act(() => panelStore.open());
+    const chat = screen.getByRole("tab", { name: "Chat" });
+    fireEvent.pointerDown(chat); // captures the pre-switch tab
+    fireEvent.mouseDown(chat); // Radix switches here on real clicks
+    fireEvent.click(chat);
+    expect(panelStore.tab()).toBe("chat");
+    expect(screen.getByTestId("sidebar")).toBeTruthy(); // switched, not toggled
   });
 
   it("the transient overlay resets when the window grows past the fold", () => {

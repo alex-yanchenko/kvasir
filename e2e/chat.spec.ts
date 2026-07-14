@@ -17,8 +17,11 @@ test.describe("chat flow", () => {
 
     await page.getByRole("button", { name: "Open Kvasir" }).click();
     await page.getByRole("tab", { name: "Chat" }).click();
-    // chat list + New chat live in the sidebar, permanently visible at the default width
-    await page.getByRole("button", { name: "New chat" }).click();
+    // the chat list's New chat lives in the nav column — assert the column is
+    // there (open by default at the default width) so a default change fails
+    // here, not at a missing button
+    await expect(page.getByTestId("sidebar")).toBeVisible();
+    await page.getByRole("button", { name: "New chat" }).first().click();
 
     const input = page.getByRole("textbox");
     await input.fill("Where does compute happen?");

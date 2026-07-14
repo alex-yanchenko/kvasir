@@ -34,42 +34,24 @@ describe("parsePersistedTour", () => {
 });
 
 describe("parsePanelState", () => {
-  it("reads open + sidebarOpen + tab + scope + geometry, dropping mismatches and non-records", () => {
+  it("reads open + tab + scope, dropping mismatches and non-records", () => {
     expect(
       parsePanelState({
         open: true,
-        sidebarOpen: true,
         tab: "history",
         scope: "https://github.com/acme/web/pull/7",
-        pos: { left: 1, top: 2 },
-        size: { w: 3, h: 4 },
       }),
     ).toEqual({
       open: true,
-      sidebarOpen: true,
       tab: "history",
       scope: "https://github.com/acme/web/pull/7",
-      pos: { left: 1, top: 2 },
-      size: { w: 3, h: 4 },
     });
-    expect(
-      parsePanelState({ open: "yes", sidebarOpen: "x", tab: 5, scope: 9, pos: { left: "x" }, size: 9 }),
-    ).toEqual({
+    expect(parsePanelState({ open: "yes", tab: 5, scope: 9 })).toEqual({
       open: false,
-      sidebarOpen: false,
       tab: null,
       scope: null,
-      pos: null,
-      size: null,
     });
-    expect(parsePanelState(null)).toEqual({
-      open: false,
-      sidebarOpen: false,
-      tab: null,
-      scope: null,
-      pos: null,
-      size: null,
-    });
+    expect(parsePanelState(null)).toEqual({ open: false, tab: null, scope: null });
   });
 });
 

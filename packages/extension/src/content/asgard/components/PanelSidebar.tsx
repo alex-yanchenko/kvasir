@@ -1,8 +1,8 @@
-// The per-section nav column. Permanent beside the content while the window fits
-// it; folds to a rail-toggled overlay when the window is narrow. Its CONTENT swaps
-// per active section; a header band sized to the title bar keeps the list aligned
-// with the content column. Width/scroll only; the resize splitter lives in Panel
-// (it needs the panel size to redistribute width).
+// The per-section nav column, toggled from the rail's active icon — inline beside
+// the content while the window fits it, a transient overlay when folded. Its
+// CONTENT swaps per active section; a header band sized to the title bar keeps
+// the list aligned with the content column. Width/scroll only; the resize
+// splitter lives in Panel (it needs the panel size to redistribute width).
 import type { JSX } from "react";
 import { activeGuide } from "../guide";
 import { PANEL_TABS, panelStore, type PanelTab } from "../store";

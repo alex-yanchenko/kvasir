@@ -33,26 +33,20 @@ export function parsePersistedTour(v: unknown): Required<PersistedTour> {
   };
 }
 
-/** Restore the per-tab panel state (open + tab + geometry) from sessionStorage,
+/** Restore the per-tab panel state (open + tab + scope) from sessionStorage,
  * dropping mismatches. `scope` names the guide (PR url / review id) the open state
  * belongs to; the caller only honors `open` when it matches the current page. The
  * tab string is validated by the caller via isPanelTab. */
 export function parsePanelState(v: unknown): {
   open: boolean;
-  sidebarOpen: boolean;
   tab: string | null;
   scope: string | null;
-  pos: Pos | null;
-  size: Size | null;
 } {
-  if (!isRecord(v)) return { open: false, sidebarOpen: false, tab: null, scope: null, pos: null, size: null };
+  if (!isRecord(v)) return { open: false, tab: null, scope: null };
   return {
     open: v.open === true,
-    sidebarOpen: v.sidebarOpen === true,
     tab: typeof v.tab === "string" ? v.tab : null,
     scope: typeof v.scope === "string" ? v.scope : null,
-    pos: isPos(v.pos) ? v.pos : null,
-    size: isSize(v.size) ? v.size : null,
   };
 }
 

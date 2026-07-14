@@ -171,9 +171,10 @@ export const state: {
    * DISTINCT from persistedTour above, which is the per-PR PERSISTED step/geometry. */
   tour: TourUiState;
   /** Cross-tab panel preferences, persisted GLOBALLY (localStorage): the nav
-   * column (sidebarOpen drives only the folded-mode overlay; sidebarWidth is the
-   * column's width). Lives beside — not inside — `panel`, whose open/tab persist
-   * per-tab. */
+   * column. sidebarOpen is the persisted INTENT — it shows the inline column
+   * while the window fits it (the folded overlay is transient Panel state, not
+   * this); sidebarWidth is the column's width. Lives beside — not inside —
+   * `panel`, whose open/tab persist per-tab. */
   panelPrefs: { sidebarOpen: boolean; sidebarWidth: number };
 } = {
   spec: null,
@@ -316,12 +317,15 @@ export const chatsStore = {
 
 // ── panel slice ──────────────────────────────────────────────────────────────
 // The one consolidated panel, split across two persistence scopes:
-//   • PER-TAB (sessionStorage PANEL_STATE_KEY): open + tab — session state. open MUST
-//     be per-tab so a fresh tab doesn't auto-open the panel on every github page.
+//   • PER-TAB (sessionStorage PANEL_STATE_KEY): open + tab + scope — session
+//     state. open MUST be per-tab so a fresh tab doesn't auto-open the panel on
+//     every github page, and it's honored only on the guide (scope) it was
+//     opened on, so this tab navigating to a different PR starts at the chip.
 //   • GLOBAL (localStorage PANEL_PREFS_KEY): the window's SHAPE — pos, size, plus
-//     sidebarOpen (which only matters while the window is narrow enough to fold the
-//     nav column) — cross-tab preferences like sidebarWidth, so reopening a review
-//     in a new tab restores your last size/position instead of the default.
+//     sidebarOpen (the persisted intent showing the inline nav column while it
+//     fits; the folded overlay is transient Panel state, not this) — cross-tab
+//     preferences like sidebarWidth, so reopening a review in a new tab restores
+//     your last size/position instead of the default.
 // Content lives in the tab bodies, which reuse the existing machines.
 
 /** localStorage key for the global window shape (pos + size + sidebarOpen).

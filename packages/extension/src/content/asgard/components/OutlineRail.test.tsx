@@ -74,6 +74,16 @@ describe("OutlineRail", () => {
     expect(tourStore.stepIndex()).toBe(2); // jumped to s3
   });
 
+  it("file-path group headers get a leading ellipsis (dir=rtl) and a full-path tip", () => {
+    state.spec = spec3("rail-trunc");
+    tourStore.start();
+    render(<OutlineRail />);
+    const header = screen.getByText("f.ts").closest("[dir='rtl']");
+    expect(header).toBeTruthy(); // rtl container puts the ellipsis on the LEFT
+    expect(header?.getAttribute("data-kvasir-tip")).toBe("f.ts"); // hover reveals the full path
+    expect(screen.getByText("f.ts").getAttribute("dir")).toBe("ltr"); // inner span keeps reading order
+  });
+
   it("renders an Overview entry that navigates to step 0 and marks current when active", () => {
     state.spec = { ...spec3("rail-ov"), overview: "<p>ov</p>" };
     tourStore.start(); // opens on a code step, not the overview

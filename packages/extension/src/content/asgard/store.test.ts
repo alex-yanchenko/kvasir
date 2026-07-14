@@ -321,6 +321,18 @@ describe("panelStore", () => {
     expect(localStorage.getItem("kvasirRailWidth")).toBeNull();
   });
 
+  it("hydratePanel survives localStorage being unavailable during the stale-key cleanup", () => {
+    vi.stubGlobal("localStorage", {
+      getItem: () => null,
+      setItem: () => {},
+      removeItem: () => {
+        throw new Error("blocked");
+      },
+    });
+    expect(() => storeModule.hydratePanel()).not.toThrow();
+    vi.unstubAllGlobals();
+  });
+
   it("hydratePanel with nothing stored leaves the panel closed at default geometry", () => {
     storeModule.state.panel = {
       open: true,

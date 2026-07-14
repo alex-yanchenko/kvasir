@@ -1,8 +1,8 @@
 // The consolidated panel — one movable/resizable floating window holding every
 // section. A 48px icon rail (left edge) switches sections; the per-section nav
-// column (outline / chats / facets / anchors) sits beside it, permanently at
-// comfortable widths and as a rail-toggled overlay when the window is narrow.
-// Geometry lives in panelStore; the section bodies reuse the existing machines.
+// column (outline / chats / facets / anchors) sits beside it, toggled from the
+// rail's active icon — inline while the window fits it, a transient overlay when
+// folded. Geometry lives in panelStore; the section bodies reuse the machines.
 import { X } from "lucide-react";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type {
@@ -257,18 +257,25 @@ export function Panel(): JSX.Element | null {
 }
 
 /** The 48px icon rail — section switcher (Radix tabs, vertical), Settings pinned
- * to the bottom, connection dot at the foot. VS Code activity-bar semantics:
- * clicking the ACTIVE icon toggles the nav column (`onActiveTabClick`); the
- * pressed-tab capture on pointerdown/keydown reads the tab BEFORE Radix's
- * focus-activation switches it, so a switching click never toggles. Tips use the
- * long delay: chrome that's always on screen shouldn't flash a tooltip on every
- * pass. */
+ * to the bottom, connection dot at the foot. Activity-bar semantics: activating
+ * the ALREADY-ACTIVE icon toggles the nav column (`onActiveTabClick`) — unlike
+ * VS Code, switching sections never reveals a hidden column; the column follows
+ * the user's persisted intent only.
+ *
+ * The pressed-tab protocol tells a toggle apart from a switch: the tab is
+ * captured BEFORE Radix activates — on pointerdown for mouse (activation follows
+ * on mousedown) and on focus for keyboard (roving focus lands first, activation
+ * follows) — and refreshed after each click, so pressing Enter right after
+ * arriving on an icon is the switch, and pressing it again is the toggle. Tips
+ * use the long delay: chrome that's always on screen shouldn't flash a tooltip
+ * on every pass. */
 function IconRail({ onActiveTabClick }: Readonly<{ onActiveTabClick: () => void }>): JSX.Element {
   const staleHistory = historyStore.staleCount();
+  const activeTab = panelStore.tab();
   const pressedTab = useRef<PanelTab | null>(null);
-  const capturePressed = (): void => {
-    pressedTab.current = panelStore.tab();
-  };
+  // True between a pointerdown and its click: the focus that mousedown triggers
+  // must not overwrite the pointerdown's pre-activation capture.
+  const pointerPressed = useRef(false);
   return (
     <div className="flex w-12 shrink-0 flex-col items-center gap-1 border-r border-border py-2">
       <TabsList className="h-auto w-auto flex-1 flex-col justify-start gap-1 rounded-none border-0 bg-transparent p-0">
@@ -277,15 +284,20 @@ function IconRail({ onActiveTabClick }: Readonly<{ onActiveTabClick: () => void 
             key={value}
             value={value}
             aria-label={label}
-            data-kvasir-tip={label}
+            data-kvasir-tip={value === activeTab ? `${label} — click again to toggle the panel` : label}
             data-kvasir-tip-delay={TIP_DELAY_LONG_MS}
-            onPointerDown={capturePressed}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" || event.key === " ") capturePressed();
+            onPointerDown={() => {
+              pointerPressed.current = true;
+              pressedTab.current = panelStore.tab();
+            }}
+            onFocus={() => {
+              if (!pointerPressed.current) pressedTab.current = panelStore.tab();
+              pointerPressed.current = false;
             }}
             onClick={() => {
               if (pressedTab.current === value) onActiveTabClick();
-              pressedTab.current = null;
+              pointerPressed.current = false;
+              pressedTab.current = panelStore.tab();
             }}
             className={
               `kvasir-rail-tab relative ${RAIL_ICON_CELL} shrink-0 p-0 duration-[120ms] [&_svg]:size-4 data-[state=active]:border-primary/25 data-[state=active]:bg-accent data-[state=active]:text-accent-foreground` +
@@ -327,13 +339,11 @@ function PanelWindow(): JSX.Element {
   // overlay instead; it never auto-appears from the persisted intent.
   const wantsSidebar = panelStore.sidebarOpen();
   const [overlayOpen, setOverlayOpen] = useState(false);
-  const overlayOpenRef = useRef(false);
-  overlayOpenRef.current = overlayOpen;
   useEffect(() => {
     if (!folded && overlayOpen) setOverlayOpen(false);
   }, [folded, overlayOpen]);
   const onActiveTabClick = (): void => {
-    if (foldedRef.current) setOverlayOpen((open) => !open);
+    if (folded) setOverlayOpen((open) => !open);
     else panelStore.setSidebarOpen(!panelStore.sidebarOpen());
   };
   const onHeadDown = useDrag(panelRef, { ignore: "button", onEnd: (p) => panelStore.setPos(p) });
@@ -363,7 +373,9 @@ function PanelWindow(): JSX.Element {
     if (event.key !== "Escape") return;
     const root = document.querySelector("#kvasir-root")?.shadowRoot ?? document;
     if (root.querySelector(".kvasir-dialog-back")) return;
-    if (overlayOpenRef.current) {
+    // the handler is re-registered each render (useShadowAwareKeydown refreshes
+    // its ref), so reading render-scope state here is always fresh
+    if (overlayOpen) {
       setOverlayOpen(false);
       return;
     }
