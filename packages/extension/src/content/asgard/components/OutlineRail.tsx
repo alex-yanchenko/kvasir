@@ -32,7 +32,7 @@ type OutlineNav = {
 };
 
 const STEP_BTN_CLASS =
-  "flex min-w-full items-center gap-1.5 whitespace-nowrap py-1.5 pl-3 pr-3 text-left text-sm hover:bg-muted ";
+  "flex w-full min-w-0 items-center gap-1.5 py-1.5 pl-3 pr-3 text-left text-sm hover:bg-muted ";
 
 // A step's status dot: current (accent), actually-visited (muted fill), or
 // upcoming (hollow ring).
@@ -119,7 +119,7 @@ function StepRow({
         disabled={nav.navigating}
         onClick={() => nav.onStep(item.index)}
       >
-        <span className="select-none font-mono text-[11px] text-muted-foreground/40">
+        <span className="shrink-0 select-none font-mono text-[11px] text-muted-foreground/40">
           {isLast ? "└" : "├"}
         </span>
         <span
@@ -133,7 +133,7 @@ function StepRow({
             </span>
           </span>
         ) : (
-          <span>{item.step.title}</span>
+          <span className="min-w-0 flex-1 truncate">{item.step.title}</span>
         )}
       </button>
     </li>
@@ -160,12 +160,19 @@ function GroupList({
       {groups.map((group, groupIndex) => (
         <div key={groupIndex} className="mb-2">
           {showFile ? (
-            <div className="whitespace-nowrap px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground/90">
+            <div className="truncate px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground/90">
               {group.label}
             </div>
           ) : (
-            <div className="whitespace-nowrap px-3 py-1 font-mono text-[11px] text-muted-foreground/80">
-              {group.label}
+            // dir=rtl puts the ellipsis on the LEFT so the basename — the part
+            // that tells file paths apart — stays visible; the inner ltr span
+            // keeps the characters in reading order.
+            <div
+              dir="rtl"
+              className="truncate px-3 py-1 text-left font-mono text-[11px] text-muted-foreground/80"
+              data-kvasir-tip={group.label}
+            >
+              <span dir="ltr">{group.label}</span>
             </div>
           )}
           <ul>

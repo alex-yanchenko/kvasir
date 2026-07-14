@@ -139,9 +139,13 @@ describe("REF_RE + linkifyReferences + closeFences", () => {
 });
 
 describe("ChatTab shell", () => {
-  it("shows the empty state without an active session", () => {
+  it("shows the empty state without an active session; its New chat button starts one", () => {
+    const newChat = vi.spyOn(chatStore, "newChat").mockImplementation(() => {});
     render(<ChatTab />);
     expect(screen.getByText(/Pick a chat/)).toBeTruthy();
+    // reachable even with the nav column (the sidebar's own New chat) hidden
+    fireEvent.click(screen.getByRole("button", { name: "New chat" }));
+    expect(newChat).toHaveBeenCalledTimes(1);
   });
 
   it("labels a selection chat by file:line and the general one as This PR; single line collapses", () => {

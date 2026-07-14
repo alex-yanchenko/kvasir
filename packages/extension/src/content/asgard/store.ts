@@ -171,9 +171,10 @@ export const state: {
    * DISTINCT from persistedTour above, which is the per-PR PERSISTED step/geometry. */
   tour: TourUiState;
   /** Cross-tab panel preferences, persisted GLOBALLY (localStorage): the nav
-   * column (sidebarOpen drives only the folded-mode overlay; sidebarWidth is the
-   * column's width). Lives beside — not inside — `panel`, whose open/tab persist
-   * per-tab. */
+   * column. sidebarOpen is the persisted INTENT — it shows the inline column
+   * while the window fits it (the folded overlay is transient Panel state, not
+   * this); sidebarWidth is the column's width. Lives beside — not inside —
+   * `panel`, whose open/tab persist per-tab. */
   panelPrefs: { sidebarOpen: boolean; sidebarWidth: number };
 } = {
   spec: null,
@@ -202,7 +203,7 @@ export const state: {
   launcher: launcherDefaults(),
   tour: tourDefaults(),
   panelPrefs: {
-    sidebarOpen: false,
+    sidebarOpen: true, // the nav column is on by default; the rail's active icon toggles it
     sidebarWidth: Number(readLocal("kvasirSidebarWidth")) || 190,
   },
 };
@@ -316,12 +317,15 @@ export const chatsStore = {
 
 // ── panel slice ──────────────────────────────────────────────────────────────
 // The one consolidated panel, split across two persistence scopes:
-//   • PER-TAB (sessionStorage PANEL_STATE_KEY): open + tab — session state. open MUST
-//     be per-tab so a fresh tab doesn't auto-open the panel on every github page.
+//   • PER-TAB (sessionStorage PANEL_STATE_KEY): open + tab + scope — session
+//     state. open MUST be per-tab so a fresh tab doesn't auto-open the panel on
+//     every github page, and it's honored only on the guide (scope) it was
+//     opened on, so this tab navigating to a different PR starts at the chip.
 //   • GLOBAL (localStorage PANEL_PREFS_KEY): the window's SHAPE — pos, size, plus
-//     sidebarOpen (which only matters while the window is narrow enough to fold the
-//     nav column) — cross-tab preferences like sidebarWidth, so reopening a review
-//     in a new tab restores your last size/position instead of the default.
+//     sidebarOpen (the persisted intent showing the inline nav column while it
+//     fits; the folded overlay is transient Panel state, not this) — cross-tab
+//     preferences like sidebarWidth, so reopening a review in a new tab restores
+//     your last size/position instead of the default.
 // Content lives in the tab bodies, which reuse the existing machines.
 
 /** localStorage key for the global window shape (pos + size + sidebarOpen).
@@ -335,7 +339,9 @@ const PANEL_PREFS_KEY = "kvasir:panelPrefs.v2";
 // tab (see the panelPrefs field doc for the per-tab vs cross-tab persistence split).
 
 const persistPanel = (): void => {
-  writeSessionJson(PANEL_STATE_KEY, { open: state.panel.open, tab: state.panel.tab });
+  // scope = the guide this open state belongs to (PR url / review id): navigating
+  // this tab to a DIFFERENT PR starts closed at the chip.
+  writeSessionJson(PANEL_STATE_KEY, { open: state.panel.open, tab: state.panel.tab, scope: chatScope() });
 };
 
 /** Persist the window shape globally (survives across tabs), separate from the per-tab
@@ -353,12 +359,22 @@ const persistPrefs = (): void => {
  * sessionStorage blob; the window shape (pos/size/sidebar) from the global entry. */
 export function hydratePanel(): void {
   const perTab = parsePanelState(readSessionJson(PANEL_STATE_KEY));
-  state.panel.open = perTab.open;
+  // open is restored only on the guide it was opened on (refresh, Conversation↔Files);
+  // the tab preference survives regardless.
+  state.panel.open = perTab.open && perTab.scope === chatScope();
   if (perTab.tab && isPanelTab(perTab.tab)) state.panel.tab = perTab.tab;
   const prefs = parsePanelPrefs(readLocalJson(PANEL_PREFS_KEY));
   state.panel.pos = prefs.pos;
   state.panel.size = prefs.size;
   state.panelPrefs.sidebarOpen = prefs.sidebarOpen;
+  // pre-v2 storage keys (renamed away) — deletion keeps the profile tidy
+  for (const stale of ["kvasir:panelPrefs", "kvasirRailWidth"]) {
+    try {
+      localStorage.removeItem(stale);
+    } catch {
+      // storage unavailable (private mode) — nothing to clean anyway
+    }
+  }
 }
 
 export const panelStore = {

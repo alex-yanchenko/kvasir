@@ -11,6 +11,7 @@ import {
   Crosshair,
   MessageSquare,
   Minus,
+  Plus,
   RotateCw,
   X,
 } from "lucide-react";
@@ -328,7 +329,11 @@ export function ChatTab(): JSX.Element {
       ) : (
         <div className="flex flex-1 flex-col items-center justify-center gap-2 p-6 text-center text-sm text-muted-foreground">
           <MessageSquare className="size-6 opacity-50" />
-          Pick a chat from the sidebar, start a New chat, or select code in the diff.
+          Pick a chat from the sidebar, start a new one, or select code in the diff.
+          {/* the sidebar's New chat lives in a hideable column — this one is always reachable */}
+          <Button size="sm" className="mt-1" onClick={() => chatStore.newChat()}>
+            <Plus /> New chat
+          </Button>
         </div>
       )}
     </div>
