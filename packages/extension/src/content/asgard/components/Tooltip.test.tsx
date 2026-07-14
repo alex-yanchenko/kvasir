@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render } from "@testing-library/react";
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { TIP_DELAY_MS, Tooltips } from "./Tooltip";
+import { TIP_DELAY_LONG_MS, TIP_DELAY_MS, Tooltips } from "./Tooltip";
 
 afterEach(() => {
   cleanup();
@@ -55,6 +55,30 @@ describe("Tooltips", () => {
     const tip = document.querySelector<HTMLElement>(".kvasir-tip")!;
     expect(tip.style.top).toBe("294px"); // 300 - 0 (jsdom tip height) - 6
     expect(tip.style.left).toBe("220px"); // anchor center, zero tip width
+  });
+
+  it("honors a per-element data-kvasir-tip-delay (the rail's long tier)", () => {
+    const btn = setup();
+    btn.setAttribute("data-kvasir-tip-delay", String(TIP_DELAY_LONG_MS));
+    fireEvent.mouseOver(btn);
+    act(() => {
+      vi.advanceTimersByTime(TIP_DELAY_MS);
+    });
+    expect(document.querySelector(".kvasir-tip")).toBeNull(); // default delay elapsed — still waiting
+    act(() => {
+      vi.advanceTimersByTime(TIP_DELAY_LONG_MS - TIP_DELAY_MS);
+    });
+    expect(document.querySelector(".kvasir-tip")).toBeTruthy();
+  });
+
+  it("treats an explicit zero delay as instant, not the default", () => {
+    const btn = setup();
+    btn.setAttribute("data-kvasir-tip-delay", "0");
+    fireEvent.mouseOver(btn);
+    act(() => {
+      vi.advanceTimersByTime(0);
+    });
+    expect(document.querySelector(".kvasir-tip")).toBeTruthy();
   });
 
   it("re-hovering restarts the delay instead of stacking timers", () => {

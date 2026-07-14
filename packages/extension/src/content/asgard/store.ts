@@ -170,9 +170,11 @@ export const state: {
    * which panes are expanded. Machine-lifetime so it survives a tab switch —
    * DISTINCT from persistedTour above, which is the per-PR PERSISTED step/geometry. */
   tour: TourUiState;
-  /** Cross-tab panel preferences, persisted GLOBALLY (localStorage): the sidebar
-   * rail. Lives beside — not inside — `panel`, whose open/tab persist per-tab. */
-  panelPrefs: { sidebarOpen: boolean; railWidth: number };
+  /** Cross-tab panel preferences, persisted GLOBALLY (localStorage): the nav
+   * column (sidebarOpen drives only the folded-mode overlay; sidebarWidth is the
+   * column's width). Lives beside — not inside — `panel`, whose open/tab persist
+   * per-tab. */
+  panelPrefs: { sidebarOpen: boolean; sidebarWidth: number };
 } = {
   spec: null,
   activeStep: null,
@@ -201,7 +203,7 @@ export const state: {
   tour: tourDefaults(),
   panelPrefs: {
     sidebarOpen: false,
-    railWidth: Number(readLocal("kvasirRailWidth")) || 190,
+    sidebarWidth: Number(readLocal("kvasirSidebarWidth")) || 190,
   },
 };
 
@@ -316,17 +318,21 @@ export const chatsStore = {
 // The one consolidated panel, split across two persistence scopes:
 //   • PER-TAB (sessionStorage PANEL_STATE_KEY): open + tab — session state. open MUST
 //     be per-tab so a fresh tab doesn't auto-open the panel on every github page.
-//   • GLOBAL (localStorage PANEL_PREFS_KEY): the window's SHAPE — pos, size, sidebarOpen
-//     — a cross-tab preference like railWidth, so reopening a review in a new tab
-//     restores your last size/position/sidebar instead of snapping to the default.
+//   • GLOBAL (localStorage PANEL_PREFS_KEY): the window's SHAPE — pos, size, plus
+//     sidebarOpen (which only matters while the window is narrow enough to fold the
+//     nav column) — cross-tab preferences like sidebarWidth, so reopening a review
+//     in a new tab restores your last size/position instead of the default.
 // Content lives in the tab bodies, which reuse the existing machines.
 
-/** localStorage key for the global window shape (pos + size + sidebarOpen). */
-const PANEL_PREFS_KEY = "kvasir:panelPrefs";
+/** localStorage key for the global window shape (pos + size + sidebarOpen).
+ * v2: size.w is the WINDOW width — v1 stored the content-column width under the
+ * bare "kvasir:panelPrefs" key, so the bump drops v1 blobs instead of
+ * reinterpreting them. */
+const PANEL_PREFS_KEY = "kvasir:panelPrefs.v2";
 
-// The sidebar rail lives on state.panelPrefs, not in tourStore, so the walkthrough's
-// close()/regenerate can never collapse a sidebar opened on another tab (see the
-// panelPrefs field doc for the per-tab vs cross-tab persistence split).
+// The nav-column state lives on state.panelPrefs, not in tourStore, so the
+// walkthrough's close()/regenerate can never collapse a sidebar opened on another
+// tab (see the panelPrefs field doc for the per-tab vs cross-tab persistence split).
 
 const persistPanel = (): void => {
   writeSessionJson(PANEL_STATE_KEY, { open: state.panel.open, tab: state.panel.tab });
@@ -366,12 +372,11 @@ export const panelStore = {
     persistPrefs(); // global (cross-tab), alongside pos/size
     touch();
   },
-  railWidth: (): number => state.panelPrefs.railWidth,
-  setRailWidth(width: number): void {
-    // Bounds mirror the sidebar splitter (Panel) so every caller — the divider AND
-    // the bottom-left window-resize corner — stays in range.
-    state.panelPrefs.railWidth = Math.min(360, Math.max(130, Math.round(width)));
-    writeLocal("kvasirRailWidth", String(state.panelPrefs.railWidth));
+  sidebarWidth: (): number => state.panelPrefs.sidebarWidth,
+  setSidebarWidth(width: number): void {
+    // Bounds mirror the sidebar splitter (Panel) so every caller stays in range.
+    state.panelPrefs.sidebarWidth = Math.min(360, Math.max(130, Math.round(width)));
+    writeLocal("kvasirSidebarWidth", String(state.panelPrefs.sidebarWidth));
     touch();
   },
 
@@ -401,13 +406,19 @@ export const panelStore = {
     state.guideDeleted = false;
     touch();
   },
+  // These DO touch() (the store invariant): the corner grip's live drag renders
+  // geometry straight from the store, so a silent write would freeze it on screen.
+  // The title-bar drag and the resize observer move the DOM first and persist
+  // after, so the extra render is a no-op for them.
   setPos(pos: { left: number; top: number }): void {
     state.panel.pos = pos;
     persistPrefs();
+    touch();
   },
   setSize(size: { w: number; h: number }): void {
     state.panel.size = size;
     persistPrefs();
+    touch();
   },
 };
 

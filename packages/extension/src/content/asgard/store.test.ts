@@ -213,7 +213,7 @@ describe("panelStore", () => {
   });
 
   const persisted = (): unknown => JSON.parse(sessionStorage.getItem("kvasir:panel") ?? "null");
-  const prefs = (): unknown => JSON.parse(localStorage.getItem("kvasir:panelPrefs") ?? "null");
+  const prefs = (): unknown => JSON.parse(localStorage.getItem("kvasir:panelPrefs.v2") ?? "null");
 
   it("open shows the panel and can target a tab; close hides it", () => {
     expect(storeModule.panelStore.isOpen()).toBe(false);
@@ -257,18 +257,21 @@ describe("panelStore", () => {
     expect(storeModule.panelStore.sidebarOpen()).toBe(true);
   });
 
-  it("setPos / setSize persist but don't trigger a React re-render", () => {
+  it("setPos / setSize persist AND re-render (the corner grip renders straight from the store)", () => {
     const before = getSnapshot();
     storeModule.panelStore.setPos({ left: 1, top: 2 });
+    expect(getSnapshot()).not.toBe(before); // touch() fired
+    const mid = getSnapshot();
     storeModule.panelStore.setSize({ w: 3, h: 4 });
+    expect(getSnapshot()).not.toBe(mid);
     expect(storeModule.panelStore.pos()).toEqual({ left: 1, top: 2 });
-    expect(getSnapshot()).toBe(before); // geometry saves skip touch()
+    expect(storeModule.panelStore.size()).toEqual({ w: 3, h: 4 });
   });
 
   it("hydratePanel restores open/tab (sessionStorage) + shape (localStorage); a bogus tab keeps the current one", () => {
     sessionStorage.setItem("kvasir:panel", JSON.stringify({ open: true, tab: "history" }));
     localStorage.setItem(
-      "kvasir:panelPrefs",
+      "kvasir:panelPrefs.v2",
       JSON.stringify({ pos: { left: 5, top: 6 }, size: { w: 7, h: 8 }, sidebarOpen: true }),
     );
     storeModule.hydratePanel();
@@ -290,7 +293,7 @@ describe("panelStore", () => {
       size: { w: 3, h: 4 },
     };
     sessionStorage.clear();
-    localStorage.removeItem("kvasir:panelPrefs"); // nothing persisted anywhere
+    localStorage.removeItem("kvasir:panelPrefs.v2"); // nothing persisted anywhere
     storeModule.hydratePanel();
     expect(storeModule.panelStore.isOpen()).toBe(false);
     expect(storeModule.panelStore.pos()).toBeNull();
@@ -322,14 +325,14 @@ describe("panelStore", () => {
     expect(storeModule.panelStore.sidebarOpen()).toBe(false);
   });
 
-  it("setRailWidth rounds, clamps to [130, 360], and persists to localStorage", () => {
-    storeModule.panelStore.setRailWidth(212.7);
-    expect(storeModule.panelStore.railWidth()).toBe(213); // rounded
-    expect(localStorage.getItem("kvasirRailWidth")).toBe("213");
-    storeModule.panelStore.setRailWidth(50); // below min
-    expect(storeModule.panelStore.railWidth()).toBe(130);
-    storeModule.panelStore.setRailWidth(9000); // above max
-    expect(storeModule.panelStore.railWidth()).toBe(360);
+  it("setSidebarWidth rounds, clamps to [130, 360], and persists to localStorage", () => {
+    storeModule.panelStore.setSidebarWidth(212.7);
+    expect(storeModule.panelStore.sidebarWidth()).toBe(213); // rounded
+    expect(localStorage.getItem("kvasirSidebarWidth")).toBe("213");
+    storeModule.panelStore.setSidebarWidth(50); // below min
+    expect(storeModule.panelStore.sidebarWidth()).toBe(130);
+    storeModule.panelStore.setSidebarWidth(9000); // above max
+    expect(storeModule.panelStore.sidebarWidth()).toBe(360);
   });
 
   it("guideDeleted shows only while nothing is loaded; dismiss + close clear the flag", () => {

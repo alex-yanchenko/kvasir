@@ -20,7 +20,7 @@ describe("wipeStoredData", () => {
     vi.stubGlobal("chrome", { storage: { local: { get, remove } } });
     localStorage.setItem("kvasirTheme", "dark");
     localStorage.setItem("kvasirFirstRunDone", "true");
-    localStorage.setItem("kvasir:panelPrefs", "{}");
+    localStorage.setItem("kvasir:panelPrefs.v2", "{}");
     localStorage.setItem("keep", "x");
     sessionStorage.setItem("kvasir:session:a", "1");
     sessionStorage.setItem("nope", "2");
@@ -31,7 +31,7 @@ describe("wipeStoredData", () => {
     expect(remove).toHaveBeenCalledTimes(1);
     expect(localStorage.getItem("kvasirTheme")).toBeNull();
     expect(localStorage.getItem("kvasirFirstRunDone")).toBeNull(); // the whole LOCAL scope goes
-    expect(localStorage.getItem("kvasir:panelPrefs")).toBeNull();
+    expect(localStorage.getItem("kvasir:panelPrefs.v2")).toBeNull();
     expect(localStorage.getItem("keep")).toBe("x");
     expect(sessionStorage.getItem("kvasir:session:a")).toBeNull();
     expect(sessionStorage.getItem("nope")).toBe("2");
