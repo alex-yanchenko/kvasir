@@ -109,6 +109,10 @@ const manifests = createSqliteManifestStore(db);
 /** Per-PR count of coverage rejections, so we nudge at most once and never loop. */
 const publishNudges = new Map<string, number>();
 const MAX_COVERAGE_NUDGES = 1;
+/** The depth each /generate asked for — stamped onto the spec at publish (the
+ * panel's depth chip). In-memory: a restart inside the authoring window just
+ * publishes without a chip, the same "unknown" a manual publish gets. */
+const generateDepths = new Map<string, "heavy" | "light">();
 
 /** Push an event into the running Claude session. */
 async function pushEvent(content: string, meta: Record<string, string>): Promise<void> {
@@ -148,6 +152,7 @@ Bun.serve({
     snapshot: (id) => broker.snapshot(id),
     pushEvent,
     getHeadSha,
+    recordDepth: (key, depth) => generateDepths.set(key, depth),
     pairing,
   }),
 });
@@ -261,6 +266,7 @@ server.registerTool(
     // (unit-tested); this only applies the side effects the outcome names.
     const outcome = preparePublish(spec, {
       manifests,
+      depths: generateDepths,
       nudges: publishNudges,
       maxNudges: MAX_COVERAGE_NUDGES,
       now: new Date().toISOString(),

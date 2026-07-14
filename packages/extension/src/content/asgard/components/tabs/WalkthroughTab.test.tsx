@@ -80,6 +80,20 @@ describe("generate errors", () => {
 });
 
 describe("WalkthroughTab", () => {
+  it("shows the generation-depth chip only when the spec carries a stamped depth", () => {
+    state.spec = { ...mkSpec(), depth: "heavy" };
+    render(<WalkthroughTab />);
+    expect(screen.getByText("Deep context")).toBeTruthy();
+    cleanup();
+    state.spec = { ...mkSpec(), depth: "light" };
+    render(<WalkthroughTab />);
+    expect(screen.getByText("Diff only")).toBeTruthy();
+    cleanup();
+    state.spec = mkSpec(); // no depth recorded (older spec / restart) — no chip
+    render(<WalkthroughTab />);
+    expect(screen.queryByText(/Deep context|Diff only/)).toBeNull();
+  });
+
   it("empty state runs a walkthrough", () => {
     const gen = vi.spyOn(launcherStore, "requestGenerate").mockResolvedValue();
     render(<WalkthroughTab />);

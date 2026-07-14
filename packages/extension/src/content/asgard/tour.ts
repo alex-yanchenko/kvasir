@@ -102,7 +102,13 @@ export const tourStore = {
     const stamp = state.spec.generatedAt;
     const prior = stamp === state.persistedTour.visitedStamp ? (state.persistedTour.visited ?? []) : [];
     const visited = s && !prior.includes(s.id) ? [...prior, s.id] : prior;
-    state.persistedTour = { ...state.persistedTour, step: stepIndex, overview: false, visited, visitedStamp: stamp };
+    state.persistedTour = {
+      ...state.persistedTour,
+      step: stepIndex,
+      overview: false,
+      visited,
+      visitedStamp: stamp,
+    };
     storeSet(tourKey(prUrl()), state.persistedTour);
     if (!s) return; // empty spec / out-of-range — nothing to highlight
     state.activeStep = s; // current step → available as chat context

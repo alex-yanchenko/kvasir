@@ -88,6 +88,7 @@ export async function startBridge(overrides: Partial<BridgeState> = {}): Promise
     snapshot: (id) => broker.snapshot(id),
     pushEvent: async () => {},
     getHeadSha: async () => state.headSha,
+    recordDepth: () => {},
   };
 
   // Mint a real token via the actual handshake (request auto-approves, then claim),
