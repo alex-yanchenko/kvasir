@@ -90,7 +90,12 @@
   }
 }
 
-/* tab-switch transition: a quick fade + small rise as the new panel mounts */
+/* ── motion ─────────────────────────────────────────────────────────────────────
+   The redesign's motion set: panel open = rise + fade (220ms); tab switch and
+   step/overview/diagram swaps = a 140ms fade-in on the mounting view (the step
+   head stays mounted so the ring can sweep); the ring's arc animates its fill
+   (200ms). Components opt in via motion-safe: on the animations; the ring
+   transition is gated here because it's plain CSS on an SVG attribute. */
 @keyframes kvasir-tab-in {
   from {
     opacity: 0;
@@ -101,12 +106,6 @@
     transform: none;
   }
 }
-
-/* ── motion ─────────────────────────────────────────────────────────────────────
-   The redesign's motion set: panel open = rise + fade; step change = the prose
-   crossfades in (the head stays mounted so the ring can sweep); the ring's arc
-   animates its fill. Components opt in via motion-safe: on the animations; the
-   ring transition is gated here because it's plain CSS on an SVG attribute. */
 @keyframes kvasir-rise {
   from {
     opacity: 0;

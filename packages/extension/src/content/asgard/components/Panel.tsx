@@ -268,7 +268,7 @@ function IconRail({ folded, overlayOpen }: { folded: boolean; overlayOpen: boole
           <Button
             variant="ghost"
             size="icon"
-            className={RAIL_ICON_CELL + (overlayOpen ? " text-primary" : "")}
+            className={`${RAIL_ICON_CELL} duration-[120ms]` + (overlayOpen ? " text-primary" : "")}
             aria-label={overlayOpen ? "Hide sidebar" : "Show sidebar"}
             data-kvasir-tip="Outline / navigation"
             data-kvasir-tip-delay={TIP_DELAY_LONG_MS}
@@ -358,6 +358,10 @@ function PanelWindow(): JSX.Element {
   const title = isReview ? reviewStore.title() || "Kvasir" : (launcherStore.spec()?.pr?.title ?? "Kvasir");
 
   return (
+    // The 220ms rise puts a transform on this fixed element, which briefly makes it
+    // the containing block for fixed descendants (RegenDialog) — accepted: the
+    // dialog can't be opened by a human within the animation window, and the
+    // transform clears the moment the animation ends.
     <div
       ref={panelRef}
       role="dialog"

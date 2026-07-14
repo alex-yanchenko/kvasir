@@ -230,34 +230,35 @@ function StepBody({
           <h3 className="text-[19px] font-[650] leading-tight tracking-tight">{step.title}</h3>
         </div>
       </div>
-      {/* Keyed by step id: navigation remounts the prose so it fades in, while the
-          head above stays mounted and the ring's fill sweeps to the new position. */}
-      <div key={step.id} className="motion-safe:[animation:kvasir-step-in_140ms_ease-out]">
-        <div
-          className="kvasir-prose text-sm"
-          data-testid="step-body"
-          dangerouslySetInnerHTML={{ __html: sanitizeSpecHtml(step.body) }}
-        />
-        {step.detail && (
-          <>
-            <Button
-              variant="link"
-              size="sm"
-              className="mt-2 h-auto p-0"
-              onClick={() => tourStore.setDetailOpen(!detailOpen)}
-            >
-              {detailOpen ? "Hide details" : "Show details"}
-            </Button>
-            {detailOpen && (
-              <div
-                className="kvasir-prose mt-2 border-t border-border pt-2 text-sm"
-                data-testid="step-detail"
-                dangerouslySetInnerHTML={{ __html: sanitizeSpecHtml(step.detail) }}
-              />
-            )}
-          </>
-        )}
-      </div>
+      {/* Keyed by step id: navigation remounts the PROSE so it fades in, while the
+          head above stays mounted (the ring's fill sweeps) and the details toggle
+          below keeps its node — a focused toggle must survive arrow-key nav. */}
+      <div
+        key={step.id}
+        className="kvasir-prose text-sm motion-safe:[animation:kvasir-step-in_140ms_ease-out]"
+        data-testid="step-body"
+        dangerouslySetInnerHTML={{ __html: sanitizeSpecHtml(step.body) }}
+      />
+      {step.detail && (
+        <>
+          <Button
+            variant="link"
+            size="sm"
+            className="mt-2 h-auto p-0"
+            onClick={() => tourStore.setDetailOpen(!detailOpen)}
+          >
+            {detailOpen ? "Hide details" : "Show details"}
+          </Button>
+          {detailOpen && (
+            <div
+              key={step.id}
+              className="kvasir-prose mt-2 border-t border-border pt-2 text-sm motion-safe:[animation:kvasir-step-in_140ms_ease-out]"
+              data-testid="step-detail"
+              dangerouslySetInnerHTML={{ __html: sanitizeSpecHtml(step.detail) }}
+            />
+          )}
+        </>
+      )}
     </div>
   );
 }
@@ -270,7 +271,7 @@ function OverviewView({
   stepCount,
 }: Readonly<{ overview: string; stepCount: number }>): JSX.Element {
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+    <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 motion-safe:[animation:kvasir-step-in_140ms_ease-out]">
       <div className="mb-2 flex items-baseline justify-between gap-2">
         <h3 className="text-base font-semibold">Overview</h3>
         <span className="shrink-0 text-xs text-muted-foreground" data-testid="overview-step-count">

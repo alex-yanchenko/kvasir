@@ -98,6 +98,16 @@ describe("WalkthroughTab", () => {
     expect(screen.queryByText(/Deep context|Diff only/)).toBeNull();
   });
 
+  it("navigation remounts the prose (crossfade) but keeps the step head's node (ring sweep)", () => {
+    state.spec = mkSpec();
+    render(<WalkthroughTab />);
+    const bodyBefore = screen.getByTestId("step-body");
+    const ringBefore = screen.getByTestId("step-ring");
+    fireEvent.click(screen.getByLabelText("Next step"));
+    expect(screen.getByTestId("step-body")).not.toBe(bodyBefore); // keyed → fresh node → animation replays
+    expect(screen.getByTestId("step-ring")).toBe(ringBefore); // unkeyed → same node → the fill transitions
+  });
+
   it("StepRing renders full at 1/1 on a single-step walkthrough", () => {
     const single = mkSpec();
     state.spec = { ...single, steps: [single.steps[0]!] };
