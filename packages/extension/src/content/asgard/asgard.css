@@ -102,6 +102,38 @@
   }
 }
 
+/* ── motion ─────────────────────────────────────────────────────────────────────
+   The redesign's motion set: panel open = rise + fade; step change = the prose
+   crossfades in (the head stays mounted so the ring can sweep); the ring's arc
+   animates its fill. Components opt in via motion-safe: on the animations; the
+   ring transition is gated here because it's plain CSS on an SVG attribute. */
+@keyframes kvasir-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes kvasir-step-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.kvasir-ring-fill {
+  transition: stroke-dashoffset 200ms ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .kvasir-ring-fill {
+    transition: none;
+  }
+}
+
 /* ── regenerate dialog ──────────────────────────────────────────────────────── */
 .kvasir-dialog-back {
   position: fixed;

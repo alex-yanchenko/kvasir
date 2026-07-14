@@ -180,6 +180,7 @@ function StepRing({ index, count }: Readonly<{ index: number; count: number }>):
       <svg viewBox="0 0 38 38" className="-rotate-90" aria-hidden="true">
         <circle cx="19" cy="19" r={RING_R} fill="none" stroke="var(--border)" strokeWidth="3" />
         <circle
+          className="kvasir-ring-fill"
           cx="19"
           cy="19"
           r={RING_R}
@@ -229,30 +230,34 @@ function StepBody({
           <h3 className="text-[19px] font-[650] leading-tight tracking-tight">{step.title}</h3>
         </div>
       </div>
-      <div
-        className="kvasir-prose text-sm"
-        data-testid="step-body"
-        dangerouslySetInnerHTML={{ __html: sanitizeSpecHtml(step.body) }}
-      />
-      {step.detail && (
-        <>
-          <Button
-            variant="link"
-            size="sm"
-            className="mt-2 h-auto p-0"
-            onClick={() => tourStore.setDetailOpen(!detailOpen)}
-          >
-            {detailOpen ? "Hide details" : "Show details"}
-          </Button>
-          {detailOpen && (
-            <div
-              className="kvasir-prose mt-2 border-t border-border pt-2 text-sm"
-              data-testid="step-detail"
-              dangerouslySetInnerHTML={{ __html: sanitizeSpecHtml(step.detail) }}
-            />
-          )}
-        </>
-      )}
+      {/* Keyed by step id: navigation remounts the prose so it fades in, while the
+          head above stays mounted and the ring's fill sweeps to the new position. */}
+      <div key={step.id} className="motion-safe:[animation:kvasir-step-in_140ms_ease-out]">
+        <div
+          className="kvasir-prose text-sm"
+          data-testid="step-body"
+          dangerouslySetInnerHTML={{ __html: sanitizeSpecHtml(step.body) }}
+        />
+        {step.detail && (
+          <>
+            <Button
+              variant="link"
+              size="sm"
+              className="mt-2 h-auto p-0"
+              onClick={() => tourStore.setDetailOpen(!detailOpen)}
+            >
+              {detailOpen ? "Hide details" : "Show details"}
+            </Button>
+            {detailOpen && (
+              <div
+                className="kvasir-prose mt-2 border-t border-border pt-2 text-sm"
+                data-testid="step-detail"
+                dangerouslySetInnerHTML={{ __html: sanitizeSpecHtml(step.detail) }}
+              />
+            )}
+          </>
+        )}
+      </div>
     </div>
   );
 }
