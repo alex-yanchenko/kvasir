@@ -54,17 +54,18 @@ describe("historyStore filter, query, and kind split", () => {
     expect(historyStore.query()).toBe("notes");
   });
 
-  it("splits the filtered list into pr and code sections", () => {
+  it("filtered() applies the search query and the kind facet together", () => {
     state.history = [
       sum({ id: "p1", kind: "pr", title: "Add limit" }),
       sum({ id: "c1", kind: "code", title: "Auth flow" }),
       sum({ id: "p2", kind: "pr", title: "Auth on PR" }),
     ];
-    expect(historyStore.prItems().map((entry) => entry.id)).toEqual(["p1", "p2"]);
-    expect(historyStore.codeItems().map((entry) => entry.id)).toEqual(["c1"]);
     historyStore.setQuery("auth");
-    expect(historyStore.prItems().map((entry) => entry.id)).toEqual(["p2"]);
-    expect(historyStore.codeItems().map((entry) => entry.id)).toEqual(["c1"]);
+    expect(historyStore.filtered().map((entry) => entry.id)).toEqual(["c1", "p2"]);
+    historyStore.setFacet("pr");
+    expect(historyStore.filtered().map((entry) => entry.id)).toEqual(["p2"]);
+    historyStore.setFacet("code");
+    expect(historyStore.filtered().map((entry) => entry.id)).toEqual(["c1"]);
   });
 
   it("filtered() is empty and all() is null before the first load", () => {

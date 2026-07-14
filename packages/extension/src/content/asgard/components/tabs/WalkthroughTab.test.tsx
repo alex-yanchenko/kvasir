@@ -84,18 +84,25 @@ describe("WalkthroughTab", () => {
     state.spec = { ...mkSpec(), depth: "heavy" };
     render(<WalkthroughTab />);
     expect(screen.getByText("Deep context").getAttribute("data-kvasir-tip")).toBe(
-      'Generated with local-repo context (the "Heavy" walkthrough depth)',
+      'Generated with local-repo context (the "Deep context" walkthrough depth)',
     );
     cleanup();
     state.spec = { ...mkSpec(), depth: "light" };
     render(<WalkthroughTab />);
     expect(screen.getByText("Diff only").getAttribute("data-kvasir-tip")).toBe(
-      'Generated from the PR diff alone (the "Light" walkthrough depth)',
+      'Generated from the PR diff alone (the "Diff only" walkthrough depth)',
     );
     cleanup();
     state.spec = mkSpec(); // no depth recorded (older spec / restart) — no chip
     render(<WalkthroughTab />);
     expect(screen.queryByText(/Deep context|Diff only/)).toBeNull();
+  });
+
+  it("StepRing renders full at 1/1 on a single-step walkthrough", () => {
+    const single = mkSpec();
+    state.spec = { ...single, steps: [single.steps[0]!] };
+    render(<WalkthroughTab />);
+    expect(screen.getByTestId("step-ring").textContent).toBe("1/1");
   });
 
   it("empty state runs a walkthrough", () => {
@@ -115,6 +122,40 @@ describe("WalkthroughTab", () => {
     expect(screen.queryByText(/Start the channel/)).toBeNull();
     expect(screen.getByText("No walkthrough yet for this PR.")).toBeTruthy();
     expect(localStorage.getItem("kvasirFirstRunDone")).toBe("true"); // never comes back
+  });
+
+  it("first-run card is a LIVE checklist: pairing progress checks steps off", () => {
+    state.firstRun = true;
+    const stateSpy = vi.spyOn(pairingStore, "state");
+    // channel down → nothing checked
+    stateSpy.mockReturnValue({ phase: "down" });
+    const { unmount } = render(<WalkthroughTab />);
+    const doneTitles = (): string[] =>
+      screen
+        .getAllByText(/^\d\./)
+        .filter((node) => node.closest("[data-done='true']"))
+        .map((node) => node.textContent ?? "");
+    expect(doneTitles()).toEqual([]);
+    unmount();
+    // channel answering but unpaired → step 1 checked
+    stateSpy.mockReturnValue({ phase: "unpaired" });
+    const second = render(<WalkthroughTab />);
+    expect(doneTitles()).toEqual(["1. Start the channel"]);
+    second.unmount();
+    // mid-pair (waiting) also proves the channel answered
+    stateSpy.mockReturnValue({ phase: "waiting", code: "ABC234" });
+    const third = render(<WalkthroughTab />);
+    expect(doneTitles()).toEqual(["1. Start the channel"]);
+    third.unmount();
+    // "error" can mean the health probe never reached the bridge → nothing checked
+    stateSpy.mockReturnValue({ phase: "error", message: "x" });
+    const fourth = render(<WalkthroughTab />);
+    expect(doneTitles()).toEqual([]);
+    fourth.unmount();
+    // paired → steps 1 + 2 checked; Run (3) always reads as todo
+    stateSpy.mockReturnValue({ phase: "paired" });
+    render(<WalkthroughTab />);
+    expect(doneTitles()).toEqual(["1. Start the channel", "2. Pair"]);
   });
 
   it("running the first walkthrough retires the card too — completing the steps IS the dismissal", () => {
@@ -175,9 +216,13 @@ describe("WalkthroughTab", () => {
     expect(tourStore.open()).toBe(true); // started on mount
     expect(screen.getByText("First step")).toBeTruthy();
     expect(screen.getByTestId("step-body").innerHTML).toContain("<b>body one</b>");
+    // G1 step head: the eyebrow names the step's file + position, the ring shows the count
+    expect(screen.getByTestId("step-eyebrow").textContent).toBe("f.ts · 1 of 2");
+    expect(screen.getByTestId("step-ring").textContent).toBe("1/2");
 
     fireEvent.click(screen.getByLabelText("Next step"));
     expect(screen.getByText("Second step")).toBeTruthy();
+    expect(screen.getByTestId("step-ring").textContent).toBe("2/2");
     fireEvent.click(screen.getByLabelText("Previous step"));
     expect(screen.getByText("First step")).toBeTruthy();
 
@@ -422,7 +467,7 @@ describe("WalkthroughTab", () => {
     expect(screen.getByText("First step")).toBeTruthy();
     expect(screen.queryByTestId("overview-body")).toBeNull();
     // with an overview, Back is enabled on step 1 and lands on the overview: prose in the
-    // main pane, footer reads "Overview", Back disabled, Next returns to the first step
+    // main pane, Back disabled, Next returns to the first step
     // on a code step, the step-scoped tools are present
     expect(screen.getByLabelText("Ask about this step")).toBeTruthy();
     expect((screen.getByLabelText("Previous step") as HTMLButtonElement).disabled).toBe(false);
@@ -430,8 +475,8 @@ describe("WalkthroughTab", () => {
     expect(screen.getByTestId("overview-body").innerHTML).toContain("what this PR is about");
     // the overview shows how many code steps follow (mkSpec has two)
     expect(screen.getByTestId("overview-step-count").textContent).toBe("2 steps");
-    // footer counter reads "Overview" (the OverviewView heading is the other match)
-    expect(screen.getAllByText("Overview")).toHaveLength(2);
+    expect(screen.getByRole("heading", { name: "Overview" })).toBeTruthy();
+    expect(screen.queryByTestId("step-ring")).toBeNull(); // the overview has no step-position ring
     expect((screen.getByLabelText("Previous step") as HTMLButtonElement).disabled).toBe(true);
     // the overview offers its own whole-PR chat; scroll-to-code is shown but disabled (no code target)
     expect(screen.queryByLabelText("Ask about this step")).toBeNull();

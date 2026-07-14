@@ -1,6 +1,7 @@
-// Review tab — the step walkthrough for a pushed cross-repo review. Mirrors the
-// Walkthrough tab's step UI, but has no generate/regenerate states (a review is
-// pushed, not generated) and its nav navigates the tab between blob pages
+// Review tab — the step walkthrough for a pushed cross-repo review. Follows the
+// Walkthrough tab's step flow (the step head keeps the pre-Aurora chrome until
+// the review-mode redesign pass), has no generate/regenerate states (a review is
+// pushed, not generated), and its nav navigates the tab between blob pages
 // (reviewStore.goto/next/back), letting GitHub's native #L highlight land each
 // step. Chat is reached the same way as the walkthrough — through activeGuide().
 import { renderMarkdown } from "@kvasir/runes/markdown";

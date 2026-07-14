@@ -25,6 +25,7 @@ import { pairingStore } from "../../pairing";
 import { getSnapshot, PANEL_TABS, panelStore, settingsStore, subscribe } from "../../store";
 import { tourStore } from "../../tour";
 import { Button } from "../../ui/button";
+import { KvasirMark } from "../../ui/KvasirMark";
 import { Diagram } from "../Diagram";
 import { RegenDialog } from "../RegenDialog";
 
@@ -36,7 +37,7 @@ function Generating(): JSX.Element {
   }, []);
   return (
     <div className="flex flex-col items-center gap-3 p-8 text-center">
-      <Loader2 className="size-6 animate-spin text-primary" />
+      <div className="kvasir-shimmer" aria-hidden="true" />
       <div className="text-sm font-medium">Generating walkthrough…</div>
       <div className="text-xs text-muted-foreground">
         {fmtElapsed(Date.now() - launcherStore.genStartAt())} · runs in your Claude session, blocks chat
@@ -81,23 +82,54 @@ function Checking(): JSX.Element {
   );
 }
 
+/** One checklist row of the first-run card: a live check when its step is already
+ * satisfied, a hollow dot (and full-strength text) while it's still to do. */
+function FirstRunItem({
+  done,
+  title,
+  children,
+}: Readonly<{ done: boolean; title: string; children: React.ReactNode }>): JSX.Element {
+  return (
+    <li className="flex items-start gap-2" data-done={done}>
+      <span
+        aria-hidden="true"
+        className={
+          "mt-0.5 inline-flex size-4 shrink-0 items-center justify-center rounded-full border text-[10px] " +
+          (done ? "border-success text-success" : "border-border text-transparent")
+        }
+      >
+        ✓
+      </span>
+      <span className={done ? "line-through opacity-60" : ""}>
+        <b className="text-foreground">{title}</b> — {children}
+      </span>
+    </li>
+  );
+}
+
 /** One-time onboarding shown in the empty state until dismissed: the three steps
- * between a fresh install and a first walkthrough, ending at the real Run button. */
+ * between a fresh install and a first walkthrough, ending at the real Run button.
+ * A LIVE checklist, not static copy — steps the pairing phase already proves done
+ * are checked off (channel answering → 1; paired → 2), so it never coaches you
+ * through something you've already finished. */
 function FirstRunSteps(): JSX.Element {
+  const phase = pairingStore.state().phase;
+  // Only phases that imply a successful health probe count as "channel up" —
+  // "error" can also mean the probe itself never reached the bridge.
+  const channelUp = ["unpaired", "waiting", "paired"].includes(phase);
   return (
     <>
       <p className="text-sm font-medium">Three steps to your first walkthrough</p>
       <ol className="flex max-w-[340px] flex-col gap-2 text-left text-sm text-muted-foreground">
-        <li>
-          <b className="text-foreground">1. Start the channel</b> — run{" "}
-          <b className="font-mono text-foreground">kvasir</b> in your terminal.
-        </li>
-        <li>
-          <b className="text-foreground">2. Pair</b> — Settings → Pair, then approve the code in that session.
-        </li>
-        <li>
-          <b className="text-foreground">3. Run</b> — hit the button below on any PR.
-        </li>
+        <FirstRunItem done={channelUp} title="1. Start the channel">
+          run <b className="font-mono text-foreground">kvasir</b> in your terminal.
+        </FirstRunItem>
+        <FirstRunItem done={phase === "paired"} title="2. Pair">
+          Settings → Pair, then approve the code in that session.
+        </FirstRunItem>
+        <FirstRunItem done={false} title="3. Run">
+          hit the button below on any PR.
+        </FirstRunItem>
       </ol>
     </>
   );
@@ -113,7 +145,10 @@ function Empty(): JSX.Element {
       {firstRun ? (
         <FirstRunSteps />
       ) : (
-        <p className="text-sm text-muted-foreground">No walkthrough yet for this PR.</p>
+        <>
+          <KvasirMark className="size-8 text-primary opacity-80" />
+          <p className="text-sm text-muted-foreground">No walkthrough yet for this PR.</p>
+        </>
       )}
       <Button
         disabled={pairingStore.needsPairing()}
@@ -133,14 +168,67 @@ function Empty(): JSX.Element {
   );
 }
 
+const RING_R = 15.5; // 38px box, 3px stroke — r keeps the stroke inside the viewBox
+const RING_C = 2 * Math.PI * RING_R;
+
+/** The step-position ring (G1): a 38px gradient arc filled to the current step,
+ * count inside. Rotated -90° so progress starts at 12 o'clock; the count span
+ * stays upright outside the rotation. */
+function StepRing({ index, count }: Readonly<{ index: number; count: number }>): JSX.Element {
+  return (
+    <div className="relative size-[38px] shrink-0" data-testid="step-ring">
+      <svg viewBox="0 0 38 38" className="-rotate-90" aria-hidden="true">
+        <circle cx="19" cy="19" r={RING_R} fill="none" stroke="var(--border)" strokeWidth="3" />
+        <circle
+          cx="19"
+          cy="19"
+          r={RING_R}
+          fill="none"
+          stroke="url(#kvasir-ring-grad)"
+          strokeWidth="3"
+          strokeLinecap="round"
+          strokeDasharray={RING_C}
+          strokeDashoffset={RING_C * (1 - (index + 1) / count)}
+        />
+        <defs>
+          <linearGradient id="kvasir-ring-grad" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stopColor="var(--aurora-2)" />
+            <stop offset="1" stopColor="var(--aurora-1)" />
+          </linearGradient>
+        </defs>
+      </svg>
+      <span className="absolute inset-0 flex items-center justify-center text-[10px] font-semibold tabular-nums">
+        {index + 1}/{count}
+      </span>
+    </div>
+  );
+}
+
 // The current step's prose + its expandable detail. Split out of Steps so that
 // component stays under the cognitive-complexity bar; detail open state lives on
 // state.tour (via tourStore) so it persists across a tab switch.
-function StepBody({ step }: Readonly<{ step: WalkthroughStep }>): JSX.Element {
+function StepBody({
+  step,
+  index,
+  count,
+}: Readonly<{ step: WalkthroughStep; index: number; count: number }>): JSX.Element {
   const detailOpen = tourStore.detailOpen();
   return (
     <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
-      <h3 className="mb-2 text-base font-semibold">{step.title}</h3>
+      {/* G1 step head: eyebrow (the outline's group = the step's file, plus position),
+          ring beside the title. The footer carries no counter — the ring owns position. */}
+      <div className="mb-3 flex items-center gap-3">
+        <StepRing index={index} count={count} />
+        <div className="min-w-0">
+          <div
+            className="truncate font-mono text-[9.5px] font-semibold uppercase tracking-[0.13em] text-muted-foreground"
+            data-testid="step-eyebrow"
+          >
+            {step.file} · {index + 1} of {count}
+          </div>
+          <h3 className="text-[19px] font-[650] leading-tight tracking-tight">{step.title}</h3>
+        </div>
+      </div>
       <div
         className="kvasir-prose text-sm"
         data-testid="step-body"
@@ -199,17 +287,19 @@ function OverviewView({
 function MainView({
   spec,
   step,
+  index,
   diagramOpen,
   overview,
 }: Readonly<{
   spec: WalkthroughSpec;
   step: WalkthroughStep;
+  index: number;
   diagramOpen: boolean;
   overview: string | undefined;
 }>): JSX.Element {
   if (overview) return <OverviewView overview={overview} stepCount={spec.steps.length} />;
   if (diagramOpen && spec.diagram) return <Diagram source={spec.diagram} />;
-  return <StepBody step={step} />;
+  return <StepBody step={step} index={index} count={spec.steps.length} />;
 }
 
 // The "ask" button: on a code step it opens that step's chat; on the overview "step
@@ -328,11 +418,9 @@ function StepTools({
   );
 }
 
-// Footer: Back · step counter · Next on one row. The counter sits between the buttons
-// (it stays short at any step count); the outline sidebar handles jumping to a step.
-// On the overview "step 0" the counter reads "Overview" and Back is disabled.
-function Footer({ index, count }: Readonly<{ index: number; count: number }>): JSX.Element {
-  const atOverview = tourStore.atOverview();
+// Footer: Back (ghost) · Next (aurora gradient) — no counter; the step head's ring
+// owns position, and the outline sidebar handles jumping to a step.
+function Footer(): JSX.Element {
   return (
     <div className="flex items-center justify-between gap-2 border-t border-border px-3 py-2">
       <Button
@@ -344,18 +432,10 @@ function Footer({ index, count }: Readonly<{ index: number; count: number }>): J
       >
         <ChevronLeft /> Back
       </Button>
-      <span className="shrink-0 text-xs text-muted-foreground">
-        {atOverview ? (
-          "Overview"
-        ) : (
-          <>
-            Step <span className="font-medium text-primary">{index + 1}</span> / {count}
-          </>
-        )}
-      </span>
       <Button
         variant="default"
         size="sm"
+        className="kvasir-next"
         aria-label="Next step"
         disabled={!tourStore.canNext()}
         onClick={() => tourStore.next()}
@@ -370,7 +450,6 @@ function Steps({ spec }: Readonly<{ spec: WalkthroughSpec }>): JSX.Element {
   const [dialog, setDialog] = useState(false);
   const step = tourStore.step();
   const index = tourStore.stepIndex();
-  const count = tourStore.stepCount();
 
   // Start (resume) the tour when this tab opens, and re-start when the displayed
   // spec's identity changes — the cache-first load can swap a regenerated live
@@ -401,8 +480,8 @@ function Steps({ spec }: Readonly<{ spec: WalkthroughSpec }>): JSX.Element {
             className="min-w-0 truncate rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground"
             data-kvasir-tip={
               spec.depth === "heavy"
-                ? 'Generated with local-repo context (the "Heavy" walkthrough depth)'
-                : 'Generated from the PR diff alone (the "Light" walkthrough depth)'
+                ? 'Generated with local-repo context (the "Deep context" walkthrough depth)'
+                : 'Generated from the PR diff alone (the "Diff only" walkthrough depth)'
             }
           >
             {spec.depth === "heavy" ? "Deep context" : "Diff only"}
@@ -411,9 +490,9 @@ function Steps({ spec }: Readonly<{ spec: WalkthroughSpec }>): JSX.Element {
         <StepTools spec={spec} step={step} index={index} onRegen={() => setDialog(true)} />
       </div>
 
-      <MainView spec={spec} step={step} diagramOpen={diagramOpen} overview={overview} />
+      <MainView spec={spec} step={step} index={index} diagramOpen={diagramOpen} overview={overview} />
 
-      <Footer index={index} count={count} />
+      <Footer />
       {dialog && <RegenDialog onClose={() => setDialog(false)} />}
     </div>
   );

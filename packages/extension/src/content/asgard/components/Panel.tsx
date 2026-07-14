@@ -107,7 +107,7 @@ const CONNECTION_DOT: Record<PairingPhase["phase"], { className: string; label: 
   unpaired: { className: "bg-warning", label: "Not paired" },
   waiting: { className: "bg-warning", label: "Pairing…" },
   error: { className: "bg-warning", label: "Pairing failed" },
-  paired: { className: "bg-success", label: "Connected to your Claude session" },
+  paired: { className: "bg-success kvasir-dot-glow", label: "Connected to your Claude session" },
 };
 
 function ConnectionDot(): JSX.Element {
@@ -288,7 +288,7 @@ function IconRail({ folded, overlayOpen }: { folded: boolean; overlayOpen: boole
             data-kvasir-tip={label}
             data-kvasir-tip-delay={TIP_DELAY_LONG_MS}
             className={
-              `relative ${RAIL_ICON_CELL} shrink-0 p-0 [&_svg]:size-4` +
+              `relative ${RAIL_ICON_CELL} shrink-0 p-0 [&_svg]:size-4 data-[state=active]:border-primary/25 data-[state=active]:bg-accent data-[state=active]:text-accent-foreground` +
               (value === PANEL_TABS.SETTINGS ? " mt-auto" : "")
             }
           >
@@ -362,7 +362,7 @@ function PanelWindow(): JSX.Element {
       ref={panelRef}
       role="dialog"
       aria-label="Kvasir"
-      className="kvasir-panel fixed bottom-5 right-5 z-[2147483002] flex max-h-[85vh] min-h-[320px] w-[860px] max-w-[92vw] resize overflow-hidden rounded-lg border border-border bg-background text-foreground"
+      className="kvasir-panel kvasir-glass fixed bottom-5 right-5 z-[2147483002] flex max-h-[85vh] min-h-[320px] w-[860px] max-w-[92vw] resize overflow-hidden rounded-[var(--radius-panel)] border border-border text-foreground"
       style={{
         boxShadow: "var(--elevation)",
         ...(pos ? { left: pos.left, top: pos.top, right: "auto", bottom: "auto" } : null),

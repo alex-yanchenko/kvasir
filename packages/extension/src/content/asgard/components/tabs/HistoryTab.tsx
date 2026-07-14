@@ -1,8 +1,9 @@
-// History tab — browse, reopen, and prune stored walkthroughs by their term
-// (title), in two sections: PR Walkthroughs and Code Walkthroughs. Lists the
-// durable store (GET /history) with a search filter; a row opens that artifact,
-// the trash soft-deletes it, and a ↻ appears when the backend content has moved
-// past what was last shown (click to acknowledge; "Sync all" clears them at once).
+// History tab — browse, reopen, and prune stored walkthroughs. One recency-ordered
+// list of both kinds, each row led by a fixed-width PR/Code chip (the sidebar
+// facets narrow by kind). Lists the durable store (GET /history) with a search
+// filter; a row opens that artifact, the trash soft-deletes it, and a ↻ appears
+// when the backend content has moved past what was last shown (click to
+// acknowledge; "Sync all" clears them at once).
 import type { EntrySummary } from "@kvasir/runes/history";
 import { Loader2, RefreshCw, Trash2 } from "lucide-react";
 import { useEffect, useSyncExternalStore } from "react";
@@ -18,15 +19,29 @@ function HistoryRow({ entry }: Readonly<{ entry: EntrySummary }>): JSX.Element {
       <button
         type="button"
         onClick={() => historyStore.open(entry)}
-        className="flex min-w-0 flex-1 flex-col items-start gap-0.5 rounded-md border border-border px-2 py-1.5 text-left hover:bg-secondary"
+        className="flex min-w-0 flex-1 items-start gap-2 rounded-md border border-border px-2 py-1.5 text-left hover:bg-secondary"
       >
-        <span className="w-full break-words text-sm font-medium text-foreground">{entry.title}</span>
-        <span className="text-xs text-muted-foreground">
-          {entry.repos.join(", ")}
-          {entry.prNumber === undefined ? "" : ` #${entry.prNumber}`} · {entry.steps} step
-          {entry.steps === 1 ? "" : "s"}
-          {entry.author ? ` · by ${entry.author}` : ""}
-          {entry.source ? ` · ${entry.source}` : ""}
+        {/* Fixed-width kind chip so titles align down the list regardless of the
+            chip's text (46px fits "CODE", the wider label, at this size/tracking).
+            Violet is reserved for the Code chip — the one place violet may color
+            text. */}
+        <span
+          className={
+            "mt-0.5 inline-flex w-[46px] shrink-0 justify-center rounded-full border border-border py-px text-[9.5px] font-semibold uppercase tracking-[0.11em] " +
+            (entry.kind === "code" ? "text-[var(--aurora-3)]" : "text-primary")
+          }
+        >
+          {entry.kind === "code" ? "Code" : "PR"}
+        </span>
+        <span className="flex min-w-0 flex-col gap-0.5">
+          <span className="w-full break-words text-sm font-medium text-foreground">{entry.title}</span>
+          <span className="text-xs text-muted-foreground">
+            {entry.repos.join(", ")}
+            {entry.prNumber === undefined ? "" : ` #${entry.prNumber}`} · {entry.steps} step
+            {entry.steps === 1 ? "" : "s"}
+            {entry.author ? ` · by ${entry.author}` : ""}
+            {entry.source ? ` · ${entry.source}` : ""}
+          </span>
         </span>
       </button>
       {stale ? (
@@ -62,25 +77,20 @@ function emptyCopy(facet: string): string {
   return pairingStore.state().phase === "down" ? CHANNEL_DOWN_COPY : "None yet.";
 }
 
-function HistorySection({
-  label,
-  items,
-  facet,
-}: Readonly<{ label: string; items: EntrySummary[]; facet: string }>): JSX.Element {
-  const empty = emptyCopy(facet);
+// One flat list ordered by recency — the per-row kind chip carries PR vs Code
+// (the sidebar facets narrow it), so there are no section headers to break the
+// aligned chip column.
+function HistoryList({ facet }: Readonly<{ facet: string }>): JSX.Element {
+  const items = historyStore.filtered().toSorted((a, b) => b.updatedAt - a.updatedAt);
+  if (items.length === 0) {
+    return <p className="px-2 py-1 text-sm text-muted-foreground">{emptyCopy(facet)}</p>;
+  }
   return (
-    <section className="flex flex-col gap-1">
-      <h3 className="px-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</h3>
-      {items.length === 0 ? (
-        <p className="px-2 py-1 text-sm text-muted-foreground">{empty}</p>
-      ) : (
-        <ul className="flex flex-col gap-1">
-          {items.map((entry) => (
-            <HistoryRow key={entry.id} entry={entry} />
-          ))}
-        </ul>
-      )}
-    </section>
+    <ul className="flex flex-col gap-1">
+      {items.map((entry) => (
+        <HistoryRow key={entry.id} entry={entry} />
+      ))}
+    </ul>
   );
 }
 
@@ -144,14 +154,8 @@ export function HistoryTab(): JSX.Element {
           </button>
         ) : null}
       </div>
-      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto">
-        {/* The sidebar facet hides the section it excludes (e.g. "pr" → no Code section). */}
-        {facet !== "code" && (
-          <HistorySection label="PR Walkthroughs" items={historyStore.prItems()} facet={facet} />
-        )}
-        {facet !== "pr" && (
-          <HistorySection label="Code Walkthroughs" items={historyStore.codeItems()} facet={facet} />
-        )}
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <HistoryList facet={facet} />
       </div>
     </div>
   );

@@ -12,8 +12,7 @@ vi.mock("../../history", () => ({
     setQuery: vi.fn(),
     facet: vi.fn(),
     load: vi.fn(),
-    prItems: vi.fn(),
-    codeItems: vi.fn(),
+    filtered: vi.fn(),
     driftFor: vi.fn(),
     staleCount: vi.fn(),
     open: vi.fn(),
@@ -45,8 +44,7 @@ beforeEach(() => {
   vi.mocked(historyStore.query).mockReturnValue("");
   vi.mocked(historyStore.facet).mockReturnValue("all");
   vi.mocked(historyStore.all).mockReturnValue([]);
-  vi.mocked(historyStore.prItems).mockReturnValue([]);
-  vi.mocked(historyStore.codeItems).mockReturnValue([]);
+  vi.mocked(historyStore.filtered).mockReturnValue([]);
   vi.mocked(historyStore.driftFor).mockReturnValue("current");
   vi.mocked(historyStore.staleCount).mockReturnValue(0);
   pairingStore.reset(); // module singleton — "unknown" unless a test sets the phase
@@ -74,8 +72,8 @@ describe("HistoryTab", () => {
 
   it("names a down channel in the empty state instead of claiming None yet", () => {
     vi.spyOn(pairingStore, "state").mockReturnValue({ phase: "down" });
-    render(<HistoryTab />); // loaded [] + both sections empty
-    expect(screen.getAllByText(/Channel not running/).length).toBeGreaterThan(0);
+    render(<HistoryTab />); // loaded [] → the flat list is empty
+    expect(screen.getByText(/Channel not running/)).toBeTruthy();
     expect(screen.queryByText("None yet.")).toBeNull();
   });
 
@@ -89,7 +87,7 @@ describe("HistoryTab", () => {
     expect(historyStore.dismissError).toHaveBeenCalledTimes(1);
   });
 
-  it("renders both sections; a row opens its entry; step count + source format", () => {
+  it("renders one flat recency-ordered list with fixed kind chips; a row opens its entry", () => {
     const pr = sum({
       id: "p1",
       kind: "pr",
@@ -97,14 +95,25 @@ describe("HistoryTab", () => {
       steps: 1,
       source: undefined,
       repos: ["acme/web"],
+      updatedAt: 1000,
     });
-    const code = sum({ id: "c1", kind: "code", title: "Code one", steps: 2, source: "chat" });
+    const code = sum({
+      id: "c1",
+      kind: "code",
+      title: "Code one",
+      steps: 2,
+      source: "chat",
+      updatedAt: 2000,
+    });
     vi.mocked(historyStore.all).mockReturnValue([pr, code]);
-    vi.mocked(historyStore.prItems).mockReturnValue([pr]);
-    vi.mocked(historyStore.codeItems).mockReturnValue([code]);
+    vi.mocked(historyStore.filtered).mockReturnValue([pr, code]);
     render(<HistoryTab />);
-    expect(screen.getByText("PR Walkthroughs")).toBeTruthy();
-    expect(screen.getByText("Code Walkthroughs")).toBeTruthy();
+    expect(screen.queryByText("PR Walkthroughs")).toBeNull(); // no section headers — the chip carries the kind
+    expect(screen.getByText("PR")).toBeTruthy();
+    expect(screen.getByText("Code")).toBeTruthy();
+    // recency order: the newer code entry is listed before the older PR entry
+    const titles = screen.getAllByText(/one$/).map((node) => node.textContent);
+    expect(titles).toEqual(["Code one", "PR one"]);
     expect(screen.getByText("acme/web · 1 step")).toBeTruthy();
     expect(screen.getByText("acme/web · 2 steps · chat")).toBeTruthy();
     fireEvent.click(screen.getByText("PR one"));
@@ -112,18 +121,13 @@ describe("HistoryTab", () => {
     expect(historyStore.open).toHaveBeenCalledTimes(1);
   });
 
-  it("the active facet hides the section it excludes", () => {
-    vi.mocked(historyStore.all).mockReturnValue([sum({ id: "p1", kind: "pr" })]);
-    vi.mocked(historyStore.prItems).mockReturnValue([sum({ id: "p1", kind: "pr" })]);
+  it("renders exactly the store's facet-filtered list", () => {
+    vi.mocked(historyStore.all).mockReturnValue([sum({ id: "p1", kind: "pr" }), sum({ id: "c1" })]);
+    vi.mocked(historyStore.filtered).mockReturnValue([sum({ id: "p1", kind: "pr", title: "PR one" })]);
     vi.mocked(historyStore.facet).mockReturnValue("pr");
-    const { unmount } = render(<HistoryTab />);
-    expect(screen.getByText("PR Walkthroughs")).toBeTruthy();
-    expect(screen.queryByText("Code Walkthroughs")).toBeNull(); // hidden under "pr"
-    unmount();
-    vi.mocked(historyStore.facet).mockReturnValue("code");
     render(<HistoryTab />);
-    expect(screen.queryByText("PR Walkthroughs")).toBeNull(); // hidden under "code"
-    expect(screen.getByText("Code Walkthroughs")).toBeTruthy();
+    expect(screen.getByText("PR one")).toBeTruthy();
+    expect(screen.queryByText("Code")).toBeNull(); // the excluded kind renders no row
   });
 
   it("shows the PR number and author on a PR Walkthrough row", () => {
@@ -138,7 +142,7 @@ describe("HistoryTab", () => {
       author: "alice",
     });
     vi.mocked(historyStore.all).mockReturnValue([pr]);
-    vi.mocked(historyStore.prItems).mockReturnValue([pr]);
+    vi.mocked(historyStore.filtered).mockReturnValue([pr]);
     render(<HistoryTab />);
     expect(screen.getByText("acme/web #7 · 12 steps · by alice")).toBeTruthy();
   });
@@ -147,7 +151,7 @@ describe("HistoryTab", () => {
     const stale = sum({ id: "c1", title: "Stale one" });
     const fresh = sum({ id: "c2", title: "Fresh one" });
     vi.mocked(historyStore.all).mockReturnValue([stale, fresh]);
-    vi.mocked(historyStore.codeItems).mockReturnValue([stale, fresh]);
+    vi.mocked(historyStore.filtered).mockReturnValue([stale, fresh]);
     vi.mocked(historyStore.driftFor).mockImplementation((entry) =>
       entry.id === "c1" ? "update" : "current",
     );
@@ -161,7 +165,7 @@ describe("HistoryTab", () => {
 
   it("offers Sync all when entries are stale, wired to syncAll", () => {
     vi.mocked(historyStore.all).mockReturnValue([sum()]);
-    vi.mocked(historyStore.codeItems).mockReturnValue([sum()]);
+    vi.mocked(historyStore.filtered).mockReturnValue([sum()]);
     vi.mocked(historyStore.staleCount).mockReturnValue(2);
     render(<HistoryTab />);
     const button = screen.getByRole("button", { name: /Sync all/ });
@@ -170,23 +174,22 @@ describe("HistoryTab", () => {
     expect(historyStore.syncAll).toHaveBeenCalledTimes(1);
   });
 
-  it("shows per-section empty copy: 'None yet.' with no query, 'No matches.' with one", () => {
+  it("shows empty copy: 'None yet.' with no query, 'No matches.' with one", () => {
     render(<HistoryTab />);
-    expect(screen.getAllByText("None yet.")).toHaveLength(2);
+    expect(screen.getByText("None yet.")).toBeTruthy();
     expect(screen.queryByRole("button", { name: /Sync all/ })).toBeNull();
     cleanup();
     vi.mocked(historyStore.query).mockReturnValue("zzz");
     render(<HistoryTab />);
-    expect(screen.getAllByText("No matches.")).toHaveLength(2);
+    expect(screen.getByText("No matches.")).toBeTruthy();
   });
 
-  it("reads 'None in this filter.' (not 'None yet.') when a facet empties a kind that has entries", () => {
-    vi.mocked(historyStore.facet).mockReturnValue("stale"); // both sections show, only stale items
+  it("reads 'None in this filter.' (not 'None yet.') when the facet excludes every entry", () => {
+    vi.mocked(historyStore.facet).mockReturnValue("stale");
     vi.mocked(historyStore.all).mockReturnValue([sum({ id: "p1", kind: "pr" })]); // entries exist…
-    vi.mocked(historyStore.prItems).mockReturnValue([]); // …but none are stale
-    vi.mocked(historyStore.codeItems).mockReturnValue([]);
+    vi.mocked(historyStore.filtered).mockReturnValue([]); // …but none are stale
     render(<HistoryTab />);
-    expect(screen.getAllByText("None in this filter.")).toHaveLength(2);
+    expect(screen.getByText("None in this filter.")).toBeTruthy();
     expect(screen.queryByText("None yet.")).toBeNull();
   });
 
