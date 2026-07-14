@@ -14,7 +14,7 @@ import { pairingStore } from "../../pairing";
 import { reviewStore } from "../../review";
 import { getSnapshot, PANEL_TABS, panelStore, subscribe } from "../../store";
 import { Button } from "../../ui/button";
-import { StepRing } from "../StepRing";
+import { StepHead } from "../StepRing";
 
 export function ReviewTab(): JSX.Element {
   useSyncExternalStore(subscribe, getSnapshot);
@@ -23,7 +23,9 @@ export function ReviewTab(): JSX.Element {
   const step = reviewStore.step();
   const index = reviewStore.stepIndex();
   const count = reviewStore.stepCount();
-  // Collapse details when the step changes (mirrors the walkthrough tab).
+  // Collapse details when the step changes. (The walkthrough persists detail-open
+  // across steps via tourStore; review keeps it step-local — each step's detail is
+  // an independent aside, not a reading mode.)
   useEffect(() => setShowDetail(false), [index]);
 
   if (!step) {
@@ -39,11 +41,11 @@ export function ReviewTab(): JSX.Element {
   const navigating = reviewStore.navigating(); // a cross-file step is loading a new page
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center gap-2 border-b border-border px-3 py-2">
+      <div className="flex items-center justify-end border-b border-border px-3 py-2">
         <Button
           variant="ghost"
           size="icon"
-          className="ml-auto h-7 w-7"
+          className="h-7 w-7"
           aria-label="Ask about this step"
           data-kvasir-tip="Ask about this step"
           disabled={pairingStore.needsPairing()}
@@ -57,20 +59,15 @@ export function ReviewTab(): JSX.Element {
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
-        {/* G1 step head: eyebrow (repo + file + position), ring beside the title.
-            The head stays mounted across steps so the ring's fill sweeps. */}
-        <div className="mb-3 flex items-center gap-3">
-          <StepRing index={index} count={count} />
-          <div className="min-w-0">
-            <div
-              className="truncate font-mono text-[9.5px] font-semibold uppercase tracking-[0.13em] text-muted-foreground"
-              data-testid="review-step-eyebrow"
-            >
-              {step.repo.owner}/{step.repo.name} · {step.file} · {index + 1} of {count}
-            </div>
-            <h3 className="text-[19px] font-[650] leading-tight tracking-tight">{step.title}</h3>
-          </div>
-        </div>
+        {/* G1 step head — review steps span repos, so the eyebrow carries the repo
+            where the walkthrough's carries just the file. */}
+        <StepHead
+          eyebrow={`${step.repo.owner}/${step.repo.name} · ${step.file} · ${index + 1} of ${count}`}
+          eyebrowTestId="review-step-eyebrow"
+          title={step.title}
+          index={index}
+          count={count}
+        />
         {/* step.body/detail are MARKDOWN (a pushed review), so they go through
             renderMarkdown — a constructive renderer that escapes first and only
             emits a fixed safe tag/attr set (links are protocol-checked and the

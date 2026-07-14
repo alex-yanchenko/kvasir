@@ -7,7 +7,7 @@ vi.mock("../../../muninn", () => ({ storeGet: vi.fn(), storeSet: vi.fn(), storeR
 
 import { pairingStore } from "../../pairing";
 import { reviewStore } from "../../review";
-import { PANEL_TABS, panelStore, state } from "../../store";
+import { PANEL_TABS, panelStore, state, touch } from "../../store";
 import { ReviewTab } from "./ReviewTab";
 
 const mkReview = (): Review => ({
@@ -162,6 +162,18 @@ describe("ReviewTab", () => {
   it("offers no in-footer step jumper — the review outline sidebar owns jumping", () => {
     render(<ReviewTab />);
     expect(screen.queryByRole("button", { name: /Go to step/ })).toBeNull();
+  });
+
+  it("navigation remounts the step body but keeps the ring's node (sweep persists)", () => {
+    render(<ReviewTab />);
+    const bodyBefore = screen.getByTestId("review-step-body");
+    const ringBefore = screen.getByTestId("step-ring");
+    act(() => {
+      state.reviewStep = 1;
+      touch();
+    });
+    expect(screen.getByTestId("review-step-body")).not.toBe(bodyBefore); // keyed → fresh node → fade replays
+    expect(screen.getByTestId("step-ring")).toBe(ringBefore); // unkeyed → same node → the fill transitions
   });
 
   it("shows a loading state on the nav while a cross-file step is navigating", () => {

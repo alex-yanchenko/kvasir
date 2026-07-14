@@ -1,5 +1,5 @@
-// The step-position ring (the G1 step head): a 38px gradient arc filled to the
-// current step, count inside. Shared by the walkthrough and review step heads.
+// The G1 step head shared by the walkthrough and review tabs: a 38px gradient
+// ring filled to the current step (count inside) beside an eyebrow + title.
 import type { JSX } from "react";
 
 const RING_R = 15.5; // 38px box, 3px stroke — r keeps the stroke inside the viewBox
@@ -35,6 +35,39 @@ export function StepRing({ index, count }: Readonly<{ index: number; count: numb
       <span className="absolute inset-0 flex items-center justify-center text-[10px] font-semibold tabular-nums">
         {index + 1}/{count}
       </span>
+    </div>
+  );
+}
+
+/** The full G1 head: ring beside the eyebrow + title. The eyebrow string carries
+ * the position context (the consumer decides its shape — file vs repo·file);
+ * index/count drive the ring. Consumers must keep this mounted across step
+ * navigation so the ring's fill sweeps. */
+export function StepHead({
+  eyebrow,
+  eyebrowTestId,
+  title,
+  index,
+  count,
+}: Readonly<{
+  eyebrow: string;
+  eyebrowTestId: string;
+  title: string;
+  index: number;
+  count: number;
+}>): JSX.Element {
+  return (
+    <div className="mb-3 flex items-center gap-3">
+      <StepRing index={index} count={count} />
+      <div className="min-w-0">
+        <div
+          className="truncate font-mono text-[9.5px] font-semibold uppercase tracking-[0.13em] text-muted-foreground"
+          data-testid={eyebrowTestId}
+        >
+          {eyebrow}
+        </div>
+        <h3 className="text-[19px] font-[650] leading-tight tracking-tight">{title}</h3>
+      </div>
     </div>
   );
 }

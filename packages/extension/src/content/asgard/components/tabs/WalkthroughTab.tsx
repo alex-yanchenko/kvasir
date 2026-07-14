@@ -28,7 +28,7 @@ import { Button } from "../../ui/button";
 import { KvasirMark } from "../../ui/KvasirMark";
 import { Diagram } from "../Diagram";
 import { RegenDialog } from "../RegenDialog";
-import { StepRing } from "../StepRing";
+import { StepHead } from "../StepRing";
 
 function Generating(): JSX.Element {
   const [, setTick] = useState(0);
@@ -180,20 +180,15 @@ function StepBody({
   const detailOpen = tourStore.detailOpen();
   return (
     <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
-      {/* G1 step head: eyebrow (the outline's group = the step's file, plus position),
-          ring beside the title. The footer carries no counter — the ring owns position. */}
-      <div className="mb-3 flex items-center gap-3">
-        <StepRing index={index} count={count} />
-        <div className="min-w-0">
-          <div
-            className="truncate font-mono text-[9.5px] font-semibold uppercase tracking-[0.13em] text-muted-foreground"
-            data-testid="step-eyebrow"
-          >
-            {step.file} · {index + 1} of {count}
-          </div>
-          <h3 className="text-[19px] font-[650] leading-tight tracking-tight">{step.title}</h3>
-        </div>
-      </div>
+      {/* G1 step head — the eyebrow carries the outline's group (the step's file)
+          plus position; the footer carries no counter, the ring owns position. */}
+      <StepHead
+        eyebrow={`${step.file} · ${index + 1} of ${count}`}
+        eyebrowTestId="step-eyebrow"
+        title={step.title}
+        index={index}
+        count={count}
+      />
       {/* Keyed by step id: navigation remounts the PROSE so it fades in, while the
           head above stays mounted (the ring's fill sweeps) and the details toggle
           below keeps its node — a focused toggle must survive arrow-key nav. */}
