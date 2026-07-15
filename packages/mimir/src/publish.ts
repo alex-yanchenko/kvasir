@@ -6,8 +6,8 @@
  * significant file has no step, once), or publish (stamped + ready). The handler
  * just applies the side effects the outcome names (Map writes, logging, throw).
  */
-import { type Depth, prKey, type WalkthroughSpec } from "@kvasir/runes";
-import { COVERAGE_MIN_ADDS, significantFiles, stepsOffTarget, uncoveredFiles } from "./manifest";
+import { anchorFor, type Depth, prKey, type WalkthroughSpec } from "@kvasir/runes";
+import { COVERAGE_MIN_ADDS, pathsMatch, significantFiles, stepsOffTarget, uncoveredFiles } from "./manifest";
 import type { ManifestStore } from "./manifestStore.sqlite";
 import { parseSpecInput } from "./specInput";
 
@@ -97,10 +97,21 @@ export function preparePublish(rawSpec: unknown, state: PublishState): PublishOu
   // Stamp generatedAt (so clients detect the update) and the PR author from the
   // manifest server-side — the author is not trusted from the model-authored spec.
   const depth = state.depths.get(key);
+  // GitHub anchors each file's diff as `diff-<sha256(path)>`. Derive every step's
+  // anchor server-side from its file — the model-authored anchor is never trusted.
+  // The schema only checks it's a string, so a truncated/mistyped value would pass
+  // validation yet make the extension's getElementById(anchor) miss, silently
+  // no-oping every step's jump-to-code. Prefer the manifest's recorded anchor for the
+  // file (authoritative, and correct for renames where the diff anchor isn't
+  // sha256 of the current path); fall back to deriving it from the path when there is
+  // no manifest (the manual build path).
+  const resolveAnchor = (file: string): string =>
+    manifest?.files.find((changed) => pathsMatch(changed.path, file))?.anchor ?? anchorFor(file);
   const stamped: WalkthroughSpec = {
     ...spec,
     generatedAt: state.now,
     pr: manifest ? { ...spec.pr, author: manifest.author } : spec.pr,
+    steps: spec.steps.map((step) => ({ ...step, anchor: resolveAnchor(step.file) })),
     // Coverage is meaningful only against a diff manifest — omit it (rather than
     // stamp empty arrays) when start_walkthrough wasn't recorded, so the panel
     // can tell "fully covered" from "unknown".

@@ -1,4 +1,4 @@
-import type { Depth } from "@kvasir/runes";
+import { anchorFor, type Depth } from "@kvasir/runes";
 import { describe, it, expect } from "vitest";
 import type { PrManifest } from "./manifest";
 import { preparePublish, type PublishState } from "./publish";
@@ -61,12 +61,35 @@ describe("preparePublish", () => {
 
   it("publishes (stamped) when there is no manifest to check coverage against", () => {
     const outcome = preparePublish(spec(), state());
+    const base = spec();
     expect(outcome).toEqual({
       kind: "published",
       key: KEY,
-      spec: { ...spec(), generatedAt: NOW },
+      spec: {
+        ...base,
+        generatedAt: NOW,
+        // anchor is re-derived from the file path, replacing the fixture's "diff-0"
+        steps: base.steps.map((step) => ({ ...step, anchor: anchorFor(step.file) })),
+      },
       message: "Published 1 steps. Open the PR; the extension will render it.",
     });
+  });
+
+  it("overwrites the model-authored anchor with the one derived from the file path", () => {
+    // The fixture sends anchor "diff-0" (a stand-in for a truncated/mistyped value);
+    // publish must replace it with the canonical diff-<sha256(path)> GitHub uses.
+    const outcome = preparePublish(spec([{ file: "src/a.ts" }]), state());
+    const anchor = outcome.kind === "published" ? outcome.spec.steps[0].anchor : "";
+    expect(anchor).toBe(anchorFor("src/a.ts"));
+    expect(anchor).not.toBe("diff-0");
+  });
+
+  it("prefers the manifest's recorded anchor over the derived one for the step's file", () => {
+    // manifestWith stamps anchor "x"; the authoritative manifest value must win over
+    // both the model's "diff-0" and the path-derived sha256 (matters for renames).
+    const manifests = new Map([[KEY, manifestWith([{ path: "src/a.ts", additions: 1 }])]]);
+    const outcome = preparePublish(spec([{ file: "src/a.ts" }]), state({ manifests }));
+    expect(outcome.kind === "published" && outcome.spec.steps[0].anchor).toBe("x");
   });
 
   it("stamps the PR author from the manifest (not trusting the model-authored spec)", () => {
@@ -99,13 +122,16 @@ describe("preparePublish", () => {
     const manifests = new Map([[KEY, manifestWith([{ path: "src/big.ts", additions: 80 }])]]);
     const nudges = new Map([[KEY, 1]]); // already nudged once
     const outcome = preparePublish(spec([{ file: "src/other.ts" }]), state({ manifests, nudges }));
+    const base = spec([{ file: "src/other.ts" }]);
     expect(outcome).toEqual({
       kind: "published",
       key: KEY,
       spec: {
-        ...spec([{ file: "src/other.ts" }]),
+        ...base,
         generatedAt: NOW,
-        pr: { ...spec([{ file: "src/other.ts" }]).pr, author: "octocat" },
+        pr: { ...base.pr, author: "octocat" },
+        // src/other.ts isn't in the manifest (src/big.ts is), so the anchor derives from the path
+        steps: base.steps.map((step) => ({ ...step, anchor: anchorFor(step.file) })),
         coverage: { significant: ["src/big.ts"], uncovered: ["src/big.ts"] },
       },
       message:
