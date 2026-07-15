@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.6.0](https://github.com/alex-yanchenko/kvasir/compare/v0.5.0...v0.6.0) (2026-07-15)
+
+
+### Features
+
+* **asgard:** aurora light theme — Frost (redesign unit 5) ([#61](https://github.com/alex-yanchenko/kvasir/issues/61)) ([c14bbdc](https://github.com/alex-yanchenko/kvasir/commit/c14bbdcc1fbe5418be52266526347cd6ef276a25))
+* **asgard:** aurora motion (redesign unit 4) ([#60](https://github.com/alex-yanchenko/kvasir/issues/60)) ([7c9ec56](https://github.com/alex-yanchenko/kvasir/commit/7c9ec56840f46a48bc941fb61ee4b747ced7b093))
+* **asgard:** aurora surfaces — glass dark skin + component redesign (unit 3) ([#59](https://github.com/alex-yanchenko/kvasir/issues/59)) ([11ba5fe](https://github.com/alex-yanchenko/kvasir/commit/11ba5fe9859da207cc899296cd4f8889d394c37f))
+* **asgard:** rail-native nav column + per-PR open + overflow fixes ([#63](https://github.com/alex-yanchenko/kvasir/issues/63)) ([7e621dd](https://github.com/alex-yanchenko/kvasir/commit/7e621dda04a256b048c1d3e813919e11a0052afe))
+* depth chip + persistedTour rename — generation mode is chrome, not prose ([#55](https://github.com/alex-yanchenko/kvasir/issues/55)) ([ad6efef](https://github.com/alex-yanchenko/kvasir/commit/ad6efefd85b8b6abfdef7e841d1146fb92456e86))
+
+
+### Bug Fixes
+
+* **mimir:** derive walkthrough step anchors server-side ([#64](https://github.com/alex-yanchenko/kvasir/issues/64)) ([177e423](https://github.com/alex-yanchenko/kvasir/commit/177e4230bfc614e0757de5fca9e7f4d174d04cc0))
+
+
+### Code Refactoring
+
+* **asgard:** add aurora design tokens and tokenize status colors ([#57](https://github.com/alex-yanchenko/kvasir/issues/57)) ([4dd89d5](https://github.com/alex-yanchenko/kvasir/commit/4dd89d5a62c1c778bb85f4770fdef3498005d200))
+* **asgard:** icon rail + permanent nav column (redesign unit 2) ([#58](https://github.com/alex-yanchenko/kvasir/issues/58)) ([77fef89](https://github.com/alex-yanchenko/kvasir/commit/77fef899d3ba184e2371d48d98ec66c019ad37fc))
+* **asgard:** review-mode G1 pass (redesign follow-up) ([#62](https://github.com/alex-yanchenko/kvasir/issues/62)) ([9c742e9](https://github.com/alex-yanchenko/kvasir/commit/9c742e911fee45b57fe55afef6f2a71fdd4ed048))
+
 ## [0.5.0](https://github.com/alex-yanchenko/kvasir/compare/v0.4.0...v0.5.0) (2026-07-13)
 
 
