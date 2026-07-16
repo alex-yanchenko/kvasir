@@ -57,8 +57,13 @@ jobs:
       # these steps build and attach its assets).
       - uses: actions/checkout@v4
         if: ${{ steps.release.outputs.release_created }}
+      # Pin the version — unpinned setup-bun resolves "latest" via the oven-sh/bun
+      # tag-list API, which 503s on its own (thousands of tags); a pinned version is
+      # fetched by release URL. Keep in sync with ci.yml + @types/bun.
       - uses: oven-sh/setup-bun@v2
         if: ${{ steps.release.outputs.release_created }}
+        with:
+          bun-version: 1.3.14
       - uses: pnpm/action-setup@v4
         if: ${{ steps.release.outputs.release_created }}
       - uses: actions/setup-node@v4
