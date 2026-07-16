@@ -51,9 +51,9 @@ Usage:
 What it does (idempotent — safe to re-run):
   - installs the /kvasir skill into ~/.claude/skills (symlinked by default)
   - sets up the extension (builds it with pnpm, else downloads the prebuilt bundle)
-  - compiles or downloads the channel into a standalone binary in ~/.kvasir/bin
+  - compiles or downloads the kvasir binary into ~/.kvasir/bin
   - installs the \`kvasir\` CLI on PATH (run the channel + build walkthroughs)
-  - registers the channel binary in this repo's .mcp.json (server key: kvasir)
+  - registers the binary as the channel in this repo's .mcp.json (server key: kvasir, args: ["channel"])
 
 Options:
   --copy         copy the skill as a snapshot instead of symlinking it
@@ -106,11 +106,10 @@ export function bunTarget(platform: string, arch: string): string | null {
   }
 }
 
-/** Release asset filename for a platform's prebuilt `kvasir` binary, or null when
- * unsupported. Mirrors the names release.yml uploads (the unified binary is
- * `kvasir-<platform>-<arch>`; the old `kvasir-channel-*` name is retired with the
- * two-executable split). */
-export function channelAssetName(platform: string, arch: string): string | null {
+/** Release asset filename for a platform's prebuilt `kvasir` binary
+ * (`kvasir-<platform>-<arch>`), or null when unsupported. Mirrors the names
+ * release.yml uploads. */
+export function binaryAssetName(platform: string, arch: string): string | null {
   const target = bunTarget(platform, arch);
   return target ? `kvasir-${target.replace(/^bun-/, "")}` : null;
 }
@@ -143,13 +142,13 @@ export function withKvasirPermission(previous: unknown): {
   return { config, changed: true };
 }
 
-/** How the channel binary was obtained this install run. `compiled`/`downloaded`
+/** How the kvasir binary was obtained this install run. `compiled`/`downloaded`
  * = produced now; `reused` = a binary from a prior run was left in place (e.g.
  * compile failed with no node_modules but an older standalone binary exists);
  * `none` = no binary at all, so we register the bun-run fallback. The installer
  * picks this from the actual run outcome — never from a bare existsSync, which
  * can't tell a freshly-built binary from a stale leftover. */
-export type ChannelOutcome = "compiled" | "downloaded" | "reused" | "none";
+export type BinaryOutcome = "compiled" | "downloaded" | "reused" | "none";
 
 export interface ChannelRegistration {
   command: string;
@@ -158,16 +157,16 @@ export interface ChannelRegistration {
   label: string;
 }
 
-/** Map a channel-binary outcome to the .mcp.json server entry + an honest log
- * note. The unified binary IS the channel when invoked as `kvasir channel`, so
- * every real-binary outcome registers `args:["channel"]`. `none` falls back to
+/** Map a binary outcome to the .mcp.json channel entry + an honest log note. The
+ * unified binary IS the channel when invoked as `kvasir channel`, so every
+ * real-binary outcome registers `args:["channel"]`. `none` falls back to
  * `bun run <main.ts> channel` (needs node_modules at run time — a dev-clone
- * convenience, not the standalone path). Exhaustive over ChannelOutcome: adding a
+ * convenience, not the standalone path). Exhaustive over BinaryOutcome: adding a
  * variant without a case is a compile error. */
 export function channelRegistration(
-  outcome: ChannelOutcome,
+  outcome: BinaryOutcome,
   binary: string,
-  channelSource: string,
+  binarySource: string,
 ): ChannelRegistration {
   switch (outcome) {
     case "compiled": {
@@ -186,7 +185,7 @@ export function channelRegistration(
     case "none": {
       return {
         command: "bun",
-        args: ["run", channelSource, "channel"],
+        args: ["run", binarySource, "channel"],
         label: "(bun run — install bun + run 'pnpm install', or gh, for a standalone binary)",
       };
     }

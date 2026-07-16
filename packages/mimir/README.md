@@ -75,6 +75,12 @@ Confirm the bridge is up:
 curl http://localhost:8799/health      # → {"ok":true,"specs":0}
 ```
 
+Dev-testing note: launch `claude` directly (as above) to exercise unbuilt source
+here — NOT the installed `kvasir run`. That command self-supplies the compiled
+binary via `--mcp-config`, and a CLI-supplied `kvasir` server wins over this
+repo-local `.mcp.json` entry, so `kvasir run` would silently run the installed
+binary instead of your source edits.
+
 ## Config (env)
 
 | Var              | Default                   | Purpose                               |

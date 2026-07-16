@@ -14,7 +14,7 @@
  * throws build usage). Always present under exactOptionalPropertyTypes — the field is
  * nullable, not optional, so a caller must handle the missing-draft case explicitly. */
 export type CliCommand =
-  | { kind: "run"; forward: string[] }
+  | { kind: "run"; forward: readonly string[] }
   | { kind: "channel" }
   | { kind: "build"; draft: string | undefined }
   | { kind: "version" }

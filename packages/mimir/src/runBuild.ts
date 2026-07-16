@@ -8,7 +8,7 @@
 import { homedir } from "node:os";
 import path from "node:path";
 import { KVASIR_PORT } from "@kvasir/runes/port";
-import { type Review } from "@kvasir/runes/review";
+import type { Review } from "@kvasir/runes/review";
 import { z } from "zod";
 import { DraftSchema, type RepoContext, resolveStep, ReviewBuildError } from "./reviewBuild";
 

@@ -31,6 +31,13 @@ describe("parseCli", () => {
     } satisfies CliCommand);
   });
 
+  it("skips leading flags to find the build draft", () => {
+    expect(parseCli(["build", "--verbose", "/tmp/draft.json"])).toEqual({
+      kind: "build",
+      draft: "/tmp/draft.json",
+    } satisfies CliCommand);
+  });
+
   it("recognizes --version and -v only as the leading token", () => {
     expect(parseCli(["--version"])).toEqual({ kind: "version" } satisfies CliCommand);
     expect(parseCli(["-v"])).toEqual({ kind: "version" } satisfies CliCommand);

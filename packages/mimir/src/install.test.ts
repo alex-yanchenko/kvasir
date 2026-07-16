@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
 import {
   attestationVerifyArgs,
+  binaryAssetName,
   bunTarget,
-  channelAssetName,
   channelRegistration,
   KVASIR_PERMISSION,
   kvasirShim,
@@ -82,7 +82,7 @@ describe("withKvasirServer", () => {
   });
 });
 
-describe("bunTarget / channelAssetName", () => {
+describe("bunTarget / binaryAssetName", () => {
   it("maps supported platforms to a bun --compile target", () => {
     expect(bunTarget("darwin", "arm64")).toBe("bun-darwin-arm64");
     expect(bunTarget("darwin", "x64")).toBe("bun-darwin-x64");
@@ -96,9 +96,9 @@ describe("bunTarget / channelAssetName", () => {
   });
 
   it("derives the release asset name, null when unsupported", () => {
-    expect(channelAssetName("darwin", "arm64")).toBe("kvasir-darwin-arm64");
-    expect(channelAssetName("linux", "x64")).toBe("kvasir-linux-x64");
-    expect(channelAssetName("win32", "x64")).toBeNull();
+    expect(binaryAssetName("darwin", "arm64")).toBe("kvasir-darwin-arm64");
+    expect(binaryAssetName("linux", "x64")).toBe("kvasir-linux-x64");
+    expect(binaryAssetName("win32", "x64")).toBeNull();
   });
 });
 

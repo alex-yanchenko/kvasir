@@ -41,10 +41,11 @@ export default defineConfig({
         "packages/mimir/src/diff.ts",
         // Argv-routing Bun entry + its IO glue: main.ts dispatches parsed commands
         // (the parse is parseCli in cliArgs.ts, covered), launcher.ts execs `claude`
-        // / frees the port via Bun.spawn + lsof (its pure argv/config builders are
-        // verified by launcher.test.ts), and runBuild.ts shells out to git + fetches
-        // the mailbox (its resolution logic is reviewBuild.ts, gated at 100%). The
-        // glue itself has no vitest harness — same tier as channel.ts.
+        // / frees the port via Bun.spawn + lsof (its pure builders — argv, config,
+        // exit-code, pid-parse — are verified by launcher.test.ts), and runBuild.ts
+        // shells out to git + fetches the mailbox (its resolution logic is
+        // reviewBuild.ts, gated at 100%). The glue itself has no vitest harness —
+        // same tier as channel.ts.
         "packages/mimir/src/main.ts",
         "packages/mimir/src/launcher.ts",
         "packages/mimir/src/runBuild.ts",
