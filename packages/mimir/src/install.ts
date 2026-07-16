@@ -51,9 +51,9 @@ Usage:
 What it does (idempotent — safe to re-run):
   - installs the /kvasir skill into ~/.claude/skills (symlinked by default)
   - sets up the extension (builds it with pnpm, else downloads the prebuilt bundle)
-  - compiles or downloads the channel into a standalone binary in ~/.kvasir/bin
+  - compiles or downloads the kvasir binary into ~/.kvasir/bin
   - installs the \`kvasir\` CLI on PATH (run the channel + build walkthroughs)
-  - registers the channel binary in this repo's .mcp.json (server key: kvasir)
+  - registers the binary as the channel in this repo's .mcp.json (server key: kvasir, args: ["channel"])
 
 Options:
   --copy         copy the skill as a snapshot instead of symlinking it
@@ -69,9 +69,9 @@ Two steps it can't do for you:
 export const KVASIR_PERMISSION = "Bash(kvasir:*)";
 
 /** Merge the kvasir channel entry into an .mcp.json object, preserving any other
- * servers. `command` is the compiled channel binary (args empty) or the "bun" /
- * ["run", channel.ts] fallback when no binary could be produced. Returns a new
- * object; never mutates the input. */
+ * servers. `command` is the compiled binary with `args:["channel"]`, or the
+ * "bun" / ["run", main.ts, "channel"] fallback when no binary could be produced.
+ * Returns a new object; never mutates the input. */
 export function withKvasirServer(
   previous: unknown,
   command: string,
@@ -106,11 +106,12 @@ export function bunTarget(platform: string, arch: string): string | null {
   }
 }
 
-/** Release asset filename for a platform's prebuilt channel binary, or null when
- * unsupported. Mirrors the names release.yml uploads. */
-export function channelAssetName(platform: string, arch: string): string | null {
+/** Release asset filename for a platform's prebuilt `kvasir` binary
+ * (`kvasir-<platform>-<arch>`), or null when unsupported. Mirrors the names
+ * release.yml uploads. */
+export function binaryAssetName(platform: string, arch: string): string | null {
   const target = bunTarget(platform, arch);
-  return target ? `kvasir-channel-${target.replace(/^bun-/, "")}` : null;
+  return target ? `kvasir-${target.replace(/^bun-/, "")}` : null;
 }
 
 /** The GitHub repo prebuilt release assets are published to and verified against. */
@@ -141,13 +142,13 @@ export function withKvasirPermission(previous: unknown): {
   return { config, changed: true };
 }
 
-/** How the channel binary was obtained this install run. `compiled`/`downloaded`
+/** How the kvasir binary was obtained this install run. `compiled`/`downloaded`
  * = produced now; `reused` = a binary from a prior run was left in place (e.g.
  * compile failed with no node_modules but an older standalone binary exists);
  * `none` = no binary at all, so we register the bun-run fallback. The installer
  * picks this from the actual run outcome — never from a bare existsSync, which
  * can't tell a freshly-built binary from a stale leftover. */
-export type ChannelOutcome = "compiled" | "downloaded" | "reused" | "none";
+export type BinaryOutcome = "compiled" | "downloaded" | "reused" | "none";
 
 export interface ChannelRegistration {
   command: string;
@@ -156,77 +157,49 @@ export interface ChannelRegistration {
   label: string;
 }
 
-/** Map a channel-binary outcome to the .mcp.json server entry + an honest log
- * note. `none` falls back to `bun run channel.ts` (needs node_modules at run
- * time — a dev-clone convenience, not the standalone path). Exhaustive over
- * ChannelOutcome: adding a variant without a case is a compile error. */
+/** Map a binary outcome to the .mcp.json channel entry + an honest log note. The
+ * unified binary IS the channel when invoked as `kvasir channel`, so every
+ * real-binary outcome registers `args:["channel"]`. `none` falls back to
+ * `bun run <main.ts> channel` (needs node_modules at run time — a dev-clone
+ * convenience, not the standalone path). Exhaustive over BinaryOutcome: adding a
+ * variant without a case is a compile error. */
 export function channelRegistration(
-  outcome: ChannelOutcome,
+  outcome: BinaryOutcome,
   binary: string,
-  channelSource: string,
+  binarySource: string,
 ): ChannelRegistration {
   switch (outcome) {
     case "compiled": {
-      return { command: binary, args: [], label: "(compiled binary)" };
+      return { command: binary, args: ["channel"], label: "(compiled binary)" };
     }
     case "downloaded": {
-      return { command: binary, args: [], label: "(downloaded prebuilt binary)" };
+      return { command: binary, args: ["channel"], label: "(downloaded prebuilt binary)" };
     }
     case "reused": {
       return {
         command: binary,
-        args: [],
+        args: ["channel"],
         label: "(existing binary — re-run after 'pnpm install' to refresh)",
       };
     }
     case "none": {
       return {
         command: "bun",
-        args: ["run", channelSource],
+        args: ["run", binarySource, "channel"],
         label: "(bun run — install bun + run 'pnpm install', or gh, for a standalone binary)",
       };
     }
   }
 }
 
-/** The ~/.local/bin/kvasir shim. `run` (the default) needs only Claude — it frees
- * the single-owner :8799 bridge then launches Claude with the channel from the
- * repo dir (so Claude loads this repo's .mcp.json). `build` is the walkthrough
- * author flow and still needs bun. No bun on the review path → the floor is
- * claude + gh + the compiled channel binary. */
-export function kvasirShim(repoDirectory: string): string {
+/** The ~/.local/bin/kvasir launcher shim: `exec <command> <args…> "$@"`, forwarding
+ * every user argument to the unified router. Two forms: with a standalone binary
+ * it forwards to that binary (`kvasirShim(binary)` → `exec "<binary>" "$@"`); with
+ * no binary it runs the entry from source (`kvasirShim("bun", ["run", main.ts])`).
+ * Either way `kvasir run|build|channel|…` route through the one entry. */
+export function kvasirShim(command: string, args: readonly string[] = []): string {
+  const argv = [command, ...args].map((part) => `"${part}"`).join(" ");
   return `#!/usr/bin/env bash
-set -euo pipefail
-cmd="\${1:-run}"
-case "$cmd" in
-  build)
-    shift || true
-    if ! command -v bun >/dev/null 2>&1; then
-      echo "kvasir build needs bun (the walkthrough author flow): https://bun.sh" >&2
-      exit 1
-    fi
-    exec bun run "${repoDirectory}/packages/mimir/scripts/buildReview.ts" "$@"
-    ;;
-  run)
-    shift || true
-    if command -v lsof >/dev/null 2>&1; then
-      pids="$(lsof -nP -iTCP:8799 -sTCP:LISTEN -t 2>/dev/null || true)"
-      if [ -n "$pids" ]; then
-        echo "kvasir: closing the existing :8799 bridge ($pids)" >&2
-        kill $pids 2>/dev/null || true
-        for _ in $(seq 1 25); do
-          lsof -nP -iTCP:8799 -sTCP:LISTEN -t >/dev/null 2>&1 || break
-          sleep 0.2
-        done
-      fi
-    fi
-    cd "${repoDirectory}"
-    exec claude --dangerously-load-development-channels server:kvasir "$@"
-    ;;
-  *)
-    echo "usage: kvasir [run] | kvasir build <draft.json>" >&2
-    exit 1
-    ;;
-esac
+exec ${argv} "$@"
 `;
 }

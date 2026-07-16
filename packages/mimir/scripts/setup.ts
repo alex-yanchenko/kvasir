@@ -21,8 +21,8 @@ import { homedir } from "node:os";
 import path from "node:path";
 import {
   attestationVerifyArgs,
-  channelAssetName,
-  type ChannelOutcome,
+  binaryAssetName,
+  type BinaryOutcome,
   channelRegistration,
   KVASIR_PERMISSION,
   kvasirShim,
@@ -132,74 +132,86 @@ if (have("pnpm")) {
   warn("need pnpm (to build) or gh (to download) for the extension — then load packages/extension");
 }
 
-console.log("CLI:");
-const binDirectory = path.join(HOME, ".local/bin");
-mkdirSync(binDirectory, { recursive: true });
-const kvasirBin = path.join(binDirectory, "kvasir");
-writeFileSync(kvasirBin, kvasirShim(REPO));
-chmodSync(kvasirBin, 0o755);
-if ((process.env.PATH ?? "").split(":").includes(binDirectory)) {
-  ok(`installed kvasir → ${binDirectory}`);
-} else {
-  warn(`installed kvasir → ${binDirectory} (add to PATH: export PATH="$HOME/.local/bin:$PATH")`);
-}
+// Get the unified binary so the running channel needs neither bun nor
+// node_modules — the floor is claude + gh + binary. bun + the repo's node_modules
+// → compile locally; if that's unavailable or fails (e.g. a no-pnpm clone with
+// nothing to resolve @kvasir/runes against) → download the platform's prebuilt
+// release asset; if a usable binary from a prior run is still in place → keep it;
+// otherwise → fall back to running the entry from source via bun.
+console.log("kvasir binary:");
+const binarySource = path.join(REPO, "packages/mimir/src/main.ts");
+const kvasirBinDirectory = path.join(HOME, ".kvasir/bin");
+mkdirSync(kvasirBinDirectory, { recursive: true });
+const kvasirBinary = path.join(kvasirBinDirectory, "kvasir");
+const hadPriorBinary = existsSync(kvasirBinary);
 
-// Get the channel as a standalone binary so the running channel needs neither
-// bun nor node_modules — the floor is claude + gh + binary. bun + the repo's
-// node_modules → compile locally; if that's unavailable or fails (e.g. a no-pnpm
-// clone with nothing to resolve @kvasir/runes against) → download the platform's
-// prebuilt release asset; if a usable binary from a prior run is still in place →
-// keep it; otherwise → register the bun-run fallback (a dev-clone convenience).
-console.log("Channel binary:");
-const channelSource = path.join(REPO, "packages/mimir/src/channel.ts");
-const channelBinDirectory = path.join(HOME, ".kvasir/bin");
-mkdirSync(channelBinDirectory, { recursive: true });
-const channelBinary = path.join(channelBinDirectory, "kvasir-channel");
-const hadPriorBinary = existsSync(channelBinary);
-
-let channelOutcome: ChannelOutcome = "none";
+let binaryOutcome: BinaryOutcome = "none";
 if (have("bun")) {
-  const compiled = Bun.spawnSync(["bun", "build", channelSource, "--compile", "--outfile", channelBinary], {
+  const compiled = Bun.spawnSync(["bun", "build", binarySource, "--compile", "--outfile", kvasirBinary], {
     stdout: "ignore",
     stderr: "ignore",
   });
   if (compiled.exitCode === 0) {
-    ok(`compiled channel → ${channelBinary}`);
-    channelOutcome = "compiled";
-  } else warn("channel compile failed (no node_modules to resolve deps?) — trying the prebuilt download");
+    ok(`compiled kvasir → ${kvasirBinary}`);
+    binaryOutcome = "compiled";
+  } else warn("kvasir compile failed (no node_modules to resolve deps?) — trying the prebuilt download");
 }
-if (channelOutcome === "none") {
-  const asset = channelAssetName(process.platform, process.arch);
+if (binaryOutcome === "none") {
+  const asset = binaryAssetName(process.platform, process.arch);
   if (asset && have("gh")) {
     const downloaded = Bun.spawnSync(
       // prettier-ignore
-      ["gh", "release", "download", "--repo", "alex-yanchenko/kvasir", "--pattern", asset, "--output", channelBinary, "--clobber"],
+      ["gh", "release", "download", "--repo", "alex-yanchenko/kvasir", "--pattern", asset, "--output", kvasirBinary, "--clobber"],
       { stdout: "ignore", stderr: "ignore" },
     );
-    // Verify provenance before we chmod+exec the binary as the channel.
-    if (downloaded.exitCode === 0 && attestationOk(channelBinary)) {
-      chmodSync(channelBinary, 0o755);
-      ok(`downloaded channel → ${channelBinary}`);
-      channelOutcome = "downloaded";
+    // Verify provenance before we chmod+exec the downloaded binary.
+    if (downloaded.exitCode === 0 && attestationOk(kvasirBinary)) {
+      chmodSync(kvasirBinary, 0o755);
+      ok(`downloaded kvasir → ${kvasirBinary}`);
+      binaryOutcome = "downloaded";
     } else if (downloaded.exitCode === 0) {
-      rmSync(channelBinary, { force: true });
+      rmSync(kvasirBinary, { force: true });
       warn(
-        "channel download failed provenance verification — refusing (upgrade gh, or 'pnpm install' to compile)",
+        "kvasir download failed provenance verification — refusing (upgrade gh, or 'pnpm install' to compile)",
       );
-    } else warn("channel download failed (no release yet?)");
+    } else warn("kvasir download failed (no release yet?)");
   } else if (asset) {
-    warn("need gh to download the channel (or 'pnpm install' so bun can compile it locally)");
+    warn("need gh to download kvasir (or 'pnpm install' so bun can compile it locally)");
   } else {
     warn(
-      `no prebuilt channel for ${process.platform}/${process.arch} — install bun + run 'pnpm install' to compile`,
+      `no prebuilt kvasir for ${process.platform}/${process.arch} — install bun + run 'pnpm install' to compile`,
     );
   }
 }
 // Compile/download both failed but a standalone binary from a prior run survives:
-// keep serving with it rather than dropping to the deps-requiring bun-run fallback.
-if (channelOutcome === "none" && hadPriorBinary && existsSync(channelBinary)) {
-  channelOutcome = "reused";
-  ok(`keeping the existing channel binary → ${channelBinary}`);
+// keep it rather than dropping to the deps-requiring bun-run fallback.
+if (binaryOutcome === "none" && hadPriorBinary && existsSync(kvasirBinary)) {
+  binaryOutcome = "reused";
+  ok(`keeping the existing kvasir binary → ${kvasirBinary}`);
+}
+
+// The kvasir CLI on PATH forwards to the standalone binary when we have one, else
+// runs the entry from source via bun (a dev-clone convenience). Either way the one
+// router handles run/channel/build/version/help.
+console.log("CLI:");
+const binDirectory = path.join(HOME, ".local/bin");
+mkdirSync(binDirectory, { recursive: true });
+const kvasirBin = path.join(binDirectory, "kvasir");
+const onPath = (process.env.PATH ?? "").split(":").includes(binDirectory);
+const pathHint = onPath ? "" : ` (add to PATH: export PATH="$HOME/.local/bin:$PATH")`;
+if (binaryOutcome !== "none") {
+  writeFileSync(kvasirBin, kvasirShim(kvasirBinary));
+  chmodSync(kvasirBin, 0o755);
+  if (onPath) ok(`installed kvasir → ${binDirectory}`);
+  else warn(`installed kvasir → ${binDirectory}${pathHint}`);
+} else if (have("bun")) {
+  writeFileSync(kvasirBin, kvasirShim("bun", ["run", binarySource]));
+  chmodSync(kvasirBin, 0o755);
+  warn(
+    `installed kvasir → ${binDirectory} — bun-run fallback; 'pnpm install' or a prebuilt gives a standalone binary${pathHint}`,
+  );
+} else {
+  warn("no kvasir binary and no bun — install bun (https://bun.sh) or gh for a prebuilt to get the CLI");
 }
 
 console.log("Channel registration:");
@@ -212,7 +224,7 @@ if (existsSync(mcpPath)) {
     mcpPrevious = {};
   }
 }
-const channelEntry = channelRegistration(channelOutcome, channelBinary, channelSource);
+const channelEntry = channelRegistration(binaryOutcome, kvasirBinary, binarySource);
 const merged = withKvasirServer(mcpPrevious, channelEntry.command, channelEntry.args);
 writeFileSync(mcpPath, `${JSON.stringify(merged, null, 2)}\n`);
 ok(`registered 'kvasir' in ${mcpPath} ${channelEntry.label}`);

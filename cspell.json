@@ -85,6 +85,7 @@
     "unrecognised",
     "nofile",
     "noline",
+    "buld",
     "buildlog",
     "worktree",
     "worktrees",
@@ -95,6 +96,7 @@
     "crossfade",
     "crossfades",
     "unkeyed",
+    "unbuilt",
     "hideable"
   ]
 }

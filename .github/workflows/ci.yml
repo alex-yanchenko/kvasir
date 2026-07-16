@@ -35,7 +35,12 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm test:coverage
       # bun:sqlite / Bun.spawn modules can't run under vitest/node — verify on Bun directly.
+      # Pin the version: unpinned setup-bun resolves "latest" via GET /repos/oven-sh/bun/
+      # git/refs/tags, which lists every tag on that repo and 503s independently of GitHub's
+      # overall status. A pinned version is fetched by its release URL directly.
       - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
       - run: cd packages/mimir && bun test ./src/guideStore.sqlite.buntest.ts ./src/sessionStore.sqlite.buntest.ts ./src/manifestStore.sqlite.buntest.ts ./src/contextWorktree.buntest.ts
 
   build:
