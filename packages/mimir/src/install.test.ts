@@ -46,7 +46,7 @@ describe("SETUP_USAGE", () => {
 });
 
 describe("withKvasirServer", () => {
-  const binary = "/home/me/.kvasir/bin/kvasir-channel";
+  const binary = "/home/me/.local/bin/kvasir";
   const entry = { command: binary, args: [] };
 
   it("adds the kvasir binary entry (empty args) to an absent/non-object config", () => {
@@ -54,9 +54,15 @@ describe("withKvasirServer", () => {
     expect(withKvasirServer("garbage", binary)).toEqual({ mcpServers: { kvasir: entry } });
   });
 
+  it("registers the unified binary as the channel via args:['channel']", () => {
+    expect(withKvasirServer(undefined, binary, ["channel"])).toEqual({
+      mcpServers: { kvasir: { command: binary, args: ["channel"] } },
+    });
+  });
+
   it("supports a command + args (the bun-run fallback)", () => {
-    expect(withKvasirServer(undefined, "bun", ["run", "/repo/src/channel.ts"])).toEqual({
-      mcpServers: { kvasir: { command: "bun", args: ["run", "/repo/src/channel.ts"] } },
+    expect(withKvasirServer(undefined, "bun", ["run", "/repo/src/main.ts", "channel"])).toEqual({
+      mcpServers: { kvasir: { command: "bun", args: ["run", "/repo/src/main.ts", "channel"] } },
     });
   });
 
@@ -90,18 +96,18 @@ describe("bunTarget / channelAssetName", () => {
   });
 
   it("derives the release asset name, null when unsupported", () => {
-    expect(channelAssetName("darwin", "arm64")).toBe("kvasir-channel-darwin-arm64");
-    expect(channelAssetName("linux", "x64")).toBe("kvasir-channel-linux-x64");
+    expect(channelAssetName("darwin", "arm64")).toBe("kvasir-darwin-arm64");
+    expect(channelAssetName("linux", "x64")).toBe("kvasir-linux-x64");
     expect(channelAssetName("win32", "x64")).toBeNull();
   });
 });
 
 describe("attestationVerifyArgs", () => {
   it("builds the gh attestation-verify argv against the release repo by default", () => {
-    expect(attestationVerifyArgs("/tmp/kvasir-channel-linux-x64")).toEqual([
+    expect(attestationVerifyArgs("/tmp/kvasir-linux-x64")).toEqual([
       "attestation",
       "verify",
-      "/tmp/kvasir-channel-linux-x64",
+      "/tmp/kvasir-linux-x64",
       "--repo",
       RELEASE_REPO,
     ]);
@@ -119,21 +125,21 @@ describe("attestationVerifyArgs", () => {
 });
 
 describe("channelRegistration", () => {
-  const binary = "/home/me/.kvasir/bin/kvasir-channel";
-  const source = "/repo/packages/mimir/src/channel.ts";
+  const binary = "/home/me/.local/bin/kvasir";
+  const source = "/repo/packages/mimir/src/main.ts";
 
-  it("registers the standalone binary for a compiled outcome", () => {
+  it("registers the unified binary as `kvasir channel` for a compiled outcome", () => {
     expect(channelRegistration("compiled", binary, source)).toEqual({
       command: binary,
-      args: [],
+      args: ["channel"],
       label: "(compiled binary)",
     });
   });
 
-  it("registers the standalone binary for a downloaded outcome", () => {
+  it("registers the unified binary as `kvasir channel` for a downloaded outcome", () => {
     expect(channelRegistration("downloaded", binary, source)).toEqual({
       command: binary,
-      args: [],
+      args: ["channel"],
       label: "(downloaded prebuilt binary)",
     });
   });
@@ -141,15 +147,15 @@ describe("channelRegistration", () => {
   it("registers a reused prior binary, flagging it as not freshly built", () => {
     expect(channelRegistration("reused", binary, source)).toEqual({
       command: binary,
-      args: [],
+      args: ["channel"],
       label: "(existing binary — re-run after 'pnpm install' to refresh)",
     });
   });
 
-  it("falls back to bun run channel.ts when no binary could be obtained", () => {
+  it("falls back to bun run main.ts channel when no binary could be obtained", () => {
     expect(channelRegistration("none", binary, source)).toEqual({
       command: "bun",
-      args: ["run", source],
+      args: ["run", source, "channel"],
       label: "(bun run — install bun + run 'pnpm install', or gh, for a standalone binary)",
     });
   });
@@ -178,20 +184,15 @@ describe("withKvasirPermission", () => {
 });
 
 describe("kvasirShim", () => {
-  const shim = kvasirShim("/abs/repo");
-
-  it("runs Claude with the channel from the repo dir, freeing the bridge first (no bun)", () => {
-    expect(shim).toContain('cd "/abs/repo"');
-    expect(shim).toContain("exec claude --dangerously-load-development-channels server:kvasir");
-    expect(shim).toContain("iTCP:8799"); // frees the single-owner bridge before launch
-    expect(shim).not.toContain("kvasir.ts");
-    // `shift` with no positional args returns non-zero; under `set -e` a bare
-    // `kvasir` (no subcommand) would abort before launching Claude.
-    expect(shim).toContain("shift || true");
+  it("forwards to a standalone binary", () => {
+    expect(kvasirShim("/home/me/.kvasir/bin/kvasir")).toBe(
+      '#!/usr/bin/env bash\nexec "/home/me/.kvasir/bin/kvasir" "$@"\n',
+    );
   });
 
-  it("routes build to the bun authoring script, guarded on bun being present", () => {
-    expect(shim).toContain('exec bun run "/abs/repo/packages/mimir/scripts/buildReview.ts"');
-    expect(shim).toContain("kvasir build needs bun");
+  it("forwards to the source entry via bun run when there is no binary", () => {
+    expect(kvasirShim("bun", ["run", "/repo/packages/mimir/src/main.ts"])).toBe(
+      '#!/usr/bin/env bash\nexec "bun" "run" "/repo/packages/mimir/src/main.ts" "$@"\n',
+    );
   });
 });

@@ -69,13 +69,13 @@ jobs:
       - if: ${{ steps.release.outputs.release_created }}
         run: pnpm install --frozen-lockfile
       # bun --compile resolves @kvasir/runes + mcp-sdk + zod from node_modules.
-      - name: Compile channel binaries
+      - name: Compile kvasir binaries
         if: ${{ steps.release.outputs.release_created }}
         run: |
           cd packages/mimir
           mkdir -p dist
           for target in bun-darwin-arm64 bun-darwin-x64 bun-linux-x64 bun-linux-arm64; do
-            bun build src/channel.ts --compile --target="$target" --outfile "dist/kvasir-channel-${target#bun-}"
+            bun build src/main.ts --compile --target="$target" --outfile "dist/kvasir-${target#bun-}"
           done
       # Ship the built extension as a release asset too, so a no-pnpm install can
       # download a loadable extension instead of building from source.
@@ -92,7 +92,7 @@ jobs:
         uses: actions/attest-build-provenance@v2
         with:
           subject-path: |
-            packages/mimir/dist/kvasir-channel-*
+            packages/mimir/dist/kvasir-*
             packages/mimir/dist/extension-dist.tgz
       - name: Attach binaries to the release
         if: ${{ steps.release.outputs.release_created }}
@@ -100,4 +100,4 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release upload "${{ steps.release.outputs.tag_name }}" \
-            packages/mimir/dist/kvasir-channel-* packages/mimir/dist/extension-dist.tgz --clobber
+            packages/mimir/dist/kvasir-* packages/mimir/dist/extension-dist.tgz --clobber

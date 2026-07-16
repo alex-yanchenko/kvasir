@@ -10,11 +10,13 @@
 // flags (e.g. `kvasir run --model …`) straight to Claude untouched.
 
 /** The routed command. `run.forward` is the tail passed through to Claude; `build.draft`
- * is the first non-flag argument (undefined → the handler prints build usage). */
+ * is the first non-flag argument, or undefined when none was given (the handler then
+ * throws build usage). Always present under exactOptionalPropertyTypes — the field is
+ * nullable, not optional, so a caller must handle the missing-draft case explicitly. */
 export type CliCommand =
   | { kind: "run"; forward: string[] }
   | { kind: "channel" }
-  | { kind: "build"; draft?: string }
+  | { kind: "build"; draft: string | undefined }
   | { kind: "version" }
   | { kind: "help" }
   | { kind: "unknown"; token: string };

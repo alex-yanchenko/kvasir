@@ -63,7 +63,7 @@ The `.mcp.json` entry:
   "mcpServers": {
     "kvasir": {
       "command": "bun",
-      "args": ["run", "<abs-path>/kvasir/packages/mimir/src/channel.ts"]
+      "args": ["run", "<abs-path>/kvasir/packages/mimir/src/main.ts", "channel"]
     }
   }
 }

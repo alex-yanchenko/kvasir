@@ -5,8 +5,8 @@
   "type": "module",
   "description": "Claude Code channel + localhost bridge that turns a GitHub PR into an interactive in-browser walkthrough with code-selection Q&A.",
   "scripts": {
-    "start": "bun run src/channel.ts",
-    "compile": "bun build src/channel.ts --compile --outfile dist/kvasir-channel",
+    "start": "bun run src/main.ts channel",
+    "compile": "bun build src/main.ts --compile --outfile dist/kvasir",
     "wipe": "bun run scripts/wipeDb.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.test.json"
   },

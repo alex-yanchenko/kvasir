@@ -156,8 +156,8 @@ The two sides are decoupled by a single contract: the **walkthrough spec** (see
 consumes them. Either side can change independently.
 
 > Setup note: register the channel in a local `.mcp.json` under the key
-> **`kvasir`**, pointing at `packages/mimir/src/channel.ts` (this file is
-> gitignored — it holds a machine-specific absolute path).
+> **`kvasir`**, running `packages/mimir/src/main.ts` with the `channel` subcommand
+> (this file is gitignored — it holds a machine-specific absolute path).
 
 ## How it works
 
