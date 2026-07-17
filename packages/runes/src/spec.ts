@@ -35,7 +35,10 @@ export const StepLinesSchema = z
 export const WalkthroughStepSchema = StepCoreSchema.extend({
   /** GitHub diff anchor: "diff-" + sha256(path). See ./anchor. */
   anchor: z.string(),
-  /** Preferred way to highlight — exact line range via GitHub's per-line ids. */
+  /** Exact line range for GitHub's per-line highlight. Server-derived from the step's
+   * `highlight` at publish (see mimir/locateLines) — the model does not author it; any
+   * model-sent value is discarded and overwritten. Optional: a patch-less file yields
+   * no range, and the step renders at the file anchor. */
   lines: StepLinesSchema.optional(),
   /** Optional logical phase this step belongs to, e.g. "Foundation", "The control",
    * "Consumers". Steps sharing a label render under one outline header in authoring
@@ -89,7 +92,7 @@ export const WalkthroughSpecSchema = z.object({
  * model-authored field is named, and that server-stamped/opt-in fields —
  * coverage, pr.author, depth, diagram — are not advertised). */
 export const SPEC_SHAPE_PROSE =
-  "spec = { version:1, pr:{url,owner,repo,number,title,headSha}, generatedAt, overview:'2-4 sentence HTML PR summary (like a step body), shown as the Overview step + fed to chat', steps:[{id,title,body(html summary),detail?(html deep-dive, shown on expand),file,anchor,lines?:{side:'R'|'L',start,end},highlight?:string[],suggestions?:string[],group?:'short logical-phase label, reused across the steps of one phase'}] }";
+  "spec = { version:1, pr:{url,owner,repo,number,title,headSha}, generatedAt, overview:'2-4 sentence HTML PR summary (like a step body), shown as the Overview step + fed to chat', steps:[{id,title,body(html summary),detail?(html deep-dive, shown on expand),file,anchor,highlight:string[] (2-4 substrings copied verbatim from ONE contiguous region of the diff — the server locates them to derive the highlighted line range),suggestions?:string[],group?:'short logical-phase label, reused across the steps of one phase'}] }";
 
 export type PrRef = z.infer<typeof PrRefSchema>;
 export type StepLines = z.infer<typeof StepLinesSchema>;

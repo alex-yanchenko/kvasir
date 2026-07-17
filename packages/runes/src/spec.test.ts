@@ -76,10 +76,12 @@ describe("SPEC_SHAPE_PROSE", () => {
   // requires, plus the optional step niceties it may author); withhold what the
   // server owns — coverage and pr.author are optional in the schema and stamped
   // at publish, diagram is opt-in and prompted separately (bridge.ts appends its
-  // instruction only when the setting is on). generatedAt is ALSO server-stamped,
-  // but the schema requires it, so the model must still send one — it stays
-  // advertised; dropping it from the prose would make every publish fail closed.
-  const NOT_ADVERTISED = ["coverage", "diagram", "author", "depth"];
+  // instruction only when the setting is on), and lines is derived server-side from
+  // the step's highlight (see locateLines) so the model no longer authors it.
+  // generatedAt is ALSO server-stamped, but the schema requires it, so the model
+  // must still send one — it stays advertised; dropping it from the prose would make
+  // every publish fail closed.
+  const NOT_ADVERTISED = ["coverage", "diagram", "author", "depth", "lines"];
   const schemaKeys = [
     ...Object.keys(WalkthroughSpecSchema.shape),
     ...Object.keys(PrRefSchema.shape),

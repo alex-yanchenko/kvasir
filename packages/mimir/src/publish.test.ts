@@ -5,7 +5,7 @@ import { preparePublish, type PublishState } from "./publish";
 
 const NOW = "2026-06-04T12:00:00.000Z";
 
-type StepSpec = { file: string; lines?: { side: "R" | "L"; start: number; end: number } };
+type StepSpec = { file: string; highlight?: string[] };
 const spec = (steps: StepSpec[] = [{ file: "src/a.ts" }]) => ({
   version: 1,
   pr: { url: "https://github.com/acme/widget/pull/1", owner: "acme", repo: "widget", number: 1 },
@@ -17,7 +17,7 @@ const spec = (steps: StepSpec[] = [{ file: "src/a.ts" }]) => ({
     body: "<p>b</p>",
     file: s.file,
     anchor: `diff-${i}`,
-    lines: s.lines ?? { side: "R", start: 1, end: 1 },
+    ...(s.highlight ? { highlight: s.highlight } : {}),
   })),
 });
 
@@ -59,7 +59,7 @@ describe("preparePublish", () => {
     expect(message).toMatch(/^spec failed validation — .*pr\.owner/);
   });
 
-  it("publishes (stamped) when there is no manifest to check coverage against", () => {
+  it("publishes (stamped, lines-less) when there is no manifest to derive lines against", () => {
     const outcome = preparePublish(spec(), state());
     const base = spec();
     expect(outcome).toEqual({
@@ -68,11 +68,102 @@ describe("preparePublish", () => {
       spec: {
         ...base,
         generatedAt: NOW,
-        // anchor is re-derived from the file path, replacing the fixture's "diff-0"
+        // anchor is re-derived from the file path, replacing the fixture's "diff-0";
+        // with no manifest there is no patch, so lines can't be derived and stays absent.
         steps: base.steps.map((step) => ({ ...step, anchor: anchorFor(step.file) })),
       },
       message: "Published 1 steps. Open the PR; the extension will render it.",
     });
+  });
+
+  it("derives each step's lines from its highlight against the file's patch", () => {
+    const manifests = new Map([
+      [
+        KEY,
+        manifestWith([{ path: "src/a.ts", additions: 80, patch: "@@ -0,0 +1,3 @@\n+alpha\n+beta\n+gamma" }]),
+      ],
+    ]);
+    const outcome = preparePublish(spec([{ file: "src/a.ts", highlight: ["beta"] }]), state({ manifests }));
+    expect(outcome.kind === "published" && outcome.spec.steps[0]).toEqual({
+      id: "s0",
+      title: "t",
+      body: "<p>b</p>",
+      file: "src/a.ts",
+      highlight: ["beta"],
+      anchor: "x",
+      lines: { side: "R", start: 2, end: 2 },
+    });
+  });
+
+  it("ignores any model-sent lines, using the highlight-derived range instead", () => {
+    const manifests = new Map([
+      [
+        KEY,
+        manifestWith([{ path: "src/a.ts", additions: 80, patch: "@@ -0,0 +1,3 @@\n+alpha\n+beta\n+gamma" }]),
+      ],
+    ]);
+    const withStaleLines = spec([{ file: "src/a.ts", highlight: ["gamma"] }]);
+    withStaleLines.steps = withStaleLines.steps.map((step) => ({
+      ...step,
+      lines: { side: "L", start: 99, end: 99 },
+    }));
+    const outcome = preparePublish(withStaleLines, state({ manifests }));
+    expect(outcome.kind === "published" && outcome.spec.steps[0]).toEqual({
+      id: "s0",
+      title: "t",
+      body: "<p>b</p>",
+      file: "src/a.ts",
+      highlight: ["gamma"],
+      anchor: "x",
+      lines: { side: "R", start: 3, end: 3 },
+    });
+  });
+
+  it("rejects a step whose file has a patch but whose highlight isn't found in it", () => {
+    const manifests = new Map([
+      [KEY, manifestWith([{ path: "src/a.ts", additions: 80, patch: "@@ -0,0 +1,2 @@\n+alpha\n+beta" }])],
+    ]);
+    const outcome = preparePublish(
+      spec([{ file: "src/a.ts", highlight: ["not in the patch"] }]),
+      state({ manifests }),
+    );
+    expect(outcome.kind).toBe("invalid");
+    const message = outcome.kind === "invalid" ? outcome.message : "";
+    expect(message).toContain("highlight substrings were not found");
+    expect(message).toContain("s0");
+  });
+
+  it("rejects a step with no highlight at all when its file has a patch", () => {
+    const manifests = new Map([
+      [KEY, manifestWith([{ path: "src/a.ts", additions: 80, patch: "@@ -0,0 +1,2 @@\n+alpha\n+beta" }])],
+    ]);
+    const outcome = preparePublish(spec([{ file: "src/a.ts" }]), state({ manifests })); // no highlight
+    expect(outcome.kind).toBe("invalid");
+    const message = outcome.kind === "invalid" ? outcome.message : "";
+    expect(message).toContain("highlight substrings were not found");
+    expect(message).toContain("s0");
+  });
+
+  it("leaves a step lines-less (does not reject) when its file has no patch to derive from", () => {
+    const manifests = new Map([[KEY, manifestWith([{ path: "src/a.ts", additions: 80 }])]]); // no patch
+    const outcome = preparePublish(
+      spec([{ file: "src/a.ts", highlight: ["whatever"] }]),
+      state({ manifests }),
+    );
+    expect(outcome.kind).toBe("published");
+    expect(outcome.kind === "published" && "lines" in outcome.spec.steps[0]).toBe(false);
+  });
+
+  it("leaves a step lines-less (does not reject) when its file's patch is empty", () => {
+    // An empty patch can't be matched against — locateLines treats "" like no patch,
+    // and the unlocatable gate must agree, degrading rather than permanently rejecting.
+    const manifests = new Map([[KEY, manifestWith([{ path: "src/a.ts", additions: 80, patch: "" }])]]);
+    const outcome = preparePublish(
+      spec([{ file: "src/a.ts", highlight: ["whatever"] }]),
+      state({ manifests }),
+    );
+    expect(outcome.kind).toBe("published");
+    expect(outcome.kind === "published" && "lines" in outcome.spec.steps[0]).toBe(false);
   });
 
   it("overwrites the model-authored anchor with the one derived from the file path", () => {
@@ -189,17 +280,6 @@ describe("preparePublish", () => {
     expect(outcome.kind).toBe("published");
   });
 
-  it("rejects (hard) a step with no lines — it would open to nothing", () => {
-    const noLines = {
-      ...spec(),
-      steps: [{ id: "s0", title: "t", body: "<p>b</p>", file: "src/a.ts", anchor: "diff-0" }],
-    };
-    const outcome = preparePublish(noLines, state());
-    expect(outcome.kind).toBe("invalid");
-    const message = outcome.kind === "invalid" ? outcome.message : "";
-    expect(message).toContain("Steps with no lines: s0");
-  });
-
   it("rejects a spec with no overview", () => {
     const base = spec();
     const noOverview = {
@@ -214,65 +294,5 @@ describe("preparePublish", () => {
     expect(message).toContain("set overview");
     expect(message).toContain("HTML summary"); // matches the spec/channel wording, not "plain-text"
     expect(message).not.toContain("plain-text");
-  });
-
-  it("nudges when a step's lines fall outside the file's changed hunks", () => {
-    const manifests = new Map([
-      [KEY, manifestWith([{ path: "src/a.ts", additions: 80, patch: "@@ -0,0 +1,2 @@\n+a\n+b" }])],
-    ]);
-    const outcome = preparePublish(
-      spec([{ file: "src/a.ts", lines: { side: "R", start: 50, end: 60 } }]),
-      state({ manifests }),
-    );
-    expect(outcome.kind).toBe("nudge");
-    const message = outcome.kind === "nudge" ? outcome.message : "";
-    expect(message).toContain("fall outside their file's changed hunks");
-    expect(message).toContain("  - s0 (src/a.ts)");
-  });
-
-  it("nudges with both sections when a file is uncovered AND a step is off-target", () => {
-    const manifests = new Map([
-      [
-        KEY,
-        manifestWith([
-          { path: "src/a.ts", additions: 80, patch: "@@ -0,0 +1,2 @@\n+a\n+b" },
-          { path: "src/big.ts", additions: 80, patch: "@@ -0,0 +1,2 @@\n+x\n+y" },
-        ]),
-      ],
-    ]);
-    // one step on src/a.ts with off-target lines; src/big.ts is significant but step-less
-    const outcome = preparePublish(
-      spec([{ file: "src/a.ts", lines: { side: "R", start: 50, end: 60 } }]),
-      state({ manifests }),
-    );
-    expect(outcome.kind).toBe("nudge");
-    const message = outcome.kind === "nudge" ? outcome.message : "";
-    expect(message).toContain("but no step"); // uncovered section
-    expect(message).toContain("fall outside their file's changed hunks"); // off-target section
-    expect(message.split("\n\n")).toHaveLength(3); // prefix + both sections
-  });
-
-  it("publishes when a step's lines sit at the edge of the changed hunk", () => {
-    const manifests = new Map([
-      [KEY, manifestWith([{ path: "src/a.ts", additions: 80, patch: "@@ -0,0 +1,3 @@\n+a\n+b\n+c" }])],
-    ]);
-    // hunk is R 1-3; the step sits on the last changed line — must count as on-target
-    const outcome = preparePublish(
-      spec([{ file: "src/a.ts", lines: { side: "R", start: 3, end: 3 } }]),
-      state({ manifests }),
-    );
-    expect(outcome.kind).toBe("published");
-  });
-
-  it("publishes once the nudge budget is spent for off-target lines", () => {
-    const manifests = new Map([
-      [KEY, manifestWith([{ path: "src/a.ts", additions: 80, patch: "@@ -0,0 +1,2 @@\n+a\n+b" }])],
-    ]);
-    const nudges = new Map([[KEY, 1]]); // budget already spent → publishes despite off-target
-    const outcome = preparePublish(
-      spec([{ file: "src/a.ts", lines: { side: "R", start: 50, end: 60 } }]),
-      state({ manifests, nudges }),
-    );
-    expect(outcome.kind).toBe("published");
   });
 });
