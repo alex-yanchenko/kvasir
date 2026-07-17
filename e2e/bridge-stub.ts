@@ -11,6 +11,7 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { prKey, type WalkthroughSpec } from "../packages/runes/src/index";
 import { KVASIR_PORT } from "../packages/runes/src/port";
+import { PROTOCOL_VERSION } from "../packages/runes/src/protocol";
 import { createFetchHandler, type BridgeDeps } from "../packages/mimir/src/bridge";
 import { createAskBroker } from "../packages/mimir/src/broker";
 import { createPairing, type Pairing } from "../packages/mimir/src/pairing";
@@ -19,6 +20,12 @@ export interface BridgeState {
   answer: string;
   suggestions: string[];
   headSha: string;
+  /** Echoed on /health. `protocol` defaults to the extension's own PROTOCOL_VERSION
+   * (so tests see no skew); a test can set it to a different value to drive the
+   * version-skew banner. Read live by /health, so mutating it mid-test takes effect
+   * on the next probe. */
+  version: string;
+  protocol: number;
 }
 
 export interface BridgeStub {
@@ -57,7 +64,14 @@ const sendResponse = async (res: ServerResponse, response: Response): Promise<vo
 };
 
 export async function startBridge(overrides: Partial<BridgeState> = {}): Promise<BridgeStub> {
-  const state: BridgeState = { answer: "", suggestions: [], headSha: "sha-baseline", ...overrides };
+  const state: BridgeState = {
+    answer: "",
+    suggestions: [],
+    headSha: "sha-baseline",
+    version: "9.9.9",
+    protocol: PROTOCOL_VERSION,
+    ...overrides,
+  };
   const specs = new Map<string, WalkthroughSpec>();
 
   // Real pairing, but the "user" instantly approves the code each /pair returns —
@@ -78,6 +92,14 @@ export async function startBridge(overrides: Partial<BridgeState> = {}): Promise
 
   const deps: BridgeDeps = {
     specs,
+    // Getters, not captured values — a test mutating state.protocol takes effect on
+    // the next /health without rebuilding the handler.
+    get version() {
+      return state.version;
+    },
+    get protocol() {
+      return state.protocol;
+    },
     pairing,
     open: (eventType, content, meta) => {
       const id = broker.open(eventType, content, meta);

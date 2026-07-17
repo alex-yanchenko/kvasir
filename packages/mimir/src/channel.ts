@@ -40,7 +40,14 @@ import { randomBytes } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
-import { type Depth, isWalkthroughSpec, prKey, SPEC_SHAPE_PROSE, type WalkthroughSpec } from "@kvasir/runes";
+import {
+  type Depth,
+  isWalkthroughSpec,
+  prKey,
+  PROTOCOL_VERSION,
+  SPEC_SHAPE_PROSE,
+  type WalkthroughSpec,
+} from "@kvasir/runes";
 import { KVASIR_PORT } from "@kvasir/runes/port";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
@@ -156,6 +163,8 @@ export async function runChannel(): Promise<void> {
     hostname: "127.0.0.1", // loopback only — never exposed to the local network
     fetch: createFetchHandler({
       specs,
+      version: VERSION,
+      protocol: PROTOCOL_VERSION,
       guides,
       mintReviewId: (title) => `${slugify(title)}-${randomBytes(3).toString("hex")}`,
       // arrow-wrapped (not bare method refs) — the broker methods are closures with no

@@ -1,5 +1,6 @@
 export * from "./step";
 export * from "./port";
+export * from "./protocol";
 export * from "./spec";
 export * from "./review";
 export * from "./history";

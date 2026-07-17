@@ -33,6 +33,8 @@ const mkReview = (): Review => ({
 
 let deps: {
   specs: Map<string, WalkthroughSpec>;
+  version: string;
+  protocol: number;
   guides: GuideStore;
   mintReviewId: Mock<BridgeDeps["mintReviewId"]>;
   open: Mock<BridgeDeps["open"]>;
@@ -54,6 +56,8 @@ let handler: (req: Request) => Promise<Response>;
 beforeEach(() => {
   deps = {
     specs: new Map(),
+    version: "9.9.9",
+    protocol: 1,
     guides: createMemoryGuideStore(),
     mintReviewId: vi.fn<BridgeDeps["mintReviewId"]>().mockReturnValue("rev-1"),
     open: vi.fn<BridgeDeps["open"]>().mockReturnValue("q1-test"),
@@ -111,10 +115,10 @@ describe("gate + plumbing", () => {
     expect(await r.json()).toEqual({ error: "not found" });
   });
 
-  it("/health reports the spec count", async () => {
+  it("/health reports the spec count, version, and protocol", async () => {
     deps.specs.set(prKey(PR), mkSpec());
     const r = await call("/health");
-    expect(await r.json()).toEqual({ ok: true, specs: 1 });
+    expect(await r.json()).toEqual({ ok: true, specs: 1, version: "9.9.9", protocol: 1 });
   });
 });
 
