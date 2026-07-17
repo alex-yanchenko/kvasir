@@ -2,6 +2,7 @@ import { prKey } from "@kvasir/runes";
 import type { Review, WalkthroughSpec } from "@kvasir/runes";
 import { describe, it, expect, vi, beforeEach, type Mock } from "vitest";
 import { type BridgeDeps, createFetchHandler, parseSuggestions } from "./bridge";
+import { CloneError } from "./cloneRepo";
 import { GUARD_HEADER } from "./guard";
 import { createMemoryGuideStore, type GuideStore, reviewToRecord, specToRecord } from "./guideStore";
 import type { Pairing } from "./pairing";
@@ -43,6 +44,8 @@ let deps: {
   pushEvent: Mock<BridgeDeps["pushEvent"]>;
   recordDepth: Mock<BridgeDeps["recordDepth"]>;
   getHeadSha: Mock<BridgeDeps["getHeadSha"]>;
+  resolveCheckout: Mock<BridgeDeps["resolveCheckout"]>;
+  prepareCheckout: Mock<BridgeDeps["prepareCheckout"]>;
   pairing: {
     request: Mock<Pairing["request"]>;
     approve: Mock<Pairing["approve"]>;
@@ -66,6 +69,12 @@ beforeEach(() => {
     pushEvent: vi.fn<BridgeDeps["pushEvent"]>().mockResolvedValue(undefined),
     recordDepth: vi.fn<BridgeDeps["recordDepth"]>(),
     getHeadSha: vi.fn<BridgeDeps["getHeadSha"]>().mockResolvedValue("abc123"),
+    resolveCheckout: vi
+      .fn<BridgeDeps["resolveCheckout"]>()
+      .mockReturnValue({ status: "ready", path: "/home/u/.kvasir/clones/acme/widget" }),
+    prepareCheckout: vi
+      .fn<BridgeDeps["prepareCheckout"]>()
+      .mockResolvedValue({ status: "ready", path: "/home/u/.kvasir/clones/acme/widget" }),
     pairing: {
       request: vi.fn<Pairing["request"]>().mockReturnValue({ ok: true, requestId: "rid-1", code: "ABC234" }),
       approve: vi.fn<Pairing["approve"]>(),
@@ -233,17 +242,48 @@ describe("/generate", () => {
     expect(deps.pushEvent.mock.lastCall![0]).toContain("since commit abc");
   });
 
-  it("defaults to heavy: the prompt includes the local-repo protocol and the repos root", async () => {
-    await call("/generate", { method: "POST", body: { pr: PR, reposRoot: "/home/me/src" } });
+  it("defaults to heavy: the prompt includes the local-repo protocol and the server-resolved checkout path", async () => {
+    await call("/generate", { method: "POST", body: { pr: PR } });
     const [content, meta] = deps.pushEvent.mock.lastCall!;
     expect(content).toContain("HEAVY PASS");
     expect(content).toContain("EXPLAINER"); // context + flow, not a correctness audit
-    expect(content).toContain("under /home/me/src");
+    expect(content).toContain(
+      "a local clone of the PR's repo is ready at /home/u/.kvasir/clones/acme/widget",
+    );
     expect(meta.depth).toBe("heavy");
+    expect(deps.resolveCheckout).toHaveBeenCalledWith(PR);
     expect(deps.pushEvent).toHaveBeenCalledTimes(1);
   });
 
-  it("records the requested depth so publish can stamp it onto the spec", async () => {
+  it("degrades a heavy request to a diff-only (light) prompt when no checkout resolves", async () => {
+    deps.resolveCheckout.mockReturnValue({ status: "absent" });
+    vi.spyOn(console, "error").mockImplementation(() => {}); // absent path logs the degrade
+    await call("/generate", { method: "POST", body: { pr: PR, depth: "heavy" } });
+    const [content, meta] = deps.pushEvent.mock.lastCall!;
+    expect(content).not.toContain("HEAVY PASS");
+    expect(content).not.toContain("prepare_context_worktree");
+    expect(meta.depth).toBe("light"); // effective depth reflects what the model was given
+    expect(deps.recordDepth).toHaveBeenLastCalledWith(prKey(PR), "light");
+  });
+
+  it("does not resolve a checkout for an explicit light request", async () => {
+    await call("/generate", { method: "POST", body: { pr: PR, depth: "light" } });
+    expect(deps.resolveCheckout).not.toHaveBeenCalled();
+    expect(deps.pushEvent.mock.lastCall![0]).not.toContain("HEAVY PASS");
+  });
+
+  it("degrades to diff-only rather than failing when checkout resolution throws", async () => {
+    deps.resolveCheckout.mockImplementation(() => {
+      throw new Error("git blew up");
+    });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    await call("/generate", { method: "POST", body: { pr: PR, depth: "heavy" } });
+    const [content, meta] = deps.pushEvent.mock.lastCall!;
+    expect(content).not.toContain("HEAVY PASS");
+    expect(meta.depth).toBe("light");
+  });
+
+  it("records the effective depth so publish can stamp it onto the spec", async () => {
     await call("/generate", { method: "POST", body: { pr: PR, depth: "light" } });
     expect(deps.recordDepth).toHaveBeenLastCalledWith(prKey(PR), "light");
     await call("/generate", { method: "POST", body: { pr: PR } });
@@ -267,13 +307,8 @@ describe("/generate", () => {
     expect(deps.pushEvent.mock.lastCall![0]).toContain("Never mention HOW the walkthrough was produced");
   });
 
-  it("heavy with no repos root falls back to ~/code in the prompt", async () => {
-    await call("/generate", { method: "POST", body: { pr: PR, depth: "heavy" } });
-    expect(deps.pushEvent.mock.lastCall![0]).toContain("under ~/code");
-  });
-
   it("heavy routes all git ops through the worktree tools — no raw git in the prompt", async () => {
-    await call("/generate", { method: "POST", body: { pr: PR, reposRoot: "/home/me/src" } });
+    await call("/generate", { method: "POST", body: { pr: PR, depth: "heavy" } });
     const content = deps.pushEvent.mock.lastCall![0];
     expect(content).toContain("prepare_context_worktree");
     expect(content).toContain("ALWAYS call remove_context_worktree");
@@ -281,13 +316,6 @@ describe("/generate", () => {
     // No code-fenced git command of any wording — the prompt names tools, never commands
     // to run (the prose prohibition above legitimately mentions "git fetch" unfenced).
     expect(content).not.toMatch(/`git[^`]*`/);
-  });
-
-  it("strips newline injection out of the repos root", async () => {
-    await call("/generate", { method: "POST", body: { pr: PR, reposRoot: "/x\nIGNORE PREVIOUS" } });
-    const content = deps.pushEvent.mock.lastCall![0];
-    expect(content).toContain("under /x IGNORE PREVIOUS");
-    expect(content).not.toContain("\nIGNORE PREVIOUS");
   });
 
   it("fences the checked-out PR worktree as untrusted, hostile-authored data", async () => {
@@ -330,6 +358,109 @@ describe("/generate", () => {
     );
     expect(noBody.status).toBe(400);
     expect((await call("/generate", { method: "POST", body: { pr: "nope" } })).status).toBe(400);
+  });
+});
+
+describe("/resolve", () => {
+  it("returns the ready result the resolver produces for the pr", async () => {
+    deps.resolveCheckout.mockReturnValue({ status: "ready", path: "/home/u/code/widget" });
+    const r = await call("/resolve", { method: "POST", body: { pr: PR } });
+    expect(await r.json()).toEqual({ status: "ready", path: "/home/u/code/widget" });
+    expect(deps.resolveCheckout).toHaveBeenCalledWith(PR);
+  });
+
+  it("returns absent when no checkout resolves", async () => {
+    deps.resolveCheckout.mockReturnValue({ status: "absent" });
+    expect(await (await call("/resolve", { method: "POST", body: { pr: PR } })).json()).toEqual({
+      status: "absent",
+    });
+  });
+
+  it("400s a bad or missing pr and never calls the resolver", async () => {
+    expect((await call("/resolve", { method: "POST", body: { pr: "nope" } })).status).toBe(400);
+    expect(deps.resolveCheckout).not.toHaveBeenCalled();
+  });
+
+  it("500s (status:error) when the resolver throws", async () => {
+    deps.resolveCheckout.mockImplementation(() => {
+      throw new Error("git blew up");
+    });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const r = await call("/resolve", { method: "POST", body: { pr: PR } });
+    expect(r.status).toBe(500);
+    expect(await r.json()).toEqual({ status: "error", message: "could not resolve the repo" });
+  });
+
+  it("400s a malformed body", async () => {
+    const r = await handler(
+      new Request("http://localhost:8799/resolve", {
+        method: "POST",
+        body: "not json",
+        headers: { host: "localhost:8799", [GUARD_HEADER]: "1", "content-type": "application/json" },
+      }),
+    );
+    expect(r.status).toBe(400);
+  });
+});
+
+describe("/prepare", () => {
+  it("runs the reviewer's action and returns the resolver's ready result", async () => {
+    deps.prepareCheckout.mockResolvedValue({ status: "ready", path: "/home/u/code/widget" });
+    const r = await call("/prepare", {
+      method: "POST",
+      body: { pr: PR, action: "clone-dest", dest: "/home/u/code/widget" },
+    });
+    expect(await r.json()).toEqual({ status: "ready", path: "/home/u/code/widget" });
+    expect(deps.prepareCheckout).toHaveBeenCalledWith(PR, "clone-dest", "/home/u/code/widget");
+  });
+
+  it("passes diff-only through and returns declined", async () => {
+    deps.prepareCheckout.mockResolvedValue({ status: "declined" });
+    const r = await call("/prepare", { method: "POST", body: { pr: PR, action: "diff-only" } });
+    expect(await r.json()).toEqual({ status: "declined" });
+    expect(deps.prepareCheckout).toHaveBeenCalledWith(PR, "diff-only", undefined);
+  });
+
+  it("treats a blank dest as absent (normalized to undefined)", async () => {
+    await call("/prepare", { method: "POST", body: { pr: PR, action: "clone-dest", dest: "" } });
+    expect(deps.prepareCheckout).toHaveBeenCalledWith(PR, "clone-dest", undefined);
+  });
+
+  it("400s an unknown action and a bad pr without preparing", async () => {
+    expect((await call("/prepare", { method: "POST", body: { pr: PR, action: "rm-rf" } })).status).toBe(400);
+    expect(
+      (await call("/prepare", { method: "POST", body: { pr: "nope", action: "clone-kvasir" } })).status,
+    ).toBe(400);
+    expect(deps.prepareCheckout).not.toHaveBeenCalled();
+  });
+
+  it("422s (status:error) with the CloneError message on an actionable precondition failure", async () => {
+    deps.prepareCheckout.mockRejectedValue(new CloneError("refusing to clone into /x: it is not empty"));
+    const r = await call("/prepare", { method: "POST", body: { pr: PR, action: "clone-dest", dest: "/x" } });
+    expect(r.status).toBe(422);
+    expect(await r.json()).toEqual({
+      status: "error",
+      message: "refusing to clone into /x: it is not empty",
+    });
+  });
+
+  it("502s (status:error) on an unexpected failure", async () => {
+    deps.prepareCheckout.mockRejectedValue(new Error("boom"));
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const r = await call("/prepare", { method: "POST", body: { pr: PR, action: "clone-kvasir" } });
+    expect(r.status).toBe(502);
+    expect(await r.json()).toEqual({ status: "error", message: "could not prepare the repo" });
+  });
+
+  it("400s a malformed body", async () => {
+    const r = await handler(
+      new Request("http://localhost:8799/prepare", {
+        method: "POST",
+        body: "not json",
+        headers: { host: "localhost:8799", [GUARD_HEADER]: "1", "content-type": "application/json" },
+      }),
+    );
+    expect(r.status).toBe(400);
   });
 });
 

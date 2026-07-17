@@ -8,8 +8,8 @@
 // The scope matrix (key builders live in ../../keys.ts):
 //   LOCAL (localStorage — cross-tab preference, survives restarts):
 //     kvasirTheme, kvasirHl, kvasirReviewSync, kvasirReviewMode,
-//     kvasirReviewReposRoot, kvasirFirstRunDone, kvasirPreloadQuestions,
-//     kvasirGenerateDiagram, kvasirRailWidth, kvasir:panelPrefs (window shape)
+//     kvasirFirstRunDone, kvasirPreloadQuestions, kvasirGenerateDiagram,
+//     kvasirRailWidth, kvasir:panelPrefs (window shape)
 //   SESSION (sessionStorage — per-tab, survives refresh/same-origin nav,
 //   inherited by a child tab):
 //     kvasir:panel (open + tab), kvasir:session:<id> (review nav snapshot)

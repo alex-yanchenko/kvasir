@@ -136,9 +136,6 @@ export const state: {
    * feature is and how the change flows; "light" authors from the PR diff alone
    * (gh only). Default heavy. */
   reviewMode: string; // "heavy" | "light"
-  /** Filesystem root the session searches for the PR's local clone in heavy mode;
-   * if the repo isn't found under it, heavy degrades to light. */
-  reviewReposRoot: string;
   /** True until the user dismisses the one-time first-run card (channel → pair →
    * run) shown in the walkthrough tab's empty state. Persisted per machine. */
   firstRun: boolean;
@@ -186,7 +183,6 @@ export const state: {
   reviewVisited: [],
   reviewSync: readLocal("kvasirReviewSync") !== "false", // default on
   reviewMode: readLocal("kvasirReviewMode") || "heavy", // default heavy
-  reviewReposRoot: readLocal("kvasirReviewReposRoot") || "~/code",
   firstRun: readLocal("kvasirFirstRunDone") !== "true", // shows until dismissed once
   preloadQuestions: readLocal("kvasirPreloadQuestions") === "true", // default off
   generateDiagram: readLocal("kvasirGenerateDiagram") === "true", // default off
@@ -245,15 +241,9 @@ export const settingsStore = {
     touch();
   },
   reviewMode: (): string => state.reviewMode,
-  reviewReposRoot: (): string => state.reviewReposRoot,
   setReviewMode(mode: string): void {
     state.reviewMode = mode;
     writeLocal("kvasirReviewMode", mode);
-    touch();
-  },
-  setReviewReposRoot(root: string): void {
-    state.reviewReposRoot = root;
-    writeLocal("kvasirReviewReposRoot", root);
     touch();
   },
   firstRun: (): boolean => state.firstRun,

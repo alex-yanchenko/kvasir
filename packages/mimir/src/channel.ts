@@ -37,7 +37,7 @@
  */
 
 import { randomBytes } from "node:crypto";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, statSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
 import {
@@ -55,6 +55,7 @@ import { z } from "zod";
 
 import { createFetchHandler } from "./bridge";
 import { createAskBroker } from "./broker";
+import type { CloneRunner } from "./cloneRepo";
 import {
   errorMessage,
   gcContextWorktrees,
@@ -69,6 +70,13 @@ import { COVERAGE_MIN_ADDS, prFileName, renderManifest, significantFiles } from 
 import { createSqliteManifestStore } from "./manifestStore.sqlite";
 import { createPairing } from "./pairing";
 import { preparePublish } from "./publish";
+import {
+  prepareCheckout as runPrepare,
+  resolveCheckout as runResolve,
+  type ResolutionDeps,
+} from "./resolution";
+import { createSqliteResolvedRepoStore } from "./resolvedRepoStore.sqlite";
+import type { RepoProbes } from "./resolveRepo";
 import { slugify } from "./reviewBuild";
 import { createSqliteSessionStore } from "./sessionStore.sqlite";
 import { VERSION } from "./version";
@@ -155,6 +163,54 @@ export async function runChannel(): Promise<void> {
     sessions: createSqliteSessionStore(db),
   });
 
+  // ── Checkout resolution ───────────────────────────────────────────────────────
+  // The server owns every path decision (invariant: the extension knows no disk).
+  // clonesDir is where a "clone to the kvasir folder" lands and the first place
+  // resolution looks; the probes shell read-only git; the runner is the hardened
+  // clone. The decision logic lives in ./resolution + ./resolveRepo + ./cloneRepo
+  // (all unit-tested) — this only supplies the live IO.
+  const CLONES_DIR = path.join(KVASIR_DIR, "clones");
+  mkdirSync(CLONES_DIR, { recursive: true });
+  const repoProbes: RepoProbes = {
+    isDir: (candidate) => {
+      try {
+        return statSync(candidate).isDirectory();
+      } catch {
+        return false;
+      }
+    },
+    originOf: (candidate) => {
+      const proc = Bun.spawnSync(["git", "-C", candidate, "remote", "get-url", "origin"], {
+        stdout: "pipe",
+        stderr: "pipe",
+      });
+      return proc.exitCode === 0 ? proc.stdout.toString().trim() || null : null;
+    },
+  };
+  const cloneRun: CloneRunner = async (cmd, env, signal) => {
+    const proc = Bun.spawn([...cmd], {
+      stdout: "pipe",
+      stderr: "pipe",
+      env: { ...process.env, ...env },
+      signal,
+    });
+    // Drain BOTH streams (like contextWorktree's git helper): an unread stdout pipe
+    // can fill and block the clone subprocess until the timeout fires.
+    const [stdout, stderr] = await Promise.all([
+      new Response(proc.stdout).text(),
+      new Response(proc.stderr).text(),
+    ]);
+    const code = await proc.exited;
+    return { code, stderr: stderr || stdout };
+  };
+  const resolutionDeps: ResolutionDeps = {
+    probes: repoProbes,
+    store: createSqliteResolvedRepoStore(db),
+    clonesDir: CLONES_DIR,
+    home: homedir(),
+    cloneRun,
+  };
+
   // ── HTTP bridge ──────────────────────────────────────────────────────────────
   // Routes + auth + prompts live in ./bridge (unit-tested); this just binds them.
 
@@ -175,6 +231,8 @@ export async function runChannel(): Promise<void> {
       pushEvent,
       getHeadSha,
       recordDepth: (key, depth) => generateDepths.set(key, depth),
+      resolveCheckout: (pr) => runResolve(pr, resolutionDeps),
+      prepareCheckout: (pr, action, destination) => runPrepare(pr, action, destination, resolutionDeps),
       pairing,
     }),
   });

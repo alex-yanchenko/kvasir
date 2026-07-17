@@ -86,7 +86,6 @@ describe("requestGenerate → poll → spec lands", () => {
       mode: "new",
       sinceSha: undefined,
       depth: "heavy",
-      reposRoot: "~/code",
       diagram: false,
     });
 
@@ -192,7 +191,6 @@ describe("requestGenerate → poll → spec lands", () => {
       mode: "new",
       sinceSha: undefined,
       depth: "heavy",
-      reposRoot: "~/code",
       diagram: true,
     });
     await vi.advanceTimersByTimeAsync(GEN_POLL_INTERVAL_MS); // drain the poll so generation ends

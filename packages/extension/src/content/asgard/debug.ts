@@ -17,7 +17,6 @@ const LOCAL_SETTINGS_KEYS = [
   "kvasirHl",
   "kvasirReviewSync",
   "kvasirReviewMode",
-  "kvasirReviewReposRoot",
   "kvasirFirstRunDone",
   "kvasirPreloadQuestions",
   "kvasirGenerateDiagram",

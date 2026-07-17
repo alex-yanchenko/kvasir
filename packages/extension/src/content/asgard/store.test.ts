@@ -10,7 +10,6 @@ beforeEach(() => {
   state.theme = "auto";
   state.hlStyle = "rail";
   state.reviewMode = "heavy";
-  state.reviewReposRoot = "~/code";
   state.preloadQuestions = false;
   localStorage.clear();
   applied = vi.fn<(payload: { theme: string; hlStyle: string }) => void>();
@@ -67,15 +66,6 @@ describe("settingsStore", () => {
     expect(state.reviewMode).toBe("light");
     expect(localStorage.getItem("kvasirReviewMode")).toBe("light");
     expect(applied).not.toHaveBeenCalled();
-    expect(getSnapshot()).toBe(before + 1);
-  });
-
-  it("reviewReposRoot defaults to ~/code, and setReviewReposRoot persists + bumps the version", () => {
-    expect(settingsStore.reviewReposRoot()).toBe("~/code");
-    const before = getSnapshot();
-    settingsStore.setReviewReposRoot("/srv/repos");
-    expect(state.reviewReposRoot).toBe("/srv/repos");
-    expect(localStorage.getItem("kvasirReviewReposRoot")).toBe("/srv/repos");
     expect(getSnapshot()).toBe(before + 1);
   });
 
