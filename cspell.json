@@ -97,6 +97,7 @@
     "crossfades",
     "unkeyed",
     "unbuilt",
+    "unwritable",
     "hideable"
   ]
 }
