@@ -47,11 +47,11 @@ export default defineConfig({
         // Bun.spawn/lsof/git/fetch IO is left visibly uncovered (exercised by the
         // compile smoke + e2e) rather than hidden behind an exclude.
         "packages/mimir/src/main.ts",
-        // bun:sqlite store: Bun-only (can't import under vitest); all its logic
-        // mirrors the node-tested createMemoryGuideStore and is verified by
-        // guideStore.sqlite.buntest.ts under `bun test`.
+        // bun:sqlite stores: Bun-only (can't import under vitest); each mirrors its
+        // node-tested in-memory sibling and is verified by its own `.buntest.ts`.
         "packages/mimir/src/guideStore.sqlite.ts",
         "packages/mimir/src/sessionStore.sqlite.ts",
+        "packages/mimir/src/resolvedRepoStore.sqlite.ts",
         // Bun.spawn git ops (can't import under vitest); verified against real git
         // repos by contextWorktree.buntest.ts under `bun test`.
         "packages/mimir/src/contextWorktree.ts",
@@ -101,6 +101,30 @@ export default defineConfig({
           lines: 100,
         },
         "packages/mimir/src/locateLines.ts": {
+          statements: 100,
+          branches: 100,
+          functions: 100,
+          lines: 100,
+        },
+        "packages/mimir/src/resolveRepo.ts": {
+          statements: 100,
+          branches: 100,
+          functions: 100,
+          lines: 100,
+        },
+        "packages/mimir/src/resolvedRepoStore.ts": {
+          statements: 100,
+          branches: 100,
+          functions: 100,
+          lines: 100,
+        },
+        "packages/mimir/src/cloneRepo.ts": {
+          statements: 100,
+          branches: 100,
+          functions: 100,
+          lines: 100,
+        },
+        "packages/mimir/src/resolution.ts": {
           statements: 100,
           branches: 100,
           functions: 100,

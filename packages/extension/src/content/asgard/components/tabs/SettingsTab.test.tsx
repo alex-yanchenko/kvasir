@@ -20,7 +20,6 @@ beforeEach(() => {
   state.theme = "auto";
   state.hlStyle = "rail";
   state.reviewMode = "heavy";
-  state.reviewReposRoot = "~/code";
   state.preloadQuestions = false;
   state.generateDiagram = false;
   localStorage.clear();
@@ -61,22 +60,13 @@ describe("SettingsTab", () => {
     expect(state.reviewSync).toBe(true);
   });
 
-  it("walkthrough-depth toggle flips reviewMode and shows the repos-root input only on heavy", () => {
+  it("walkthrough-depth toggle flips reviewMode between deep context and diff only", () => {
     render(<SettingsTab />);
     const depth = screen.getByRole("group", { name: "Walkthrough depth" });
-    expect(screen.getByLabelText("Local repos root")).toBeTruthy(); // heavy default
     fireEvent.click(within(depth).getByRole("button", { name: "Diff only" }));
     expect(state.reviewMode).toBe("light");
-    expect(screen.queryByLabelText("Local repos root")).toBeNull();
     fireEvent.click(within(depth).getByRole("button", { name: "Deep context" }));
     expect(state.reviewMode).toBe("heavy");
-    expect(screen.getByLabelText("Local repos root")).toBeTruthy();
-  });
-
-  it("repos-root input writes through the store", () => {
-    render(<SettingsTab />);
-    fireEvent.change(screen.getByLabelText("Local repos root"), { target: { value: "/srv/repos" } });
-    expect(state.reviewReposRoot).toBe("/srv/repos");
   });
 
   it("suggested-questions toggle flips preloadQuestions (default off)", () => {
@@ -97,14 +87,10 @@ describe("SettingsTab", () => {
     expect(state.generateDiagram).toBe(false);
   });
 
-  it("explains each setting with a hint; the repos-root hint shows only on heavy", () => {
+  it("explains each setting with a hint", () => {
     render(<SettingsTab />);
     expect(screen.getByText(/Deep context reads the locally-cloned repo/)).toBeTruthy();
     expect(screen.getByText(/Preload three AI-suggested questions/)).toBeTruthy();
-    expect(screen.getByText(/Where Deep context looks for the clone/)).toBeTruthy(); // heavy default
-    const depth = screen.getByRole("group", { name: "Walkthrough depth" });
-    fireEvent.click(within(depth).getByRole("button", { name: "Diff only" }));
-    expect(screen.queryByText(/Where Deep context looks for the clone/)).toBeNull(); // gone on light
   });
 
   it("shows the unpaired state and starts pairing on Pair", async () => {

@@ -16,8 +16,9 @@ export interface PublishState {
   /** Reader over the recorded per-PR manifests. Only `get` is needed here, so a
    * plain Map (tests) and the sqlite-backed store (channel) both satisfy it. */
   manifests: Pick<ManifestStore, "get">;
-  /** Reader over the depth each /generate request asked for, keyed like manifests
-   * — stamped onto the spec so the panel can show it as a chip. */
+  /** Reader over the effective depth /generate actually delivered (heavy only when a
+   * checkout resolved, else light), keyed like manifests — stamped onto the spec so
+   * the panel can show it as a chip. */
   depths: Pick<Map<string, Depth>, "get">;
   /** Per-PR count of coverage rejections so far — to nudge at most maxNudges times. */
   nudges: Map<string, number>;

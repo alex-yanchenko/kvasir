@@ -200,7 +200,6 @@ export const launcherStore = {
         mode,
         sinceSha,
         depth: settingsStore.reviewMode(),
-        reposRoot: settingsStore.reviewReposRoot(),
         diagram: settingsStore.generateDiagram(),
       }),
     );

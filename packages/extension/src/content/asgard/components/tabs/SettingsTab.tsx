@@ -235,24 +235,6 @@ export function SettingsTab(): JSX.Element {
           ]}
           onChange={(v) => settingsStore.setReviewMode(v)}
         />
-        {settingsStore.reviewMode() === "heavy" && (
-          <div className="flex flex-col gap-1">
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-sm text-muted-foreground">Local repos root</span>
-              <input
-                type="text"
-                aria-label="Local repos root"
-                value={settingsStore.reviewReposRoot()}
-                onChange={(event) => settingsStore.setReviewReposRoot(event.target.value)}
-                className="h-7 w-40 rounded-lg border border-border bg-muted px-2 text-sm text-foreground"
-              />
-            </div>
-            <p className="text-xs text-muted-foreground/75">
-              Where Deep context looks for the clone — it searches here for a repo whose name or remote
-              matches the PR.
-            </p>
-          </div>
-        )}
       </Section>
       <Section id="generation" title="Generation">
         <Segmented
