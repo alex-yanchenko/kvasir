@@ -32,7 +32,10 @@ export const StepCoreSchema = z.object({
    * legitimate step is rejected — and a locator whose file interpolates into a URL
    * (blob steps, any future base..compare locator) can't forget the guard. */
   file: z.string().refine(noTraversal, "file must not contain '.'/'..' path segments"),
-  /** Fallback highlight: substrings to match if line ids aren't available. */
+  /** Substrings identifying the code a step points at. For a diff-walkthrough step
+   * (spec.ts) this is the PRIMARY locator — the server derives `lines` from it
+   * (see mimir/locateLines). For a review step (review.ts) `lines` is authored
+   * directly and this stays a text-match fallback. */
   highlight: z.array(z.string()).optional(),
   /** Quick-hint questions shown as clickable chips for this step. */
   suggestions: z.array(z.string()).optional(),

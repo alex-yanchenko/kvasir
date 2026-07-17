@@ -100,6 +100,12 @@ export default defineConfig({
           functions: 100,
           lines: 100,
         },
+        "packages/mimir/src/locateLines.ts": {
+          statements: 100,
+          branches: 100,
+          functions: 100,
+          lines: 100,
+        },
         "packages/mimir/src/specInput.ts": {
           statements: 100,
           branches: 100,

@@ -98,6 +98,8 @@
     "unkeyed",
     "unbuilt",
     "unwritable",
-    "hideable"
+    "hideable",
+    "unlocatable",
+    "unhighlighted"
   ]
 }

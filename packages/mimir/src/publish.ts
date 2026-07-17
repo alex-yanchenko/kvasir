@@ -6,8 +6,9 @@
  * significant file has no step, once), or publish (stamped + ready). The handler
  * just applies the side effects the outcome names (Map writes, logging, throw).
  */
-import { anchorFor, type Depth, prKey, type WalkthroughSpec } from "@kvasir/runes";
-import { COVERAGE_MIN_ADDS, pathsMatch, significantFiles, stepsOffTarget, uncoveredFiles } from "./manifest";
+import { anchorFor, type Depth, prKey, type WalkthroughSpec, type WalkthroughStep } from "@kvasir/runes";
+import { locateLines } from "./locateLines";
+import { COVERAGE_MIN_ADDS, pathsMatch, significantFiles, uncoveredFiles } from "./manifest";
 import type { ManifestStore } from "./manifestStore.sqlite";
 import { parseSpecInput } from "./specInput";
 
@@ -36,15 +37,31 @@ export function preparePublish(rawSpec: unknown, state: PublishState): PublishOu
 
   const spec = result.spec;
   const key = prKey(spec.pr.url);
+  const manifest = state.manifests.get(key);
+  const patchFor = (file: string): string | undefined =>
+    manifest?.files.find((changed) => pathsMatch(changed.path, file))?.patch;
 
-  // Line-target gate (hard): a step with no `lines` opens to nothing in the panel —
-  // it can't highlight or scroll to code. Always fixable from the patch (no legit
-  // step lacks a line range), so reject rather than nudge — there's no loop risk.
-  const missingLines = spec.steps.filter((step) => !step.lines).map((step) => step.id);
-  if (missingLines.length > 0) {
+  // Server-derive each step's `lines` from its `highlight` against the file's patch
+  // (the model authors WHICH code it means; the server owns the line arithmetic).
+  const located = spec.steps.map((step) => {
+    const patch = patchFor(step.file);
+    return { step, patch, lines: locateLines(step.highlight, patch) };
+  });
+
+  // Line-target gate (hard): a step whose file HAS a usable patch but whose highlight
+  // can't be located opens to nothing — always fixable (copy substrings verbatim from
+  // the diff), so reject rather than nudge, no loop risk. A file with no patch — or an
+  // empty one (locateLines treats `""` and undefined alike) — can't be derived either
+  // way and degrades to a lines-less step rendered at the file anchor, never blocked;
+  // the `Boolean(patch)` guard matches locateLines' own `!patch` so the two can't
+  // disagree and strand a step in a permanent, unbounded reject.
+  const unlocatable = located
+    .filter(({ patch, lines }) => !lines && Boolean(patch))
+    .map(({ step }) => step.id);
+  if (unlocatable.length > 0) {
     return {
       kind: "invalid",
-      message: `spec failed validation — every step must set lines:{side,start,end} (read from the @@ patch headers) so it highlights code; without them the step opens to nothing. Steps with no lines: ${missingLines.join(", ")}.`,
+      message: `spec failed validation — each step points at code via its \`highlight\` substrings, which the server locates in the diff to derive the exact line range. These steps' highlight substrings were not found in their file's patch: ${unlocatable.join(", ")}. Set highlight to 2-4 substrings copied VERBATIM (character-for-character) from the changed ('+'/'-') lines of each step's file in the manifest/sidecar.`,
     };
   }
 
@@ -59,38 +76,26 @@ export function preparePublish(rawSpec: unknown, state: PublishState): PublishOu
     };
   }
 
-  // Coverage + on-target gate (bounded): nudge ONCE if a significant file has no step
-  // OR a step's lines miss their file's changed hunks, then accept regardless — so a
-  // genuinely step-less file (or imperfect line precision) can't loop generation.
-  const manifest = state.manifests.get(key);
+  // Coverage gate (bounded): nudge ONCE if a significant file has no step, then accept
+  // regardless — so a genuinely step-less file can't loop generation. Line precision is
+  // no longer nudged: the server derives `lines` from `highlight` and always lands them
+  // inside a changed hunk, so off-target is now structurally impossible.
   const uncovered = manifest
     ? uncoveredFiles(
         manifest,
         spec.steps.map((step) => step.file),
       )
     : [];
-  const offTarget = manifest ? stepsOffTarget(manifest, spec.steps) : [];
   const nudges = state.nudges.get(key) ?? 0;
-  if ((uncovered.length > 0 || offTarget.length > 0) && nudges < state.maxNudges) {
-    const sections: string[] = [];
-    if (uncovered.length > 0) {
-      sections.push(
-        `These changed files have ≥${COVERAGE_MIN_ADDS} added lines but no step:\n` +
-          uncovered.map((path) => `  - ${path}`).join("\n") +
-          `\n(If a listed file genuinely needs no step — generated/config/trivial — call publish_walkthrough again unchanged to proceed.)`,
-      );
-    }
-    if (offTarget.length > 0) {
-      sections.push(
-        `These steps' lines fall outside their file's changed hunks (re-read the @@ -a,b +c,d @@ headers and set lines inside a changed hunk):\n` +
-          offTarget.map((step) => `  - ${step.id} (${step.file})`).join("\n") +
-          `\n(If a step's lines are already as precise as the patch allows, call publish_walkthrough again unchanged to proceed.)`,
-      );
-    }
+  if (uncovered.length > 0 && nudges < state.maxNudges) {
     return {
       kind: "nudge",
       key,
-      message: `NOT published — fix these, then call publish_walkthrough again:\n\n` + sections.join("\n\n"),
+      message:
+        `NOT published — fix these, then call publish_walkthrough again:\n\n` +
+        `These changed files have ≥${COVERAGE_MIN_ADDS} added lines but no step:\n` +
+        uncovered.map((path) => `  - ${path}`).join("\n") +
+        `\n(If a listed file genuinely needs no step — generated/config/trivial — call publish_walkthrough again unchanged to proceed.)`,
     };
   }
 
@@ -107,11 +112,20 @@ export function preparePublish(rawSpec: unknown, state: PublishState): PublishOu
   // no manifest (the manual build path).
   const resolveAnchor = (file: string): string =>
     manifest?.files.find((changed) => pathsMatch(changed.path, file))?.anchor ?? anchorFor(file);
+  // Stamp the server-derived anchor and lines onto each step, replacing whatever the
+  // model sent (both are server-owned facts). A step with no derivable range (patch-less
+  // file) ships without lines — the extension renders it at the file anchor.
+  const stampStep = ({ step, lines }: (typeof located)[number]): WalkthroughStep => {
+    const next: WalkthroughStep = { ...step, anchor: resolveAnchor(step.file) };
+    if (lines) next.lines = lines;
+    else delete next.lines;
+    return next;
+  };
   const stamped: WalkthroughSpec = {
     ...spec,
     generatedAt: state.now,
     pr: manifest ? { ...spec.pr, author: manifest.author } : spec.pr,
-    steps: spec.steps.map((step) => ({ ...step, anchor: resolveAnchor(step.file) })),
+    steps: located.map((entry) => stampStep(entry)),
     // Coverage is meaningful only against a diff manifest — omit it (rather than
     // stamp empty arrays) when start_walkthrough wasn't recorded, so the panel
     // can tell "fully covered" from "unknown".
