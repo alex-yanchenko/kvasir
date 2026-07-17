@@ -39,16 +39,14 @@ export default defineConfig({
         // is the gh subprocess shell, its transforms in manifest.ts. All ARE covered.
         "packages/mimir/src/channel.ts",
         "packages/mimir/src/diff.ts",
-        // Argv-routing Bun entry + its IO glue: main.ts dispatches parsed commands
-        // (the parse is parseCli in cliArgs.ts, covered), launcher.ts execs `claude`
-        // / frees the port via Bun.spawn + lsof (its pure builders — argv, config,
-        // exit-code, pid-parse — are verified by launcher.test.ts), and runBuild.ts
-        // shells out to git + fetches the mailbox (its resolution logic is
-        // reviewBuild.ts, gated at 100%). The glue itself has no vitest harness —
-        // same tier as channel.ts.
+        // main.ts is the argv-routing entry: a top-level await over Bun.argv with no
+        // unit harness (same tier as channel.ts). Its decision logic lives in covered
+        // modules — parseCli (cliArgs.ts), shouldLogSyncStart / isSkillSyncFailure
+        // (skillSync.ts) — so nothing here needs coverage. launcher.ts and runBuild.ts
+        // are deliberately NOT excluded: their pure builders are unit-tested, and their
+        // Bun.spawn/lsof/git/fetch IO is left visibly uncovered (exercised by the
+        // compile smoke + e2e) rather than hidden behind an exclude.
         "packages/mimir/src/main.ts",
-        "packages/mimir/src/launcher.ts",
-        "packages/mimir/src/runBuild.ts",
         // bun:sqlite store: Bun-only (can't import under vitest); all its logic
         // mirrors the node-tested createMemoryGuideStore and is verified by
         // guideStore.sqlite.buntest.ts under `bun test`.

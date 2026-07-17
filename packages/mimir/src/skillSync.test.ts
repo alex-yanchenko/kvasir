@@ -1,8 +1,24 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { runSkillSync, SKILL_NAME, syncDecision } from "./skillSync";
+import {
+  isSkillSyncFailure,
+  runSkillSync,
+  SKILL_NAME,
+  SKILL_SYNC_OPT_OUT,
+  type SkillSyncResult,
+  shouldLogSyncStart,
+  syncDecision,
+} from "./skillSync";
 
 describe("syncDecision", () => {
   it("leaves an uninstalled skill alone (sync never creates)", () => {
@@ -10,11 +26,39 @@ describe("syncDecision", () => {
   });
 
   it("skips an up-to-date skill", () => {
-    expect(syncDecision("same", "same")).toBe("current");
+    expect(syncDecision("same", "same")).toBe("up-to-date");
   });
 
   it("rewrites a drifted skill", () => {
     expect(syncDecision("old", "new")).toBe("write");
+  });
+});
+
+describe("shouldLogSyncStart", () => {
+  it.each([
+    ["installed", false],
+    ["updated", true],
+    ["up-to-date", false],
+    ["absent", true],
+    ["opted-out", false],
+    ["symlinked", false],
+    ["failed", true],
+  ] as const)("logs %s → %s", (action, expected) => {
+    expect(shouldLogSyncStart({ action, message: "" })).toBe(expected);
+  });
+});
+
+describe("isSkillSyncFailure", () => {
+  it.each([
+    ["installed", false],
+    ["updated", false],
+    ["up-to-date", false],
+    ["absent", false],
+    ["opted-out", false],
+    ["symlinked", false],
+    ["failed", true],
+  ] as const)("%s → %s", (action, expected) => {
+    expect(isSkillSyncFailure({ action, message: "" } satisfies SkillSyncResult)).toBe(expected);
   });
 });
 
@@ -51,8 +95,15 @@ describe("runSkillSync", () => {
 
   it("install ignores the sync opt-out", () => {
     expect(
-      runSkillSync({ skillsDir, embedded: "X", mode: "install", env: { KVASIR_SKILL_SYNC: "0" } }),
+      runSkillSync({ skillsDir, embedded: "X", mode: "install", env: { [SKILL_SYNC_OPT_OUT]: "0" } }),
     ).toEqual({ action: "installed", message: `installed ${SKILL_NAME} skill → ${target()}` });
+  });
+
+  it("defaults env to process.env when omitted", () => {
+    expect(runSkillSync({ skillsDir, embedded: "X", mode: "install" })).toEqual({
+      action: "installed",
+      message: `installed ${SKILL_NAME} skill → ${target()}`,
+    });
   });
 
   it("sync leaves an uninstalled skill untouched", () => {
@@ -86,9 +137,25 @@ describe("runSkillSync", () => {
     mkdirSync(path.dirname(target()), { recursive: true });
     writeFileSync(target(), "OLD");
     expect(
-      runSkillSync({ skillsDir, embedded: "NEW", mode: "sync", env: { KVASIR_SKILL_SYNC: "0" } }),
-    ).toEqual({ action: "opted-out", message: "skill sync skipped (KVASIR_SKILL_SYNC=0)" });
+      runSkillSync({ skillsDir, embedded: "NEW", mode: "sync", env: { [SKILL_SYNC_OPT_OUT]: "0" } }),
+    ).toEqual({ action: "opted-out", message: `skill sync skipped (${SKILL_SYNC_OPT_OUT}=0)` });
     expect(readFileSync(target(), "utf8")).toBe("OLD");
+  });
+
+  it("never writes through a symlinked skill dir — install or sync", () => {
+    // setup.ts's default install symlinks ~/.claude/skills/kvasir → the repo dir;
+    // writing through it would clobber the repo's tracked SKILL.md.
+    const repoSkill = mkdtempSync(path.join(tmpdir(), "kvasir-repo-"));
+    writeFileSync(path.join(repoSkill, "SKILL.md"), "REPO");
+    symlinkSync(repoSkill, path.join(skillsDir, SKILL_NAME));
+    for (const mode of ["install", "sync"] as const) {
+      expect(runSkillSync({ skillsDir, embedded: "NEW", mode, env: {} })).toEqual({
+        action: "symlinked",
+        message: `${SKILL_NAME} skill is symlinked (repo-managed) — left untouched`,
+      });
+    }
+    expect(readFileSync(path.join(repoSkill, "SKILL.md"), "utf8")).toBe("REPO");
+    rmSync(repoSkill, { recursive: true, force: true });
   });
 
   it("returns a failure result (never throws) when the target cannot be written", () => {
