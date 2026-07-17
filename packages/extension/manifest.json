@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Kvasir",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "Kvasir — interactive, in-browser code walkthroughs on GitHub, with select-code Q&A.",
   "permissions": [
     "storage"
