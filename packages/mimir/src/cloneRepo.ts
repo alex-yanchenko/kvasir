@@ -96,6 +96,16 @@ export function destinationPathShapeOk(destination: string, home: string): boole
     .every((segment) => segment !== "" && segment !== "." && segment !== "..");
 }
 
+/** A reviewer-supplied path safe to accept without the full write-target guard:
+ * absolute and control-char free (it is interpolated into the heavy-pass prompt).
+ * Weaker than destinationPathShapeOk — NO under-$HOME requirement — used where the
+ * trust comes from elsewhere: adopting an EXISTING clone (origin-match) or setting a
+ * default clones root (isDir). A clone WRITE target still uses the full
+ * destinationPathShapeOk + ancestor guard. */
+export function checkoutPathSafe(candidate: string): boolean {
+  return !CONTROL_CHARS.test(candidate) && path.isAbsolute(candidate);
+}
+
 /** The nearest ancestor of `target` that exists on disk (walking up until one does).
  * The loop terminates because the filesystem root always exists. */
 function nearestExistingAncestor(target: string): string {

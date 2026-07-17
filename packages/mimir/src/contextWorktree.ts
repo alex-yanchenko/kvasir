@@ -28,8 +28,31 @@ export const errorMessage = (error: unknown): string =>
 
 const SHA_RE = /^[0-9a-f]{7,40}$/i;
 
+// Applied to EVERY git invocation against a heavy-pass checkout — a repo the reviewer
+// ADOPTED (use-existing / a default root) can carry an attacker-authored .git/config +
+// hooks, and git runs configured commands during ordinary operations (a post-checkout
+// hook fires on `worktree add`, fsmonitor is a spawned command). Command-line -c is
+// git's highest-precedence config, so it overrides the repo's own values and
+// neutralizes these automatic-execution vectors. The malicious-transport vector
+// (file://, ext::) is already closed upstream: an adopted clone is only accepted when
+// its `origin` matches github.com/<owner>/<repo> (isUsableClone/originMatches), and the
+// fetch remote is that same origin — so no protocol.* restriction is needed here (and
+// forcing it would break a legitimate local-mirror origin). Residual: clean/smudge/
+// process filters are keyed by driver name and can't be blanket-disabled via -c;
+// origin-match + explicit reviewer authorization remain the primary trust signals.
+const GIT_HARDENING = [
+  "-c",
+  "core.hooksPath=/dev/null", // no hook execution (post-checkout et al.)
+  "-c",
+  "core.fsmonitor=false", // no fsmonitor command execution
+];
+
 async function git(repo: string, args: string[]): Promise<string> {
-  const proc = Bun.spawn(["git", "-C", repo, ...args], { stdout: "pipe", stderr: "pipe" });
+  const proc = Bun.spawn(["git", ...GIT_HARDENING, "-C", repo, ...args], {
+    stdout: "pipe",
+    stderr: "pipe",
+    env: { ...process.env, GIT_TERMINAL_PROMPT: "0" },
+  });
   const out = await new Response(proc.stdout).text();
   const error = await new Response(proc.stderr).text();
   const code = await proc.exited;

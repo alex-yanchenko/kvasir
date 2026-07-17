@@ -58,12 +58,19 @@ export function isUsableClone(candidate: string, owner: string, repo: string, pr
 export function resolveRepo(
   owner: string,
   repo: string,
-  options: { clonesDir: string; savedPath: string | null; probes: RepoProbes },
+  options: { clonesDir: string; savedPath: string | null; defaultRoot: string | null; probes: RepoProbes },
 ): ResolveResult {
   const clonesPath = path.join(options.clonesDir, owner, repo);
   if (isUsableClone(clonesPath, owner, repo, options.probes)) return { status: "ready", path: clonesPath };
   if (options.savedPath && isUsableClone(options.savedPath, owner, repo, options.probes)) {
     return { status: "ready", path: options.savedPath };
+  }
+  // A user-set default root holds clones by repo name (a deterministic <root>/<repo>
+  // join + origin-match, never a fuzzy glob) — so repos kept there resolve without a
+  // per-repo prompt.
+  if (options.defaultRoot) {
+    const rootPath = path.join(options.defaultRoot, repo);
+    if (isUsableClone(rootPath, owner, repo, options.probes)) return { status: "ready", path: rootPath };
   }
   return { status: "absent" };
 }

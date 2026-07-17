@@ -63,6 +63,7 @@ import {
   removeContextWorktree,
 } from "./contextWorktree";
 import { openKvasirDb } from "./db";
+import { createSqliteDefaultRootStore } from "./defaultRootStore.sqlite";
 import { getManifest, getHeadSha } from "./diff";
 import { specToRecord } from "./guideStore";
 import { createSqliteGuideStore } from "./guideStore.sqlite";
@@ -206,6 +207,7 @@ export async function runChannel(): Promise<void> {
   const resolutionDeps: ResolutionDeps = {
     probes: repoProbes,
     store: createSqliteResolvedRepoStore(db),
+    defaultRootStore: createSqliteDefaultRootStore(db),
     clonesDir: CLONES_DIR,
     home: homedir(),
     cloneRun,

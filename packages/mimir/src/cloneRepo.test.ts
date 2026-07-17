@@ -2,7 +2,14 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync 
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
-import { CloneError, cloneCommand, cloneRepo, destinationPathShapeOk, type CloneRunner } from "./cloneRepo";
+import {
+  checkoutPathSafe,
+  CloneError,
+  cloneCommand,
+  cloneRepo,
+  destinationPathShapeOk,
+  type CloneRunner,
+} from "./cloneRepo";
 
 describe("destinationPathShapeOk", () => {
   const home = "/home/u";
@@ -43,6 +50,20 @@ describe("isGhSegment (via cloneCommand)", () => {
   });
   it("accepts a repo name beginning with a dot (e.g. .github)", () => {
     expect(cloneCommand("acme", ".github", "/home/u/x").cmd).toContain("acme/.github");
+  });
+});
+
+describe("checkoutPathSafe", () => {
+  it("accepts an absolute path with no control characters", () => {
+    expect(checkoutPathSafe("/workspace/widget")).toBe(true);
+  });
+  it("rejects a relative path", () => {
+    expect(checkoutPathSafe("relative/widget")).toBe(false);
+    expect(checkoutPathSafe("")).toBe(false);
+  });
+  it("rejects a control character even when absolute", () => {
+    expect(checkoutPathSafe("/home/u/w\nEVIL")).toBe(false);
+    expect(checkoutPathSafe("/home/u/w\ty")).toBe(false);
   });
 });
 

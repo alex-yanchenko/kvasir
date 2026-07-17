@@ -41,7 +41,9 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.3.14
-      - run: cd packages/mimir && bun test ./src/guideStore.sqlite.buntest.ts ./src/sessionStore.sqlite.buntest.ts ./src/manifestStore.sqlite.buntest.ts ./src/contextWorktree.buntest.ts
+      # Glob, not an explicit list — a new *.buntest.ts is picked up automatically
+      # rather than silently skipped until someone remembers to add it here.
+      - run: cd packages/mimir && bun test ./src/*.buntest.ts
 
   build:
     runs-on: ubuntu-latest

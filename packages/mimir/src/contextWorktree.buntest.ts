@@ -2,7 +2,7 @@
 // for the heavy-pass worktree tools: prepare must materialize a commit WITHOUT ever
 // grafting the clone (.git/shallow never appears), reuse a present commit with no
 // fetch, refuse junk, and remove/gc must actually reclaim worktrees + registry.
-import { existsSync, mkdtempSync, rmSync, utimesSync } from "node:fs";
+import { chmodSync, existsSync, mkdtempSync, rmSync, utimesSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
@@ -132,6 +132,17 @@ describe("prepareContextWorktree", () => {
     expect(await rejection(prepareContextWorktree(sandbox, shaA, worktrees))).toBeInstanceOf(
       ContextWorktreeError,
     );
+  });
+
+  it("does NOT run a hook planted in the (untrusted) clone when materializing a worktree", async () => {
+    // An adopted clone's .git/hooks is attacker-controlled; `worktree add` fires
+    // post-checkout. The core.hooksPath=/dev/null hardening must suppress it.
+    const sentinel = path.join(sandbox, "PWNED");
+    const hook = path.join(clone, ".git", "hooks", "post-checkout");
+    await Bun.write(hook, `#!/bin/sh\ntouch "${sentinel}"\n`);
+    chmodSync(hook, 0o755);
+    await prepareContextWorktree(clone, shaA, worktrees); // present locally → worktree add, no fetch
+    expect(existsSync(sentinel)).toBe(false);
   });
 });
 

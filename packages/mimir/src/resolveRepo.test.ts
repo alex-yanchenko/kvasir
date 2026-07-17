@@ -41,7 +41,7 @@ describe("resolveRepo", () => {
 
   it("resolves the server-owned clones path when it is a matching git repo", () => {
     const probes = probesOver({ [defaultPath]: "https://github.com/acme/widget.git" });
-    expect(resolveRepo("acme", "widget", { clonesDir, savedPath: null, probes })).toEqual({
+    expect(resolveRepo("acme", "widget", { clonesDir, savedPath: null, defaultRoot: null, probes })).toEqual({
       status: "ready",
       path: defaultPath,
     });
@@ -50,10 +50,12 @@ describe("resolveRepo", () => {
   it("falls back to a saved path when the clones path is absent", () => {
     const saved = "/home/u/code/widget";
     const probes = probesOver({ [saved]: "git@github.com:acme/widget.git" });
-    expect(resolveRepo("acme", "widget", { clonesDir, savedPath: saved, probes })).toEqual({
-      status: "ready",
-      path: saved,
-    });
+    expect(resolveRepo("acme", "widget", { clonesDir, savedPath: saved, defaultRoot: null, probes })).toEqual(
+      {
+        status: "ready",
+        path: saved,
+      },
+    );
   });
 
   it("prefers the clones path over a saved path when both are valid", () => {
@@ -62,38 +64,88 @@ describe("resolveRepo", () => {
       [defaultPath]: "https://github.com/acme/widget",
       [saved]: "https://github.com/acme/widget",
     });
-    expect(resolveRepo("acme", "widget", { clonesDir, savedPath: saved, probes })).toEqual({
-      status: "ready",
-      path: defaultPath,
-    });
+    expect(resolveRepo("acme", "widget", { clonesDir, savedPath: saved, defaultRoot: null, probes })).toEqual(
+      {
+        status: "ready",
+        path: defaultPath,
+      },
+    );
   });
 
   it("is absent when a saved path is no longer a git repo (dir present, no origin)", () => {
     const saved = "/home/u/code/widget";
     const probes = probesOver({ [saved]: null });
-    expect(resolveRepo("acme", "widget", { clonesDir, savedPath: saved, probes })).toEqual({
-      status: "absent",
-    });
+    expect(resolveRepo("acme", "widget", { clonesDir, savedPath: saved, defaultRoot: null, probes })).toEqual(
+      {
+        status: "absent",
+      },
+    );
   });
 
   it("is absent when a saved path's origin points at a different repo", () => {
     const saved = "/home/u/code/widget";
     const probes = probesOver({ [saved]: "https://github.com/acme/other.git" });
-    expect(resolveRepo("acme", "widget", { clonesDir, savedPath: saved, probes })).toEqual({
-      status: "absent",
-    });
+    expect(resolveRepo("acme", "widget", { clonesDir, savedPath: saved, defaultRoot: null, probes })).toEqual(
+      {
+        status: "absent",
+      },
+    );
   });
 
   it("is absent when neither the clones path nor a saved path exists", () => {
-    expect(resolveRepo("acme", "widget", { clonesDir, savedPath: null, probes: probesOver({}) })).toEqual({
+    expect(
+      resolveRepo("acme", "widget", {
+        clonesDir,
+        savedPath: null,
+        defaultRoot: null,
+        probes: probesOver({}),
+      }),
+    ).toEqual({
       status: "absent",
     });
   });
 
   it("ignores a clones path that exists but is the wrong repo, falling through to absent", () => {
     const probes = probesOver({ [defaultPath]: "https://github.com/acme/other.git" });
-    expect(resolveRepo("acme", "widget", { clonesDir, savedPath: null, probes })).toEqual({
+    expect(resolveRepo("acme", "widget", { clonesDir, savedPath: null, defaultRoot: null, probes })).toEqual({
       status: "absent",
     });
+  });
+
+  it("resolves <defaultRoot>/<repo> when the clones path and saved path are absent", () => {
+    const probes = probesOver({ "/home/u/code/widget": "https://github.com/acme/widget.git" });
+    expect(
+      resolveRepo("acme", "widget", { clonesDir, savedPath: null, defaultRoot: "/home/u/code", probes }),
+    ).toEqual({ status: "ready", path: "/home/u/code/widget" });
+  });
+
+  it("prefers a saved path over the default root", () => {
+    const saved = "/home/u/saved/widget";
+    const probes = probesOver({
+      [saved]: "https://github.com/acme/widget.git",
+      "/home/u/code/widget": "https://github.com/acme/widget.git",
+    });
+    expect(
+      resolveRepo("acme", "widget", { clonesDir, savedPath: saved, defaultRoot: "/home/u/code", probes }),
+    ).toEqual({ status: "ready", path: saved });
+  });
+
+  it("prefers the clones path over both a saved path and the default root", () => {
+    const saved = "/home/u/saved/widget";
+    const probes = probesOver({
+      [defaultPath]: "https://github.com/acme/widget.git",
+      [saved]: "https://github.com/acme/widget.git",
+      "/home/u/code/widget": "https://github.com/acme/widget.git",
+    });
+    expect(
+      resolveRepo("acme", "widget", { clonesDir, savedPath: saved, defaultRoot: "/home/u/code", probes }),
+    ).toEqual({ status: "ready", path: defaultPath });
+  });
+
+  it("is absent when the default root's repo dir is the wrong repo", () => {
+    const probes = probesOver({ "/home/u/code/widget": "https://github.com/acme/other.git" });
+    expect(
+      resolveRepo("acme", "widget", { clonesDir, savedPath: null, defaultRoot: "/home/u/code", probes }),
+    ).toEqual({ status: "absent" });
   });
 });
