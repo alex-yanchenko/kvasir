@@ -12,6 +12,10 @@ import { parseReviewInput, reviewLandingUrl } from "./review";
 export interface BridgeDeps {
   /** Published specs, keyed by `owner/repo#number`. */
   specs: Map<string, WalkthroughSpec>;
+  /** This channel's release version + wire-protocol version, echoed on /health so
+   * the extension can detect a channel↔extension mismatch and show a skew banner. */
+  version: string;
+  protocol: number;
   /** Durable history of stored walkthroughs (pr + code), across restarts. */
   guides: GuideStore;
   /** Mint a fresh review id from the title when a push omits one. */
@@ -367,7 +371,13 @@ export function createFetchHandler(deps: BridgeDeps): (request: Request) => Prom
     // Gate every real request: same-machine, from our extension, never a web page.
     if (!authorizedLocalCaller(request)) return json(request, { error: "forbidden" }, 403);
 
-    if (url.pathname === "/health") return json(request, { ok: true, specs: deps.specs.size });
+    if (url.pathname === "/health")
+      return json(request, {
+        ok: true,
+        specs: deps.specs.size,
+        version: deps.version,
+        protocol: deps.protocol,
+      });
 
     // Token-less routes (before the pairing gate): /pair only starts pairing; the
     // review mailbox pushes/pulls by id (the extension reads ?kvasir=<id> off the
