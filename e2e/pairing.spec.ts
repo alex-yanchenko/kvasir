@@ -1,3 +1,4 @@
+import { PROTOCOL_VERSION } from "../packages/runes/src/protocol";
 import { test, expect } from "./fixtures";
 import { PR_URL, prPageHtml } from "./pr-page";
 
@@ -26,5 +27,21 @@ test.describe("pairing flow", () => {
 
     // The (auto-approved) claim returns the token on the next poll (~1s) → paired → banner gone.
     await expect(page.getByText(/Confirm code|Not paired/)).toBeHidden({ timeout: 5000 });
+  });
+
+  test("a protocol mismatch surfaces the skew banner", async ({ context, bridge }) => {
+    // /health reports a protocol behind the extension's → the channel-outdated banner.
+    bridge.state.protocol = PROTOCOL_VERSION - 1;
+
+    const page = await context.newPage();
+    await page.route("https://github.com/**", (route) =>
+      route.fulfill({ contentType: "text/html", body: prPageHtml({ withDiff: false }) }),
+    );
+    await page.goto(PR_URL);
+
+    await page.getByRole("button", { name: "Open Kvasir" }).click();
+
+    // The panel probes /health on open; the mismatch renders the skew banner.
+    await expect(page.getByText(/kvasir channel is out of date/)).toBeVisible();
   });
 });

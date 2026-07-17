@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { PROTOCOL_VERSION } from "@kvasir/runes/protocol";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 vi.mock(import("../api"), async (importOriginal) => ({ ...(await importOriginal()), api: vi.fn() }));
@@ -298,5 +299,63 @@ describe("pairingStore", () => {
     vi.mocked(api).mockResolvedValue({ ok: true, data: { requestId: "r", code: "ABC234" } });
     await pairingStore.pair(); // POST returns; phase already paired -> early return
     expect(pairingStore.state()).toEqual({ phase: "paired" }); // not flipped to waiting
+  });
+});
+
+describe("pairingStore protocol skew", () => {
+  const health = (protocol: number, version = "9.9.9"): BridgeResponse => ({
+    ok: true,
+    data: { ok: true, specs: 0, version, protocol },
+  });
+
+  it("flags the channel as behind when /health reports a lower protocol", async () => {
+    vi.mocked(api).mockResolvedValue(health(PROTOCOL_VERSION - 1, "0.5.0"));
+    await pairingStore.recheck();
+    expect(pairingStore.skew()).toEqual({
+      channelProtocol: PROTOCOL_VERSION - 1,
+      channelVersion: "0.5.0",
+      behind: "channel",
+    });
+  });
+
+  it("flags the extension as behind when /health reports a higher protocol", async () => {
+    vi.mocked(api).mockResolvedValue(health(PROTOCOL_VERSION + 1));
+    await pairingStore.recheck();
+    expect(pairingStore.skew()).toEqual({
+      channelProtocol: PROTOCOL_VERSION + 1,
+      channelVersion: "9.9.9",
+      behind: "extension",
+    });
+  });
+
+  it("reports no skew when the protocol matches", async () => {
+    vi.mocked(api).mockResolvedValue(health(PROTOCOL_VERSION));
+    await pairingStore.recheck();
+    expect(pairingStore.skew()).toBeNull();
+  });
+
+  it("reports no skew when /health omits the protocol (channel predates the handshake)", async () => {
+    vi.mocked(api).mockResolvedValue({ ok: true, data: { ok: true } });
+    await pairingStore.recheck();
+    expect(pairingStore.skew()).toBeNull();
+  });
+
+  it("clears a skew when the channel goes down", async () => {
+    vi.mocked(api).mockResolvedValue(health(PROTOCOL_VERSION - 1, "0.5.0"));
+    await pairingStore.recheck();
+    expect(pairingStore.skew()).not.toBeNull();
+    vi.mocked(api).mockResolvedValue({ ok: false, error: "TypeError: Failed to fetch" });
+    await pairingStore.recheck();
+    expect(pairingStore.skew()).toBeNull();
+    expect(pairingStore.state()).toEqual({ phase: "down" });
+  });
+
+  it("clears a skew once the protocol matches again", async () => {
+    vi.mocked(api).mockResolvedValue(health(PROTOCOL_VERSION - 1, "0.5.0"));
+    await pairingStore.recheck();
+    expect(pairingStore.skew()?.behind).toBe("channel");
+    vi.mocked(api).mockResolvedValue(health(PROTOCOL_VERSION));
+    await pairingStore.recheck();
+    expect(pairingStore.skew()).toBeNull();
   });
 });

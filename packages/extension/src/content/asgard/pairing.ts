@@ -5,6 +5,7 @@
 // It also owns the connection tri-state: "down" (nothing listening on the
 // bridge port) is distinct from "unpaired" (channel up, token absent/stale),
 // so the UI can say "start the channel" vs "pair" instead of guessing.
+import { PROTOCOL_VERSION } from "@kvasir/runes/protocol";
 import { api, isUnreachable } from "../api";
 import type { BridgeResponse } from "../api";
 import { TOKEN_KEY } from "../keys";
@@ -31,6 +32,51 @@ let state: PairingPhase = { phase: "unknown" };
 const set = (next: PairingPhase): void => {
   state = next;
   touch();
+};
+
+/** A channel↔extension wire-protocol mismatch, detected from /health. Orthogonal
+ * to the pairing phase (you can be paired AND skewed), so it rides its own flag —
+ * the reviewMissing precedent — not a PairingPhase variant. `behind` names which
+ * side is older, from the int comparison, so the banner can say who to update. */
+export interface ProtocolSkew {
+  channelProtocol: number;
+  channelVersion: string;
+  behind: "channel" | "extension";
+}
+
+let skew: ProtocolSkew | null = null;
+
+/** Update the skew flag and re-render. Like `set()` for the phase, it touches on
+ * every probe rather than diffing — a re-render with an unchanged skew is a no-op
+ * render, and touching here (not only via the later `set`) keeps the flag flushed
+ * even when a concurrent transition makes the probe bail before its `set`. */
+const setSkew = (next: ProtocolSkew | null): void => {
+  skew = next;
+  touch();
+};
+
+const healthOf = (data: unknown): { version: string; protocol: number } | null =>
+  typeof data === "object" &&
+  data !== null &&
+  "protocol" in data &&
+  typeof data.protocol === "number" &&
+  "version" in data &&
+  typeof data.version === "string"
+    ? { version: data.version, protocol: data.protocol }
+    : null;
+
+/** Compare the channel's /health protocol to the extension's bundled
+ * PROTOCOL_VERSION (exact-match policy). Null when they agree, or when /health
+ * omits the field — a channel predating the handshake can't be diffed, so it
+ * surfaces no banner rather than a false one. */
+const skewOf = (data: unknown): ProtocolSkew | null => {
+  const health = healthOf(data);
+  if (!health || health.protocol === PROTOCOL_VERSION) return null;
+  return {
+    channelProtocol: health.protocol,
+    channelVersion: health.version,
+    behind: health.protocol < PROTOCOL_VERSION ? "channel" : "extension",
+  };
 };
 
 const requestIdOf = (data: unknown): { requestId: string; code: string } | null =>
@@ -79,6 +125,7 @@ async function probe(): Promise<void> {
   const health = await api("/health");
   if (state !== entered) return;
   if (isUnreachable(health)) {
+    setSkew(null); // channel unreachable → protocol unknown, clear any stale skew
     // An orphaned content script (extension reloaded) also fails without a
     // status, but its remedy is refreshing the PAGE — don't tell the user to
     // restart a channel that may be running fine.
@@ -89,6 +136,7 @@ async function probe(): Promise<void> {
     set({ phase: "down" }); // keep any stored token — a stale one is /auth's 401 to report
     return;
   }
+  setSkew(skewOf(health.data)); // channel answered → (re)assess protocol skew
   const token = await storeGet(TOKEN_KEY);
   if (state !== entered) return;
   if (typeof token !== "string" || !token) {
@@ -103,6 +151,10 @@ async function probe(): Promise<void> {
 export const pairingStore = {
   state: (): PairingPhase => state,
 
+  /** A detected channel↔extension protocol mismatch, or null. Independent of the
+   * pairing phase — a paired channel can still be skewed. */
+  skew: (): ProtocolSkew | null => skew,
+
   /** True while a bridge call would fail — channel down or token absent/stale —
    * used to disable backend-dependent controls so they don't look clickable.
    * "unknown" (pre-boot-check) stays enabled; it resolves within a moment of load. */
@@ -113,6 +165,7 @@ export const pairingStore = {
    * join, so the in-flight slot clears too. */
   reset(): void {
     probing = null;
+    skew = null;
     set({ phase: "unknown" });
   },
 
