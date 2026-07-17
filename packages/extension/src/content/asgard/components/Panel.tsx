@@ -100,17 +100,18 @@ function PairBanner(): JSX.Element | null {
 
 /** Shown when the channel's /health protocol differs from the extension's bundled
  * PROTOCOL_VERSION — a version mismatch that would otherwise fail subtly. Names
- * which side is behind (from the int comparison) so the reader knows what to
- * update; distribution-neutral wording (no `brew upgrade` — see the release plan).
- * Orthogonal to pairing, so it shows on every tab (like ReviewMissingBanner), not
- * gated on the pairing phase — a paired channel can still be skewed. */
+ * which side is behind (from the int comparison) and states the direction only:
+ * the channel and extension update through different, still-evolving mechanisms,
+ * so it deliberately does NOT name a command or promise an auto-update. Orthogonal
+ * to pairing, so it shows on every tab (like ReviewMissingBanner), not gated on the
+ * pairing phase — a paired channel can still be skewed. */
 function SkewBanner(): JSX.Element | null {
   const skew = pairingStore.skew();
   if (!skew) return null;
   const message =
     skew.behind === "channel"
-      ? "The kvasir channel is out of date — update kvasir to match the extension."
-      : "The kvasir extension is out of date — Chrome will update it shortly.";
+      ? `The kvasir channel is out of date (${skew.channelVersion}) — update it to match the extension.`
+      : `The kvasir extension is out of date — update it to match the channel (${skew.channelVersion}).`;
   return (
     <div className="flex items-center gap-2 border-b border-border bg-secondary px-3 py-1.5 text-xs">
       <span className="text-muted-foreground">{message}</span>
@@ -123,7 +124,10 @@ function SkewBanner(): JSX.Element | null {
 
 /** Rail-foot connection dot — the always-visible one-glance answer to "is this
  * thing connected", independent of which section is open (the banner hides on
- * Settings; the dot never does). Hover names the phase via the shared tooltip. */
+ * Settings; the dot never does). Hover names the phase via the shared tooltip.
+ * Keyed on the pairing phase only: a protocol skew is deliberately NOT reflected
+ * here — the dot answers "is the transport up", the always-onscreen SkewBanner
+ * answers "is the version trustworthy", and the two stay visually distinct. */
 const CONNECTION_DOT: Record<PairingPhase["phase"], { className: string; label: string }> = {
   unknown: { className: "bg-muted-foreground/40", label: "Checking connection…" },
   down: { className: "bg-destructive", label: "Channel not running" },

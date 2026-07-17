@@ -512,13 +512,9 @@ describe("Panel", () => {
   it("a protocol skew shows a banner telling the reader to update the channel, and Retry re-probes", () => {
     render(<Panel />);
     act(() => panelStore.open());
-    vi.spyOn(pairingStore, "skew").mockReturnValue({
-      channelProtocol: 0,
-      channelVersion: "0.5.0",
-      behind: "channel",
-    });
+    vi.spyOn(pairingStore, "skew").mockReturnValue({ channelVersion: "0.5.0", behind: "channel" });
     act(() => panelStore.setTab(PANEL_TABS.CHAT)); // force a re-render (phase stays "unknown" → no PairBanner)
-    expect(screen.getByText(/kvasir channel is out of date/)).toBeTruthy();
+    expect(screen.getByText(/kvasir channel is out of date \(0\.5\.0\)/)).toBeTruthy();
     vi.mocked(pairingStore.recheck).mockClear();
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
     expect(pairingStore.recheck).toHaveBeenCalledTimes(1);
@@ -527,13 +523,9 @@ describe("Panel", () => {
   it("a protocol skew names the extension as behind when the channel is newer", () => {
     render(<Panel />);
     act(() => panelStore.open());
-    vi.spyOn(pairingStore, "skew").mockReturnValue({
-      channelProtocol: 99,
-      channelVersion: "9.9.9",
-      behind: "extension",
-    });
+    vi.spyOn(pairingStore, "skew").mockReturnValue({ channelVersion: "9.9.9", behind: "extension" });
     act(() => panelStore.setTab(PANEL_TABS.CHAT));
-    expect(screen.getByText(/kvasir extension is out of date/)).toBeTruthy();
+    expect(screen.getByText(/kvasir extension is out of date .* \(9\.9\.9\)/)).toBeTruthy();
   });
 
   it("the rail-foot status dot names and colors each connection phase", () => {

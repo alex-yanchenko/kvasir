@@ -38,8 +38,8 @@ const set = (next: PairingPhase): void => {
  * to the pairing phase (you can be paired AND skewed), so it rides its own flag —
  * the reviewMissing precedent — not a PairingPhase variant. `behind` names which
  * side is older, from the int comparison, so the banner can say who to update. */
-export interface ProtocolSkew {
-  channelProtocol: number;
+interface ProtocolSkew {
+  /** The channel's release version, for the banner. */
   channelVersion: string;
   behind: "channel" | "extension";
 }
@@ -58,10 +58,10 @@ const setSkew = (next: ProtocolSkew | null): void => {
 const healthOf = (data: unknown): { version: string; protocol: number } | null =>
   typeof data === "object" &&
   data !== null &&
-  "protocol" in data &&
-  typeof data.protocol === "number" &&
   "version" in data &&
-  typeof data.version === "string"
+  typeof data.version === "string" &&
+  "protocol" in data &&
+  typeof data.protocol === "number"
     ? { version: data.version, protocol: data.protocol }
     : null;
 
@@ -73,7 +73,6 @@ const skewOf = (data: unknown): ProtocolSkew | null => {
   const health = healthOf(data);
   if (!health || health.protocol === PROTOCOL_VERSION) return null;
   return {
-    channelProtocol: health.protocol,
     channelVersion: health.version,
     behind: health.protocol < PROTOCOL_VERSION ? "channel" : "extension",
   };

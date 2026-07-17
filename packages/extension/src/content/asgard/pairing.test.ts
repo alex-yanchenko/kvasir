@@ -311,21 +311,13 @@ describe("pairingStore protocol skew", () => {
   it("flags the channel as behind when /health reports a lower protocol", async () => {
     vi.mocked(api).mockResolvedValue(health(PROTOCOL_VERSION - 1, "0.5.0"));
     await pairingStore.recheck();
-    expect(pairingStore.skew()).toEqual({
-      channelProtocol: PROTOCOL_VERSION - 1,
-      channelVersion: "0.5.0",
-      behind: "channel",
-    });
+    expect(pairingStore.skew()).toEqual({ channelVersion: "0.5.0", behind: "channel" });
   });
 
   it("flags the extension as behind when /health reports a higher protocol", async () => {
     vi.mocked(api).mockResolvedValue(health(PROTOCOL_VERSION + 1));
     await pairingStore.recheck();
-    expect(pairingStore.skew()).toEqual({
-      channelProtocol: PROTOCOL_VERSION + 1,
-      channelVersion: "9.9.9",
-      behind: "extension",
-    });
+    expect(pairingStore.skew()).toEqual({ channelVersion: "9.9.9", behind: "extension" });
   });
 
   it("reports no skew when the protocol matches", async () => {
@@ -336,6 +328,29 @@ describe("pairingStore protocol skew", () => {
 
   it("reports no skew when /health omits the protocol (channel predates the handshake)", async () => {
     vi.mocked(api).mockResolvedValue({ ok: true, data: { ok: true } });
+    await pairingStore.recheck();
+    expect(pairingStore.skew()).toBeNull();
+  });
+
+  // The /health body is untrusted `unknown` — healthOf must reject malformed shapes
+  // (not just a missing protocol) so a hostile/garbled response can't fake a skew.
+  it("rejects a null /health payload", async () => {
+    vi.mocked(api).mockResolvedValue({ ok: true, data: null });
+    await pairingStore.recheck();
+    expect(pairingStore.skew()).toBeNull();
+  });
+
+  it("rejects a non-numeric protocol", async () => {
+    vi.mocked(api).mockResolvedValue({ ok: true, data: { ok: true, version: "1.0.0", protocol: "1" } });
+    await pairingStore.recheck();
+    expect(pairingStore.skew()).toBeNull();
+  });
+
+  it("rejects a non-string version", async () => {
+    vi.mocked(api).mockResolvedValue({
+      ok: true,
+      data: { ok: true, version: 123, protocol: PROTOCOL_VERSION - 1 },
+    });
     await pairingStore.recheck();
     expect(pairingStore.skew()).toBeNull();
   });
@@ -356,6 +371,14 @@ describe("pairingStore protocol skew", () => {
     expect(pairingStore.skew()?.behind).toBe("channel");
     vi.mocked(api).mockResolvedValue(health(PROTOCOL_VERSION));
     await pairingStore.recheck();
+    expect(pairingStore.skew()).toBeNull();
+  });
+
+  it("reset() clears a previously detected skew", async () => {
+    vi.mocked(api).mockResolvedValue(health(PROTOCOL_VERSION - 1, "0.5.0"));
+    await pairingStore.recheck();
+    expect(pairingStore.skew()).not.toBeNull();
+    pairingStore.reset();
     expect(pairingStore.skew()).toBeNull();
   });
 });

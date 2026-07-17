@@ -29,9 +29,8 @@ test.describe("pairing flow", () => {
     await expect(page.getByText(/Confirm code|Not paired/)).toBeHidden({ timeout: 5000 });
   });
 
-  test("a protocol mismatch surfaces the skew banner", async ({ context, bridge }) => {
-    // /health reports a protocol behind the extension's → the channel-outdated banner.
-    bridge.state.protocol = PROTOCOL_VERSION - 1;
+  test("a channel behind the extension surfaces the channel-outdated banner", async ({ context, bridge }) => {
+    bridge.state.protocol = PROTOCOL_VERSION - 1; // /health reports a lower protocol
 
     const page = await context.newPage();
     await page.route("https://github.com/**", (route) =>
@@ -43,5 +42,22 @@ test.describe("pairing flow", () => {
 
     // The panel probes /health on open; the mismatch renders the skew banner.
     await expect(page.getByText(/kvasir channel is out of date/)).toBeVisible();
+  });
+
+  test("a channel ahead of the extension surfaces the extension-outdated banner", async ({
+    context,
+    bridge,
+  }) => {
+    bridge.state.protocol = PROTOCOL_VERSION + 1; // /health reports a higher protocol
+
+    const page = await context.newPage();
+    await page.route("https://github.com/**", (route) =>
+      route.fulfill({ contentType: "text/html", body: prPageHtml({ withDiff: false }) }),
+    );
+    await page.goto(PR_URL);
+
+    await page.getByRole("button", { name: "Open Kvasir" }).click();
+
+    await expect(page.getByText(/kvasir extension is out of date/)).toBeVisible();
   });
 });

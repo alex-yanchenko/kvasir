@@ -12,9 +12,10 @@ import { parseReviewInput, reviewLandingUrl } from "./review";
 export interface BridgeDeps {
   /** Published specs, keyed by `owner/repo#number`. */
   specs: Map<string, WalkthroughSpec>;
-  /** This channel's release version + wire-protocol version, echoed on /health so
-   * the extension can detect a channel↔extension mismatch and show a skew banner. */
+  /** This channel's release version, echoed on /health. */
   version: string;
+  /** This channel's wire-protocol version (PROTOCOL_VERSION), echoed on /health so
+   * the extension can detect a channel↔extension mismatch and show a skew banner. */
   protocol: number;
   /** Durable history of stored walkthroughs (pr + code), across restarts. */
   guides: GuideStore;
