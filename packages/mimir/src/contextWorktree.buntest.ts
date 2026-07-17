@@ -186,9 +186,16 @@ describe("gcContextWorktrees", () => {
   });
 
   it("skips a stray non-directory entry instead of crashing the sweep", async () => {
-    await prepareContextWorktree(clone, shaA, worktrees); // ensures the dir exists
+    const stale = await prepareContextWorktree(clone, shaA, worktrees);
+    // Age the real worktree past the threshold so the sweep is deterministic — a
+    // maxAge of 0 relies on a just-created dir's mtime not landing ahead of the wall
+    // clock, which coarse-resolution CI filesystems occasionally violate (age < 0 →
+    // skipped → nothing swept). Ageing removes that fs-vs-clock race.
+    const old = new Date(Date.now() - 48 * 60 * 60 * 1000);
+    utimesSync(stale, old, old);
     await Bun.write(path.join(worktrees, "stray.txt"), "x");
-    expect(await gcContextWorktrees(0, worktrees)).toEqual([`clone-${shaA}`]); // stray skipped, real one swept
+    // The stray file is skipped on the non-directory check regardless of its age.
+    expect(await gcContextWorktrees(24 * 60 * 60 * 1000, worktrees)).toEqual([`clone-${shaA}`]);
     expect(existsSync(path.join(worktrees, "stray.txt"))).toBe(true);
   });
 
