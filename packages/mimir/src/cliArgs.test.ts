@@ -38,6 +38,19 @@ describe("parseCli", () => {
     } satisfies CliCommand);
   });
 
+  it("routes skill install and skill sync", () => {
+    expect(parseCli(["skill", "install"])).toEqual({ kind: "skill", action: "install" } satisfies CliCommand);
+    expect(parseCli(["skill", "sync"])).toEqual({ kind: "skill", action: "sync" } satisfies CliCommand);
+  });
+
+  it("leaves skill.action undefined when missing or unrecognized", () => {
+    expect(parseCli(["skill"])).toEqual({ kind: "skill", action: undefined } satisfies CliCommand);
+    expect(parseCli(["skill", "reinstall"])).toEqual({
+      kind: "skill",
+      action: undefined,
+    } satisfies CliCommand);
+  });
+
   it("recognizes --version and -v only as the leading token", () => {
     expect(parseCli(["--version"])).toEqual({ kind: "version" } satisfies CliCommand);
     expect(parseCli(["-v"])).toEqual({ kind: "version" } satisfies CliCommand);
@@ -66,6 +79,8 @@ describe("CLI_USAGE", () => {
       "kvasir run",
       "kvasir build",
       "kvasir channel",
+      "kvasir skill install",
+      "kvasir skill sync",
       "kvasir --version",
       "kvasir --help",
     ]) {

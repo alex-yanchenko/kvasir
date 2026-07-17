@@ -5,18 +5,22 @@
 //
 // Subcommand surface (grows per PR): `kvasir` / `kvasir run` launches a Claude
 // session with the channel loaded; `kvasir channel` IS the MCP stdio server Claude
-// spawns; `kvasir build <draft.json>` assembles a pushed review; `--version` /
-// `--help` are recognized only as the leading token so `run` can forward its own
-// flags (e.g. `kvasir run --model …`) straight to Claude untouched.
+// spawns; `kvasir build <draft.json>` assembles a pushed review; `kvasir skill
+// install|sync` installs/refreshes the embedded skill; `--version` / `--help` are
+// recognized only as the leading token so `run` can forward its own flags (e.g.
+// `kvasir run --model …`) straight to Claude untouched.
 
 /** The routed command. `run.forward` is the tail passed through to Claude; `build.draft`
  * is the first non-flag argument, or undefined when none was given (the handler then
- * throws build usage). Always present under exactOptionalPropertyTypes — the field is
- * nullable, not optional, so a caller must handle the missing-draft case explicitly. */
+ * throws build usage); `skill.action` is the validated subcommand, or undefined when
+ * missing/unrecognized (the handler throws skill usage). Every field is present under
+ * exactOptionalPropertyTypes — nullable, not optional — so callers handle the missing
+ * case explicitly. */
 export type CliCommand =
   | { kind: "run"; forward: readonly string[] }
   | { kind: "channel" }
   | { kind: "build"; draft: string | undefined }
+  | { kind: "skill"; action: "install" | "sync" | undefined }
   | { kind: "version" }
   | { kind: "help" }
   | { kind: "unknown"; token: string };
@@ -36,6 +40,10 @@ export function parseCli(argv: readonly string[]): CliCommand {
     }
     case "build": {
       return { kind: "build", draft: rest.find((argument) => !argument.startsWith("-")) };
+    }
+    case "skill": {
+      const action = rest[0];
+      return { kind: "skill", action: action === "install" || action === "sync" ? action : undefined };
     }
     case "-h":
     case "--help": {
@@ -58,6 +66,8 @@ Usage:
   kvasir run [args…]     same as above; extra args are forwarded to \`claude\`
   kvasir build <draft>   assemble a pushed review from a draft JSON and print its link
   kvasir channel         run the MCP channel server (what Claude spawns — not run directly)
+  kvasir skill install   copy the bundled /kvasir skill into ~/.claude/skills
+  kvasir skill sync      refresh an already-installed /kvasir skill if it has drifted
   kvasir --version       print the version
   kvasir --help          show this help
 

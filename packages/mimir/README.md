@@ -83,10 +83,11 @@ binary instead of your source edits.
 
 ## Config (env)
 
-| Var              | Default                   | Purpose                               |
-| ---------------- | ------------------------- | ------------------------------------- |
-| `KVASIR_ORIGIN`  | unset (nothing reflected) | optional extra CORS origin — see note |
-| `ASK_TIMEOUT_MS` | `120000`                  | how long `/ask` waits for your answer |
+| Var                 | Default                   | Purpose                                                                  |
+| ------------------- | ------------------------- | ------------------------------------------------------------------------ |
+| `KVASIR_ORIGIN`     | unset (nothing reflected) | optional extra CORS origin — see note                                    |
+| `ASK_TIMEOUT_MS`    | `120000`                  | how long `/ask` waits for your answer                                    |
+| `KVASIR_SKILL_SYNC` | unset (sync runs)         | set to `0` to skip the update-only `/kvasir` skill sync on channel start |
 
 The port is fixed at `8799` (the shared `KVASIR_PORT` constant in
 `@kvasir/runes/port`), not configurable: the extension's manifest pins its host

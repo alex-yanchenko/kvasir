@@ -90,7 +90,7 @@ kvasir build /tmp/kvasir-draft.json
 It resolves owner/name + head sha (`git`), verifies each file exists at that sha,
 greps your locator snippets for the real line range, validates the shape, pushes
 to the mailbox, and prints the **link**. (If `kvasir` isn't on PATH, run the
-builder directly: `bun run <kvasir-repo>/packages/mimir/scripts/buildReview.ts /tmp/kvasir-draft.json`.)
+builder directly: `bun run <kvasir-repo>/packages/mimir/src/main.ts build /tmp/kvasir-draft.json`.)
 
 ## 3. Hand the user the link
 
