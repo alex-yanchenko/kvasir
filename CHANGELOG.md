@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.7.0](https://github.com/alex-yanchenko/kvasir/compare/v0.6.0...v0.7.0) (2026-07-17)
+
+
+### Features
+
+* **kvasir:** protocol handshake + version-skew banner ([#68](https://github.com/alex-yanchenko/kvasir/issues/68)) ([208afbe](https://github.com/alex-yanchenko/kvasir/commit/208afbeb751909a42cf1a6378e0b85d18a6ad66c))
+* **mimir:** derive walkthrough step lines from highlight server-side ([#70](https://github.com/alex-yanchenko/kvasir/issues/70)) ([d6e4ee2](https://github.com/alex-yanchenko/kvasir/commit/d6e4ee2058243c054ca06d8fabb744cff430a171))
+* **mimir:** kvasir skill install|sync with embedded SKILL.md ([#66](https://github.com/alex-yanchenko/kvasir/issues/66)) ([7ead469](https://github.com/alex-yanchenko/kvasir/commit/7ead469004f55b6d1d02229de0b5ca458027387b))
+* **mimir:** unify the kvasir binary — argv router + Option C launcher ([#65](https://github.com/alex-yanchenko/kvasir/issues/65)) ([a12590f](https://github.com/alex-yanchenko/kvasir/commit/a12590f488813ba2681ddf786b8ae535995fd601))
+
+
+### Bug Fixes
+
+* **mimir:** deflake the context-worktree stray-entry sweep test ([#69](https://github.com/alex-yanchenko/kvasir/issues/69)) ([5ee2a67](https://github.com/alex-yanchenko/kvasir/commit/5ee2a674c4bbde57483cb5b50b86e4b3e7de41aa))
+
 ## [0.6.0](https://github.com/alex-yanchenko/kvasir/compare/v0.5.0...v0.6.0) (2026-07-15)
 
 
