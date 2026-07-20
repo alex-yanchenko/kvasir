@@ -4,7 +4,15 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, it, expect } from "vitest";
 import type { CloneRunner } from "./cloneRepo";
 import { createMemoryDefaultRootStore } from "./defaultRootStore";
-import { prepareCheckout, resolveCheckout, type ResolutionDeps } from "./resolution";
+import {
+  adoptForeignCheckout,
+  ensureCheckout,
+  guardHeavyGitOp,
+  isUnderClonesDirectory,
+  prepareCheckout,
+  resolveCheckout,
+  type ResolutionDeps,
+} from "./resolution";
 import { createMemoryResolvedRepoStore } from "./resolvedRepoStore";
 import type { RepoProbes } from "./resolveRepo";
 
@@ -14,6 +22,16 @@ const probesOver = (repos: Record<string, string | null>): RepoProbes => ({
   isDir: (candidate) => candidate in repos,
   originOf: (candidate) => repos[candidate] ?? null,
 });
+
+// Simulate both clone shapes on disk: the gh clone `gh repo clone <o/r> <dest> -- …`
+// (dest is the slot before "--") and the local adoption `git … clone --local <src> <dest>`
+// (dest last), plus the origin-reset step (a no-op). Each materializes the dest dir.
+const okRun: CloneRunner = (cmd) => {
+  const argv = [...cmd];
+  if (argv.includes("--")) mkdirSync(argv[argv.indexOf("--") - 1]!, { recursive: true });
+  else if (argv.includes("clone")) mkdirSync(argv[argv.length - 1]!, { recursive: true });
+  return Promise.resolve({ code: 0, stderr: "" });
+};
 
 describe("resolveCheckout", () => {
   const clonesDir = "/home/u/.kvasir/clones";
@@ -72,28 +90,24 @@ describe("resolveCheckout", () => {
 
 describe("prepareCheckout", () => {
   let sandbox: string;
+  let home: string;
   let clonesDir: string;
-
-  const okRun: CloneRunner = (cmd) => {
-    // The gh clone dest is the argv slot before the "--" separator.
-    const dest = cmd[cmd.indexOf("--") - 1]!;
-    mkdirSync(dest, { recursive: true });
-    return Promise.resolve({ code: 0, stderr: "" });
-  };
 
   const deps = (over: Partial<ResolutionDeps>): ResolutionDeps => ({
     probes: probesOver({}),
     store: createMemoryResolvedRepoStore(),
     defaultRootStore: createMemoryDefaultRootStore(),
     clonesDir,
-    home: sandbox,
+    home,
     cloneRun: okRun,
     ...over,
   });
 
   beforeEach(() => {
     sandbox = mkdtempSync(path.join(tmpdir(), "kvasir-res-"));
-    clonesDir = path.join(sandbox, ".kvasir", "clones");
+    home = path.join(sandbox, "home");
+    mkdirSync(home, { recursive: true });
+    clonesDir = path.join(home, ".kvasir", "clones");
   });
   afterEach(() => {
     rmSync(sandbox, { recursive: true, force: true });
@@ -112,7 +126,7 @@ describe("prepareCheckout", () => {
 
   it("clone-dest clones into the given dest and remembers it", async () => {
     const store = createMemoryResolvedRepoStore();
-    const dest = path.join(sandbox, "code", "widget");
+    const dest = path.join(home, "code", "widget");
     await expect(prepareCheckout(PR, "clone-dest", dest, deps({ store }))).resolves.toEqual({
       status: "ready",
       path: dest,
@@ -126,16 +140,21 @@ describe("prepareCheckout", () => {
     );
   });
 
-  it("use-existing accepts a validated matching clone (anywhere, origin-match is the trust check)", async () => {
-    // A clone OUTSIDE home is accepted — the matching git origin is what's trusted.
-    const dest = "/workspace/widget";
+  it("use-existing adopts a validated matching clone (outside home) into the clones dir via local clone", async () => {
+    // A clone OUTSIDE home is accepted — the matching git origin is what's trusted — but
+    // it is ADOPTED (local-cloned) under kvasir ownership; the returned path is the
+    // kvasir clone, never the foreign one, so heavy git ops never touch the foreign .git.
+    const source = path.join(sandbox, "external", "widget");
+    mkdirSync(source, { recursive: true });
+    const target = path.join(clonesDir, "acme", "widget");
     const store = createMemoryResolvedRepoStore();
-    const d = deps({ store, probes: probesOver({ [dest]: "https://github.com/acme/widget.git" }) });
-    await expect(prepareCheckout(PR, "use-existing", dest, d)).resolves.toEqual({
+    const d = deps({ store, probes: probesOver({ [source]: "https://github.com/acme/widget.git" }) });
+    await expect(prepareCheckout(PR, "use-existing", source, d)).resolves.toEqual({
       status: "ready",
-      path: dest,
+      path: target,
     });
-    expect(store.get("acme/widget")).toBe(dest);
+    expect(store.get("acme/widget")).toBe(target);
+    expect(existsSync(target)).toBe(true);
   });
 
   it("use-existing rejects a path that isn't a matching clone", async () => {
@@ -157,8 +176,11 @@ describe("prepareCheckout", () => {
     await expect(prepareCheckout(PR, "use-existing", undefined, deps({}))).rejects.toThrow(/requires a path/);
   });
 
-  it("set-default-root persists the root and resolves the repo under it (ready)", async () => {
-    const root = path.join(sandbox, "code");
+  it("set-default-root persists the root and adopts the repo found under it (ready)", async () => {
+    const root = path.join(sandbox, "external", "code");
+    const repoUnderRoot = path.join(root, "widget");
+    mkdirSync(repoUnderRoot, { recursive: true }); // real dir: adoption local-clones it
+    const target = path.join(clonesDir, "acme", "widget");
     const defaultRootStore = createMemoryDefaultRootStore();
     const store = createMemoryResolvedRepoStore();
     const d = deps({
@@ -166,14 +188,30 @@ describe("prepareCheckout", () => {
       defaultRootStore,
       probes: probesOver({
         [root]: null, // isDir true (present as a key), no origin needed for the root itself
-        [path.join(root, "widget")]: "https://github.com/acme/widget.git",
+        [repoUnderRoot]: "https://github.com/acme/widget.git",
       }),
     });
     await expect(prepareCheckout(PR, "set-default-root", root, d)).resolves.toEqual({
       status: "ready",
-      path: path.join(root, "widget"),
+      path: target, // the repo under the root is adopted into the clones dir
     });
     expect(defaultRootStore.get()).toBe(root);
+    expect(store.get("acme/widget")).toBe(target);
+  });
+
+  it("set-default-root declines (not errors) when the found repo's adoption clone fails; root still saved", async () => {
+    const root = path.join(sandbox, "external", "code");
+    const repoUnderRoot = path.join(root, "widget");
+    mkdirSync(repoUnderRoot, { recursive: true });
+    const defaultRootStore = createMemoryDefaultRootStore();
+    const failRun: CloneRunner = () => Promise.resolve({ code: 1, stderr: "clone boom" });
+    const d = deps({
+      defaultRootStore,
+      cloneRun: failRun,
+      probes: probesOver({ [root]: null, [repoUnderRoot]: "https://github.com/acme/widget.git" }),
+    });
+    await expect(prepareCheckout(PR, "set-default-root", root, d)).resolves.toEqual({ status: "declined" });
+    expect(defaultRootStore.get()).toBe(root); // root persisted despite the adoption failure
   });
 
   it("set-default-root still persists the root but declines when the repo isn't under it", async () => {
@@ -218,5 +256,168 @@ describe("prepareCheckout", () => {
       /network down/,
     );
     expect(store.get("acme/widget")).toBeNull();
+  });
+});
+
+describe("adoptForeignCheckout / ensureCheckout / isUnderClonesDirectory", () => {
+  let sandbox: string;
+  let home: string;
+  let clonesDir: string;
+
+  const deps = (over: Partial<ResolutionDeps>): ResolutionDeps => ({
+    probes: probesOver({}),
+    store: createMemoryResolvedRepoStore(),
+    defaultRootStore: createMemoryDefaultRootStore(),
+    clonesDir,
+    home,
+    cloneRun: okRun,
+    ...over,
+  });
+
+  beforeEach(() => {
+    sandbox = mkdtempSync(path.join(tmpdir(), "kvasir-adopt-"));
+    home = path.join(sandbox, "home");
+    mkdirSync(home, { recursive: true });
+    clonesDir = path.join(home, ".kvasir", "clones");
+  });
+  afterEach(() => {
+    rmSync(sandbox, { recursive: true, force: true });
+  });
+
+  describe("isUnderClonesDirectory", () => {
+    it("is true for the dir itself and paths inside it, false otherwise", () => {
+      expect(isUnderClonesDirectory(clonesDir, clonesDir)).toBe(true);
+      expect(isUnderClonesDirectory(path.join(clonesDir, "acme", "widget"), clonesDir)).toBe(true);
+      expect(isUnderClonesDirectory("/home/u/code/widget", clonesDir)).toBe(false);
+      expect(isUnderClonesDirectory(`${clonesDir}-sneaky`, clonesDir)).toBe(false); // prefix, not a child
+    });
+  });
+
+  describe("guardHeavyGitOp", () => {
+    it("runs the op and returns its value when repoPath is under the clones dir", async () => {
+      let ran = false;
+      const result = await guardHeavyGitOp(path.join(clonesDir, "acme", "widget"), clonesDir, async () => {
+        ran = true;
+        return "worktree-path";
+      });
+      expect(result).toEqual({ refused: false, value: "worktree-path" });
+      expect(ran).toBe(true);
+    });
+
+    it("refuses and NEVER invokes the op when repoPath is outside the clones dir", async () => {
+      let ran = false;
+      const result = await guardHeavyGitOp("/home/u/evil", clonesDir, async () => {
+        ran = true;
+        return "worktree-path";
+      });
+      expect(result).toEqual({ refused: true });
+      expect(ran).toBe(false); // the security-critical assertion: the git op did not run
+    });
+  });
+
+  describe("adoptForeignCheckout", () => {
+    it("returns a path already under the clones dir unchanged, without cloning", async () => {
+      let cloned = false;
+      const cloneRun: CloneRunner = () => {
+        cloned = true;
+        return Promise.resolve({ code: 0, stderr: "" });
+      };
+      const inside = path.join(clonesDir, "acme", "widget");
+      await expect(adoptForeignCheckout(inside, "acme", "widget", deps({ cloneRun }))).resolves.toBe(inside);
+      expect(cloned).toBe(false);
+    });
+
+    it("local-clones a foreign checkout into <clonesDir>/<owner>/<repo> and resets origin to github", async () => {
+      const source = path.join(sandbox, "external", "widget");
+      mkdirSync(source, { recursive: true });
+      const target = path.join(clonesDir, "acme", "widget");
+      const commands: string[][] = [];
+      const cloneRun: CloneRunner = (cmd) => {
+        const argv = [...cmd];
+        commands.push(argv);
+        if (argv.includes("clone")) mkdirSync(argv[argv.length - 1]!, { recursive: true });
+        return Promise.resolve({ code: 0, stderr: "" });
+      };
+      await expect(adoptForeignCheckout(source, "acme", "widget", deps({ cloneRun }))).resolves.toBe(target);
+      expect(commands[0]).toEqual(expect.arrayContaining(["clone", "--local", source, target]));
+      expect(commands[1]).toEqual(
+        expect.arrayContaining(["remote", "set-url", "origin", "https://github.com/acme/widget.git"]),
+      );
+    });
+
+    it("builds the target from the caller's owner/repo, never the checkout's origin casing", async () => {
+      // A5 regression: resolveRepo's clones-dir lookup uses the PR-URL casing, so the
+      // adopted directory must too — never the (possibly differently-cased) git origin.
+      const source = path.join(sandbox, "external", "widget");
+      mkdirSync(source, { recursive: true });
+      const target = path.join(clonesDir, "acme", "widget"); // PR-URL casing, not "AcMe/Widget"
+      const cloneRun: CloneRunner = (cmd) => {
+        const argv = [...cmd];
+        if (argv.includes("clone")) mkdirSync(argv[argv.length - 1]!, { recursive: true });
+        return Promise.resolve({ code: 0, stderr: "" });
+      };
+      const d = deps({ cloneRun, probes: probesOver({ [source]: "https://github.com/AcMe/Widget.git" }) });
+      await expect(adoptForeignCheckout(source, "acme", "widget", d)).resolves.toBe(target);
+    });
+
+    it("reuses an already-adopted clone without re-cloning (idempotent)", async () => {
+      const source = path.join(sandbox, "external", "widget");
+      const target = path.join(clonesDir, "acme", "widget");
+      let cloned = false;
+      const cloneRun: CloneRunner = () => {
+        cloned = true;
+        return Promise.resolve({ code: 0, stderr: "" });
+      };
+      // target already validates as a matching clone → reuse, no clone
+      const d = deps({ cloneRun, probes: probesOver({ [target]: "https://github.com/acme/widget.git" }) });
+      await expect(adoptForeignCheckout(source, "acme", "widget", d)).resolves.toBe(target);
+      expect(cloned).toBe(false);
+    });
+
+    it("rejects an owner/repo that isn't a safe github segment (path-traversal guard)", async () => {
+      const source = path.join(sandbox, "external", "widget");
+      await expect(adoptForeignCheckout(source, "..", "widget", deps({}))).rejects.toThrow(
+        /invalid owner\/repo/,
+      );
+      await expect(adoptForeignCheckout(source, "acme", "..", deps({}))).rejects.toThrow(
+        /invalid owner\/repo/,
+      );
+    });
+  });
+
+  describe("ensureCheckout", () => {
+    it("passes through an absent resolution without adopting", async () => {
+      let cloned = false;
+      const cloneRun: CloneRunner = () => {
+        cloned = true;
+        return Promise.resolve({ code: 0, stderr: "" });
+      };
+      await expect(ensureCheckout(PR, deps({ cloneRun }))).resolves.toEqual({ status: "absent" });
+      expect(cloned).toBe(false);
+    });
+
+    it("returns a clones-dir checkout unchanged and caches it", async () => {
+      const inside = path.join(clonesDir, "acme", "widget");
+      const store = createMemoryResolvedRepoStore();
+      const d = deps({ store, probes: probesOver({ [inside]: "https://github.com/acme/widget.git" }) });
+      await expect(ensureCheckout(PR, d)).resolves.toEqual({ status: "ready", path: inside });
+      expect(store.get("acme/widget")).toBe(inside);
+    });
+
+    it("adopts a foreign default-root checkout and caches the adopted path", async () => {
+      const source = path.join(sandbox, "external", "widget");
+      mkdirSync(source, { recursive: true });
+      const target = path.join(clonesDir, "acme", "widget");
+      const defaultRootStore = createMemoryDefaultRootStore();
+      defaultRootStore.set(path.join(sandbox, "external"));
+      const store = createMemoryResolvedRepoStore();
+      const d = deps({
+        store,
+        defaultRootStore,
+        probes: probesOver({ [source]: "https://github.com/acme/widget.git" }),
+      });
+      await expect(ensureCheckout(PR, d)).resolves.toEqual({ status: "ready", path: target });
+      expect(store.get("acme/widget")).toBe(target);
+    });
   });
 });

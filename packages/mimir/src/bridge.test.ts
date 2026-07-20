@@ -45,6 +45,7 @@ let deps: {
   recordDepth: Mock<BridgeDeps["recordDepth"]>;
   getHeadSha: Mock<BridgeDeps["getHeadSha"]>;
   resolveCheckout: Mock<BridgeDeps["resolveCheckout"]>;
+  ensureCheckout: Mock<BridgeDeps["ensureCheckout"]>;
   prepareCheckout: Mock<BridgeDeps["prepareCheckout"]>;
   pairing: {
     request: Mock<Pairing["request"]>;
@@ -72,6 +73,9 @@ beforeEach(() => {
     resolveCheckout: vi
       .fn<BridgeDeps["resolveCheckout"]>()
       .mockReturnValue({ status: "ready", path: "/home/u/.kvasir/clones/acme/widget" }),
+    ensureCheckout: vi
+      .fn<BridgeDeps["ensureCheckout"]>()
+      .mockResolvedValue({ status: "ready", path: "/home/u/.kvasir/clones/acme/widget" }),
     prepareCheckout: vi
       .fn<BridgeDeps["prepareCheckout"]>()
       .mockResolvedValue({ status: "ready", path: "/home/u/.kvasir/clones/acme/widget" }),
@@ -251,12 +255,12 @@ describe("/generate", () => {
       "a local clone of the PR's repo is ready at /home/u/.kvasir/clones/acme/widget",
     );
     expect(meta.depth).toBe("heavy");
-    expect(deps.resolveCheckout).toHaveBeenCalledWith(PR);
+    expect(deps.ensureCheckout).toHaveBeenCalledWith(PR);
     expect(deps.pushEvent).toHaveBeenCalledTimes(1);
   });
 
   it("degrades a heavy request to a diff-only (light) prompt when no checkout resolves", async () => {
-    deps.resolveCheckout.mockReturnValue({ status: "absent" });
+    deps.ensureCheckout.mockResolvedValue({ status: "absent" });
     vi.spyOn(console, "error").mockImplementation(() => {}); // absent path logs the degrade
     await call("/generate", { method: "POST", body: { pr: PR, depth: "heavy" } });
     const [content, meta] = deps.pushEvent.mock.lastCall!;
@@ -268,14 +272,12 @@ describe("/generate", () => {
 
   it("does not resolve a checkout for an explicit light request", async () => {
     await call("/generate", { method: "POST", body: { pr: PR, depth: "light" } });
-    expect(deps.resolveCheckout).not.toHaveBeenCalled();
+    expect(deps.ensureCheckout).not.toHaveBeenCalled();
     expect(deps.pushEvent.mock.lastCall![0]).not.toContain("HEAVY PASS");
   });
 
-  it("degrades to diff-only rather than failing when checkout resolution throws", async () => {
-    deps.resolveCheckout.mockImplementation(() => {
-      throw new Error("git blew up");
-    });
+  it("degrades to diff-only rather than failing when checkout resolution/adoption throws", async () => {
+    deps.ensureCheckout.mockRejectedValue(new Error("adoption blew up"));
     vi.spyOn(console, "error").mockImplementation(() => {});
     await call("/generate", { method: "POST", body: { pr: PR, depth: "heavy" } });
     const [content, meta] = deps.pushEvent.mock.lastCall!;

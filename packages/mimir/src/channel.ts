@@ -65,6 +65,7 @@ import {
 import { openKvasirDb } from "./db";
 import { createSqliteDefaultRootStore } from "./defaultRootStore.sqlite";
 import { getManifest, getHeadSha } from "./diff";
+import { GIT_TERMINAL_PROMPT_OFF, gitHardeningFlags } from "./gitHardening";
 import { specToRecord } from "./guideStore";
 import { createSqliteGuideStore } from "./guideStore.sqlite";
 import { COVERAGE_MIN_ADDS, prFileName, renderManifest, significantFiles } from "./manifest";
@@ -72,6 +73,8 @@ import { createSqliteManifestStore } from "./manifestStore.sqlite";
 import { createPairing } from "./pairing";
 import { preparePublish } from "./publish";
 import {
+  ensureCheckout as runEnsure,
+  guardHeavyGitOp,
   prepareCheckout as runPrepare,
   resolveCheckout as runResolve,
   type ResolutionDeps,
@@ -181,10 +184,16 @@ export async function runChannel(): Promise<void> {
       }
     },
     originOf: (candidate) => {
-      const proc = Bun.spawnSync(["git", "-C", candidate, "remote", "get-url", "origin"], {
-        stdout: "pipe",
-        stderr: "pipe",
-      });
+      // The candidate is an as-yet-unverified path (this call is what validates it), so
+      // harden it like any heavy-pass git surface and never let it block on a prompt.
+      const proc = Bun.spawnSync(
+        ["git", ...gitHardeningFlags(), "-C", candidate, "remote", "get-url", "origin"],
+        {
+          stdout: "pipe",
+          stderr: "pipe",
+          env: { ...process.env, ...GIT_TERMINAL_PROMPT_OFF },
+        },
+      );
       return proc.exitCode === 0 ? proc.stdout.toString().trim() || null : null;
     },
   };
@@ -234,6 +243,7 @@ export async function runChannel(): Promise<void> {
       getHeadSha,
       recordDepth: (key, depth) => generateDepths.set(key, depth),
       resolveCheckout: (pr) => runResolve(pr, resolutionDeps),
+      ensureCheckout: (pr) => runEnsure(pr, resolutionDeps),
       prepareCheckout: (pr, action, destination) => runPrepare(pr, action, destination, resolutionDeps),
       pairing,
     }),
@@ -378,7 +388,20 @@ export async function runChannel(): Promise<void> {
     },
     async ({ repoPath, sha }) => {
       try {
-        return text(`Worktree ready: ${await prepareContextWorktree(repoPath, sha)}`);
+        // Structural boundary: heavy git ops run ONLY on a kvasir-owned clone. The
+        // server resolves+adopts one into CLONES_DIR before handing its path to the
+        // model (ensureCheckout), so a repoPath outside it is either a model-hallucinated
+        // path or a foreign checkout that dodged adoption — refuse it rather than run git
+        // against a .git kvasir does not own. guardHeavyGitOp skips the op on refusal.
+        const result = await guardHeavyGitOp(repoPath, CLONES_DIR, () =>
+          prepareContextWorktree(repoPath, sha),
+        );
+        if (result.refused) {
+          return text(
+            `prepare_context_worktree refused: ${repoPath} is not under the kvasir clones directory. Author from the diff manifest alone — do NOT run git commands yourself.`,
+          );
+        }
+        return text(`Worktree ready: ${result.value}`);
       } catch (error) {
         return text(
           `prepare_context_worktree failed: ${errorMessage(error)}. Author from the diff manifest alone — do NOT fall back to running git commands yourself.`,
@@ -399,7 +422,17 @@ export async function runChannel(): Promise<void> {
     },
     async ({ repoPath, worktreePath }) => {
       try {
-        await removeContextWorktree(repoPath, worktreePath);
+        // Same clones-dir boundary as prepare_context_worktree: `worktree remove` runs
+        // `git -C <repoPath>` against a model-supplied path, so refuse one outside the
+        // kvasir clones dir rather than run git against a repo kvasir does not own.
+        const result = await guardHeavyGitOp(repoPath, CLONES_DIR, () =>
+          removeContextWorktree(repoPath, worktreePath),
+        );
+        if (result.refused) {
+          return text(
+            `remove_context_worktree refused: ${repoPath} is not under the kvasir clones directory.`,
+          );
+        }
         return text("Worktree removed.");
       } catch (error) {
         return text(

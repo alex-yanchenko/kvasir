@@ -2,7 +2,7 @@
 // for the heavy-pass worktree tools: prepare must materialize a commit WITHOUT ever
 // grafting the clone (.git/shallow never appears), reuse a present commit with no
 // fetch, refuse junk, and remove/gc must actually reclaim worktrees + registry.
-import { chmodSync, existsSync, mkdtempSync, rmSync, utimesSync } from "node:fs";
+import { chmodSync, existsSync, lstatSync, mkdtempSync, rmSync, symlinkSync, utimesSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
@@ -143,6 +143,20 @@ describe("prepareContextWorktree", () => {
     chmodSync(hook, 0o755);
     await prepareContextWorktree(clone, shaA, worktrees); // present locally → worktree add, no fetch
     expect(existsSync(sentinel)).toBe(false);
+  });
+
+  it("checks out a tree symlink as a plain file (core.symlinks=false breaks the CVE-2021-21300 chain)", async () => {
+    // A symlink committed into the tree is materialized as a REGULAR file holding the
+    // link text, never an actual symlink that could redirect a delayed-checkout write
+    // into .git on a case-insensitive filesystem.
+    symlinkSync("a.txt", path.join(origin, "link"));
+    git(origin, ["add", "."]);
+    git(origin, ["commit", "-m", "link"]);
+    const shaLink = git(origin, ["rev-parse", "HEAD"]);
+    const wt = await prepareContextWorktree(clone, shaLink, worktrees);
+    const materialized = lstatSync(path.join(wt, "link"));
+    expect(materialized.isSymbolicLink()).toBe(false);
+    expect(materialized.isFile()).toBe(true);
   });
 });
 
