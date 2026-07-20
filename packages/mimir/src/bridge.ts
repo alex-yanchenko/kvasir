@@ -36,8 +36,8 @@ export interface BridgeDeps {
   /** Remember the depth a /generate request asked for (keyed by prKey), so
    * publish_walkthrough can stamp it onto the spec as the depth chip's source. */
   recordDepth(key: string, depth: Depth): void;
-  /** Resolve a PR's local checkout server-side (clones dir → saved path → absent),
-   * pure and Claude-free. Backs /resolve and the heavy /generate path. */
+  /** Resolve a PR's local checkout server-side (clones dir → saved path → default root
+   * → absent), pure and Claude-free. Backs /resolve and the heavy /generate path. */
   resolveCheckout(pr: string): ResolveResult;
   /** Execute the reviewer's resolution choice (clone/adopt/decline); backs /prepare. */
   prepareCheckout(pr: string, action: PrepareAction, destination: string | undefined): Promise<PrepareResult>;
@@ -169,8 +169,8 @@ async function handleGenerate({ request, deps }: Context): Promise<Response> {
   const since = truncate(b.sinceSha, 100);
   // Heavy is the request default (client omits depth, or sends anything but "light").
   // The server — not the extension — decides whether a checkout is actually available:
-  // resolve it here (clones dir → saved path → absent). A heavy request that resolves
-  // absent degrades to the diff-only pass, so the effective depth reflects what the
+  // resolve it here (clones dir → saved path → default root → absent). A heavy request
+  // that resolves absent degrades to the diff-only pass, so the effective depth reflects what the
   // model was actually given, not what was asked (invariant: fail toward the diff).
   const requestedHeavy = b.depth !== "light";
   let checkout: string | null = null;

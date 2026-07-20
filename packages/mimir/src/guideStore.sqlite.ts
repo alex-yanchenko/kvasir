@@ -9,6 +9,7 @@
 import { type EntryKind, EntryKindSchema, type EntrySummary } from "@kvasir/runes";
 import type { Database } from "bun:sqlite";
 import { contentHash, type GuideRecord, type GuideStore, toEntrySummary } from "./guideStore";
+import { ensureTableShape } from "./sqliteShape";
 
 /** A row as stored — SQLite gives us strings/numbers/null, never the rich types. */
 interface EntryRow {
@@ -111,22 +112,9 @@ const rowToSummary = (row: EntryRow): EntrySummary => {
 /** Store over the shared connection (openKvasirDb — one handle serves every
  * store). `now` is injectable for deterministic tests. */
 export function createSqliteGuideStore(db: Database, now: () => number = () => Date.now()): GuideStore {
-  db.run(CREATE_TABLE);
-  // Retire, don't migrate (the DB analog of the spec `version` lever): if a live db's
-  // columns don't match the current shape — a column added, removed, or renamed — drop
-  // and recreate the table instead of writing an ALTER. Old-shape rows are discarded;
-  // this is a local, wipe-anytime cache, so we never carry back-compat for them. A fresh
-  // or already-matching db is left untouched, so this only fires on a real shape change.
-  const liveColumns = db
-    .query<{ name: string }, []>("PRAGMA table_info(entries)")
-    .all()
-    .map((c) => c.name);
-  const shapeMatches =
-    liveColumns.length === EXPECTED_COLUMNS.length && EXPECTED_COLUMNS.every((c) => liveColumns.includes(c));
-  if (!shapeMatches) {
-    db.run("DROP TABLE entries");
-    db.run(CREATE_TABLE);
-  }
+  // Retire, don't migrate (the DB analog of the spec `version` lever): a shape mismatch
+  // drops + recreates rather than ALTERing — this is a local, wipe-anytime cache.
+  ensureTableShape(db, "entries", CREATE_TABLE, EXPECTED_COLUMNS);
   db.run(CREATE_INDEX);
 
   const selectById = db.query<EntryRow, [string]>("SELECT * FROM entries WHERE id = ?");

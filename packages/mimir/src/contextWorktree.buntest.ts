@@ -144,6 +144,19 @@ describe("prepareContextWorktree", () => {
     await prepareContextWorktree(clone, shaA, worktrees); // present locally → worktree add, no fetch
     expect(existsSync(sentinel)).toBe(false);
   });
+
+  it("does NOT run a core.fsmonitor command planted in the (untrusted) clone", async () => {
+    // core.fsmonitor is a spawned command git runs to refresh the index (e.g. during
+    // the checkout that `worktree add` performs). The core.fsmonitor=false hardening
+    // must stop the attacker's command from running.
+    const sentinel = path.join(sandbox, "FSM_PWNED");
+    const script = path.join(sandbox, "fsmonitor.sh");
+    await Bun.write(script, `#!/bin/sh\ntouch "${sentinel}"\n`);
+    chmodSync(script, 0o755);
+    git(clone, ["config", "core.fsmonitor", script]);
+    await prepareContextWorktree(clone, shaA, worktrees);
+    expect(existsSync(sentinel)).toBe(false);
+  });
 });
 
 describe("removeContextWorktree", () => {

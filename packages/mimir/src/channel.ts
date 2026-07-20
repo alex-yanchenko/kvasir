@@ -59,6 +59,7 @@ import type { CloneRunner } from "./cloneRepo";
 import {
   errorMessage,
   gcContextWorktrees,
+  gitHardeningFlags,
   prepareContextWorktree,
   removeContextWorktree,
 } from "./contextWorktree";
@@ -181,10 +182,16 @@ export async function runChannel(): Promise<void> {
       }
     },
     originOf: (candidate) => {
-      const proc = Bun.spawnSync(["git", "-C", candidate, "remote", "get-url", "origin"], {
-        stdout: "pipe",
-        stderr: "pipe",
-      });
+      // The candidate is an as-yet-unverified path (this call is what validates it),
+      // so harden it like any untrusted checkout — one hardened git surface, not two.
+      const proc = Bun.spawnSync(
+        ["git", ...gitHardeningFlags(), "-C", candidate, "remote", "get-url", "origin"],
+        {
+          stdout: "pipe",
+          stderr: "pipe",
+          env: { ...process.env, GIT_TERMINAL_PROMPT: "0" },
+        },
+      );
       return proc.exitCode === 0 ? proc.stdout.toString().trim() || null : null;
     },
   };
@@ -377,8 +384,13 @@ export async function runChannel(): Promise<void> {
       },
     },
     async ({ repoPath, sha }) => {
+      // A clone under the server-owned clones dir was created by kvasir (trusted); any
+      // other path was reviewer-ADOPTED (use-existing / default root / clone-dest) and
+      // gets the full git hardening — its .git/config could clear credential.helper /
+      // hijack sshCommand on the fetch.
+      const trusted = path.resolve(repoPath).startsWith(path.resolve(CLONES_DIR) + path.sep);
       try {
-        return text(`Worktree ready: ${await prepareContextWorktree(repoPath, sha)}`);
+        return text(`Worktree ready: ${await prepareContextWorktree(repoPath, sha, undefined, trusted)}`);
       } catch (error) {
         return text(
           `prepare_context_worktree failed: ${errorMessage(error)}. Author from the diff manifest alone — do NOT fall back to running git commands yourself.`,

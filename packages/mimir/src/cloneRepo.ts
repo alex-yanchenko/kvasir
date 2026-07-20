@@ -3,7 +3,7 @@
  * approves a repo + destination; this executes that clone as safely as possible.
  * The security-relevant decisions — the github.com-scoped command, the git
  * hardening flags/env, and the destination validation — are PURE functions
- * (cloneCommand, destinationPathShapeOk) so they are unit-tested exactly, not buried
+ * (cloneCommand, destinationPathShapeOk, checkoutPathSafe) so they are unit-tested exactly, not buried
  * in a process call the test runner can't spawn. Only the runner (Bun.spawn) is IO,
  * and it is injected, so the orchestration (single-flight, timeout, partial-cleanup)
  * is tested too.

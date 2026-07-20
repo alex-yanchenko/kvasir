@@ -42,7 +42,7 @@ describe("createSqliteDefaultRootStore", () => {
     second.close();
   });
 
-  it("recreates the table (retire, not migrate) when a live db's shape differs", () => {
+  it("recreates the table (retire, not migrate) when the column count differs", () => {
     const legacy = new Database(dbPath, { create: true });
     legacy.run("CREATE TABLE default_root (id INTEGER PRIMARY KEY, old_col TEXT) STRICT;");
     legacy.run("INSERT INTO default_root (id, old_col) VALUES (1, 'stale')");
@@ -53,6 +53,20 @@ describe("createSqliteDefaultRootStore", () => {
     expect(store.get()).toBeNull(); // old row discarded
     store.set("/fresh");
     expect(store.get()).toBe("/fresh");
+    db.close();
+  });
+
+  it("recreates the table when the column COUNT matches but a name differs", () => {
+    // Same 3 columns but `saved_at` renamed to `updated_at` — only the name-membership
+    // check (not the length check) can catch this, so it exercises that branch.
+    const legacy = new Database(dbPath, { create: true });
+    legacy.run("CREATE TABLE default_root (id INTEGER PRIMARY KEY, path TEXT, updated_at TEXT) STRICT;");
+    legacy.run("INSERT INTO default_root (id, path, updated_at) VALUES (1, '/stale', 'x')");
+    legacy.close();
+
+    const db = openKvasirDb(dbPath);
+    const store = createSqliteDefaultRootStore(db);
+    expect(store.get()).toBeNull(); // old-shape row discarded
     db.close();
   });
 });

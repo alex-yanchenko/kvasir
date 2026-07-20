@@ -6,6 +6,7 @@
 // resolvedRepoStore.sqlite.buntest.ts.
 import type { Database } from "bun:sqlite";
 import type { ResolvedRepoStore } from "./resolvedRepoStore";
+import { ensureTableShape } from "./sqliteShape";
 
 const CREATE_TABLE = `
   CREATE TABLE IF NOT EXISTS resolved_repos (
@@ -24,19 +25,7 @@ export function createSqliteResolvedRepoStore(
   db: Database,
   now: () => string = () => new Date().toISOString(),
 ): ResolvedRepoStore {
-  db.run(CREATE_TABLE);
-  // Retire, don't migrate: if a live db's columns don't match the current shape,
-  // drop and recreate — this is a wipe-anytime cache, never a back-compat carrier.
-  const liveColumns = db
-    .query<{ name: string }, []>("PRAGMA table_info(resolved_repos)")
-    .all()
-    .map((column) => column.name);
-  const shapeMatches =
-    liveColumns.length === EXPECTED_COLUMNS.length && EXPECTED_COLUMNS.every((c) => liveColumns.includes(c));
-  if (!shapeMatches) {
-    db.run("DROP TABLE resolved_repos");
-    db.run(CREATE_TABLE);
-  }
+  ensureTableShape(db, "resolved_repos", CREATE_TABLE, EXPECTED_COLUMNS);
 
   const selectPath = db.query<{ path: string }, [string]>(
     "SELECT path FROM resolved_repos WHERE owner_repo = ?",

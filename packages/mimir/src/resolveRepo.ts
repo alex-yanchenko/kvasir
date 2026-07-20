@@ -1,9 +1,10 @@
 /**
  * Pure repo-resolution decision for the heavy pass: given the server-owned clones
- * directory, an optional saved path (from the resolved_repos cache), and injected
- * fs/git probes, decide whether a usable local checkout of `owner/repo` is `ready`
- * (and where) or `absent`. No IO here — the caller (bridge /resolve) supplies the
- * probes and persists/drops the saved entry, so this branchy logic is unit-tested.
+ * directory, an optional saved path (from the resolved_repos cache), an optional
+ * default clones root, and injected fs/git probes, decide whether a usable local
+ * checkout of `owner/repo` is `ready` (and where) or `absent`. No IO here — the caller
+ * (bridge /resolve) supplies the probes and persists/drops the saved entry, so this
+ * branchy logic is unit-tested.
  *
  * Invariant: a path is only "ready" if it is a git repo whose `origin` actually
  * points at `github.com/<owner>/<repo>` — a stale or mismatched directory is never
@@ -41,8 +42,8 @@ export function originMatches(origin: string, owner: string, repo: string): bool
 }
 
 /** A directory usable as this PR's checkout: it exists and its git origin matches
- * the exact `owner/repo`. Shared by the clones-path and saved-path checks, and by
- * prepareCheckout's "use-existing" validation. */
+ * the exact `owner/repo`. Shared by the clones-path, saved-path, and default-root
+ * checks, and by prepareCheckout's "use-existing" validation. */
 export function isUsableClone(candidate: string, owner: string, repo: string, probes: RepoProbes): boolean {
   if (!probes.isDir(candidate)) return false;
   const origin = probes.originOf(candidate);
@@ -52,8 +53,9 @@ export function isUsableClone(candidate: string, owner: string, repo: string, pr
 /**
  * Resolve `owner/repo` to a ready checkout or absent, assuming no config:
  * the server-owned `<clonesDir>/<owner>/<repo>` wins if usable; else a saved path
- * (re-validated) wins; else absent. The caller drops the saved entry when the
- * result is absent and a saved path was supplied (it failed re-validation).
+ * (re-validated); else `<defaultRoot>/<repo>` under the reviewer's default clones root;
+ * else absent. The caller drops the saved entry when the result is absent and a saved
+ * path was supplied (it failed re-validation).
  */
 export function resolveRepo(
   owner: string,

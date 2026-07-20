@@ -28,30 +28,40 @@ export const errorMessage = (error: unknown): string =>
 
 const SHA_RE = /^[0-9a-f]{7,40}$/i;
 
-// Applied to EVERY git invocation against a heavy-pass checkout — a repo the reviewer
-// ADOPTED (use-existing / a default root) can carry an attacker-authored .git/config +
-// hooks, and git runs configured commands during ordinary operations (a post-checkout
-// hook fires on `worktree add`, fsmonitor is a spawned command). Command-line -c is
-// git's highest-precedence config, so it overrides the repo's own values and
-// neutralizes these automatic-execution vectors. The malicious-transport vector
-// (file://, ext::) is already closed upstream: an adopted clone is only accepted when
-// its `origin` matches github.com/<owner>/<repo> (isUsableClone/originMatches), and the
-// fetch remote is that same origin — so no protocol.* restriction is needed here (and
-// forcing it would break a legitimate local-mirror origin). Residual: clean/smudge/
-// process filters are keyed by driver name and can't be blanket-disabled via -c;
-// origin-match + explicit reviewer authorization remain the primary trust signals.
-const GIT_HARDENING = [
-  "-c",
-  "core.hooksPath=/dev/null", // no hook execution (post-checkout et al.)
-  "-c",
-  "core.fsmonitor=false", // no fsmonitor command execution
-];
+// Git config hardening for heavy-pass ops. An ADOPTED clone (use-existing / a default
+// root) can carry an attacker-authored .git/config, and git runs configured commands
+// during ordinary operations, so command-line -c (git's highest-precedence config)
+// overrides the repo's own values.
+//
+// BASE applies to EVERY invocation — a fresh kvasir-owned clone has no hooks, so
+// disabling them there is harmless and it's essential for an adopted one: a
+// post-checkout hook fires on `worktree add`, and fsmonitor is a spawned command.
+//
+// UNTRUSTED_ONLY additionally forces the transport/credential commands to safe values
+// for an adopted clone (its config is attacker-controlled): core.sshCommand and
+// credential.helper both run arbitrary commands on an authenticated fetch. A TRUSTED
+// clone (kvasir-created, under the clones dir) keeps them so a legitimate private-repo
+// re-fetch via the user's gh credential helper still works. The malicious-transport
+// vector (file://, ext::) needs no protocol.* flag: an adopted clone is only accepted
+// when its `origin` matches github.com/<owner>/<repo> (isUsableClone/originMatches) and
+// the fetch remote is that same origin. Residual: clean/smudge/process filters are
+// keyed by driver name and can't be blanket-disabled via -c.
+const BASE_HARDENING = ["-c", "core.hooksPath=/dev/null", "-c", "core.fsmonitor=false"];
+const UNTRUSTED_HARDENING = ["-c", "core.sshCommand=ssh", "-c", "credential.helper="];
 
-async function git(repo: string, args: string[]): Promise<string> {
-  const proc = Bun.spawn(["git", ...GIT_HARDENING, "-C", repo, ...args], {
+/** The `-c` hardening flags for a git invocation against a heavy-pass checkout — BASE
+ * always, plus the transport/credential overrides for an untrusted (adopted) clone.
+ * Exported so the origin-validation probe (channel.ts) hardens on the same one surface
+ * rather than spawning git with a second, unhardened flag set. */
+export function gitHardeningFlags(trusted = false): string[] {
+  return trusted ? [...BASE_HARDENING] : [...BASE_HARDENING, ...UNTRUSTED_HARDENING];
+}
+
+async function git(repo: string, args: string[], trusted = false): Promise<string> {
+  const proc = Bun.spawn(["git", ...gitHardeningFlags(trusted), "-C", repo, ...args], {
     stdout: "pipe",
     stderr: "pipe",
-    env: { ...process.env, GIT_TERMINAL_PROMPT: "0" },
+    env: { ...process.env, GIT_TERMINAL_PROMPT: "0" }, // headless: never block on a credential prompt
   });
   const out = await new Response(proc.stdout).text();
   const error = await new Response(proc.stderr).text();
@@ -83,12 +93,13 @@ export async function prepareContextWorktree(
   repoPath: string,
   sha: string,
   directory = WORKTREES_DIR,
+  trusted = false,
 ): Promise<string> {
   if (!SHA_RE.test(sha)) throw new ContextWorktreeError(`not a commit sha: ${sha}`);
   const target = path.join(directory, `${path.basename(repoPath)}-${sha}`);
   const pending = inFlight.get(target);
   if (pending) return pending;
-  const job = materialize(repoPath, sha, target).finally(() => inFlight.delete(target));
+  const job = materialize(repoPath, sha, target, trusted).finally(() => inFlight.delete(target));
   inFlight.set(target, job);
   return job;
 }
@@ -96,8 +107,8 @@ export async function prepareContextWorktree(
 /** The remote to fetch a missing commit from: origin when the clone has one,
  * else its first remote — a rename (origin -> upstream) must not strand the
  * heavy pass. No remote at all is its own error; git's would blame "origin". */
-async function fetchRemote(repoPath: string, sha: string): Promise<string> {
-  const listed = await git(repoPath, ["remote"]);
+async function fetchRemote(repoPath: string, sha: string, trusted: boolean): Promise<string> {
+  const listed = await git(repoPath, ["remote"], trusted);
   const remotes = listed.split("\n").filter(Boolean);
   const remote = remotes.includes("origin") ? "origin" : remotes[0];
   if (remote === undefined) {
@@ -108,29 +119,29 @@ async function fetchRemote(repoPath: string, sha: string): Promise<string> {
   return remote;
 }
 
-async function materialize(repoPath: string, sha: string, target: string): Promise<string> {
-  await git(repoPath, ["rev-parse", "--is-inside-work-tree"]).catch((error: unknown) => {
+async function materialize(repoPath: string, sha: string, target: string, trusted: boolean): Promise<string> {
+  await git(repoPath, ["rev-parse", "--is-inside-work-tree"], trusted).catch((error: unknown) => {
     throw new ContextWorktreeError(`${repoPath} is not a usable git repository`, { cause: error });
   });
-  const present = await git(repoPath, ["cat-file", "-e", `${sha}^{commit}`]).then(
+  const present = await git(repoPath, ["cat-file", "-e", `${sha}^{commit}`], trusted).then(
     () => true,
     () => false,
   );
-  if (!present) await git(repoPath, ["fetch", await fetchRemote(repoPath, sha), sha]);
+  if (!present) await git(repoPath, ["fetch", await fetchRemote(repoPath, sha, trusted), sha], trusted);
   if (existsSync(target)) {
     // Already materialized at the right sha (a sibling pass, or a clean leftover) —
     // reuse it; a remove+re-add here would yank files out from under a live reader.
-    const head = await git(target, ["rev-parse", "HEAD"]).catch(() => null);
+    const head = await git(target, ["rev-parse", "HEAD"], trusted).catch(() => null);
     if (head !== null && head.toLowerCase().startsWith(sha.toLowerCase())) return target;
-    await git(repoPath, ["worktree", "remove", "--force", target]).catch(async () => {
+    await git(repoPath, ["worktree", "remove", "--force", target], trusted).catch(async () => {
       rmSync(target, { recursive: true, force: true });
-      await git(repoPath, ["worktree", "prune"]).catch(() => {});
+      await git(repoPath, ["worktree", "prune"], trusted).catch(() => {});
     });
   }
   // --force: a fallback rm (here, in gc, or an interrupted run) can leave the path
   // registered in the parent repo while gone from disk, and a plain `worktree add`
   // then refuses forever ("missing but already registered") — --force re-registers.
-  await git(repoPath, ["worktree", "add", "--force", "--detach", target, sha]);
+  await git(repoPath, ["worktree", "add", "--force", "--detach", target, sha], trusted);
   return target;
 }
 

@@ -53,6 +53,8 @@ export default defineConfig({
         "packages/mimir/src/sessionStore.sqlite.ts",
         "packages/mimir/src/resolvedRepoStore.sqlite.ts",
         "packages/mimir/src/defaultRootStore.sqlite.ts",
+        // Shared bun:sqlite shape guard (Bun-only); exercised via each store's buntest.
+        "packages/mimir/src/sqliteShape.ts",
         // Bun.spawn git ops (can't import under vitest); verified against real git
         // repos by contextWorktree.buntest.ts under `bun test`.
         "packages/mimir/src/contextWorktree.ts",

@@ -1,5 +1,5 @@
 // The ONE way kvasir.db is opened. The channel opens a single connection and
-// hands it to every store (guides, sessions, manifests, resolved repos) — per-store opens meant
+// hands it to every store (guides, sessions, manifests, resolved repos, default root) — per-store opens meant
 // several WAL handles on the same file for no reason, and per-connection PRAGMAs
 // applied only to whichever store ran first. Bun-only (bun:sqlite).
 import { Database } from "bun:sqlite";

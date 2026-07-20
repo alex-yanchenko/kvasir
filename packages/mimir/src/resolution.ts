@@ -36,7 +36,8 @@ export interface ResolutionDeps {
   cloneRun: CloneRunner;
 }
 
-/** The reviewer's choices from the resolution card. */
+/** The reviewer's choices from the resolution card. The card UI itself is A5.3b (not
+ * built yet); these are wired here so /prepare is ready when it lands. */
 export const PREPARE_ACTIONS = [
   "clone-kvasir",
   "clone-dest",
@@ -47,6 +48,24 @@ export const PREPARE_ACTIONS = [
 export type PrepareAction = (typeof PREPARE_ACTIONS)[number];
 
 export type PrepareResult = Ready | { status: "declined" };
+
+/** The PR's parsed, case-normalized identity, threaded to the prepare helpers. */
+interface RepoIds {
+  owner: string;
+  repo: string;
+  ownerRepo: string;
+}
+
+/** Guard a reviewer-supplied path used as a read checkout (adopt / default root): it
+ * must be absolute + control-char free (interpolated into the heavy prompt). `verb`
+ * names the action for the error ("use" / "set"). */
+function assertCheckoutPathSafe(destination: string, verb: string): void {
+  if (!checkoutPathSafe(destination)) {
+    throw new CloneError(
+      `refusing to ${verb} ${destination}: must be an absolute path with no control characters`,
+    );
+  }
+}
 
 /** Resolve a PR's local checkout deterministically (no Claude, no network): the
  * server clones dir wins, else a re-validated saved path, else the reviewer's default
@@ -71,7 +90,7 @@ export function resolveCheckout(pr: string, deps: ResolutionDeps): ResolveResult
 /** Clone `owner/repo` into `destination` (or the kvasir folder when none is given)
  * and remember the resolved path. */
 async function cloneAndRemember(
-  ids: { owner: string; repo: string; ownerRepo: string },
+  ids: RepoIds,
   destination: string | undefined,
   deps: ResolutionDeps,
 ): Promise<Ready> {
@@ -84,17 +103,9 @@ async function cloneAndRemember(
 /** Adopt an EXISTING clone at `destination` — origin-match is the trust check, so the
  * path need not be under $HOME (still absolute + control-char free, since it's
  * interpolated into the heavy-pass prompt). */
-function adoptExisting(
-  ids: { owner: string; repo: string; ownerRepo: string },
-  destination: string | undefined,
-  deps: ResolutionDeps,
-): Ready {
+function adoptExisting(ids: RepoIds, destination: string | undefined, deps: ResolutionDeps): Ready {
   if (!destination) throw new CloneError("use-existing requires a path");
-  if (!checkoutPathSafe(destination)) {
-    throw new CloneError(
-      `refusing to use ${destination}: must be an absolute path with no control characters`,
-    );
-  }
+  assertCheckoutPathSafe(destination, "use");
   if (!isUsableClone(destination, ids.owner, ids.repo, deps.probes)) {
     throw new CloneError(`${destination} is not a git clone of ${ids.ownerRepo}`);
   }
@@ -106,11 +117,7 @@ function adoptExisting(
  * it lives there, else the root is remembered for future repos and this one degrades. */
 function applyDefaultRoot(pr: string, destination: string | undefined, deps: ResolutionDeps): PrepareResult {
   if (!destination) throw new CloneError("set-default-root requires a path");
-  if (!checkoutPathSafe(destination)) {
-    throw new CloneError(
-      `refusing to set ${destination}: must be an absolute path with no control characters`,
-    );
-  }
+  assertCheckoutPathSafe(destination, "set");
   if (!deps.probes.isDir(destination)) throw new CloneError(`${destination} is not a directory`);
   deps.defaultRootStore.set(destination);
   const resolved = resolveCheckout(pr, deps);

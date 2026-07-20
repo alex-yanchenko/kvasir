@@ -1,8 +1,8 @@
 /**
  * The reviewer's default clones root — a single directory under which resolution
- * looks for `<root>/<repo>` before giving up, set via the resolution card's "set as
- * my default root" action so repos kept there never prompt again. A wipe-friendly
- * single-value cache (retire, don't migrate). bridge/resolution unit tests use the
+ * looks for `<root>/<repo>` before giving up, set via the "set as my default root"
+ * action (the resolution card UI is A5.3b; the action is wired now). A single-value
+ * cache the reviewer can overwrite at any time. bridge/resolution unit tests use the
  * in-memory impl here; channel.ts wires the bun:sqlite one (defaultRootStore.sqlite.ts).
  */
 export interface DefaultRootStore {
