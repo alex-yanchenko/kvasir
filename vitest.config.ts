@@ -52,6 +52,7 @@ export default defineConfig({
         "packages/mimir/src/guideStore.sqlite.ts",
         "packages/mimir/src/sessionStore.sqlite.ts",
         "packages/mimir/src/resolvedRepoStore.sqlite.ts",
+        "packages/mimir/src/defaultRootStore.sqlite.ts",
         // Bun.spawn git ops (can't import under vitest); verified against real git
         // repos by contextWorktree.buntest.ts under `bun test`.
         "packages/mimir/src/contextWorktree.ts",
@@ -113,6 +114,12 @@ export default defineConfig({
           lines: 100,
         },
         "packages/mimir/src/resolvedRepoStore.ts": {
+          statements: 100,
+          branches: 100,
+          functions: 100,
+          lines: 100,
+        },
+        "packages/mimir/src/defaultRootStore.ts": {
           statements: 100,
           branches: 100,
           functions: 100,

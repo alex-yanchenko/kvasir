@@ -101,6 +101,7 @@
     "hideable",
     "unlocatable",
     "unhighlighted",
-    "blobless"
+    "blobless",
+    "fsmonitor"
   ]
 }
