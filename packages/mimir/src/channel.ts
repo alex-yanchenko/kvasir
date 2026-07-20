@@ -74,7 +74,7 @@ import { createPairing } from "./pairing";
 import { preparePublish } from "./publish";
 import {
   ensureCheckout as runEnsure,
-  isUnderClonesDirectory,
+  guardHeavyGitOp,
   prepareCheckout as runPrepare,
   resolveCheckout as runResolve,
   type ResolutionDeps,
@@ -392,13 +392,16 @@ export async function runChannel(): Promise<void> {
         // server resolves+adopts one into CLONES_DIR before handing its path to the
         // model (ensureCheckout), so a repoPath outside it is either a model-hallucinated
         // path or a foreign checkout that dodged adoption — refuse it rather than run git
-        // against a .git kvasir does not own.
-        if (!isUnderClonesDirectory(repoPath, CLONES_DIR)) {
+        // against a .git kvasir does not own. guardHeavyGitOp skips the op on refusal.
+        const result = await guardHeavyGitOp(repoPath, CLONES_DIR, () =>
+          prepareContextWorktree(repoPath, sha),
+        );
+        if (result.refused) {
           return text(
             `prepare_context_worktree refused: ${repoPath} is not under the kvasir clones directory. Author from the diff manifest alone — do NOT run git commands yourself.`,
           );
         }
-        return text(`Worktree ready: ${await prepareContextWorktree(repoPath, sha)}`);
+        return text(`Worktree ready: ${result.value}`);
       } catch (error) {
         return text(
           `prepare_context_worktree failed: ${errorMessage(error)}. Author from the diff manifest alone — do NOT fall back to running git commands yourself.`,
@@ -422,12 +425,14 @@ export async function runChannel(): Promise<void> {
         // Same clones-dir boundary as prepare_context_worktree: `worktree remove` runs
         // `git -C <repoPath>` against a model-supplied path, so refuse one outside the
         // kvasir clones dir rather than run git against a repo kvasir does not own.
-        if (!isUnderClonesDirectory(repoPath, CLONES_DIR)) {
+        const result = await guardHeavyGitOp(repoPath, CLONES_DIR, () =>
+          removeContextWorktree(repoPath, worktreePath),
+        );
+        if (result.refused) {
           return text(
             `remove_context_worktree refused: ${repoPath} is not under the kvasir clones directory.`,
           );
         }
-        await removeContextWorktree(repoPath, worktreePath);
         return text("Worktree removed.");
       } catch (error) {
         return text(

@@ -7,6 +7,7 @@ import { createMemoryDefaultRootStore } from "./defaultRootStore";
 import {
   adoptForeignCheckout,
   ensureCheckout,
+  guardHeavyGitOp,
   isUnderClonesDirectory,
   prepareCheckout,
   resolveCheckout,
@@ -198,6 +199,21 @@ describe("prepareCheckout", () => {
     expect(store.get("acme/widget")).toBe(target);
   });
 
+  it("set-default-root declines (not errors) when the found repo's adoption clone fails; root still saved", async () => {
+    const root = path.join(sandbox, "external", "code");
+    const repoUnderRoot = path.join(root, "widget");
+    mkdirSync(repoUnderRoot, { recursive: true });
+    const defaultRootStore = createMemoryDefaultRootStore();
+    const failRun: CloneRunner = () => Promise.resolve({ code: 1, stderr: "clone boom" });
+    const d = deps({
+      defaultRootStore,
+      cloneRun: failRun,
+      probes: probesOver({ [root]: null, [repoUnderRoot]: "https://github.com/acme/widget.git" }),
+    });
+    await expect(prepareCheckout(PR, "set-default-root", root, d)).resolves.toEqual({ status: "declined" });
+    expect(defaultRootStore.get()).toBe(root); // root persisted despite the adoption failure
+  });
+
   it("set-default-root still persists the root but declines when the repo isn't under it", async () => {
     const root = path.join(sandbox, "code");
     const defaultRootStore = createMemoryDefaultRootStore();
@@ -274,6 +290,28 @@ describe("adoptForeignCheckout / ensureCheckout / isUnderClonesDirectory", () =>
       expect(isUnderClonesDirectory(path.join(clonesDir, "acme", "widget"), clonesDir)).toBe(true);
       expect(isUnderClonesDirectory("/home/u/code/widget", clonesDir)).toBe(false);
       expect(isUnderClonesDirectory(`${clonesDir}-sneaky`, clonesDir)).toBe(false); // prefix, not a child
+    });
+  });
+
+  describe("guardHeavyGitOp", () => {
+    it("runs the op and returns its value when repoPath is under the clones dir", async () => {
+      let ran = false;
+      const result = await guardHeavyGitOp(path.join(clonesDir, "acme", "widget"), clonesDir, async () => {
+        ran = true;
+        return "worktree-path";
+      });
+      expect(result).toEqual({ refused: false, value: "worktree-path" });
+      expect(ran).toBe(true);
+    });
+
+    it("refuses and NEVER invokes the op when repoPath is outside the clones dir", async () => {
+      let ran = false;
+      const result = await guardHeavyGitOp("/home/u/evil", clonesDir, async () => {
+        ran = true;
+        return "worktree-path";
+      });
+      expect(result).toEqual({ refused: true });
+      expect(ran).toBe(false); // the security-critical assertion: the git op did not run
     });
   });
 

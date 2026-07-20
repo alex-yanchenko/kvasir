@@ -297,6 +297,22 @@ describe("cloneRepo", () => {
     ).rejects.toThrow(/absolute path with no control characters/);
   });
 
+  it("stops at step 1 (clone) on failure and never runs the origin-reset step", async () => {
+    const source = path.join(sandbox, "external", "widget");
+    mkdirSync(source, { recursive: true });
+    const dest = path.join(sandbox, "clones/acme/widget");
+    const commands: string[][] = [];
+    const run: CloneRunner = (cmd) => {
+      commands.push([...cmd]);
+      return Promise.resolve({ code: 1, stderr: "clone failed" }); // step 1 fails
+    };
+    await expect(cloneRepo("acme", "widget", dest, { home: sandbox, run, source })).rejects.toThrow(
+      /clone failed/,
+    );
+    expect(commands).toHaveLength(1); // the origin-reset step never ran
+    expect(commands[0]).toEqual(expect.arrayContaining(["clone", "--local"]));
+  });
+
   it("cleans up and stops at the origin-reset step when an adoption's second step fails", async () => {
     const source = path.join(sandbox, "external", "widget");
     mkdirSync(source, { recursive: true });

@@ -78,6 +78,19 @@ export function isUnderClonesDirectory(candidate: string, clonesRoot: string): b
   return resolved === root || resolved.startsWith(root + path.sep);
 }
 
+/** Run a heavy-pass git `op` ONLY when `repoPath` is under the clones dir; otherwise
+ * refuse without invoking it. This is the enforcement point the worktree MCP tools wire
+ * to — extracting it (with the op injected) makes the guard's WIRING testable (that the
+ * op is skipped on refusal), which channel.ts (an untestable entrypoint) can't prove. */
+export async function guardHeavyGitOp<T>(
+  repoPath: string,
+  clonesRoot: string,
+  op: () => Promise<T>,
+): Promise<{ refused: true } | { refused: false; value: T }> {
+  if (!isUnderClonesDirectory(repoPath, clonesRoot)) return { refused: true };
+  return { refused: false, value: await op() };
+}
+
 /** Bring a checkout under kvasir ownership so heavy git ops never run against a foreign
  * .git. A path already under the clones dir is returned unchanged. A FOREIGN path is
  * copied into <clonesDir>/<owner>/<repo> via `git clone --local` (cloneRepo with a
@@ -176,8 +189,16 @@ async function applyDefaultRoot(
   }
   if (!deps.probes.isDir(destination)) throw new CloneError(`${destination} is not a directory`);
   deps.defaultRootStore.set(destination);
-  const resolved = await ensureCheckout(pr, deps);
-  return resolved.status === "ready" ? resolved : { status: "declined" };
+  // The root is now persisted for future repos regardless. Adopting the CURRENT pr under
+  // it is a bonus — if that adoption clone fails (git error, disk), degrade this pr to
+  // declined (it falls to the diff) rather than surface a hard error for the whole
+  // action, matching /generate's fail-toward-the-diff invariant.
+  try {
+    const resolved = await ensureCheckout(pr, deps);
+    return resolved.status === "ready" ? resolved : { status: "declined" };
+  } catch {
+    return { status: "declined" };
+  }
 }
 
 /** Execute the reviewer's explicit resolution choice. A successful resolution is

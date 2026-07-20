@@ -4,9 +4,10 @@
  * highest-precedence config, so these win over any repo `.git/config`.
  *
  * Heavy-pass git only ever runs against a KVASIR-OWNED clone: the authoring tools
- * (prepare_/remove_context_worktree) refuse a repo path outside the clones dir, the boot
- * GC sweep only ever operates on the parents of kvasir-created worktrees, and a checkout
- * the reviewer points at elsewhere is brought in via `git clone --local`
+ * (prepare_/remove_context_worktree) refuse a repo path outside the clones dir, going
+ * forward the boot GC sweep therefore only sees parents of kvasir-created worktrees (and
+ * for any pre-guard leftover it falls back to these flags, not a clones-dir check), and a
+ * checkout the reviewer points at elsewhere is brought in via `git clone --local`
  * (resolution.adoptForeignCheckout), which writes a fresh, kvasir-authored config —
  * leaving the foreign config's exec keys and named filters behind. So there is no
  * attacker-authored `.git/config` for these flags to override key-by-key; they are
