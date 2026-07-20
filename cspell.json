@@ -102,6 +102,10 @@
     "unlocatable",
     "unhighlighted",
     "blobless",
-    "fsmonitor"
+    "fsmonitor",
+    "GHSA",
+    "APFS",
+    "hardlink",
+    "unvalidated"
   ]
 }

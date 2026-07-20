@@ -36,9 +36,14 @@ export interface BridgeDeps {
   /** Remember the depth a /generate request asked for (keyed by prKey), so
    * publish_walkthrough can stamp it onto the spec as the depth chip's source. */
   recordDepth(key: string, depth: Depth): void;
-  /** Resolve a PR's local checkout server-side (clones dir → saved path → absent),
-   * pure and Claude-free. Backs /resolve and the heavy /generate path. */
+  /** Resolve a PR's local checkout server-side (clones dir → saved path → default
+   * root → absent), pure and Claude-free — no adoption/clone side effect. Backs
+   * /resolve (a status probe the card polls). */
   resolveCheckout(pr: string): ResolveResult;
+  /** Discovery + adoption: resolve the checkout AND bring it under kvasir ownership
+   * (local-clone a foreign one) so the returned path is safe for heavy git ops. Backs
+   * the heavy /generate path, which then hands the path to prepare_context_worktree. */
+  ensureCheckout(pr: string): Promise<ResolveResult>;
   /** Execute the reviewer's resolution choice (clone/adopt/decline); backs /prepare. */
   prepareCheckout(pr: string, action: PrepareAction, destination: string | undefined): Promise<PrepareResult>;
   pairing: Pairing;
@@ -169,14 +174,16 @@ async function handleGenerate({ request, deps }: Context): Promise<Response> {
   const since = truncate(b.sinceSha, 100);
   // Heavy is the request default (client omits depth, or sends anything but "light").
   // The server — not the extension — decides whether a checkout is actually available:
-  // resolve it here (clones dir → saved path → absent). A heavy request that resolves
-  // absent degrades to the diff-only pass, so the effective depth reflects what the
-  // model was actually given, not what was asked (invariant: fail toward the diff).
+  // resolve AND adopt it here (clones dir → saved path → default root → absent; a foreign
+  // checkout is local-cloned under kvasir ownership so heavy git ops never touch its
+  // .git). A heavy request that resolves absent — or whose adoption fails — degrades to
+  // the diff-only pass, so the effective depth reflects what the model was actually
+  // given, not what was asked (invariant: fail toward the diff).
   const requestedHeavy = b.depth !== "light";
   let checkout: string | null = null;
   if (requestedHeavy) {
     try {
-      const resolved = deps.resolveCheckout(pr);
+      const resolved = await deps.ensureCheckout(pr);
       if (resolved.status === "ready") checkout = resolved.path;
       // Until the A5.3 resolution card exists, an absent checkout degrades silently in
       // the UI — log it so a "why is my heavy pass diff-only?" is answerable server-side.

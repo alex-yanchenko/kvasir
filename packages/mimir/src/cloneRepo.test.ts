@@ -8,8 +8,10 @@ import {
   cloneCommand,
   cloneRepo,
   destinationPathShapeOk,
+  localCloneCommand,
   type CloneRunner,
 } from "./cloneRepo";
+import { gitHardeningFlags } from "./gitHardening";
 
 describe("destinationPathShapeOk", () => {
   const home = "/home/u";
@@ -93,6 +95,48 @@ describe("cloneCommand", () => {
   it("rejects an owner or repo outside GitHub's charset (defense in isolation)", () => {
     expect(() => cloneCommand("acme/../evil", "widget", "/home/u/x")).toThrow(CloneError);
     expect(() => cloneCommand("acme", "wid get", "/home/u/x")).toThrow(CloneError);
+  });
+});
+
+describe("localCloneCommand", () => {
+  const dest = "/home/u/.kvasir/clones/acme/widget";
+  it("builds a two-step local clone + github origin reset under the hardening flags", () => {
+    const flags = gitHardeningFlags();
+    const env = { GIT_TERMINAL_PROMPT: "0" };
+    expect(localCloneCommand("acme", "widget", "/work/widget", dest)).toEqual([
+      { cmd: ["git", ...flags, "clone", "--local", "/work/widget", dest], env },
+      {
+        cmd: [
+          "git",
+          ...flags,
+          "-C",
+          dest,
+          "remote",
+          "set-url",
+          "origin",
+          "https://github.com/acme/widget.git",
+        ],
+        env,
+      },
+    ]);
+  });
+
+  it("does NOT set protocol.file=never (which would break --local) — default 'user' allows it", () => {
+    for (const { cmd, env } of localCloneCommand("acme", "widget", "/work/widget", dest)) {
+      expect(cmd).not.toContain("protocol.file.allow=never");
+      expect(env.GIT_CONFIG_COUNT).toBeUndefined();
+    }
+  });
+
+  it("rejects a bad owner/repo and an unsafe source path", () => {
+    expect(() => localCloneCommand("-flag", "widget", "/work/widget", dest)).toThrow(CloneError);
+    expect(() => localCloneCommand("acme", "-flag", "/work/widget", dest)).toThrow(CloneError);
+    expect(() => localCloneCommand("acme", "widget", "relative/widget", dest)).toThrow(
+      /absolute path with no control characters/,
+    );
+    expect(() => localCloneCommand("acme", "widget", "/work/w\nEVIL", dest)).toThrow(
+      /absolute path with no control characters/,
+    );
   });
 });
 
@@ -227,5 +271,49 @@ describe("cloneRepo", () => {
       CloneError,
     );
     expect(existsSync(dest)).toBe(false);
+  });
+
+  it("adopts an existing local checkout via a two-step local clone and returns the dest", async () => {
+    const source = path.join(sandbox, "external", "widget");
+    mkdirSync(source, { recursive: true });
+    const dest = path.join(sandbox, "clones/acme/widget");
+    const run = vi.fn(okRunner);
+    await expect(cloneRepo("acme", "widget", dest, { home: sandbox, run, source })).resolves.toBe(dest);
+    expect(run).toHaveBeenCalledTimes(2); // clone, then origin reset
+    expect(run.mock.calls[0]![0]).toEqual(expect.arrayContaining(["clone", "--local", source, dest]));
+  });
+
+  it("refuses adoption when the source is not a real directory", async () => {
+    const dest = path.join(sandbox, "clones/acme/widget");
+    await expect(
+      cloneRepo("acme", "widget", dest, { home: sandbox, run: okRunner, source: path.join(sandbox, "nope") }),
+    ).rejects.toThrow(/not a directory/);
+  });
+
+  it("refuses adoption when the source path is unsafe", async () => {
+    const dest = path.join(sandbox, "clones/acme/widget");
+    await expect(
+      cloneRepo("acme", "widget", dest, { home: sandbox, run: okRunner, source: "relative/widget" }),
+    ).rejects.toThrow(/absolute path with no control characters/);
+  });
+
+  it("cleans up and stops at the origin-reset step when an adoption's second step fails", async () => {
+    const source = path.join(sandbox, "external", "widget");
+    mkdirSync(source, { recursive: true });
+    const dest = path.join(sandbox, "clones/acme/widget");
+    const commands: string[][] = [];
+    const run: CloneRunner = (cmd) => {
+      commands.push([...cmd]);
+      mkdirSync(dest, { recursive: true });
+      // step 1 (clone) succeeds; step 2 (origin reset) fails
+      return Promise.resolve(
+        commands.length === 1 ? { code: 0, stderr: "" } : { code: 1, stderr: "set-url failed" },
+      );
+    };
+    await expect(cloneRepo("acme", "widget", dest, { home: sandbox, run, source })).rejects.toThrow(
+      /set-url failed/,
+    );
+    expect(commands[1]).toEqual(expect.arrayContaining(["remote", "set-url", "origin"])); // the failing step
+    expect(existsSync(dest)).toBe(false); // partial adoption cleaned up
   });
 });
