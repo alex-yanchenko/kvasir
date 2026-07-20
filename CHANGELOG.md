@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.8.0](https://github.com/alex-yanchenko/kvasir/compare/v0.7.0...v0.8.0) (2026-07-20)
+
+
+### Features
+
+* **mimir:** default-root resolution + relaxed use-existing, hardened against untrusted .git (A5.3a) ([#73](https://github.com/alex-yanchenko/kvasir/issues/73)) ([7ec8be1](https://github.com/alex-yanchenko/kvasir/commit/7ec8be181917d82b42a0efc967ff857871645bd9))
+* **mimir:** server-owned reviewer-authorized checkout resolution (A5.2) ([#71](https://github.com/alex-yanchenko/kvasir/issues/71)) ([ef4a5ae](https://github.com/alex-yanchenko/kvasir/commit/ef4a5ae8a01749004c2d1df48de65661b989e826))
+
+
+### Bug Fixes
+
+* **mimir:** isolate heavy git ops to kvasir-owned clones (adopt foreign via local clone) ([#74](https://github.com/alex-yanchenko/kvasir/issues/74)) ([3de67b7](https://github.com/alex-yanchenko/kvasir/commit/3de67b73e5ca91df2139f3b215c58cbbc75d974e))
+
 ## [0.7.0](https://github.com/alex-yanchenko/kvasir/compare/v0.6.0...v0.7.0) (2026-07-17)
 
 
