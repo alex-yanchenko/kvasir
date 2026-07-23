@@ -6,14 +6,27 @@ overrides:
   # advisory (qs.stringify DoS, GHSA fixed in 6.15.2).
   qs: ">=6.15.2"
   # mermaid pulls dompurify <=3.4.10 (GHSA-cmwh-pvxp-8882: ALLOWED_ATTR pollution via
-  # setConfig); force the 3.4.11 patch until mermaid bumps its range past it.
-  dompurify: ">=3.4.11"
+  # setConfig); a later advisory extends the vulnerable range to <=3.4.11, so force the
+  # 3.4.12 patch until mermaid bumps its range past it.
+  dompurify: ">=3.4.12"
   # jsdom (dev-only, the vitest test env) pulls undici <7.28.0, flagged by six
   # advisories (SOCKS5 cross-origin routing + TLS-bypass high, Set-Cookie/cache
   # medium/low — GHSA-hm92-r4w5-c3mj et al.). Dev-only, but force the 7.28.0 patch
   # to clear them until jsdom bumps its range. Held to the 7.x line jsdom expects
   # (not a jump to undici 8) so the test env's HTTP internals don't shift under it.
   undici: ">=7.28.0 <8"
+  # The MCP sdk pulls these transitively; each is a runtime (`pnpm audit --prod`)
+  # advisory, so force the patch until the sdk bumps its ranges. Held to the current
+  # major so the sdk's HTTP/validation internals don't shift under it.
+  # sdk -> ajv(-formats) -> fast-uri: host confusion via backslash authority / failed
+  # IDN canonicalization (GHSA-v2hh-gcrm-f6hx, GHSA-4c8g-83qw-93j6; patched 3.1.4).
+  fast-uri: ">=3.1.4 <4"
+  # sdk -> (@hono/node-server ->) hono: API-gateway header de-dup drop (GHSA-xgm2-5f3f-mvvc).
+  hono: ">=4.12.27 <5"
+  # sdk -> @hono/node-server: patched in 2.0.5.
+  "@hono/node-server": ">=2.0.5 <3"
+  # sdk -> express -> body-parser: patched in 2.3.0.
+  body-parser: ">=2.3.0 <3"
 allowBuilds:
   esbuild: true
   unrs-resolver: true
