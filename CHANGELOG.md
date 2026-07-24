@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.1](https://github.com/alex-yanchenko/kvasir/compare/v0.8.0...v0.8.1) (2026-07-23)
+
+
+### Bug Fixes
+
+* **deps:** clear pnpm audit --prod advisories via overrides ([#75](https://github.com/alex-yanchenko/kvasir/issues/75)) ([37854c5](https://github.com/alex-yanchenko/kvasir/commit/37854c5e67e064bb6986fee121e2470f17b2fc48))
+
 ## [0.8.0](https://github.com/alex-yanchenko/kvasir/compare/v0.7.0...v0.8.0) (2026-07-20)
 
 
