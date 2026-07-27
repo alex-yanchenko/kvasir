@@ -55,10 +55,13 @@ chrome.runtime.onMessage.addListener(
           const data: unknown = await resolve.json();
           sendResponse({ ok: resolve.ok, status: resolve.status, data });
         } catch (error) {
-          // A non-JSON body on a real HTTP response (e.g. the runtime's default
-          // 500 page from a throwing route) must keep its status — a status-less
-          // reply reads as "channel down" to the client (isUnreachable).
-          sendResponse({ ok: false, status: resolve.status, error: String(error) });
+          // A non-JSON body on a real HTTP response (the runtime's default error page
+          // from a throwing route, a restarting/wedged channel, or another app on the
+          // port). Surface a STABLE signal the client maps to actionable copy — not the
+          // raw V8 parser text ("Unexpected token '<'…") — but keep the status, so a
+          // status-less reply still reads as "channel down" (isUnreachable), not this.
+          console.error("[kvasir] non-JSON bridge response:", resolve.status, String(error));
+          sendResponse({ ok: false, status: resolve.status, error: "non-JSON response from the channel" });
         }
       } catch (error) {
         sendResponse({ ok: false, error: String(error) });
