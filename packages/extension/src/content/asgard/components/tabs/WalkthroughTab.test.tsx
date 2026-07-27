@@ -12,7 +12,7 @@ vi.mock("../../mermaidLoader", () => ({
 import { chatStore } from "../../chat";
 import { launcherStore } from "../../launcher";
 import { pairingStore } from "../../pairing";
-import { PANEL_TABS, panelStore, state, touch } from "../../store";
+import { PANEL_TABS, panelStore, resolveDefaults, state, touch } from "../../store";
 import { tourStore } from "../../tour";
 import { WalkthroughTab } from "./WalkthroughTab";
 
@@ -39,6 +39,7 @@ beforeEach(() => {
     writable: true,
   });
   state.spec = null;
+  state.resolve = resolveDefaults(); // no resolution card unless a test opts in
   state.chatHistory = [];
   state.persistedTour = { step: 0, pos: null, size: null };
   state.panel = { open: true, tab: PANEL_TABS.WALKTHROUGH, pos: null, size: null };
@@ -556,5 +557,15 @@ describe("WalkthroughTab", () => {
     state.spec = mkSpec();
     render(<WalkthroughTab />);
     expect((screen.getByLabelText("Previous step") as HTMLButtonElement).disabled).toBe(true);
+  });
+});
+
+describe("resolution card", () => {
+  it("shows the resolution card in the body when a heavy resolve is absent — over any prior spec", () => {
+    state.spec = mkSpec(); // even with a prior walkthrough, an active resolution takes precedence
+    state.resolve.status = "absent";
+    render(<WalkthroughTab />);
+    expect(screen.getByTestId("resolve-action-clone-kvasir")).toBeTruthy();
+    expect(screen.queryByTestId("step-body")).toBeNull(); // the steps view is not shown
   });
 });

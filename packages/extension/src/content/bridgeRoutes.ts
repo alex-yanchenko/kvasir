@@ -22,6 +22,8 @@ export const ALLOWED_BRIDGE_PATHS = new Set([
   "/walkthrough",
   "/head",
   "/generate",
+  "/resolve",
+  "/prepare",
   "/ask",
   "/poll",
   "/suggest",

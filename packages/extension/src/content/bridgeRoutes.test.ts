@@ -37,7 +37,15 @@ describe("bridgeTarget", () => {
   });
 
   it("exposes the routes the extension actually calls", () => {
-    for (const path of ["/walkthrough", "/ask", "/history", "/entries", "/pair/claim"]) {
+    for (const path of [
+      "/walkthrough",
+      "/ask",
+      "/history",
+      "/entries",
+      "/pair/claim",
+      "/resolve",
+      "/prepare",
+    ]) {
       expect(ALLOWED_BRIDGE_PATHS.has(path)).toBe(true);
     }
   });

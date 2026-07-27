@@ -7,7 +7,16 @@ vi.mock("../muninn", () => ({ storeGet: vi.fn(), storeSet: vi.fn(), storeRemove:
 
 import { api, type BridgeResponse } from "../api";
 import { storeGet, storeRemove, storeSet } from "../muninn";
-import { GEN_MAX_TRIES, GEN_POLL_INTERVAL_MS, fmtElapsed, launcherStore, specSig } from "./launcher";
+import {
+  GEN_MAX_TRIES,
+  GEN_POLL_INTERVAL_MS,
+  fmtElapsed,
+  launcherStore,
+  prepareOutcome,
+  resolveOutcome,
+  resolveStore,
+  specSig,
+} from "./launcher";
 import { state } from "./store";
 import { tourStore } from "./tour";
 
@@ -37,6 +46,7 @@ beforeEach(() => {
   });
   sessionStorage.clear();
   state.spec = null;
+  state.reviewMode = "heavy"; // default; a test that flips to light must not leak
   state.generateDiagram = false; // default off — a test that flips it must not leak
   state.persistedTour = { step: 3, pos: null, size: null };
   launcherStore.resetForPr();
@@ -657,5 +667,235 @@ describe("resume vs an existing spec", () => {
     await Promise.resolve();
     await Promise.resolve();
     expect(state.spec).toBeNull(); // the stale poll write was dropped
+  });
+});
+
+describe("resolveOutcome / prepareOutcome", () => {
+  it("resolveOutcome narrows ready/absent; anything else (incl !ok) is error", () => {
+    expect(resolveOutcome({ ok: true, data: { status: "ready", path: "/x" } })).toBe("ready");
+    expect(resolveOutcome({ ok: true, data: { status: "absent" } })).toBe("absent");
+    expect(resolveOutcome({ ok: true, data: {} })).toBe("error");
+    expect(resolveOutcome({ ok: true, data: { status: 5 } })).toBe("error"); // present but not a string
+    expect(resolveOutcome({ ok: true, data: null })).toBe("error"); // null data (typeof is "object")
+    expect(resolveOutcome({ ok: true })).toBe("error");
+    expect(resolveOutcome({ ok: false, status: 500 })).toBe("error");
+  });
+
+  it("prepareOutcome narrows ready/declined and carries the error message (else generic)", () => {
+    expect(prepareOutcome({ ok: true, data: { status: "ready", path: "/x" } })).toEqual({ status: "ready" });
+    expect(prepareOutcome({ ok: true, data: { status: "declined" } })).toEqual({ status: "declined" });
+    expect(
+      prepareOutcome({ ok: false, status: 422, data: { status: "error", message: "bad dest" } }),
+    ).toEqual({ status: "error", message: "bad dest" });
+    expect(prepareOutcome({ ok: false, error: "failed to fetch" })).toEqual({
+      status: "error",
+      message: "failed to fetch",
+    });
+    expect(prepareOutcome({ ok: false })).toEqual({ status: "error" });
+    // a blank/whitespace message is dropped so the caller's fallback copy shows
+    expect(prepareOutcome({ ok: false, status: 422, data: { status: "error", message: "  " } })).toEqual({
+      status: "error",
+    });
+  });
+});
+
+describe("requestGenerate — resolve gating", () => {
+  const onResolve = (resolve: BridgeResponse) =>
+    vi.mocked(api).mockImplementation(async (path: string) => (path === "/resolve" ? resolve : { ok: true }));
+
+  it("heavy + absent → shows the card and does NOT generate; stashes the request", async () => {
+    onResolve({ ok: true, data: { status: "absent" } });
+    await launcherStore.requestGenerate("new");
+    expect(resolveStore.status()).toBe("absent");
+    expect(launcherStore.generating()).toBe(false);
+    expect(vi.mocked(api)).not.toHaveBeenCalledWith("/generate", expect.anything(), expect.anything());
+    expect(state.launcher.lastGen).toEqual({ mode: "new", sinceSha: undefined });
+  });
+
+  it("heavy + ready → skips the card and generates (depth heavy)", async () => {
+    onResolve({ ok: true, data: { status: "ready", path: "/c" } });
+    await launcherStore.requestGenerate("new");
+    expect(resolveStore.active()).toBe(false);
+    expect(vi.mocked(api)).toHaveBeenCalledWith(
+      "/generate",
+      "POST",
+      expect.objectContaining({ depth: "heavy" }),
+    );
+  });
+
+  it("light → skips /resolve and generates (depth light)", async () => {
+    state.reviewMode = "light";
+    vi.mocked(api).mockResolvedValue({ ok: true });
+    await launcherStore.requestGenerate("new");
+    expect(vi.mocked(api)).not.toHaveBeenCalledWith("/resolve", expect.anything(), expect.anything());
+    expect(vi.mocked(api)).toHaveBeenCalledWith(
+      "/generate",
+      "POST",
+      expect.objectContaining({ depth: "light" }),
+    );
+  });
+
+  it("a /generate 401 stays silent — no genError (the pair banner owns it)", async () => {
+    state.reviewMode = "light"; // reach startGenerate directly (light skips /resolve)
+    vi.mocked(api).mockResolvedValue({ ok: false, status: 401 });
+    await launcherStore.requestGenerate("new");
+    expect(launcherStore.generating()).toBe(false);
+    expect(launcherStore.genError()).toBeNull();
+  });
+
+  it("heavy + /resolve 401 → early return, no card, no generate (pair banner owns it)", async () => {
+    vi.mocked(api).mockResolvedValue({ ok: false, status: 401 });
+    await launcherStore.requestGenerate("new");
+    expect(resolveStore.active()).toBe(false);
+    expect(vi.mocked(api)).not.toHaveBeenCalledWith("/generate", expect.anything(), expect.anything());
+  });
+
+  it("heavy + resolve error → falls through to generate (fail toward the diff)", async () => {
+    onResolve({ ok: false, status: 500 });
+    await launcherStore.requestGenerate("new");
+    expect(resolveStore.active()).toBe(false);
+    expect(vi.mocked(api)).toHaveBeenCalledWith("/generate", "POST", expect.anything());
+  });
+
+  it("heavy: a PR switch mid-resolve aborts before generating", async () => {
+    // /resolve returns READY (which would otherwise proceed to /generate) — so only the
+    // PR-switch guard prevents the generate. (An "absent" reply would short-circuit
+    // regardless, making the test vacuous.)
+    vi.mocked(api).mockImplementation(async (path: string) => {
+      if (path === "/resolve") {
+        Object.defineProperty(window, "location", {
+          value: new URL("https://github.com/acme/other/pull/9"),
+          writable: true,
+        });
+        return { ok: true, data: { status: "ready", path: "/c" } };
+      }
+      return { ok: true };
+    });
+    await launcherStore.requestGenerate("new");
+    expect(vi.mocked(api)).not.toHaveBeenCalledWith("/generate", expect.anything(), expect.anything());
+  });
+
+  it("heavy + absent clears a stale genError before showing the card", async () => {
+    state.launcher.genError = "the generate request failed — try again"; // a prior failure
+    onResolve({ ok: true, data: { status: "absent" } });
+    await launcherStore.requestGenerate("new");
+    expect(resolveStore.status()).toBe("absent");
+    expect(launcherStore.genError()).toBeNull();
+  });
+});
+
+describe("resolveStore", () => {
+  it("path setters write state, getters read them, dismiss/active toggle", () => {
+    resolveStore.setExistingPath("/a");
+    resolveStore.setClonePath("/b");
+    resolveStore.setDefaultRoot("/c");
+    expect(resolveStore.existingPath()).toBe("/a");
+    expect(resolveStore.clonePath()).toBe("/b");
+    expect(resolveStore.defaultRoot()).toBe("/c");
+    state.resolve.status = "absent";
+    expect(resolveStore.active()).toBe(true);
+    resolveStore.dismiss();
+    expect(resolveStore.active()).toBe(false);
+    expect(resolveStore.existingPath()).toBe("");
+  });
+
+  describe("prepareCheckout", () => {
+    beforeEach(() => {
+      state.launcher.lastGen = { mode: "new", sinceSha: undefined };
+      state.resolve.status = "absent";
+    });
+
+    it("diff-only → generates without a /prepare call", async () => {
+      vi.mocked(api).mockResolvedValue({ ok: true });
+      await resolveStore.prepareCheckout("diff-only");
+      expect(vi.mocked(api)).not.toHaveBeenCalledWith("/prepare", expect.anything(), expect.anything());
+      expect(vi.mocked(api)).toHaveBeenCalledWith("/generate", "POST", expect.anything());
+      expect(resolveStore.active()).toBe(false);
+    });
+
+    it("a clone action that resolves ready → /prepare then /generate", async () => {
+      vi.mocked(api).mockImplementation(async (path: string) =>
+        path === "/prepare" ? { ok: true, data: { status: "ready", path: "/c" } } : { ok: true },
+      );
+      await resolveStore.prepareCheckout("clone-kvasir");
+      expect(vi.mocked(api)).toHaveBeenCalledWith("/prepare", "POST", {
+        pr: PR,
+        action: "clone-kvasir",
+        dest: undefined,
+      });
+      expect(vi.mocked(api)).toHaveBeenCalledWith("/generate", "POST", expect.anything());
+      expect(resolveStore.active()).toBe(false);
+    });
+
+    it("use-existing forwards the reviewer-typed dest", async () => {
+      vi.mocked(api).mockImplementation(async (path: string) =>
+        path === "/prepare" ? { ok: true, data: { status: "ready", path: "/c" } } : { ok: true },
+      );
+      await resolveStore.prepareCheckout("use-existing", "/work/repo");
+      expect(vi.mocked(api)).toHaveBeenCalledWith("/prepare", "POST", {
+        pr: PR,
+        action: "use-existing",
+        dest: "/work/repo",
+      });
+    });
+
+    it("declined → generates (diff), clears the card", async () => {
+      vi.mocked(api).mockImplementation(async (path: string) =>
+        path === "/prepare" ? { ok: true, data: { status: "declined" } } : { ok: true },
+      );
+      await resolveStore.prepareCheckout("set-default-root", "/root");
+      expect(vi.mocked(api)).toHaveBeenCalledWith("/generate", "POST", expect.anything());
+      expect(resolveStore.active()).toBe(false);
+    });
+
+    it("error with a message → card shows it, no generate", async () => {
+      vi.mocked(api).mockResolvedValue({
+        ok: false,
+        status: 422,
+        data: { status: "error", message: "not empty" },
+      });
+      await resolveStore.prepareCheckout("clone-dest", "/x");
+      expect(resolveStore.status()).toBe("error");
+      expect(resolveStore.error()).toBe("not empty");
+      expect(vi.mocked(api)).not.toHaveBeenCalledWith("/generate", expect.anything(), expect.anything());
+    });
+
+    it("error without a message → generic copy", async () => {
+      vi.mocked(api).mockResolvedValue({ ok: false, status: 502 });
+      await resolveStore.prepareCheckout("clone-dest", "/x");
+      expect(resolveStore.status()).toBe("error");
+      expect(resolveStore.error()).toMatch(/couldn't prepare/);
+    });
+
+    it("401 → keeps the card up (pair banner owns it), no generate", async () => {
+      vi.mocked(api).mockResolvedValue({ ok: false, status: 401 });
+      await resolveStore.prepareCheckout("clone-kvasir");
+      expect(resolveStore.status()).toBe("absent");
+      expect(vi.mocked(api)).not.toHaveBeenCalledWith("/generate", expect.anything(), expect.anything());
+    });
+
+    it("no PR → no-op", async () => {
+      Object.defineProperty(window, "location", {
+        value: new URL("https://github.com/acme/widget-api/issues"),
+        writable: true,
+      });
+      await resolveStore.prepareCheckout("clone-kvasir");
+      expect(vi.mocked(api)).not.toHaveBeenCalled();
+    });
+
+    it("a PR switch mid-prepare aborts before generating", async () => {
+      vi.mocked(api).mockImplementation(async (path: string) => {
+        if (path === "/prepare") {
+          Object.defineProperty(window, "location", {
+            value: new URL("https://github.com/acme/other/pull/9"),
+            writable: true,
+          });
+          return { ok: true, data: { status: "ready", path: "/c" } };
+        }
+        return { ok: true };
+      });
+      await resolveStore.prepareCheckout("clone-kvasir");
+      expect(vi.mocked(api)).not.toHaveBeenCalledWith("/generate", expect.anything(), expect.anything());
+    });
   });
 });
