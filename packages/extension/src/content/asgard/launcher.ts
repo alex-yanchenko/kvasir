@@ -8,8 +8,12 @@ import { genKey, onFilesTab, prUrl, specKey, tourKey } from "../keys";
 import { storeGet, storeRemove, storeSet } from "../muninn";
 import { friendlyError } from "./friendly";
 import { pairingStore } from "./pairing";
-import { launcherDefaults, settingsStore, state, touch } from "./store";
+import { launcherDefaults, type ResolveState, resolveDefaults, settingsStore, state, touch } from "./store";
 import { tourStore } from "./tour";
+
+/** The reviewer's resolution-card choices — mirrors the server's PREPARE_ACTIONS
+ * (packages/mimir resolution.ts). `dest` is required for the three path actions. */
+export type PrepareAction = "clone-kvasir" | "use-existing" | "clone-dest" | "set-default-root" | "diff-only";
 
 /** Any 401 from the bridge means the token is stale/absent — flip to unpaired so
  * the panel surfaces the Pair prompt instead of silently doing nothing. */
@@ -45,6 +49,42 @@ const isGenMarker = (x: unknown): x is GenMarker => typeof x === "object" && x !
 // A git SHA (abbreviated or full) — validated before going into a navigation URL so
 // a non-sha value can't smuggle extra path segments past the github-origin guard.
 const isSha = (s: string | null | undefined): s is string => !!s && /^[0-9a-f]{7,40}$/i.test(s);
+
+// Read a string `field` off an unknown bridge-response `data` object, else undefined.
+// Reflect.get (not an `as` cast) reads the value without asserting the object's shape.
+const dataField = (data: unknown, field: string): string | undefined => {
+  if (typeof data !== "object" || data === null || !(field in data)) return undefined;
+  const value: unknown = Reflect.get(data, field);
+  return typeof value === "string" ? value : undefined;
+};
+
+/** Narrow a `POST /resolve` reply. `ready` = a local clone exists (the extension
+ * ignores the returned path — the server re-resolves at /generate); `absent` = none,
+ * offer the card; `error` = a transport failure or any other status — the caller treats
+ * it like ready and generates anyway (the server then degrades to the diff). */
+export type ResolveOutcome = "ready" | "absent" | "error";
+export function resolveOutcome(r: BridgeResponse): ResolveOutcome {
+  if (!r.ok) return "error";
+  const status = dataField(r.data, "status");
+  return status === "ready" || status === "absent" ? status : "error";
+}
+
+/** Narrow a `POST /prepare` reply (+ a reason for the error case). `ready` = the
+ * clone/adopt succeeded → generate; `declined` = reviewer chose the diff; `error` =
+ * surface the server's message (a bad dest, a failed clone). */
+export interface PrepareOutcome {
+  status: "ready" | "declined" | "error";
+  message?: string;
+}
+export function prepareOutcome(r: BridgeResponse): PrepareOutcome {
+  const status = dataField(r.data, "status");
+  if (status === "ready") return { status: "ready" };
+  if (status === "declined") return { status: "declined" };
+  // Normalize a blank message to absent (trim, then falsy → drop) so the caller's
+  // fallback copy shows rather than an empty error banner.
+  const message = dataField(r.data, "message")?.trim() || r.error?.trim();
+  return message ? { status: "error", message } : { status: "error" };
+}
 
 // This machine's state lives on state.launcher (one home for app state — see
 // store.ts); only the poll TIMER stays here, a resource rather than state.
@@ -145,6 +185,44 @@ async function detectNewCommits(pr: string): Promise<void> {
   touch();
 }
 
+/** Fire the /generate request + start the completion poll. Any heavy-checkout
+ * resolution already happened (requestGenerate / prepareCheckout); the server
+ * re-resolves and stamps the effective depth, degrading to the diff when absent. */
+async function startGenerate(
+  pr: string,
+  mode: "new" | "incremental",
+  sinceSha: string | undefined,
+  previousSig: string,
+): Promise<void> {
+  state.launcher.generating = true;
+  state.launcher.genError = null;
+  state.launcher.lastGen = { mode, sinceSha };
+  state.launcher.genStartAt = Date.now();
+  storeSet(genKey(pr), { previousSig, at: state.launcher.genStartAt });
+  touch();
+  const r = noteAuth(
+    await api("/generate", "POST", {
+      pr,
+      mode,
+      sinceSha,
+      depth: settingsStore.reviewMode(),
+      diagram: settingsStore.generateDiagram(),
+    }),
+  );
+  if (!r.ok) {
+    // don't spin a 20-minute poll on nothing; say why instead. A 401 stays silent
+    // here — noteAuth already flipped the pair banner on.
+    state.launcher.generating = false;
+    storeRemove(genKey(pr));
+    if (r.status !== 401) {
+      state.launcher.genError = friendlyError(r, "the generate request failed — try again");
+    }
+    touch();
+    return;
+  }
+  pollForSpec(pr, previousSig);
+}
+
 export const launcherStore = {
   generating: (): boolean => state.launcher.generating,
   specLoading: (): boolean => state.launcher.specLoading,
@@ -182,39 +260,38 @@ export const launcherStore = {
   },
 
   /** Ask the session (via the channel) to (re)generate; persist a marker so the
-   * "generating" state survives a refresh, then poll for the new spec. */
+   * "generating" state survives a refresh, then poll for the new spec. A HEAVY request
+   * resolves a local checkout first (so an absent one offers the reviewer a clone via
+   * the resolution card, instead of the server silently degrading to diff-only); light
+   * authors from the diff, so it skips resolution. */
   async requestGenerate(mode: "new" | "incremental", sinceSha?: string): Promise<void> {
     const pr = prUrl();
     if (!pr) return;
     const previousSig = specSig(state.spec);
     tourStore.close(); // don't leave a stale walkthrough open while it regenerates
-    state.launcher.generating = true;
-    state.launcher.genError = null;
-    state.launcher.lastGen = { mode, sinceSha };
-    state.launcher.genStartAt = Date.now();
-    storeSet(genKey(pr), { previousSig, at: state.launcher.genStartAt });
+    state.resolve = resolveDefaults(); // clear any prior card
+    state.launcher.genError = null; // drop a stale error now — the heavy resolve path may
+    // stop at the card before ever reaching startGenerate (which also clears it)
+    state.launcher.lastGen = { mode, sinceSha }; // stash so a card pick resumes this same request
     touch();
-    const r = noteAuth(
-      await api("/generate", "POST", {
-        pr,
-        mode,
-        sinceSha,
-        depth: settingsStore.reviewMode(),
-        diagram: settingsStore.generateDiagram(),
-      }),
-    );
-    if (!r.ok) {
-      // don't spin a 20-minute poll on nothing; say why instead. A 401 stays
-      // silent here — noteAuth already flipped the pair banner on.
-      state.launcher.generating = false;
-      storeRemove(genKey(pr));
-      if (r.status !== 401) {
-        state.launcher.genError = friendlyError(r, "the generate request failed — try again");
-      }
+    if (settingsStore.reviewMode() === "heavy") {
+      state.resolve.status = "resolving";
       touch();
-      return;
+      const r = noteAuth(await api("/resolve", "POST", { pr }));
+      if (prUrl() !== pr) return; // user switched PRs mid-resolve — don't clobber
+      if (r.status === 401) {
+        state.resolve = resolveDefaults(); // the pair banner owns a 401
+        touch();
+        return;
+      }
+      if (resolveOutcome(r) === "absent") {
+        state.resolve.status = "absent"; // render the card; a pick resumes via prepareCheckout
+        touch();
+        return;
+      }
+      state.resolve = resolveDefaults(); // ready, or a resolve error → generate (server degrades)
     }
-    pollForSpec(pr, previousSig);
+    await startGenerate(pr, mode, sinceSha, previousSig);
   },
 
   /** Stop watching — generation keeps running in the session; reopen later. */
@@ -232,6 +309,7 @@ export const launcherStore = {
     if (genPoll) clearInterval(genPoll);
     genPoll = null;
     state.launcher = launcherDefaults();
+    state.resolve = resolveDefaults(); // a half-open resolution card must not survive a PR switch
     touch();
   },
 
@@ -248,5 +326,73 @@ export const launcherStore = {
     if (state.spec && onFilesTab() && tourStore.open()) tourStore.reapply();
     if (!genPoll && (await resumeGeneration(pr))) return;
     if (state.spec && !state.launcher.generating) await detectNewCommits(pr);
+  },
+};
+
+/** The resolution card's store — launcher.ts owns it because a pick resumes the
+ * generate. Getters the card reads, setters for the three reviewer-typed path inputs,
+ * and the actions (dismiss + pick). The extension never derives a path; the three
+ * inputs are the reviewer's explicit authorization, validated server-side. */
+export const resolveStore = {
+  status: (): ResolveState["status"] => state.resolve.status,
+  error: (): string | null => state.resolve.error,
+  /** True whenever the card should be showing (any status but idle). */
+  active: (): boolean => state.resolve.status !== "idle",
+  existingPath: (): string => state.resolve.existingPath,
+  clonePath: (): string => state.resolve.clonePath,
+  defaultRoot: (): string => state.resolve.defaultRoot,
+  setExistingPath(value: string): void {
+    state.resolve.existingPath = value;
+    touch();
+  },
+  setClonePath(value: string): void {
+    state.resolve.clonePath = value;
+    touch();
+  },
+  setDefaultRoot(value: string): void {
+    state.resolve.defaultRoot = value;
+    touch();
+  },
+  /** Dismiss the card without acting — back to the empty state. */
+  dismiss(): void {
+    state.resolve = resolveDefaults();
+    touch();
+  },
+
+  /** The reviewer picked a card action. "diff-only" declines the clone and generates
+   * from the diff; the clone/adopt actions authorize a checkout via /prepare, then — on
+   * ready — generate against it. `destination` carries the reviewer-typed path for the
+   * path actions (the server validates it) and rides as the request's `dest` field. */
+  async prepareCheckout(action: PrepareAction, destination?: string): Promise<void> {
+    const pr = prUrl();
+    if (!pr) return;
+    const previousSig = specSig(state.spec);
+    const { mode, sinceSha } = state.launcher.lastGen;
+    if (action === "diff-only") {
+      state.resolve = resolveDefaults();
+      await startGenerate(pr, mode, sinceSha, previousSig); // no checkout → server degrades to the diff
+      return;
+    }
+    state.resolve.status = "preparing";
+    state.resolve.error = null;
+    touch();
+    const r = noteAuth(await api("/prepare", "POST", { pr, action, dest: destination }));
+    if (prUrl() !== pr) return; // user switched PRs mid-prepare — don't clobber
+    if (r.status === 401) {
+      state.resolve.status = "absent"; // the pair banner owns a 401; keep the card up
+      touch();
+      return;
+    }
+    const outcome = prepareOutcome(r);
+    if (outcome.status === "error") {
+      state.resolve.status = "error";
+      state.resolve.error = outcome.message ?? "couldn't prepare the checkout — try again";
+      touch();
+      return;
+    }
+    // ready (clone/adopt done → heavy) or declined (no checkout → server degrades to the
+    // diff) — either way, generate now.
+    state.resolve = resolveDefaults();
+    await startGenerate(pr, mode, sinceSha, previousSig);
   },
 };

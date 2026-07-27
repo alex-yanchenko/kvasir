@@ -20,7 +20,7 @@ import type { JSX } from "react";
 import { sanitizeSpecHtml } from "../../../sanitize";
 import { chatStore } from "../../chat";
 import { useArrowKeyNav } from "../../hooks/useArrowKeyNav";
-import { fmtElapsed, launcherStore } from "../../launcher";
+import { fmtElapsed, launcherStore, resolveStore } from "../../launcher";
 import { pairingStore } from "../../pairing";
 import { getSnapshot, PANEL_TABS, panelStore, settingsStore, subscribe } from "../../store";
 import { tourStore } from "../../tour";
@@ -28,6 +28,7 @@ import { Button } from "../../ui/button";
 import { KvasirMark } from "../../ui/KvasirMark";
 import { Diagram } from "../Diagram";
 import { RegenDialog } from "../RegenDialog";
+import { ResolutionCard } from "../ResolutionCard";
 import { StepHead } from "../StepRing";
 
 function Generating(): JSX.Element {
@@ -464,6 +465,10 @@ function Steps({ spec }: Readonly<{ spec: WalkthroughSpec }>): JSX.Element {
 }
 
 function Body(): JSX.Element {
+  // The resolution flow takes precedence: a heavy Run/Regenerate resolves a checkout
+  // first, and an absent one shows the card here (over any prior spec) so the reviewer
+  // authorizes a clone before the generate runs.
+  if (resolveStore.active()) return <ResolutionCard />;
   const spec = launcherStore.spec();
   if (spec?.steps.length) return <Steps spec={spec} />;
   if (launcherStore.specLoading()) return <Checking />;

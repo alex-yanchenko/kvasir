@@ -102,6 +102,28 @@ export const tourDefaults = (): TourUiState => ({
   diagramOpen: false,
 });
 
+/** The reviewer-authorized checkout resolution flow (launcher.ts), gating a HEAVY
+ * generate. `idle` = no card. `resolving` = /resolve in flight. `absent` = no local
+ * clone found → the resolution card is shown so the reviewer can authorize one.
+ * `preparing` = /prepare (clone/adopt) in flight. `error` = /prepare failed → the card
+ * shows the reason with the actions still available. The three paths are what the
+ * reviewer TYPES for the path actions (validated server-side); the extension never
+ * derives a path itself. */
+export interface ResolveState {
+  status: "idle" | "resolving" | "absent" | "preparing" | "error";
+  error: string | null;
+  existingPath: string; // the typed path for the use-existing action
+  clonePath: string; // the typed path for the clone-dest action
+  defaultRoot: string; // the typed path for the set-default-root action
+}
+export const resolveDefaults = (): ResolveState => ({
+  status: "idle",
+  error: null,
+  existingPath: "",
+  clonePath: "",
+  defaultRoot: "",
+});
+
 // Walkthrough-highlight styles: "rail" (left rail only — the default) and "gutter"
 // (rail + a faint wash on the line-number columns). A retired/unknown stored value
 // (e.g. an old "tint"/"github") falls back to the rail default.
@@ -163,6 +185,9 @@ export const state: {
    * (re)generating a walkthrough. Reset on PR navigation (resetForPr). The poll
    * timer handle stays module-local in launcher.ts — a resource, not state. */
   launcher: LauncherState;
+  /** The reviewer-authorized checkout resolution flow (launcher.ts) gating a heavy
+   * generate. Reset on PR navigation (resetForPr), alongside `launcher`. */
+  resolve: ResolveState;
   /** The tour machine's interaction state (tour.ts): which step is showing and
    * which panes are expanded. Machine-lifetime so it survives a tab switch —
    * DISTINCT from persistedTour above, which is the per-PR PERSISTED step/geometry. */
@@ -197,6 +222,7 @@ export const state: {
   guideDeleted: false,
   panel: { open: false, tab: PANEL_TABS.WALKTHROUGH, pos: null, size: null },
   launcher: launcherDefaults(),
+  resolve: resolveDefaults(),
   tour: tourDefaults(),
   panelPrefs: {
     sidebarOpen: true, // the nav column is on by default; the rail's active icon toggles it

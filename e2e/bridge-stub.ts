@@ -26,6 +26,10 @@ export interface BridgeState {
    * on the next probe. */
   version: string;
   protocol: number;
+  /** Drives the reviewer-authorized resolution flow: "ready" = a local clone resolves
+   * (heavy proceeds, no card); "absent" = none (the resolution card shows). A successful
+   * /prepare flips it to "ready" so the following /generate resolves. */
+  checkout: "ready" | "absent";
 }
 
 export interface BridgeStub {
@@ -70,6 +74,7 @@ export async function startBridge(overrides: Partial<BridgeState> = {}): Promise
     headSha: "sha-baseline",
     version: "9.9.9",
     protocol: PROTOCOL_VERSION,
+    checkout: "ready",
     ...overrides,
   };
   const specs = new Map<string, WalkthroughSpec>();
@@ -111,6 +116,18 @@ export async function startBridge(overrides: Partial<BridgeState> = {}): Promise
     pushEvent: async () => {},
     getHeadSha: async () => state.headSha,
     recordDepth: () => {},
+    // Reviewer-authorized resolution, driven by state.checkout. resolveCheckout backs
+    // /resolve; ensureCheckout backs the heavy /generate; prepareCheckout backs /prepare
+    // (a clone/adopt makes the checkout resolvable, a diff-only declines).
+    resolveCheckout: () =>
+      state.checkout === "ready" ? { status: "ready", path: "/e2e/clone" } : { status: "absent" },
+    ensureCheckout: async () =>
+      state.checkout === "ready" ? { status: "ready", path: "/e2e/clone" } : { status: "absent" },
+    prepareCheckout: async (_pr, action) => {
+      if (action === "diff-only") return { status: "declined" };
+      state.checkout = "ready";
+      return { status: "ready", path: "/e2e/clone" };
+    },
   };
 
   // Mint a real token via the actual handshake (request auto-approves, then claim),
