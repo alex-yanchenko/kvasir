@@ -25,7 +25,7 @@ export function launcherMcpConfigPath(home: string = homedir()): string {
  * one auto-discovered from a CWD .mcp.json. `execPath` is the compiled binary's
  * own path (process.execPath); under `bun run` in a dev clone it is the bun
  * runtime instead, so `kvasir run` is a shipped-binary path — dev clones register
- * the channel through install.sh, not through this launcher.
+ * the channel through the setup script (pnpm setup), not through this launcher.
  *
  * Precedence note: a `kvasir` server supplied here via --mcp-config WINS over a
  * same-named server in the CWD's own .mcp.json (Claude keeps one entry per name,
