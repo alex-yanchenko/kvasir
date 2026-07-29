@@ -44,9 +44,9 @@ export function parseSetupArgs(argv: readonly string[]): SetupArgs {
 
 export const SETUP_USAGE = `kvasir install — set up the Kvasir walkthrough tool for Claude Code.
 
-Usage:
-  ./install.sh [--copy] [--allow-push]
-  ./install.sh --help
+Usage (from a cloned repo, for contributors — end users install the Claude Code plugin):
+  pnpm kvasir-setup [-- --copy --allow-push]
+  pnpm kvasir-setup -- --help
 
 What it does (idempotent — safe to re-run):
   - installs the /kvasir skill into ~/.claude/skills (symlinked by default)

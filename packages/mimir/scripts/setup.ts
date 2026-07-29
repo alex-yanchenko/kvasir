@@ -1,8 +1,9 @@
 #!/usr/bin/env bun
 /**
- * Kvasir installer — the logic behind ./install.sh. Sets up the skill, builds the
- * extension, installs the kvasir CLI, and registers the channel. Pure decision
- * logic lives in src/install.ts; this is the IO/shell glue. Idempotent.
+ * Kvasir installer for CONTRIBUTORS working from a cloned repo (run `pnpm kvasir-setup`) — end
+ * users install the Claude Code plugin instead. Sets up the skill, builds the extension,
+ * installs the kvasir CLI, and registers the channel. Pure decision logic lives in
+ * src/install.ts; this is the IO/shell glue. Idempotent.
  */
 import {
   chmodSync,
@@ -52,7 +53,7 @@ if (args.help) {
   console.log(SETUP_USAGE);
   process.exit(0);
 }
-for (const flag of args.unknown) warn(`unknown flag: ${flag} (see ./install.sh --help)`);
+for (const flag of args.unknown) warn(`unknown flag: ${flag} (see pnpm kvasir-setup -- --help)`);
 
 console.log("Kvasir install");
 
@@ -232,7 +233,7 @@ ok(`registered 'kvasir' in ${mcpPath} ${channelEntry.label}`);
 console.log("Permission:");
 const settingsPath = path.join(HOME, ".claude/settings.json");
 if (!args.allowPush) {
-  say("to auto-skip the per-push prompt, re-run with:  ./install.sh --allow-push");
+  say("to auto-skip the per-push prompt, re-run with:  pnpm kvasir-setup -- --allow-push");
   say(`(or add "${KVASIR_PERMISSION}" under permissions.allow in ~/.claude/settings.json)`);
 } else if (existsSync(settingsPath)) {
   let previous: unknown;

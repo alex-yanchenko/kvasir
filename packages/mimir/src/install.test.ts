@@ -38,7 +38,7 @@ describe("parseSetupArgs", () => {
 
 describe("SETUP_USAGE", () => {
   it("documents the usage line and every flag", () => {
-    expect(SETUP_USAGE).toContain("Usage:");
+    expect(SETUP_USAGE).toContain("pnpm kvasir-setup");
     expect(SETUP_USAGE).toContain("--copy");
     expect(SETUP_USAGE).toContain("--allow-push");
     expect(SETUP_USAGE).toContain("--help");

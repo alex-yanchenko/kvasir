@@ -12,36 +12,33 @@ extension) and was rebuilt into something stable, cheap, and credential-free.
 
 ## Quick start
 
-Prerequisites: **bun** (the installer runs under it), the **claude** CLI, and
-**gh** (run `gh auth login` once — PR data needs it). The channel ships as a
-standalone binary: with the repo's dependencies installed, the installer compiles
-it; otherwise (e.g. a no-pnpm clone, where there's nothing to resolve the channel's
-imports against) it downloads the prebuilt binary for your platform from the latest
-release. Either way, at runtime the floor is just **claude + gh + the binary** (no
-`node_modules`). **pnpm** is only needed to build the extension from source; without
-it the installer downloads the prebuilt extension from the latest release. Then,
-from the repo root:
+Prerequisites: the **claude** CLI and **gh** (run `gh auth login` once — PR data
+needs it). At runtime the floor is just **claude + gh + the `kvasir` binary**.
 
-```bash
-./install.sh
+Install the Claude Code plugin. It ships the `/kvasir` skill and, on first run, puts
+the `kvasir` binary on `~/.local/bin` — downloading the attestation-verified build for
+your platform from the matching release:
+
+```
+/plugin marketplace add alex-yanchenko/kvasir
+/plugin install kvasir@kvasir
 ```
 
-That installs the `/kvasir` skill, sets up the extension (builds it with pnpm or
-downloads the prebuilt bundle), **compiles (or
-downloads) the channel binary** into `~/.kvasir/bin` and **registers it in
-`.mcp.json`**, and puts a **`kvasir`** command on your PATH. (Add `--allow-push` to
-also skip the per-push permission prompt.)
+Ensure `~/.local/bin` is on your `PATH`. Updates are manual — `/plugin marketplace
+update kvasir` (or enable auto-update for the marketplace in `/plugin`).
 
-> **Keep the clone — it _is_ the install.** Chrome loads the extension from
-> `<clone>/packages/extension`, the `kvasir` command launches Claude from the clone
-> to read its `.mcp.json`, and that `.mcp.json` lives in the clone. So clone it
-> somewhere permanent (not `/tmp`) and don't move or delete it — doing so breaks
-> `kvasir`. Re-run `./install.sh` from a new location to relocate.
+> **Contributors / from source:** with **bun** installed, clone the repo and run
+> **`pnpm kvasir-setup`** — it compiles the binary, builds (or downloads) the extension,
+> installs the skills into `~/.claude/skills`, and registers the channel.
+> `pnpm kvasir-setup -- --help` for options (`--allow-push` also skips the per-push
+> permission prompt).
 
 Three one-time steps:
 
-1. **Load the extension** — `chrome://extensions` → enable **Developer mode** →
-   **Load unpacked** → select `packages/extension/`.
+1. **Load the extension** — until it's on the Chrome Web Store, load it unpacked:
+   grab `extension-dist.tgz` from the [latest release](https://github.com/alex-yanchenko/kvasir/releases)
+   and extract it (or use `packages/extension/` from a clone), then `chrome://extensions`
+   → enable **Developer mode** → **Load unpacked** → select that folder.
 2. **Start the channel** — run **`kvasir`** from anywhere. It opens a Claude Code
    session that serves the channel (one instance per machine serves every browser
    tab; the bridge listens on `http://localhost:8799`). Leave it running.

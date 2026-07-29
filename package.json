@@ -7,6 +7,7 @@
   "license": "SEE LICENSE IN LICENSE",
   "packageManager": "pnpm@11.5.1",
   "scripts": {
+    "kvasir-setup": "bun packages/mimir/scripts/setup.ts",
     "mimir": "pnpm --filter @kvasir/mimir start",
     "build": "pnpm --filter @kvasir/extension build",
     "typecheck": "pnpm -r typecheck",
