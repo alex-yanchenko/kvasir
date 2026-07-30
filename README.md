@@ -152,9 +152,12 @@ The two sides are decoupled by a single contract: the **walkthrough spec** (see
 `packages/runes/src/spec.ts`). Mimir produces and serves specs; the extension
 consumes them. Either side can change independently.
 
-> Setup note: register the channel in a local `.mcp.json` under the key
-> **`kvasir`**, running `packages/mimir/src/main.ts` with the `channel` subcommand
-> (this file is gitignored — it holds a machine-specific absolute path).
+> How the channel is wired: `kvasir run` writes a self-referencing MCP config to
+> `~/.kvasir/mcp.json` (pointing the `kvasir` server at the installed binary's
+> `channel` subcommand) and hands it to Claude via `--mcp-config`, so no repo
+> directory or project `.mcp.json` is touched. Running from source is the one
+> exception — contributors register `packages/mimir/src/main.ts channel` in a
+> local, gitignored `.mcp.json` instead (see `packages/mimir/README.md`).
 
 ## How it works
 
@@ -178,8 +181,11 @@ consumes them. Either side can change independently.
 
 ## Why this shape
 
-- **Cheap & stable at runtime.** A spec is generated on demand and cached (one
-  per PR). Opening the tour again costs nothing — no model call, no Claude.
+- **Cheap & stable at runtime.** Authoring a walkthrough — and each **Ask** —
+  runs in your Claude Code session, so it spends that session's quota. But only
+  once: the spec is cached (one per PR), so re-opening the tour costs nothing (no
+  model call), and the channel sitting idle between questions spends nothing. No
+  separate API key, no model billing of its own.
 - **No credentials.** PR data comes from `gh` (your existing auth); answers come
   from your running Claude session through the channel. No GitHub PAT, no API key.
 - **Robust highlighting.** The extension highlights by GitHub's stable per-line
