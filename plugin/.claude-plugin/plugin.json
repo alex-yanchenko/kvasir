@@ -1,6 +1,8 @@
 {
   "name": "kvasir",
   "description": "Turn a GitHub PR into an in-browser walkthrough + a code-selection Q&A bridge, driven by your Claude Code session.",
-  "version": "0.8.1",
-  "author": { "name": "Alex Yanchenko" }
+  "version": "0.9.0",
+  "author": {
+    "name": "Alex Yanchenko"
+  }
 }
