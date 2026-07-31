@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.9.0](https://github.com/alex-yanchenko/kvasir/compare/v0.8.1...v0.9.0) (2026-07-31)
+
+
+### Features
+
+* distribute kvasir as a Claude Code plugin + in-repo marketplace (A4) ([#80](https://github.com/alex-yanchenko/kvasir/issues/80)) ([98e756c](https://github.com/alex-yanchenko/kvasir/commit/98e756cf9fa9946febe8b82a66e175e502cef399))
+* **extension:** inline resolution card — reviewer authorizes a checkout for a heavy pass (A5.3b) ([#79](https://github.com/alex-yanchenko/kvasir/issues/79)) ([72e1853](https://github.com/alex-yanchenko/kvasir/commit/72e18534e841c57c832ef306e2bce619434eb98d))
+
+
+### Bug Fixes
+
+* **extension:** actionable copy for a non-JSON bridge response ([#77](https://github.com/alex-yanchenko/kvasir/issues/77)) ([cead4cd](https://github.com/alex-yanchenko/kvasir/commit/cead4cd86f762abd51732044d2cd4faa9f27ba72))
+
 ## [0.8.1](https://github.com/alex-yanchenko/kvasir/compare/v0.8.0...v0.8.1) (2026-07-23)
 
 
