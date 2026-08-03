@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.0](https://github.com/alex-yanchenko/kvasir/compare/v0.9.0...v0.10.0) (2026-08-03)
+
+
+### Features
+
+* package a CWS-ready extension zip in the release (manifest at root) ([#84](https://github.com/alex-yanchenko/kvasir/issues/84)) ([1d79b45](https://github.com/alex-yanchenko/kvasir/commit/1d79b45f8002911616a0478c92ba0aee6b5df46b))
+
 ## [0.9.0](https://github.com/alex-yanchenko/kvasir/compare/v0.8.1...v0.9.0) (2026-07-31)
 
 
