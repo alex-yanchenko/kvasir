@@ -106,6 +106,8 @@
     "GHSA",
     "APFS",
     "hardlink",
-    "unvalidated"
+    "unvalidated",
+    "sonarjs",
+    "unmodeled"
   ]
 }
