@@ -82,13 +82,17 @@ jobs:
           for target in bun-darwin-arm64 bun-darwin-x64 bun-linux-x64 bun-linux-arm64; do
             bun build src/main.ts --compile --target="$target" --outfile "dist/kvasir-${target#bun-}"
           done
-      # Ship the built extension as a release asset too, so a no-pnpm install can
-      # download a loadable extension instead of building from source.
-      - name: Build extension bundle
+      # Two extension artifacts, different consumers: extension-dist.tgz is dist-only
+      # (setup.ts extracts it over a clone that already has manifest.json + icons), while
+      # kvasir-extension.zip is the standalone loadable package (manifest.json at the zip
+      # root) for the Chrome Web Store and direct "Load unpacked". The zip lands in
+      # packages/mimir/dist so the kvasir-* attest + upload globs below pick it up.
+      - name: Build and package extension bundle
         if: ${{ steps.release.outputs.release_created }}
         run: |
           pnpm build
           tar -czf packages/mimir/dist/extension-dist.tgz -C packages/extension dist
+          bun packages/mimir/src/packageExtension.ts
       # Sign build provenance for every asset the installer later downloads and runs,
       # so `gh attestation verify` can prove they came from this workflow. Runs before
       # upload — it attests the artifact bytes, independent of the release itself.

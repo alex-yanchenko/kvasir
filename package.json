@@ -10,6 +10,7 @@
     "kvasir-setup": "bun packages/mimir/scripts/setup.ts",
     "mimir": "pnpm --filter @kvasir/mimir start",
     "build": "pnpm --filter @kvasir/extension build",
+    "package:extension": "pnpm build && bun packages/mimir/src/packageExtension.ts",
     "typecheck": "pnpm -r typecheck",
     "lint": "eslint .",
     "knip": "knip",
