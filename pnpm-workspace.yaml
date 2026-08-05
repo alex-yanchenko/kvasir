@@ -9,24 +9,39 @@ overrides:
   # setConfig); a later advisory extends the vulnerable range to <=3.4.11, so force the
   # 3.4.12 patch until mermaid bumps its range past it.
   dompurify: ">=3.4.12"
-  # jsdom (dev-only, the vitest test env) pulls undici <7.28.0, flagged by six
-  # advisories (SOCKS5 cross-origin routing + TLS-bypass high, Set-Cookie/cache
-  # medium/low — GHSA-hm92-r4w5-c3mj et al.). Dev-only, but force the 7.28.0 patch
-  # to clear them until jsdom bumps its range. Held to the 7.x line jsdom expects
-  # (not a jump to undici 8) so the test env's HTTP internals don't shift under it.
-  undici: ">=7.28.0 <8"
+  # jsdom (dev-only, the vitest test env) pulls undici, flagged by several advisories
+  # (SOCKS5 cross-origin routing + TLS-bypass high, CRLF/cookie/desync medium — the
+  # latest, GHSA-4cwx-7wf7-3272, patched in 7.29.0). Dev-only, but force the patch
+  # until jsdom bumps its range. Held to the 7.x line jsdom expects (not a jump to
+  # undici 8) so the test env's HTTP internals don't shift under it.
+  undici: ">=7.29.0 <8"
   # The MCP sdk pulls these transitively; each is a runtime (`pnpm audit --prod`)
   # advisory, so force the patch until the sdk bumps its ranges. Held to the current
   # major so the sdk's HTTP/validation internals don't shift under it.
   # sdk -> ajv(-formats) -> fast-uri: host confusion via backslash authority / failed
-  # IDN canonicalization (GHSA-v2hh-gcrm-f6hx, GHSA-4c8g-83qw-93j6; patched 3.1.4).
-  fast-uri: ">=3.1.4 <4"
-  # sdk -> (@hono/node-server ->) hono: API-gateway header de-dup drop (GHSA-xgm2-5f3f-mvvc).
-  hono: ">=4.12.27 <5"
+  # IDN canonicalization (GHSA-v2hh-gcrm-f6hx, GHSA-4c8g-83qw-93j6, GHSA-7p8r-x3mc-p8w7;
+  # latest patched in 3.1.5).
+  fast-uri: ">=3.1.5 <4"
+  # sdk -> (@hono/node-server ->) hono: API-gateway header de-dup drop (GHSA-xgm2-5f3f-mvvc)
+  # + CORS-middleware ReDoS (GHSA-8j4g-w8fx-2239, patched 4.12.34).
+  hono: ">=4.12.34 <5"
   # sdk -> @hono/node-server: patched in 2.0.5.
   "@hono/node-server": ">=2.0.5 <3"
   # sdk -> express -> body-parser: patched in 2.3.0.
   body-parser: ">=2.3.0 <3"
+  # sdk HTTP stack -> ip-address: Address4 leading-zero-octet decode (GHSA-mwp4-54f8-5fhr,
+  # high) + CIDR-suffix / IPv4-mapped misclassification (GHSA-4xrf-jv44-h6hh,
+  # GHSA-22jq-vg5j-6vgg); all patched by 10.3.1. A `pnpm audit --prod` advisory.
+  ip-address: ">=10.3.1 <11"
+  # postcss path-traversal in previous-source-map auto-loading (patched 8.5.23).
+  postcss: ">=8.5.23 <9"
+  # js-yaml merge-key chains -> quadratic CPU (GHSA-52cp-r559-cp3m, patched 4.3.0).
+  js-yaml: ">=4.3.0 <5"
+  # brace-expansion unbounded-expansion DoS (a chain of advisories, latest patched in
+  # 1.1.17 / 5.0.9); dev-only (eslint + stryker toolchains -> minimatch). Two vulnerable
+  # majors present (1.1.15 + 5.0.6), each forced up within its major.
+  "brace-expansion@1": ">=1.1.17 <2"
+  "brace-expansion@5": ">=5.0.9 <6"
 allowBuilds:
   esbuild: true
   unrs-resolver: true
