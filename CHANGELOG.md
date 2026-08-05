@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.10.1](https://github.com/alex-yanchenko/kvasir/compare/v0.10.0...v0.10.1) (2026-08-05)
+
+
+### Bug Fixes
+
+* align mermaid label font with the panel so flow-diagram labels don't clip ([#86](https://github.com/alex-yanchenko/kvasir/issues/86)) ([1327ebe](https://github.com/alex-yanchenko/kvasir/commit/1327ebecb9ad129ba1d885dd0de4b75539523d5d))
+* bump pnpm overrides to clear the prod audit gate and dev advisories ([#87](https://github.com/alex-yanchenko/kvasir/issues/87)) ([0138eb6](https://github.com/alex-yanchenko/kvasir/commit/0138eb6dcfe36c99943d1768b2163884ed5aed2a))
+
 ## [0.10.0](https://github.com/alex-yanchenko/kvasir/compare/v0.9.0...v0.10.0) (2026-08-03)
 
 
