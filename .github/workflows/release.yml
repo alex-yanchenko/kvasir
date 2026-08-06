@@ -110,3 +110,24 @@ jobs:
         run: |
           gh release upload "${{ steps.release.outputs.tag_name }}" \
             packages/mimir/dist/kvasir-* packages/mimir/dist/extension-dist.tgz --clobber
+      # Publish the same attested kvasir-extension.zip to the Chrome Web Store. Skips
+      # cleanly (never fails the release) when the CWS API credentials aren't configured,
+      # so the binary + plugin release path is unaffected while the secrets are being set
+      # up. `chrome-webstore-upload` with no subcommand uploads AND submits for review
+      # (Google auto-publishes on approval); to upload a draft you publish by hand
+      # instead, change the last line to `chrome-webstore-upload upload --source ...`.
+      # EXTENSION_ID is the public store item id (not a secret).
+      - name: Publish the extension to the Chrome Web Store
+        if: ${{ steps.release.outputs.release_created }}
+        env:
+          EXTENSION_ID: pemfpcbcbfejhohpehohlnngaflpcden
+          CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
+          CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
+          REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
+        run: |
+          if [ -z "$CLIENT_ID" ] || [ -z "$CLIENT_SECRET" ] || [ -z "$REFRESH_TOKEN" ]; then
+            echo "::notice::Chrome Web Store credentials not set — skipping store publish (the release and its kvasir-extension.zip are unaffected)."
+            exit 0
+          fi
+          npx --yes --package chrome-webstore-upload-cli@3 chrome-webstore-upload \
+            --source packages/mimir/dist/kvasir-extension.zip
