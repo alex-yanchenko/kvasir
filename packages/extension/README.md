@@ -1,8 +1,9 @@
 # Kvasir extension
 
 A Chrome MV3 extension that renders Claude-authored walkthroughs on GitHub PR
-pages and provides a select-code-and-ask modal. No Web Store needed — load it
-unpacked.
+pages and provides a select-code-and-ask modal. Published on the
+[Chrome Web Store](https://chromewebstore.google.com/detail/kvasir/pemfpcbcbfejhohpehohlnngaflpcden);
+the steps below load it unpacked from source, for development.
 
 ## What it does
 
