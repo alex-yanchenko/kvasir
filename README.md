@@ -35,10 +35,12 @@ update kvasir` (or enable auto-update for the marketplace in `/plugin`).
 
 Three one-time steps:
 
-1. **Load the extension** — until it's on the Chrome Web Store, load it unpacked:
-   grab `kvasir-extension.zip` from the [latest release](https://github.com/alex-yanchenko/kvasir/releases)
-   and unzip it (or use `packages/extension/` from a clone), then `chrome://extensions`
-   → enable **Developer mode** → **Load unpacked** → select that folder.
+1. **Install the extension** — from the
+   [Chrome Web Store](https://chromewebstore.google.com/detail/kvasir/pemfpcbcbfejhohpehohlnngaflpcden).
+   (From source or a pre-release build? Load it unpacked instead: grab `kvasir-extension.zip`
+   from the [latest release](https://github.com/alex-yanchenko/kvasir/releases) and unzip it — or
+   use `packages/extension/` from a clone — then `chrome://extensions` → enable **Developer mode**
+   → **Load unpacked** → select that folder.)
 2. **Start the channel** — run **`kvasir`** from anywhere. It opens a Claude Code
    session that serves the channel (one instance per machine serves every browser
    tab; the bridge listens on `http://localhost:8799`). Leave it running.
