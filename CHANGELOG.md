@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.12.0](https://github.com/alex-yanchenko/kvasir/compare/v0.11.0...v0.12.0) (2026-08-07)
+
+
+### Features
+
+* native folder picker for dest-less repo resolution (server slice) ([#94](https://github.com/alex-yanchenko/kvasir/issues/94)) ([c95a38e](https://github.com/alex-yanchenko/kvasir/commit/c95a38ec7cf22faeceacd89333772b8330b6b153))
+
 ## [0.11.0](https://github.com/alex-yanchenko/kvasir/compare/v0.10.1...v0.11.0) (2026-08-07)
 
 
