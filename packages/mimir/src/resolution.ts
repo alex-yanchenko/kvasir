@@ -35,6 +35,12 @@ export interface ResolutionDeps {
   home: string;
   /** The hardened-clone runner (Bun.spawn), injected so this module stays testable. */
   cloneRun: CloneRunner;
+  /** Open a native folder picker and return the chosen absolute path (or null if the
+   * reviewer cancels / no dialog is available). Invoked ONLY when a use-existing or
+   * set-default-root action arrives WITHOUT a typed destination — extension-initiated,
+   * never the model. Whatever it returns is validated (checkoutPathSafe / isDir) exactly
+   * like a typed path; injected so this module stays spawn-free and testable. */
+  pickFolder: () => Promise<string | null>;
 }
 
 /** The reviewer's choices from the resolution card. */
@@ -159,16 +165,15 @@ async function adoptExisting(
   destination: string | undefined,
   deps: ResolutionDeps,
 ): Promise<Ready> {
-  if (!destination) throw new CloneError("use-existing requires a path");
-  if (!checkoutPathSafe(destination)) {
-    throw new CloneError(
-      `refusing to use ${destination}: must be an absolute path with no control characters`,
-    );
+  const chosen = destination ?? (await deps.pickFolder());
+  if (!chosen) throw new CloneError("use-existing needs a folder — none was provided or chosen");
+  if (!checkoutPathSafe(chosen)) {
+    throw new CloneError(`refusing to use ${chosen}: must be an absolute path with no control characters`);
   }
-  if (!isUsableClone(destination, ids.owner, ids.repo, deps.probes)) {
-    throw new CloneError(`${destination} is not a git clone of ${ids.ownerRepo}`);
+  if (!isUsableClone(chosen, ids.owner, ids.repo, deps.probes)) {
+    throw new CloneError(`${chosen} is not a git clone of ${ids.ownerRepo}`);
   }
-  const owned = await adoptForeignCheckout(destination, ids.owner, ids.repo, deps);
+  const owned = await adoptForeignCheckout(chosen, ids.owner, ids.repo, deps);
   deps.store.set(ids.ownerRepo, owned);
   return { status: "ready", path: owned };
 }
@@ -181,14 +186,13 @@ async function applyDefaultRoot(
   destination: string | undefined,
   deps: ResolutionDeps,
 ): Promise<PrepareResult> {
-  if (!destination) throw new CloneError("set-default-root requires a path");
-  if (!checkoutPathSafe(destination)) {
-    throw new CloneError(
-      `refusing to set ${destination}: must be an absolute path with no control characters`,
-    );
+  const chosen = destination ?? (await deps.pickFolder());
+  if (!chosen) throw new CloneError("set-default-root needs a folder — none was provided or chosen");
+  if (!checkoutPathSafe(chosen)) {
+    throw new CloneError(`refusing to set ${chosen}: must be an absolute path with no control characters`);
   }
-  if (!deps.probes.isDir(destination)) throw new CloneError(`${destination} is not a directory`);
-  deps.defaultRootStore.set(destination);
+  if (!deps.probes.isDir(chosen)) throw new CloneError(`${chosen} is not a directory`);
+  deps.defaultRootStore.set(chosen);
   // The root is now persisted for future repos regardless. Adopting the CURRENT pr under
   // it is a bonus — if that adoption clone fails (git error, disk), degrade this pr to
   // declined (it falls to the diff) rather than surface a hard error for the whole
@@ -221,6 +225,8 @@ export async function prepareCheckout(
       return cloneAndRemember(ids, undefined, deps);
     }
     case "clone-dest": {
+      // No folder-picker fallback here (unlike use-existing / set-default-root): a clone
+      // TARGET must not already exist, and a folder picker only returns existing dirs.
       if (!destination) throw new CloneError("clone-dest requires a destination path");
       return cloneAndRemember(ids, destination, deps);
     }
