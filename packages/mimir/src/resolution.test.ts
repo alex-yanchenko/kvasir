@@ -44,6 +44,7 @@ describe("resolveCheckout", () => {
     clonesDir,
     home: "/home/u",
     cloneRun: () => Promise.resolve({ code: 0, stderr: "" }),
+    pickFolder: () => Promise.resolve(null),
     ...over,
   });
 
@@ -100,6 +101,7 @@ describe("prepareCheckout", () => {
     clonesDir,
     home,
     cloneRun: okRun,
+    pickFolder: () => Promise.resolve(null),
     ...over,
   });
 
@@ -172,8 +174,44 @@ describe("prepareCheckout", () => {
     );
   });
 
-  it("use-existing without a path throws", async () => {
-    await expect(prepareCheckout(PR, "use-existing", undefined, deps({}))).rejects.toThrow(/requires a path/);
+  it("use-existing with no path falls back to the folder picker; a cancel (null) throws", async () => {
+    await expect(prepareCheckout(PR, "use-existing", undefined, deps({}))).rejects.toThrow(/needs a folder/);
+  });
+
+  it("use-existing with no path adopts the folder the reviewer picks", async () => {
+    const source = path.join(sandbox, "picked", "widget");
+    mkdirSync(source, { recursive: true });
+    const target = path.join(clonesDir, "acme", "widget");
+    const store = createMemoryResolvedRepoStore();
+    const d = deps({
+      store,
+      pickFolder: () => Promise.resolve(source),
+      probes: probesOver({ [source]: "https://github.com/acme/widget.git" }),
+    });
+    await expect(prepareCheckout(PR, "use-existing", undefined, d)).resolves.toEqual({
+      status: "ready",
+      path: target,
+    });
+    expect(store.get("acme/widget")).toBe(target);
+  });
+
+  it("does not open the folder picker when use-existing / set-default-root are given a path", async () => {
+    let picked = 0;
+    const pickFolder = () => {
+      picked += 1;
+      return Promise.resolve(null);
+    };
+    const source = path.join(sandbox, "external", "widget");
+    const root = path.join(sandbox, "root");
+    mkdirSync(source, { recursive: true });
+    mkdirSync(root, { recursive: true });
+    const d = deps({
+      pickFolder,
+      probes: probesOver({ [source]: "https://github.com/acme/widget.git", [root]: null }),
+    });
+    await prepareCheckout(PR, "use-existing", source, d);
+    await prepareCheckout(PR, "set-default-root", root, d);
+    expect(picked).toBe(0); // a typed path must never trigger the native dialog
   });
 
   it("set-default-root persists the root and adopts the repo found under it (ready)", async () => {
@@ -224,7 +262,7 @@ describe("prepareCheckout", () => {
 
   it("set-default-root rejects a missing path, a non-directory, or a control-char path", async () => {
     await expect(prepareCheckout(PR, "set-default-root", undefined, deps({}))).rejects.toThrow(
-      /requires a path/,
+      /needs a folder/,
     );
     await expect(prepareCheckout(PR, "set-default-root", "/home/u/x\nEVIL", deps({}))).rejects.toThrow(
       /no control characters/,
@@ -233,6 +271,21 @@ describe("prepareCheckout", () => {
     await expect(
       prepareCheckout(PR, "set-default-root", "/home/u/nope", deps({ probes: probesOver({}) })),
     ).rejects.toThrow(/is not a directory/);
+  });
+
+  it("set-default-root with no path uses the folder the reviewer picks", async () => {
+    const root = path.join(sandbox, "picked-root");
+    mkdirSync(root, { recursive: true });
+    const defaultRootStore = createMemoryDefaultRootStore();
+    const d = deps({
+      defaultRootStore,
+      pickFolder: () => Promise.resolve(root),
+      probes: probesOver({ [root]: null }), // a dir, but no repo under it → root saved, this PR declines
+    });
+    await expect(prepareCheckout(PR, "set-default-root", undefined, d)).resolves.toEqual({
+      status: "declined",
+    });
+    expect(defaultRootStore.get()).toBe(root);
   });
 
   it("diff-only declines without touching the store or cloning", async () => {
@@ -271,6 +324,7 @@ describe("adoptForeignCheckout / ensureCheckout / isUnderClonesDirectory", () =>
     clonesDir,
     home,
     cloneRun: okRun,
+    pickFolder: () => Promise.resolve(null),
     ...over,
   });
 

@@ -65,6 +65,7 @@ import {
 import { openKvasirDb } from "./db";
 import { createSqliteDefaultRootStore } from "./defaultRootStore.sqlite";
 import { getManifest, getHeadSha } from "./diff";
+import { pickFolder, type PickerRunner } from "./folderPicker";
 import { GIT_TERMINAL_PROMPT_OFF, gitHardeningFlags } from "./gitHardening";
 import { specToRecord } from "./guideStore";
 import { createSqliteGuideStore } from "./guideStore.sqlite";
@@ -213,6 +214,25 @@ export async function runChannel(): Promise<void> {
     const code = await proc.exited;
     return { code, stderr: stderr || stdout };
   };
+  // 5 minutes: ample for a reviewer to browse and pick, but bounded so an orphaned dialog
+  // (walked away, or a display-less session where the tool never returns) can't hang /prepare.
+  const FOLDER_PICKER_TIMEOUT_MS = 5 * 60_000;
+  // Native folder picker (osascript/zenity/PowerShell), spawned ONLY when the extension
+  // requests a dest-less prepare (use-existing / set-default-root without a path) — never
+  // the model. Bounded by a timeout so an orphaned dialog (reviewer walks away, or a
+  // display-less session) frees the request instead of hanging forever; a cancel exits
+  // non-zero and a missing tool rejects — both surface as pickFolder → null → the caller
+  // falls back to a typed path. stderr is dropped; only stdout carries the chosen path.
+  const pickerRunner: PickerRunner = async (command, args) => {
+    const proc = Bun.spawn([command, ...args], {
+      stdout: "pipe",
+      stderr: "ignore",
+      signal: AbortSignal.timeout(FOLDER_PICKER_TIMEOUT_MS),
+    });
+    const stdout = await new Response(proc.stdout).text();
+    const code = await proc.exited;
+    return { ok: code === 0, stdout };
+  };
   const resolutionDeps: ResolutionDeps = {
     probes: repoProbes,
     store: createSqliteResolvedRepoStore(db),
@@ -220,6 +240,7 @@ export async function runChannel(): Promise<void> {
     clonesDir: CLONES_DIR,
     home: homedir(),
     cloneRun,
+    pickFolder: () => pickFolder(pickerRunner),
   };
 
   // ── HTTP bridge ──────────────────────────────────────────────────────────────
