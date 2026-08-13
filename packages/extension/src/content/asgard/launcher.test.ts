@@ -724,6 +724,13 @@ describe("requestGenerate — resolve gating", () => {
     );
   });
 
+  it("a fresh heavy generate that resolves ready clears a stale locate-declined notice", async () => {
+    state.locateDeclined = true;
+    onResolve({ ok: true, data: { status: "ready", path: "/c" } });
+    await launcherStore.requestGenerate("new");
+    expect(resolveStore.locateDeclined()).toBe(false);
+  });
+
   it("light → skips /resolve and generates (depth light)", async () => {
     state.reviewMode = "light";
     vi.mocked(api).mockResolvedValue({ ok: true });
@@ -799,6 +806,12 @@ describe("resolveStore", () => {
     state.locateDeclined = true;
     expect(resolveStore.locateDeclined()).toBe(true);
     resolveStore.dismissLocateDeclined();
+    expect(resolveStore.locateDeclined()).toBe(false);
+  });
+
+  it("resetForPr() clears a stale locate-declined notice on a PR switch", () => {
+    state.locateDeclined = true;
+    launcherStore.resetForPr();
     expect(resolveStore.locateDeclined()).toBe(false);
   });
 

@@ -15,6 +15,7 @@ import { PROTOCOL_VERSION } from "../packages/runes/src/protocol";
 import { createFetchHandler, type BridgeDeps } from "../packages/mimir/src/bridge";
 import { createAskBroker } from "../packages/mimir/src/broker";
 import { createPairing, type Pairing } from "../packages/mimir/src/pairing";
+import type { PrepareAction } from "../packages/mimir/src/resolution";
 
 export interface BridgeState {
   answer: string;
@@ -40,7 +41,7 @@ export interface BridgeStub {
   token: string;
   // Publish a spec the way a generation would: keyed by its PR, served by /walkthrough.
   setSpec: (spec: WalkthroughSpec) => void;
-  getLastPrepare: () => { action: string; dest: string | undefined } | null;
+  getLastPrepare: () => { action: PrepareAction; dest: string | undefined } | null;
   close: () => Promise<void>;
 }
 
@@ -81,7 +82,7 @@ export async function startBridge(overrides: Partial<BridgeState> = {}): Promise
     ...overrides,
   };
   const specs = new Map<string, WalkthroughSpec>();
-  let lastPrepare: { action: string; dest: string | undefined } | null = null;
+  let lastPrepare: { action: PrepareAction; dest: string | undefined } | null = null;
 
   // Real pairing, but the "user" instantly approves the code each /pair returns —
   // standing in for the confirm-in-your-session step.

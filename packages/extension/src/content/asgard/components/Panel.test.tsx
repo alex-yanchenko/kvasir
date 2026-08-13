@@ -598,6 +598,7 @@ describe("Panel", () => {
     act(() => panelStore.open());
     expect(screen.getByText(/find this repo under the folder you picked/)).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+    expect(screen.queryByText(/find this repo under the folder you picked/)).toBeNull();
     expect(state.locateDeclined).toBe(false);
   });
 

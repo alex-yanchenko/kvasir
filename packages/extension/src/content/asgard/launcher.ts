@@ -12,7 +12,7 @@ import { launcherDefaults, type ResolveState, resolveDefaults, settingsStore, st
 import { tourStore } from "./tour";
 
 /** The reviewer's resolution-card choices — mirrors the server's PREPARE_ACTIONS
- * (packages/mimir resolution.ts). `dest` is optional; without one the server picks. */
+ * (packages/mimir resolution.ts). use-existing/set-default-root pick when `dest` is absent. */
 export type PrepareAction = "clone-kvasir" | "use-existing" | "clone-dest" | "set-default-root" | "diff-only";
 
 /** Any 401 from the bridge means the token is stale/absent — flip to unpaired so
@@ -271,6 +271,7 @@ export const launcherStore = {
     const previousSig = specSig(state.spec);
     tourStore.close(); // don't leave a stale walkthrough open while it regenerates
     state.resolve = resolveDefaults(); // clear any prior card
+    state.locateDeclined = false;
     state.launcher.genError = null; // drop a stale error now — the heavy resolve path may
     // stop at the card before ever reaching startGenerate (which also clears it)
     state.launcher.lastGen = { mode, sinceSha }; // stash so a card pick resumes this same request
@@ -390,7 +391,7 @@ export const resolveStore = {
     }
     // ready → heavy; declined → the picked root held no clone of this repo, so the server
     // degrades to the diff — raise the locate-declined notice rather than swap silently.
-    if (outcome.status === "declined") state.locateDeclined = true;
+    if (outcome.status === "declined" && action === "set-default-root") state.locateDeclined = true;
     state.resolve = resolveDefaults();
     await startGenerate(pr, mode, sinceSha, previousSig);
   },

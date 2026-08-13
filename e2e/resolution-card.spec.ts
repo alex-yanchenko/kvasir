@@ -45,7 +45,7 @@ test.describe("resolution card (reviewer-authorized checkout)", () => {
     await expect(page.getByTestId("resolve-action-clone-kvasir")).toHaveCount(0);
   });
 
-  test("Locate my repos folder sends dest-less set-default-root → /prepare → generate", async ({
+  test("Locate my repositories folder sends dest-less set-default-root → /prepare → generate", async ({
     context,
     bridge,
   }) => {

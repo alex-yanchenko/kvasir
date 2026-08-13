@@ -59,7 +59,7 @@ describe("ResolutionCard", () => {
     }
   });
 
-  it("Locate my repos folder → prepareCheckout('set-default-root') with no typed path", () => {
+  it("Locate my repositories folder → prepareCheckout('set-default-root') with no typed path", () => {
     state.resolve.status = "absent";
     render(<ResolutionCard />);
     fireEvent.click(screen.getByTestId("resolve-action-set-default-root"));
