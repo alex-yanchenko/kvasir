@@ -30,6 +30,7 @@ export interface BridgeState {
    * (heavy proceeds, no card); "absent" = none (the resolution card shows). A successful
    * /prepare flips it to "ready" so the following /generate resolves. */
   checkout: "ready" | "absent";
+  prepareResult: "ready" | "declined" | "cancelled";
 }
 
 export interface BridgeStub {
@@ -39,6 +40,7 @@ export interface BridgeStub {
   token: string;
   // Publish a spec the way a generation would: keyed by its PR, served by /walkthrough.
   setSpec: (spec: WalkthroughSpec) => void;
+  getLastPrepare: () => { action: string; dest: string | undefined } | null;
   close: () => Promise<void>;
 }
 
@@ -75,9 +77,11 @@ export async function startBridge(overrides: Partial<BridgeState> = {}): Promise
     version: "9.9.9",
     protocol: PROTOCOL_VERSION,
     checkout: "ready",
+    prepareResult: "ready",
     ...overrides,
   };
   const specs = new Map<string, WalkthroughSpec>();
+  let lastPrepare: { action: string; dest: string | undefined } | null = null;
 
   // Real pairing, but the "user" instantly approves the code each /pair returns —
   // standing in for the confirm-in-your-session step.
@@ -123,8 +127,10 @@ export async function startBridge(overrides: Partial<BridgeState> = {}): Promise
       state.checkout === "ready" ? { status: "ready", path: "/e2e/clone" } : { status: "absent" },
     ensureCheckout: async () =>
       state.checkout === "ready" ? { status: "ready", path: "/e2e/clone" } : { status: "absent" },
-    prepareCheckout: async (_pr, action) => {
+    prepareCheckout: async (_pr, action, dest) => {
+      lastPrepare = { action, dest };
       if (action === "diff-only") return { status: "declined" };
+      if (state.prepareResult !== "ready") return { status: state.prepareResult };
       state.checkout = "ready";
       return { status: "ready", path: "/e2e/clone" };
     },
@@ -158,6 +164,7 @@ export async function startBridge(overrides: Partial<BridgeState> = {}): Promise
       specs.clear();
       specs.set(prKey(spec.pr.url), spec);
     },
+    getLastPrepare: () => lastPrepare,
     close: () =>
       new Promise<void>((resolve, reject) => {
         // Force open sockets shut before closing. This fixture tears down BEFORE the

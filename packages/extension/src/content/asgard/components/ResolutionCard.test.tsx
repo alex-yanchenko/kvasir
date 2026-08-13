@@ -12,6 +12,7 @@ import { ResolutionCard } from "./ResolutionCard";
 
 const disabled = (testId: string): boolean => (screen.getByTestId(testId) as HTMLButtonElement).disabled;
 const ACTION_IDS = ["set-default-root", "clone-kvasir", "diff-only"] as const;
+const REMOVED_INPUT_IDS = ["use-existing", "clone-dest", "set-default-root"] as const;
 
 beforeEach(() => {
   state.resolve = resolveDefaults();
@@ -42,16 +43,20 @@ describe("ResolutionCard", () => {
     for (const id of ACTION_IDS) {
       expect(screen.getByTestId(`resolve-action-${id}`)).toBeTruthy();
     }
-    expect(screen.queryByTestId("resolve-input-use-existing")).toBeNull();
+    for (const id of REMOVED_INPUT_IDS) {
+      expect(screen.queryByTestId(`resolve-input-${id}`)).toBeNull();
+    }
     expect(screen.queryByTestId("resolve-error")).toBeNull();
   });
 
-  it("error → banners the reason and still offers the actions", () => {
+  it("error → banners the reason and still offers every action", () => {
     state.resolve.status = "error";
     state.resolve.error = "refusing to clone into /x: it is not empty";
     render(<ResolutionCard />);
     expect(screen.getByTestId("resolve-error").textContent).toContain("not empty");
-    expect(screen.getByTestId("resolve-action-set-default-root")).toBeTruthy();
+    for (const id of ACTION_IDS) {
+      expect(screen.getByTestId(`resolve-action-${id}`)).toBeTruthy();
+    }
   });
 
   it("Locate my repos folder → prepareCheckout('set-default-root') with no typed path", () => {

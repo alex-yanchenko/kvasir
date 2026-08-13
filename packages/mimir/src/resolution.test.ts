@@ -174,8 +174,10 @@ describe("prepareCheckout", () => {
     );
   });
 
-  it("use-existing with no path falls back to the folder picker; a cancel (null) throws", async () => {
-    await expect(prepareCheckout(PR, "use-existing", undefined, deps({}))).rejects.toThrow(/needs a folder/);
+  it("use-existing with no path falls back to the folder picker; a cancel (null) is a cancelled no-op", async () => {
+    await expect(prepareCheckout(PR, "use-existing", undefined, deps({}))).resolves.toEqual({
+      status: "cancelled",
+    });
   });
 
   it("use-existing with no path adopts the folder the reviewer picks", async () => {
@@ -260,10 +262,13 @@ describe("prepareCheckout", () => {
     expect(defaultRootStore.get()).toBe(root); // remembered for future repos
   });
 
-  it("set-default-root rejects a missing path, a non-directory, or a control-char path", async () => {
-    await expect(prepareCheckout(PR, "set-default-root", undefined, deps({}))).rejects.toThrow(
-      /needs a folder/,
-    );
+  it("set-default-root with no path and a cancelled picker is a cancelled no-op", async () => {
+    await expect(prepareCheckout(PR, "set-default-root", undefined, deps({}))).resolves.toEqual({
+      status: "cancelled",
+    });
+  });
+
+  it("set-default-root rejects a non-directory or a control-char path", async () => {
     await expect(prepareCheckout(PR, "set-default-root", "/home/u/x\nEVIL", deps({}))).rejects.toThrow(
       /no control characters/,
     );

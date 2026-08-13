@@ -38,11 +38,12 @@ function Actions(): JSX.Element {
         variant="default"
         disabled={needsPairing}
         data-testid="resolve-action-set-default-root"
+        aria-describedby="resolve-locate-hint"
         onClick={() => void resolveStore.prepareCheckout("set-default-root")}
       >
-        Locate my repos folder…
+        Locate my repositories folder…
       </Button>
-      <p className="text-xs text-muted-foreground">
+      <p id="resolve-locate-hint" className="text-xs text-muted-foreground">
         Opens a native folder picker. Choose the folder your repositories live in — kvasir remembers it and
         finds this repo and future ones under it.
       </p>

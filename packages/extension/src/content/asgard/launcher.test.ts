@@ -681,9 +681,10 @@ describe("resolveOutcome / prepareOutcome", () => {
     expect(resolveOutcome({ ok: false, status: 500 })).toBe("error");
   });
 
-  it("prepareOutcome narrows ready/declined and carries the error message (else generic)", () => {
+  it("prepareOutcome narrows ready/declined/cancelled and carries the error message (else generic)", () => {
     expect(prepareOutcome({ ok: true, data: { status: "ready", path: "/x" } })).toEqual({ status: "ready" });
     expect(prepareOutcome({ ok: true, data: { status: "declined" } })).toEqual({ status: "declined" });
+    expect(prepareOutcome({ ok: true, data: { status: "cancelled" } })).toEqual({ status: "cancelled" });
     expect(
       prepareOutcome({ ok: false, status: 422, data: { status: "error", message: "bad dest" } }),
     ).toEqual({ status: "error", message: "bad dest" });
@@ -794,6 +795,13 @@ describe("resolveStore", () => {
     expect(resolveStore.status()).toBe("idle");
   });
 
+  it("dismissLocateDeclined() clears the locate-declined notice", () => {
+    state.locateDeclined = true;
+    expect(resolveStore.locateDeclined()).toBe(true);
+    resolveStore.dismissLocateDeclined();
+    expect(resolveStore.locateDeclined()).toBe(false);
+  });
+
   describe("prepareCheckout", () => {
     beforeEach(() => {
       state.launcher.lastGen = { mode: "new", sinceSha: undefined };
@@ -834,13 +842,34 @@ describe("resolveStore", () => {
       });
     });
 
-    it("declined → generates (diff), clears the card", async () => {
+    it("declined → generates (diff), clears the card, raises the locate-declined notice", async () => {
       vi.mocked(api).mockImplementation(async (path: string) =>
         path === "/prepare" ? { ok: true, data: { status: "declined" } } : { ok: true },
       );
-      await resolveStore.prepareCheckout("set-default-root", "/root");
+      await resolveStore.prepareCheckout("set-default-root");
       expect(vi.mocked(api)).toHaveBeenCalledWith("/generate", "POST", expect.anything());
       expect(resolveStore.active()).toBe(false);
+      expect(resolveStore.locateDeclined()).toBe(true);
+    });
+
+    it("cancelled → keeps the card up (absent), no generate, no notice", async () => {
+      vi.mocked(api).mockImplementation(async (path: string) =>
+        path === "/prepare" ? { ok: true, data: { status: "cancelled" } } : { ok: true },
+      );
+      await resolveStore.prepareCheckout("set-default-root");
+      expect(resolveStore.status()).toBe("absent");
+      expect(resolveStore.error()).toBeNull();
+      expect(resolveStore.locateDeclined()).toBe(false);
+      expect(vi.mocked(api)).not.toHaveBeenCalledWith("/generate", expect.anything(), expect.anything());
+    });
+
+    it("a fresh prepare clears a prior locate-declined notice", async () => {
+      state.locateDeclined = true;
+      vi.mocked(api).mockImplementation(async (path: string) =>
+        path === "/prepare" ? { ok: true, data: { status: "ready", path: "/c" } } : { ok: true },
+      );
+      await resolveStore.prepareCheckout("clone-kvasir");
+      expect(resolveStore.locateDeclined()).toBe(false);
     });
 
     it("error with a message → card shows it, no generate", async () => {

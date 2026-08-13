@@ -175,6 +175,7 @@ export const state: {
   /** True when the walkthrough/review this tab was viewing got deleted (here or in
    * another tab) — drives the "This walkthrough was deleted" notice. */
   guideDeleted: boolean;
+  locateDeclined: boolean;
   panel: PanelState;
   /** The generation machine (launcher.ts): the request/poll lifecycle of
    * (re)generating a walkthrough. Reset on PR navigation (resetForPr). The poll
@@ -215,6 +216,7 @@ export const state: {
   historyFacet: "all",
   seen: {},
   guideDeleted: false,
+  locateDeclined: false,
   panel: { open: false, tab: PANEL_TABS.WALKTHROUGH, pos: null, size: null },
   launcher: launcherDefaults(),
   resolve: resolveDefaults(),
