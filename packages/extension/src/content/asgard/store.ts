@@ -105,23 +105,18 @@ export const tourDefaults = (): TourUiState => ({
 /** The reviewer-authorized checkout resolution flow (launcher.ts), gating a HEAVY
  * generate. `idle` = no card. `resolving` = /resolve in flight. `absent` = no local
  * clone found → the resolution card is shown so the reviewer can authorize one.
- * `preparing` = /prepare (clone/adopt) in flight. `error` = /prepare failed → the card
- * shows the reason with the actions still available. The three paths are what the
- * reviewer TYPES for the path actions (validated server-side); the extension never
- * derives a path itself. */
+ * `preparing` = /prepare (clone/adopt/pick) in flight — this also covers the window a
+ * native folder picker is open. `error` = /prepare failed → the card shows the reason
+ * with the actions still available. The reviewer authorizes by CHOOSING an action; the
+ * dest-less locate action makes the server open the native picker — the extension never
+ * derives or types a path itself. */
 export interface ResolveState {
   status: "idle" | "resolving" | "absent" | "preparing" | "error";
   error: string | null;
-  existingPath: string; // the typed path for the use-existing action
-  clonePath: string; // the typed path for the clone-dest action
-  defaultRoot: string; // the typed path for the set-default-root action
 }
 export const resolveDefaults = (): ResolveState => ({
   status: "idle",
   error: null,
-  existingPath: "",
-  clonePath: "",
-  defaultRoot: "",
 });
 
 // Walkthrough-highlight styles: "rail" (left rail only — the default) and "gutter"

@@ -338,21 +338,6 @@ export const resolveStore = {
   error: (): string | null => state.resolve.error,
   /** True whenever the card should be showing (any status but idle). */
   active: (): boolean => state.resolve.status !== "idle",
-  existingPath: (): string => state.resolve.existingPath,
-  clonePath: (): string => state.resolve.clonePath,
-  defaultRoot: (): string => state.resolve.defaultRoot,
-  setExistingPath(value: string): void {
-    state.resolve.existingPath = value;
-    touch();
-  },
-  setClonePath(value: string): void {
-    state.resolve.clonePath = value;
-    touch();
-  },
-  setDefaultRoot(value: string): void {
-    state.resolve.defaultRoot = value;
-    touch();
-  },
   /** Dismiss the card without acting — back to the empty state. */
   dismiss(): void {
     state.resolve = resolveDefaults();

@@ -44,4 +44,22 @@ test.describe("resolution card (reviewer-authorized checkout)", () => {
     await expect(page.getByText("Generating walkthrough…")).toBeVisible();
     await expect(page.getByTestId("resolve-action-clone-kvasir")).toHaveCount(0);
   });
+
+  test("Locate my repos folder → dest-less set-default-root drives /prepare → generate", async ({
+    context,
+    bridge,
+  }) => {
+    bridge.state.checkout = "absent";
+    const page = await openOnPr(context, bridge);
+
+    await page.getByRole("button", { name: /Run walkthrough/ }).click();
+
+    const locateAction = page.getByTestId("resolve-action-set-default-root");
+    await expect(locateAction).toBeVisible();
+    await expect(page.getByTestId("resolve-input-use-existing")).toHaveCount(0);
+
+    await locateAction.click();
+    await expect(page.getByText("Generating walkthrough…")).toBeVisible();
+    await expect(locateAction).toHaveCount(0);
+  });
 });

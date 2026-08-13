@@ -785,18 +785,13 @@ describe("requestGenerate — resolve gating", () => {
 });
 
 describe("resolveStore", () => {
-  it("path setters write state, getters read them, dismiss/active toggle", () => {
-    resolveStore.setExistingPath("/a");
-    resolveStore.setClonePath("/b");
-    resolveStore.setDefaultRoot("/c");
-    expect(resolveStore.existingPath()).toBe("/a");
-    expect(resolveStore.clonePath()).toBe("/b");
-    expect(resolveStore.defaultRoot()).toBe("/c");
+  it("active() tracks a non-idle status; dismiss() clears back to idle", () => {
+    expect(resolveStore.active()).toBe(false);
     state.resolve.status = "absent";
     expect(resolveStore.active()).toBe(true);
     resolveStore.dismiss();
     expect(resolveStore.active()).toBe(false);
-    expect(resolveStore.existingPath()).toBe("");
+    expect(resolveStore.status()).toBe("idle");
   });
 
   describe("prepareCheckout", () => {
