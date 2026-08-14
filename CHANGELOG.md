@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.13.0](https://github.com/alex-yanchenko/kvasir/compare/v0.12.0...v0.13.0) (2026-08-14)
+
+
+### Features
+
+* **extension:** native folder picker card for repo resolution (repo-locate slice 2) ([#96](https://github.com/alex-yanchenko/kvasir/issues/96)) ([98e4b6b](https://github.com/alex-yanchenko/kvasir/commit/98e4b6bf89ae138e77d14ba99440b5ce54454116))
+
 ## [0.12.0](https://github.com/alex-yanchenko/kvasir/compare/v0.11.0...v0.12.0) (2026-08-07)
 
 
