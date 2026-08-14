@@ -17,7 +17,7 @@ import { useDrag } from "../hooks/useDrag";
 import { useResizePersist } from "../hooks/useResizePersist";
 import { useScrollLock } from "../hooks/useScrollLock";
 import { useShadowAwareKeydown } from "../hooks/useShadowAwareKeydown";
-import { launcherStore } from "../launcher";
+import { launcherStore, resolveStore } from "../launcher";
 import { pairingStore } from "../pairing";
 import type { PairingPhase } from "../pairing";
 import { reviewStore } from "../review";
@@ -181,6 +181,25 @@ function GuideDeletedBanner(): JSX.Element | null {
         size="sm"
         className="ml-auto h-6"
         onClick={() => panelStore.dismissGuideDeleted()}
+      >
+        Dismiss
+      </Button>
+    </div>
+  );
+}
+
+function LocateDeclinedBanner(): JSX.Element | null {
+  if (!resolveStore.locateDeclined()) return null;
+  return (
+    <div className="flex items-center gap-2 border-b border-border bg-secondary px-3 py-1.5 text-xs">
+      <span className="text-muted-foreground">
+        Could not find this repo under the folder you picked — showing the diff instead.
+      </span>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="ml-auto h-6"
+        onClick={() => resolveStore.dismissLocateDeclined()}
       >
         Dismiss
       </Button>
@@ -497,6 +516,7 @@ function PanelWindow(): JSX.Element {
           <SkewBanner />
           <ReviewMissingBanner />
           <GuideDeletedBanner />
+          <LocateDeclinedBanner />
 
           <TabsContent value={PANEL_TABS.WALKTHROUGH} className="min-h-0">
             {isReview ? <ReviewTab /> : <WalkthroughTab />}

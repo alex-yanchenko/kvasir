@@ -44,4 +44,54 @@ test.describe("resolution card (reviewer-authorized checkout)", () => {
     await expect(page.getByText("Generating walkthrough…")).toBeVisible();
     await expect(page.getByTestId("resolve-action-clone-kvasir")).toHaveCount(0);
   });
+
+  test("Locate my repositories folder sends dest-less set-default-root → /prepare → generate", async ({
+    context,
+    bridge,
+  }) => {
+    bridge.state.checkout = "absent";
+    const page = await openOnPr(context, bridge);
+
+    await page.getByRole("button", { name: /Run walkthrough/ }).click();
+
+    const locateAction = page.getByTestId("resolve-action-set-default-root");
+    await expect(locateAction).toBeVisible();
+    for (const id of ["use-existing", "clone-dest", "set-default-root"]) {
+      await expect(page.getByTestId(`resolve-input-${id}`)).toHaveCount(0);
+    }
+
+    await locateAction.click();
+    await expect(page.getByText("Generating walkthrough…")).toBeVisible();
+    await expect(locateAction).toHaveCount(0);
+    expect(bridge.getLastPrepare()).toEqual({ action: "set-default-root", dest: undefined });
+  });
+
+  test("cancelling the picker keeps the card up with no error", async ({ context, bridge }) => {
+    bridge.state.checkout = "absent";
+    bridge.state.prepareResult = "cancelled";
+    const page = await openOnPr(context, bridge);
+
+    await page.getByRole("button", { name: /Run walkthrough/ }).click();
+    const locateAction = page.getByTestId("resolve-action-set-default-root");
+    await locateAction.click();
+
+    await expect(locateAction).toBeVisible();
+    await expect(page.getByText("Generating walkthrough…")).toHaveCount(0);
+    await expect(page.getByTestId("resolve-error")).toHaveCount(0);
+  });
+
+  test("a locate that finds no clone under the root shows the diff plus a notice", async ({
+    context,
+    bridge,
+  }) => {
+    bridge.state.checkout = "absent";
+    bridge.state.prepareResult = "declined";
+    const page = await openOnPr(context, bridge);
+
+    await page.getByRole("button", { name: /Run walkthrough/ }).click();
+    await page.getByTestId("resolve-action-set-default-root").click();
+
+    await expect(page.getByText("Generating walkthrough…")).toBeVisible();
+    await expect(page.getByText(/find this repo under the folder you picked/)).toBeVisible();
+  });
 });

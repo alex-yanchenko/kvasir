@@ -12,7 +12,7 @@ import { launcherDefaults, type ResolveState, resolveDefaults, settingsStore, st
 import { tourStore } from "./tour";
 
 /** The reviewer's resolution-card choices — mirrors the server's PREPARE_ACTIONS
- * (packages/mimir resolution.ts). `dest` is required for the three path actions. */
+ * (packages/mimir resolution.ts). use-existing/set-default-root pick when `dest` is absent. */
 export type PrepareAction = "clone-kvasir" | "use-existing" | "clone-dest" | "set-default-root" | "diff-only";
 
 /** Any 401 from the bridge means the token is stale/absent — flip to unpaired so
@@ -69,17 +69,18 @@ export function resolveOutcome(r: BridgeResponse): ResolveOutcome {
   return status === "ready" || status === "absent" ? status : "error";
 }
 
-/** Narrow a `POST /prepare` reply (+ a reason for the error case). `ready` = the
- * clone/adopt succeeded → generate; `declined` = reviewer chose the diff; `error` =
+/** Narrow a `POST /prepare` reply (+ a reason for the error case). `ready` → generate;
+ * `declined` = fell to the diff; `cancelled` = picker dismissed, a no-op; `error` =
  * surface the server's message (a bad dest, a failed clone). */
 export interface PrepareOutcome {
-  status: "ready" | "declined" | "error";
+  status: "ready" | "declined" | "cancelled" | "error";
   message?: string;
 }
 export function prepareOutcome(r: BridgeResponse): PrepareOutcome {
   const status = dataField(r.data, "status");
   if (status === "ready") return { status: "ready" };
   if (status === "declined") return { status: "declined" };
+  if (status === "cancelled") return { status: "cancelled" };
   // Normalize a blank message to absent (trim, then falsy → drop) so the caller's
   // fallback copy shows rather than an empty error banner.
   const message = dataField(r.data, "message")?.trim() || r.error?.trim();
@@ -270,6 +271,7 @@ export const launcherStore = {
     const previousSig = specSig(state.spec);
     tourStore.close(); // don't leave a stale walkthrough open while it regenerates
     state.resolve = resolveDefaults(); // clear any prior card
+    state.locateDeclined = false;
     state.launcher.genError = null; // drop a stale error now — the heavy resolve path may
     // stop at the card before ever reaching startGenerate (which also clears it)
     state.launcher.lastGen = { mode, sinceSha }; // stash so a card pick resumes this same request
@@ -310,6 +312,7 @@ export const launcherStore = {
     genPoll = null;
     state.launcher = launcherDefaults();
     state.resolve = resolveDefaults(); // a half-open resolution card must not survive a PR switch
+    state.locateDeclined = false;
     touch();
   },
 
@@ -330,27 +333,17 @@ export const launcherStore = {
 };
 
 /** The resolution card's store — launcher.ts owns it because a pick resumes the
- * generate. Getters the card reads, setters for the three reviewer-typed path inputs,
- * and the actions (dismiss + pick). The extension never derives a path; the three
- * inputs are the reviewer's explicit authorization, validated server-side. */
+ * generate. Getters the card reads plus the actions (dismiss + pick); the reviewer
+ * authorizes by choosing an action, the extension never derives or types a path. */
 export const resolveStore = {
   status: (): ResolveState["status"] => state.resolve.status,
   error: (): string | null => state.resolve.error,
   /** True whenever the card should be showing (any status but idle). */
   active: (): boolean => state.resolve.status !== "idle",
-  existingPath: (): string => state.resolve.existingPath,
-  clonePath: (): string => state.resolve.clonePath,
-  defaultRoot: (): string => state.resolve.defaultRoot,
-  setExistingPath(value: string): void {
-    state.resolve.existingPath = value;
-    touch();
-  },
-  setClonePath(value: string): void {
-    state.resolve.clonePath = value;
-    touch();
-  },
-  setDefaultRoot(value: string): void {
-    state.resolve.defaultRoot = value;
+  /** True when a locate action saved a root but found no clone of this repo there. */
+  locateDeclined: (): boolean => state.locateDeclined,
+  dismissLocateDeclined(): void {
+    state.locateDeclined = false;
     touch();
   },
   /** Dismiss the card without acting — back to the empty state. */
@@ -361,8 +354,8 @@ export const resolveStore = {
 
   /** The reviewer picked a card action. "diff-only" declines the clone and generates
    * from the diff; the clone/adopt actions authorize a checkout via /prepare, then — on
-   * ready — generate against it. `destination` carries the reviewer-typed path for the
-   * path actions (the server validates it) and rides as the request's `dest` field. */
+   * ready — generate against it. `destination` is optional (the card sends none, so the
+   * server opens its picker); when a caller has one it rides as the request's `dest`. */
   async prepareCheckout(action: PrepareAction, destination?: string): Promise<void> {
     const pr = prUrl();
     if (!pr) return;
@@ -375,6 +368,7 @@ export const resolveStore = {
     }
     state.resolve.status = "preparing";
     state.resolve.error = null;
+    state.locateDeclined = false;
     touch();
     const r = noteAuth(await api("/prepare", "POST", { pr, action, dest: destination }));
     if (prUrl() !== pr) return; // user switched PRs mid-prepare — don't clobber
@@ -390,8 +384,14 @@ export const resolveStore = {
       touch();
       return;
     }
-    // ready (clone/adopt done → heavy) or declined (no checkout → server degrades to the
-    // diff) — either way, generate now.
+    if (outcome.status === "cancelled") {
+      state.resolve.status = "absent";
+      touch();
+      return;
+    }
+    // ready → heavy; declined → the picked root held no clone of this repo, so the server
+    // degrades to the diff — raise the locate-declined notice rather than swap silently.
+    if (outcome.status === "declined" && action === "set-default-root") state.locateDeclined = true;
     state.resolve = resolveDefaults();
     await startGenerate(pr, mode, sinceSha, previousSig);
   },

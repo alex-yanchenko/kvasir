@@ -53,7 +53,7 @@ export const PREPARE_ACTIONS = [
 ] as const;
 export type PrepareAction = (typeof PREPARE_ACTIONS)[number];
 
-export type PrepareResult = Ready | { status: "declined" };
+export type PrepareResult = Ready | { status: "declined" } | { status: "cancelled" };
 
 /** Resolve a PR's local checkout deterministically (no Claude, no network): the
  * server clones dir wins, else a re-validated saved path, else the reviewer's default
@@ -164,9 +164,9 @@ async function adoptExisting(
   ids: { owner: string; repo: string; ownerRepo: string },
   destination: string | undefined,
   deps: ResolutionDeps,
-): Promise<Ready> {
+): Promise<PrepareResult> {
   const chosen = destination ?? (await deps.pickFolder());
-  if (!chosen) throw new CloneError("use-existing needs a folder — none was provided or chosen");
+  if (!chosen) return { status: "cancelled" };
   if (!checkoutPathSafe(chosen)) {
     throw new CloneError(`refusing to use ${chosen}: must be an absolute path with no control characters`);
   }
@@ -187,7 +187,7 @@ async function applyDefaultRoot(
   deps: ResolutionDeps,
 ): Promise<PrepareResult> {
   const chosen = destination ?? (await deps.pickFolder());
-  if (!chosen) throw new CloneError("set-default-root needs a folder — none was provided or chosen");
+  if (!chosen) return { status: "cancelled" };
   if (!checkoutPathSafe(chosen)) {
     throw new CloneError(`refusing to set ${chosen}: must be an absolute path with no control characters`);
   }

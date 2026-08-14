@@ -42,6 +42,7 @@ beforeEach(() => {
   state.history = null;
   state.seen = {};
   state.guideDeleted = false;
+  state.locateDeclined = false;
   panelStore.setSidebarOpen(true); // module-level nav-column intent — reset to the default (open)
   pairingStore.reset(); // "unknown" → no banner unless a test sets the phase
   // The panel rechecks the connection on open; neutralize the bridge round-trip so
@@ -589,6 +590,16 @@ describe("Panel", () => {
     expect(screen.getByText("This walkthrough was deleted.")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
     expect(screen.queryByText("This walkthrough was deleted.")).toBeNull();
+  });
+
+  it("shows a dismissable notice when a locate found no clone under the picked folder", () => {
+    state.locateDeclined = true;
+    render(<Panel />);
+    act(() => panelStore.open());
+    expect(screen.getByText(/find this repo under the folder you picked/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+    expect(screen.queryByText(/find this repo under the folder you picked/)).toBeNull();
+    expect(state.locateDeclined).toBe(false);
   });
 
   it("explains a ?kvasir link this channel doesn't have (machine-local links)", () => {
