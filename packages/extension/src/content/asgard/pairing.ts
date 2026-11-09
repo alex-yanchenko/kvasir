@@ -122,9 +122,9 @@ async function probe(): Promise<void> {
   // it would delete the freshly-earned token.)
   const entered = state;
   const health = await api("/health");
+  setSkew(isUnreachable(health) ? null : skewOf(health.data));
   if (state !== entered) return;
   if (isUnreachable(health)) {
-    setSkew(null); // channel unreachable → protocol unknown, clear any stale skew
     // An orphaned content script (extension reloaded) also fails without a
     // status, but its remedy is refreshing the PAGE — don't tell the user to
     // restart a channel that may be running fine.
@@ -135,7 +135,6 @@ async function probe(): Promise<void> {
     set({ phase: "down" }); // keep any stored token — a stale one is /auth's 401 to report
     return;
   }
-  setSkew(skewOf(health.data)); // channel answered → (re)assess protocol skew
   const token = await storeGet(TOKEN_KEY);
   if (state !== entered) return;
   if (typeof token !== "string" || !token) {

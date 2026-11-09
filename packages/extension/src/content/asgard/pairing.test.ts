@@ -381,4 +381,37 @@ describe("pairingStore protocol skew", () => {
     pairingStore.reset();
     expect(pairingStore.skew()).toBeNull();
   });
+
+  it("records the skew when markUnpaired lands while /health is in flight", async () => {
+    let releaseHealth!: (v: BridgeResponse) => void;
+    vi.mocked(api).mockImplementation(async (path: string) =>
+      path === "/health"
+        ? new Promise<BridgeResponse>((r) => (releaseHealth = r))
+        : { ok: true, data: { ok: true } },
+    );
+    const rechecking = pairingStore.recheck();
+    await vi.advanceTimersByTimeAsync(0);
+    pairingStore.markUnpaired();
+    releaseHealth(health(PROTOCOL_VERSION + 1));
+    await rechecking;
+    expect(pairingStore.skew()).toEqual({ channelVersion: "9.9.9", behind: "extension" });
+    expect(pairingStore.state()).toEqual({ phase: "unpaired" });
+  });
+
+  it("clears the skew when the channel goes down while markUnpaired lands mid-probe", async () => {
+    vi.mocked(storeGet).mockResolvedValue("tok");
+    vi.mocked(api).mockResolvedValue(health(PROTOCOL_VERSION - 1, "0.5.0"));
+    await pairingStore.recheck();
+    expect(pairingStore.state()).toEqual({ phase: "paired" });
+    expect(pairingStore.skew()).not.toBeNull();
+    let releaseHealth!: (v: BridgeResponse) => void;
+    vi.mocked(api).mockImplementation(async () => new Promise<BridgeResponse>((r) => (releaseHealth = r)));
+    const rechecking = pairingStore.recheck();
+    await vi.advanceTimersByTimeAsync(0);
+    pairingStore.markUnpaired();
+    releaseHealth({ ok: false, error: "TypeError: Failed to fetch" });
+    await rechecking;
+    expect(pairingStore.skew()).toBeNull();
+    expect(pairingStore.state()).toEqual({ phase: "unpaired" });
+  });
 });
