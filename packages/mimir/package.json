@@ -12,11 +12,11 @@
   },
   "dependencies": {
     "@kvasir/runes": "workspace:*",
-    "@modelcontextprotocol/sdk": "^1.29.0",
-    "zod": "^4.4.3"
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
-    "@types/bun": "^1.3.14",
+    "@types/bun": "~1.3.14",
     "typescript": "^5.9.3"
   }
 }

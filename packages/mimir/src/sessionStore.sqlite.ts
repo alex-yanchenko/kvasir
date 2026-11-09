@@ -43,14 +43,12 @@ export function createSqliteSessionStore(db: Database): SessionStore {
       });
     },
     all: () =>
-      selectAll.all().map(
-        (row): SessionRecord => ({
-          id: row.id,
-          tokenHash: row.token_hash,
-          name: row.name,
-          createdAt: row.created_at,
-        }),
-      ),
+      selectAll.all().map((row): SessionRecord => ({
+        id: row.id,
+        tokenHash: row.token_hash,
+        name: row.name,
+        createdAt: row.created_at,
+      })),
     remove: (id) => deleteById.run({ $id: id }).changes > 0,
     clear: () => {
       deleteAll.run();
