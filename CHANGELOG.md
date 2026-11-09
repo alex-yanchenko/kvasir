@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.13.1](https://github.com/alex-yanchenko/kvasir/compare/v0.13.0...v0.13.1) (2026-11-09)
+
+
+### Bug Fixes
+
+* **extension:** keep the protocol skew from a probe that a pairing change overtook ([#103](https://github.com/alex-yanchenko/kvasir/issues/103)) ([f1a4876](https://github.com/alex-yanchenko/kvasir/commit/f1a4876de6ba3c4b70d44ef462c2725ab7b16f1f))
+
 ## [0.13.0](https://github.com/alex-yanchenko/kvasir/compare/v0.12.0...v0.13.0) (2026-08-14)
 
 
