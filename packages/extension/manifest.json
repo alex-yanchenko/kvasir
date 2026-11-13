@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Kvasir",
-  "version": "0.13.1",
+  "version": "0.14.0",
   "description": "Guided walkthroughs of GitHub pull requests in your browser, written by your Claude Code session. Select any code and ask about it.",
   "permissions": [
     "storage"
