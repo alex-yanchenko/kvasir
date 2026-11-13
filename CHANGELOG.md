@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.14.0](https://github.com/alex-yanchenko/kvasir/compare/v0.13.1...v0.14.0) (2026-11-13)
+
+
+### Features
+
+* **extension:** refresh the store look with a tiled icon, a marquee tile and the listing text in the repo ([#106](https://github.com/alex-yanchenko/kvasir/issues/106)) ([4d42fee](https://github.com/alex-yanchenko/kvasir/commit/4d42feee3f514729c337de0d08f291352e29601c))
+
 ## [0.13.1](https://github.com/alex-yanchenko/kvasir/compare/v0.13.0...v0.13.1) (2026-11-09)
 
 
