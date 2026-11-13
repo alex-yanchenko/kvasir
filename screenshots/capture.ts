@@ -3,11 +3,11 @@ import { chromium, type BrowserContext, type Page } from "@playwright/test";
 import { startBridge, type BridgeStub } from "../e2e/bridge-stub";
 import { pair } from "../e2e/fixtures";
 import { anchorFor } from "../packages/runes/src/anchor";
-import { labelClassicDiffRowsWithChangesTabMarkup } from "./classicDiff";
+import { labelClassicDiffWithChangesTabMarkup } from "./classicDiff";
 import { assertKvasirPortFree } from "./port";
 import { ASK, PR_FILES_URL, PR_HEAD_SHA, reviewerGroupsSpec } from "./reviewerGroupsPr";
 
-export const CAPTURE_VIEWPORT = { width: 1440, height: 900 };
+export const CAPTURE_VIEWPORT = { width: 1200, height: 780 };
 
 export interface Captures {
   step: string;
@@ -17,7 +17,7 @@ export interface Captures {
 
 const extensionPath = path.resolve(import.meta.dirname, "../packages/extension");
 const PANEL_PREFS_KEY = "kvasir:panelPrefs.v2";
-const PANEL_SIZE = { w: 820, h: 620 };
+const PANEL_SIZE = { w: 660, h: 590 };
 
 const launchWithExtension = (): Promise<BrowserContext> =>
   chromium.launchPersistentContext("", {
@@ -53,9 +53,10 @@ async function openPullRequestWithKvasir(context: BrowserContext): Promise<Page>
   for (const step of reviewerGroupsSpec("").steps) {
     await page.locator(`#${step.anchor} td.blob-code`).first().waitFor({ state: "attached" });
   }
-  const labelled = await page.evaluate(labelClassicDiffRowsWithChangesTabMarkup);
+  const labelled = await page.evaluate(labelClassicDiffWithChangesTabMarkup);
   if (labelled === 0)
     throw new Error(`No diff rows found on ${PR_FILES_URL}; GitHub's logged-out markup changed.`);
+  await page.locator("#hide-file-tree-button").click();
   await page.getByRole("button", { name: "Open Kvasir" }).click();
   await page.getByTestId("sidebar").waitFor();
   return page;
@@ -74,13 +75,13 @@ const rowForLine = (page: Page, file: string, line: number) =>
   });
 
 async function selectLines(page: Page): Promise<void> {
-  const first = await rowForLine(page, ASK.file, ASK.fromLine).boundingBox();
+  await rowForLine(page, ASK.file, ASK.fromLine).hover({ position: { x: 120, y: 12 } });
+  const gripLocator = page.locator(".kvasir-grip");
+  await gripLocator.waitFor({ state: "visible" });
+  const grip = await gripLocator.boundingBox();
   const last = await rowForLine(page, ASK.file, ASK.toLine).boundingBox();
-  if (!first || !last)
+  if (!grip || !last)
     throw new Error(`Lines ${ASK.fromLine}-${ASK.toLine} of ${ASK.file} are not on screen.`);
-  await page.mouse.move(first.x + 60, first.y + first.height / 2);
-  const grip = await page.locator(".kvasir-grip").boundingBox();
-  if (!grip) throw new Error("Kvasir's line grip did not appear on hover.");
   await page.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2);
   await page.mouse.down();
   await page.mouse.move(grip.x + grip.width / 2, last.y + last.height / 2, { steps: 8 });
@@ -106,10 +107,11 @@ async function captureAsk(context: BrowserContext, file: string): Promise<void> 
   await showStep(page, "The tooltip names the review");
   await selectLines(page);
   await page.getByRole("button", { name: "Ask about these lines — plain chat" }).click();
-  const input = page.getByRole("textbox");
+  const input = page.getByRole("dialog", { name: "Kvasir" }).getByRole("textbox");
   await input.fill(ASK.question);
   await input.press("Enter");
-  await page.locator("a.kvasir-ref", { hasText: "githubReviewers.ts:131" }).waitFor();
+  await page.locator("a.kvasir-ref", { hasText: "githubReviewers.ts:131" }).waitFor({ timeout: 20_000 });
+  await page.mouse.move(CAPTURE_VIEWPORT.width - 4, 4);
   await page.waitForTimeout(500);
   await page.screenshot({ path: file });
   await page.close();

@@ -28,41 +28,39 @@ const ADDRESS_BAR = "github.com/alex-yanchenko/reviewer-groups/pull/8/files";
 const REPO_ADDRESS = "github.com/alex-yanchenko/kvasir";
 const PITCH = "Guided walkthroughs of GitHub pull requests, written by your Claude Code session.";
 
-const STORE_STAGE: Stage = { width: 1280, height: 800, pad: 64, gap: 56, pitch: 340 };
+const WHOLE_TAB: Crop = { x: 0, y: 0, ...CAPTURE_VIEWPORT };
+
+const STORE_STAGE: Stage = { width: 1280, height: 800, pad: 56, gap: 44, pitch: 300 };
 
 const STORE_SHOTS: { file: string; headline: string; caption: string; view: ProductView }[] = [
   {
     file: "store-walkthrough.png",
     headline: "A guided tour of the diff",
-    caption: "Each step highlights the lines it explains, right on the Files tab.",
-    view: { capture: "step", crop: { x: 420, y: 230, width: 1020, height: 670 }, width: 756 },
+    caption: "Each step marks the lines it explains, right on the Files tab.",
+    view: { capture: "step", crop: WHOLE_TAB, width: 824 },
   },
   {
     file: "store-outline.png",
     headline: "The whole change, in order",
     caption: "Steps grouped by phase. Jump to any of them from the outline.",
-    view: { capture: "outline", crop: { x: 420, y: 230, width: 1020, height: 670 }, width: 756 },
+    view: { capture: "outline", crop: WHOLE_TAB, width: 824 },
   },
   {
     file: "store-ask.png",
     headline: "Select code. Ask.",
     caption: "Your Claude Code session answers in place and links the lines it cites.",
-    view: { capture: "ask", crop: { x: 300, y: 230, width: 1140, height: 670 }, width: 756 },
+    view: { capture: "ask", crop: WHOLE_TAB, width: 824 },
   },
 ];
 
-const HERO_STAGE: Stage = { width: 1600, height: 900, pad: 88, gap: 72, pitch: 400 };
-const HERO_VIEW: ProductView = {
-  capture: "step",
-  crop: { x: 300, y: 180, width: 1140, height: 720 },
-  width: 952,
-};
+const HERO_STAGE: Stage = { width: 1600, height: 900, pad: 80, gap: 64, pitch: 430 };
+const HERO_VIEW: ProductView = { capture: "step", crop: WHOLE_TAB, width: 946 };
 
-const SOCIAL_STAGE: Stage = { width: 1280, height: 640, pad: 64, gap: 56, pitch: 420 };
+const SOCIAL_STAGE: Stage = { width: 1280, height: 640, pad: 80, gap: 80, pitch: 460 };
 const SOCIAL_VIEW: ProductView = {
-  capture: "step",
-  crop: { x: 420, y: 250, width: 1020, height: 650 },
-  width: 676,
+  capture: "ask",
+  crop: { x: 512, y: 160, width: 688, height: 620 },
+  width: 580,
 };
 
 const PROMO_SIZE = { width: 440, height: 280 };

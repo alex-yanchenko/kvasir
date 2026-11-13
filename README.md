@@ -60,7 +60,7 @@ The README hero, the Chrome Web Store screenshots and promo tile, and the GitHub
 pnpm screenshots
 ```
 
-It builds the extension, starts a stand-in channel on `:8799`, loads the extension into Playwright's Chromium, opens the public Files tab of [reviewer-groups#8](https://github.com/alex-yanchenko/reviewer-groups/pull/8/files) logged out, plays the walkthrough in `screenshots/reviewerGroupsPr.ts`, and frames the captures with `screenshots/frame.css`. Stop any running `kvasir` channel first: the script exits if port 8799 is taken. A failed run leaves the previous images untouched.
+It builds the extension, starts a stand-in channel on `:8799`, loads the extension into Playwright's Chromium, opens the public Files tab of [reviewer-groups#8](https://github.com/alex-yanchenko/reviewer-groups/pull/8/files) logged out, adds the newer Files-tab row markup the extension reads to GitHub's logged-out diff (`screenshots/classicDiff.ts`, attributes only), plays the walkthrough in `screenshots/reviewerGroupsPr.ts`, and frames the captures with `screenshots/frame.css`. Stop any running `kvasir` channel first: the script exits if port 8799 is taken. A failed run leaves the previous images untouched.
 
 ## Contributing
 
