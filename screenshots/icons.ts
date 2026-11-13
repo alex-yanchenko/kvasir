@@ -1,4 +1,4 @@
-import { readFile, writeFile } from "node:fs/promises";
+import { readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { chromium } from "@playwright/test";
 
@@ -26,8 +26,13 @@ async function rasterizeAppIcon(): Promise<Map<number, Buffer>> {
   }
 }
 
+const iconPath = (size: number): string => path.join(iconsDir, `icon-${size}.png`);
+
 const rendered = await rasterizeAppIcon();
 for (const [size, png] of rendered) {
-  await writeFile(path.join(iconsDir, `icon-${size}.png`), png);
+  await writeFile(`${iconPath(size)}.next`, png);
+}
+for (const size of rendered.keys()) {
+  await rename(`${iconPath(size)}.next`, iconPath(size));
 }
 console.log(`wrote ${rendered.size} icons to ${path.relative(process.cwd(), iconsDir)}`);
