@@ -1,0 +1,160 @@
+:root {
+  --accent: #0e93ab;
+  --accent-deep: #0a6f82;
+  --ink: #1f2328;
+  --muted: #59636e;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+html,
+body {
+  margin: 0;
+  overflow: hidden;
+  font-family: var(--sans);
+  color: var(--ink);
+}
+
+body {
+  width: var(--width);
+  height: var(--height);
+  background:
+    radial-gradient(circle at 12% 18%, #d9f1f5 0, transparent 46%),
+    radial-gradient(circle at 88% 92%, #e1ecfb 0, transparent 52%), #f6f8fa;
+}
+
+.stage {
+  box-sizing: border-box;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--gap);
+  padding: 0 var(--pad);
+}
+
+.pitch {
+  flex: 0 0 var(--pitch);
+}
+
+.mark {
+  display: block;
+  width: 72px;
+  height: 72px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, #12a6c0, var(--accent-deep));
+  box-shadow: 0 6px 16px rgba(10, 111, 130, 0.25);
+}
+
+.mark svg {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  padding: 16%;
+}
+
+.pitch h1 {
+  margin: 28px 0 16px;
+  font-size: 42px;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
+
+.pitch p {
+  margin: 0;
+  font-size: 20px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.pitch .repo {
+  margin-top: 28px;
+  font-family: var(--mono);
+  font-size: 16px;
+  color: var(--accent-deep);
+}
+
+.title h1 {
+  font-size: 60px;
+}
+
+.window {
+  flex: 0 0 auto;
+  background: #ffffff;
+  border: 1px solid #d1d9e0;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow:
+    0 24px 48px rgba(31, 35, 40, 0.16),
+    0 2px 6px rgba(31, 35, 40, 0.08);
+}
+
+.chrome {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  padding: 0 14px;
+  background: #f6f8fa;
+  border-bottom: 1px solid #d1d9e0;
+}
+
+.chrome i {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: #d1d9e0;
+}
+
+.chrome span {
+  margin-left: 10px;
+  padding: 3px 12px;
+  border-radius: 6px;
+  background: #ffffff;
+  border: 1px solid #e1e6eb;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.view {
+  position: relative;
+  overflow: hidden;
+}
+
+.view img {
+  position: absolute;
+  display: block;
+}
+
+.promo {
+  box-sizing: border-box;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 32px;
+  color: #ffffff;
+  background: linear-gradient(135deg, #12a6c0, var(--accent-deep));
+}
+
+.promo .mark {
+  flex: 0 0 auto;
+  width: 104px;
+  height: 104px;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.14);
+  box-shadow: none;
+}
+
+.promo h1 {
+  margin: 0 0 8px;
+  font-size: 32px;
+}
+
+.promo p {
+  margin: 0;
+  font-size: 17px;
+  line-height: 1.4;
+  opacity: 0.94;
+}

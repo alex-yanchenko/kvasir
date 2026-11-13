@@ -110,9 +110,12 @@ export default [
 
   // Playwright e2e harness — TS, but outside the package projects (Playwright runs
   // its own transpile), so syntactic rules only.
-  ...tseslint.configs.recommended.map((c) => ({ ...c, files: ["e2e/**/*.ts", "playwright.config.ts"] })),
+  ...tseslint.configs.recommended.map((c) => ({
+    ...c,
+    files: ["e2e/**/*.ts", "screenshots/**/*.ts", "playwright.config.ts"],
+  })),
   {
-    files: ["e2e/**/*.ts", "playwright.config.ts"],
+    files: ["e2e/**/*.ts", "screenshots/**/*.ts", "playwright.config.ts"],
     languageOptions: { globals: { ...globals.node }, parserOptions: { project: false } },
     rules: { "@typescript-eslint/no-empty-function": "off" },
   },
