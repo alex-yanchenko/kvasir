@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Kvasir",
   "version": "0.13.1",
-  "description": "Kvasir — interactive, in-browser code walkthroughs on GitHub, with select-code Q&A.",
+  "description": "Guided walkthroughs of GitHub pull requests in your browser, written by your Claude Code session. Select any code and ask about it.",
   "permissions": [
     "storage"
   ],
