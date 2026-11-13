@@ -63,6 +63,13 @@ const SOCIAL_VIEW: ProductView = {
   width: 580,
 };
 
+const MARQUEE_STAGE: Stage = { width: 1400, height: 560, pad: 80, gap: 72, pitch: 420 };
+const MARQUEE_VIEW: ProductView = {
+  capture: "step",
+  crop: { x: 0, y: 0, width: CAPTURE_VIEWPORT.width, height: 720 },
+  width: 748,
+};
+
 const PROMO_SIZE = { width: 440, height: 280 };
 
 type Images = Record<keyof Captures, string>;
@@ -144,6 +151,12 @@ export async function composeImages(captures: Captures, outDir: string): Promise
       `<main class="stage title" style="${stageStyle(SOCIAL_STAGE)}"><div class="pitch">${mark}` +
         `<h1>Kvasir</h1><p>${PITCH}</p><div class="repo">${REPO_ADDRESS}</div></div>` +
         `${productWindow(SOCIAL_VIEW, images)}</main>`,
+    );
+    await save(
+      "promo-marquee.png",
+      MARQUEE_STAGE,
+      `<main class="stage title" style="${stageStyle(MARQUEE_STAGE)}"><div class="pitch">${mark}` +
+        `<h1>Kvasir</h1><p>${PITCH}</p></div>${productWindow(MARQUEE_VIEW, images)}</main>`,
     );
     await save(
       "promo-small.png",

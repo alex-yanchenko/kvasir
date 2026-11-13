@@ -23,6 +23,7 @@
     "test:coverage": "NODE_OPTIONS=--no-experimental-webstorage vitest run --coverage",
     "e2e": "pnpm build && playwright test",
     "screenshots": "playwright test --config screenshots/playwright.config.ts",
+    "icons": "bun screenshots/icons.ts",
     "mutation": "NODE_OPTIONS=--no-experimental-webstorage stryker run"
   },
   "devDependencies": {
