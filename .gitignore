@@ -28,6 +28,7 @@ asgard.compiled.css
 test-results/
 playwright-report/
 docs/images.next/
+docs/images.previous/
 
 # Stryker mutation reports + sandbox
 reports/

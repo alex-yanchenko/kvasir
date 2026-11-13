@@ -33,9 +33,14 @@ const launchWithExtension = (): Promise<BrowserContext> =>
     ],
   });
 
+const SCROLL_SETTLE_LIMIT_MS = 10_000;
+
 async function waitForScrollToSettle(page: Page): Promise<void> {
+  const deadline = Date.now() + SCROLL_SETTLE_LIMIT_MS;
   let last = -1;
   for (let stableChecks = 0; stableChecks < 3;) {
+    if (Date.now() > deadline)
+      throw new Error("The page kept scrolling after the walkthrough step was shown.");
     await page.waitForTimeout(250);
     const now = await page.evaluate(() => window.scrollY);
     stableChecks = now === last ? stableChecks + 1 : 0;
@@ -124,7 +129,10 @@ export async function captureKvasirOnPullRequest(rawDir: string): Promise<Captur
     answer: ASK.answer,
     suggestions: ASK.suggestions,
   });
-  const context = await launchWithExtension();
+  const context = await launchWithExtension().catch(async (error: unknown) => {
+    await bridge.close();
+    throw new Error("Chromium did not start with the Kvasir extension.", { cause: error });
+  });
   try {
     bridge.setSpec(reviewerGroupsSpec(new Date().toISOString()));
     await pair(context, bridge.token);
