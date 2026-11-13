@@ -7,6 +7,8 @@ on-the-spot questions. The content is authored once by your Claude Code session 
 cached; the browser just renders it. Works on PR diffs **and** plain file/`blob`
 pages, across one or many repos.
 
+![Kvasir walking through a pull request on GitHub's Files tab](docs/images/hero.png)
+
 ## Quick start
 
 Prerequisites: the **claude** CLI and **gh** (`gh auth login` once). At runtime the
@@ -49,6 +51,16 @@ In Norse myth, Kvasir was the wisest of beings — wandering the world answering
 question put to him. That's what this does: wisdom from your Claude session, carried to
 wherever you're reading code. The internals keep the same Norse world (Asgard, Midgard,
 Bifrost, …) — see [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Images
+
+The README hero, the Chrome Web Store screenshots and promo tile, and the GitHub social preview in `docs/images/` are generated:
+
+```
+pnpm screenshots
+```
+
+It builds the extension, starts a stand-in channel on `:8799`, loads the extension into Playwright's Chromium, opens the public Files tab of [reviewer-groups#8](https://github.com/alex-yanchenko/reviewer-groups/pull/8/files) logged out, adds the newer Files-tab row markup the extension reads to GitHub's logged-out diff (`screenshots/classicDiff.ts`, attributes only), plays the walkthrough in `screenshots/reviewerGroupsPr.ts`, and frames the captures with `screenshots/frame.css`. Stop any running `kvasir` channel first: the script exits if port 8799 is taken. A failed run leaves the previous images untouched.
 
 ## Contributing
 

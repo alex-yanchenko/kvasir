@@ -27,6 +27,8 @@ asgard.compiled.css
 # Playwright e2e artifacts
 test-results/
 playwright-report/
+docs/images.next/
+docs/images.previous/
 
 # Stryker mutation reports + sandbox
 reports/
