@@ -116,14 +116,14 @@ jobs:
       # up. `chrome-webstore-upload` with no subcommand uploads AND submits for review
       # (Google auto-publishes on approval); to upload a draft you publish by hand
       # instead, change the last line to `chrome-webstore-upload upload --source ...`.
-      # EXTENSION_ID is the public store item id and PUBLISHER_ID the developer account's
-      # publisher id (neither is a secret). chrome-webstore-upload-cli 4 uses the Chrome Web
-      # Store API v2, which needs the publisher id; version 3 used API v1.1.
+      # EXTENSION_ID is the public store item id. chrome-webstore-upload-cli 4 uses the Chrome
+      # Web Store API v2, which also needs the developer account's publisher id, kept in the
+      # CWS_PUBLISHER_ID repository variable.
       - name: Publish the extension to the Chrome Web Store
         if: ${{ steps.release.outputs.release_created }}
         env:
           EXTENSION_ID: pemfpcbcbfejhohpehohlnngaflpcden
-          PUBLISHER_ID: 9c68c530-ddd7-4d61-9dd8-4951ca956bcf
+          PUBLISHER_ID: ${{ vars.CWS_PUBLISHER_ID }}
           CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
           CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
           REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
@@ -131,6 +131,10 @@ jobs:
           if [ -z "$CLIENT_ID" ] || [ -z "$CLIENT_SECRET" ] || [ -z "$REFRESH_TOKEN" ]; then
             echo "::notice::Chrome Web Store credentials not set — skipping store publish (the release and its kvasir-extension.zip are unaffected)."
             exit 0
+          fi
+          if [ -z "$PUBLISHER_ID" ]; then
+            echo "::error::The CWS_PUBLISHER_ID repository variable is not set; the Chrome Web Store API v2 needs it."
+            exit 1
           fi
           npx --yes --package chrome-webstore-upload-cli@4.0.2 chrome-webstore-upload \
             --source packages/mimir/dist/kvasir-extension.zip
